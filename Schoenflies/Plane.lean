@@ -77,6 +77,55 @@ pairs positively with its argument. -/
   simp [det, Fin.sum_univ_two]
   ring
 
+theorem inner_eq (u v : Plane) : inner ℝ u v = u 0 * v 0 + u 1 * v 1 := by
+  simp [PiLp.inner_apply, Fin.sum_univ_two, mul_comm]
+
+/-- Turning twice reverses. -/
+@[simp] theorem perp_perp (u : Plane) : perp (perp u) = -u := by
+  ext i; fin_cases i <;> simp
+
+@[simp] theorem inner_perp_self (u : Plane) : inner ℝ u (perp u) = 0 := by
+  rw [inner_eq]; simp; ring
+
+/-- Against `perp` on the right, `det` becomes the inner product. Together with
+`det_perp_left` this is what lets the strip lemma trade one for the other. -/
+@[simp] theorem det_perp_right (u v : Plane) : det u (perp v) = inner ℝ u v := by
+  rw [inner_eq]; simp [det]
+
+@[simp] theorem det_perp_left (u v : Plane) : det (perp u) v = -inner ℝ u v := by
+  rw [inner_eq]; simp [det]; ring
+
+@[simp] theorem det_perp_perp (u v : Plane) : det (perp u) (perp v) = det u v := by
+  simp [det]; ring
+
+@[simp] theorem norm_perp (u : Plane) : ‖perp u‖ = ‖u‖ := by
+  rw [EuclideanSpace.norm_eq, EuclideanSpace.norm_eq]
+  congr 1
+  simp [Fin.sum_univ_two, sq_abs]
+  ring
+
+/-- Two vectors are parallel exactly when the orientation form kills them. This is the
+angle-free reading of "`u` and `v` point along one line". -/
+theorem det_eq_zero_iff_smul (u v : Plane) (hu : u ≠ 0) :
+    det u v = 0 ↔ ∃ r : ℝ, v = r • u := by
+  constructor
+  · intro h
+    -- `u ≠ 0` means some coordinate is nonzero; solve for the ratio there.
+    have hcoord : u 0 ≠ 0 ∨ u 1 ≠ 0 := by
+      by_contra hc
+      push Not at hc
+      exact hu (by ext i; fin_cases i <;> simp [hc.1, hc.2])
+    simp only [det, sub_eq_zero] at h
+    rcases hcoord with h0 | h1
+    · refine ⟨v 0 / u 0, ?_⟩
+      ext i
+      fin_cases i <;> simp <;> field_simp; linarith
+    · refine ⟨v 1 / u 1, ?_⟩
+      ext i
+      fin_cases i <;> simp <;> field_simp; linarith
+  · rintro ⟨r, rfl⟩
+    simp
+
 /-! ### Compactness -/
 
 variable {K L U V : Set Plane} {x a y : Plane}

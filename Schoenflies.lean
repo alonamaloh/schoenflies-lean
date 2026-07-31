@@ -21,6 +21,7 @@ import Schoenflies.Graph.Degree
 import Schoenflies.Graph.Cycle
 import Schoenflies.Graph.TwoConnected
 import Schoenflies.Graph.PathGraph
+import Schoenflies.Graph.Tree
 import Schoenflies.Graph.Drawing
 import Schoenflies.Graph.OuterFace
 import Schoenflies.Graph.CycleJordan

@@ -1,5 +1,6 @@
 import Schoenflies.Plane
 import Schoenflies.Topology
+import Schoenflies.UniformBound
 import Schoenflies.Direction
 import Schoenflies.Square
 import Schoenflies.Bounded

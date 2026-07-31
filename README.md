@@ -13,38 +13,79 @@ Lean 4.32.2, Mathlib v4.32.2. `lake build`.
 
 ## Status
 
-**In progress.** The table records what is formalized; everything not listed is not yet
-started.
+**In progress.** The foundation (Layers 0–6 of the companion plan) is most of the way in;
+the blueprint's own content, from the two-sided strip lemma on, is not started.
+
+| Layer | State |
+|---|---|
+| 0 — the plane's geometry | complete |
+| 1–3 — topology, compactness, connectedness | complete (Mathlib, plus three gap-fillers) |
+| 4 — arcs and Jordan curves | complete |
+| 5 — finite graphs | walks, paths, degree, cycles, 2-connectivity, path graphs, trees, ears |
+| 6 — plane graphs | drawings, faces, outer face, subdivision, cycle realisation, overlay |
+
+### Layer 0 — the plane
 
 | Blueprint | Lean |
 |---|---|
 | Appendix C.1 orientation form, right-angle rotation | `Plane.det`, `Plane.perp`, `det_perp_self`, `perp_perp`, `norm_perp`, `det_perp_left/right`, `det_eq_zero_iff_smul` |
 | Appendix C.1 sup metric and the comparison | `Plane.supNorm`, `supDist`, `supNorm_le_norm`, `norm_le_sqrt_two_mul_supNorm` |
-| Appendix C.1 directions, angle-free | `Direction.lean`: `IsDirection`, `arcCCW`, `same_arc_of_det_neg_of_det_pos`, `exists_isDirection_det_ne_zero` |
-| Appendix C.1 lines | `Line.lean`: `exists_segment_eq_of_isCompact_isConnected`, `exists_openSegment_eq_connectedComponentIn` (endpoints in `frontier U`), `affineMap_ext_of_affineIndependent`, `eqOn_line_of_fixed` |
-| Appendix C.4 components of open sets are open | `Plane.isOpen_connectedComponentIn` |
-| Appendix C.5 boundary of a component of a closed set's complement | `Plane.frontier_connectedComponentIn_compl_subset` |
-| Appendix C.6 pasting lemma | `Plane.continuousOn_union_of_isClosed` |
+| Appendix C.1 directions, angle-free | `Plane.IsDirection`, `arcCCW`, `same_arc_of_det_neg_of_det_pos`, `exists_isDirection_det_ne_zero`, the `det_germ*` family |
+| Appendix C.1 lines | `Plane.exists_segment_eq_of_isCompact_isConnected`, `exists_openSegment_eq_connectedComponentIn` (endpoints in `frontier U`), `affineMap_ext_of_affineIndependent` |
 | Lemma 1.3 nearest-point segment | `Plane.notMem_of_mem_segment_of_isMinOn` |
 | Lemma 1.4(a)–(c) compact separation | `Plane.exists_thickening_subset`, `exists_dist_pos`, `exists_ball_subset_diff` |
 | Lemma 1.6 nested compact singleton | `Plane.eq_singleton_iInter_of_diam_tendsto_zero` |
 | Lemma 1.7 recognizing a component | `Plane.connectedComponentIn_eq_of_frontier_disjoint` |
-| §1 polygonal path carrier | `poly`, `isCompact_poly`, `isConnected_poly`, `poly_concat`, `IsPolygonal` |
-| Lemma 1.1 polygonal connectedness (existence half) | `exists_poly_of_isPreconnected` |
 | Lemma 3.7 how two segments meet | `segment_inter_segment` |
 | cutting a segment | `segment_split`, `openSegment_left_subset`, `openSegment_right_subset` |
-| the distance from an end as a coordinate | `SegmentOrder.lean`: `parameter_le_of_distance`, `segment_inside_of_ends_outside`, `same_ends_of_meeting_interiors` |
-| §1 simple arc, Jordan curve | `IsArc`, `IsArcBetween`, `IsLoop`, `IsJordanCurve` |
-| subarcs and the open arc | `Subarc.lean`: `isArc_subarc`, `subarc_image`, `openArc`, `image_isRelOpen`, `basic_piece_inside_ball` |
-| gluing arcs | `Concatenate.lean`: `IsArcBetween.concatenate`, `IsLoop.concatenate`, `IsJordanCurve.of_two_arcs` |
-| a nondegenerate segment is an arc | `isArcBetween_segment` |
+| the distance from an end as a coordinate | `parameter_le_of_distance`, `segment_inside_of_ends_outside`, `same_ends_of_meeting_interiors` |
+| §1 polygonal paths | `poly`, `isCompact_poly`, `isConnected_poly`, `IsPolygonal`, `isArcBetween_segment` |
+| Lemma 1.1 polygonal connectedness (existence half) | `exists_poly_of_isPreconnected` |
 | the outside of a square is connected | `Plane.isConnected_beyondSquare`, `beyondSquare_eq_compl` |
-| finite graphs: walks, paths, reachability | `Graph/Walk.lean`: `Graph.IsWalk`, `IsPath`, `IsWalk.contains_path`, `Reaches`, `Connected` |
-| finite graphs: degree and the handshake lemma | `Graph/Degree.lean`: `Graph.degree`, the degree-sum theorem, `IsLeaf` |
 
-Not yet built: `IsJordanCurve.two_arcs` (cutting a curve at two points); graph cycles,
-trees, 2-connectivity and ear decomposition; and the whole of the plane-graph layer
-(drawings, faces, the polygonal overlay, the outer face, polygonal redrawing).
+### Layers 1–3 — the gaps Mathlib leaves
+
+| Blueprint | Lean |
+|---|---|
+| Appendix C.4 components of open sets are open | `Plane.isOpen_connectedComponentIn` |
+| Appendix C.5 boundary of a component of a closed set's complement | `Plane.frontier_connectedComponentIn_compl_subset` |
+| Appendix C.6 pasting lemma | `Plane.continuousOn_union_of_isClosed` |
+
+### Layer 4 — arcs and Jordan curves
+
+| Blueprint | Lean |
+|---|---|
+| §1 simple arc, Jordan curve | `IsArc`, `IsArcBetween`, `IsLoop`, `IsJordanCurve` |
+| subarcs, open arcs, the topology of an arc | `isArc_subarc`, `subarc_image`, `openArc`, `image_isRelOpen`, `basic_piece_inside_ball` |
+| gluing arcs | `IsArcBetween.concatenate`, `IsLoop.concatenate`, `IsJordanCurve.of_two_arcs` |
+| two points cut a curve into two arcs | `IsJordanCurve.two_arcs`, `IsLoop.two_arcs_at_parameters`, `two_arcs_of_two_arcs` |
+
+### Layer 5 — finite graphs
+
+Built on Mathlib's multigraph `Graph α β` (`Mathlib/Combinatorics/Graph/`), which supplies the
+type, subgraphs, deletion and the lattice — and no walk, path, connectivity or degree theory
+at all.
+
+| Blueprint | Lean |
+|---|---|
+| walks, paths, reachability, connectedness | `Graph.IsWalk`, `IsPath`, `IsWalk.contains_path`, `Reaches`, `Connected` |
+| degree and the handshake lemma | `Graph.degree`, `sum_degree_eq_two_mul_ncard_edgeSet`, `IsLeaf` |
+| cycles, acyclicity, bridges | `Graph.LiesOnCycle`, `IsAcyclic`, `IsBridge`, `liesOnCycle_iff_deleteEdges_reaches` |
+| 2-connectivity | `Graph.IsTwoConnected`, `no_cut_vertex`, `no_bridge`, `IsTwoConnected.union` |
+| a path presented as a graph | `Graph.IsPathGraph`, `pathGraphOf`, `IsPathGraph.reaches_an_end` |
+
+### Layer 6 — plane graphs
+
+| Blueprint | Lean |
+|---|---|
+| a plane graph | `Graph.IsDrawing` (abstract graph **plus** drawing), `edgeArc` |
+| distinct edges meet only at shared vertices | `IsDrawing.arcs_meet_at_vertex`, `IsDrawing.unique_edge_at` |
+| point set, exterior, faces | `Graph.pointSet`, `exterior`, `face`, `face_eq_or_disjoint` |
+| the outer face | `Graph.exists_unbounded_face`, `unbounded_face_unique`, `beyondSquare_subset_face` |
+| subdividing a segment list | `Piece`, `cover`, `subdivide`, `subdivide_cover` / `_ne` / `_interior_subset` / `_avoids` |
+| the realisation of a cycle is a Jordan curve | `Graph.IsDrawing.cycle_isJordanCurve`, `path_isArcBetween` |
+
+Every theorem checked depends only on `propext`, `Classical.choice` and `Quot.sound`.
 
 ## Relation to the `math` foundation
 

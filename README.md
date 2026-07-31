@@ -26,6 +26,8 @@ started.
 | §1 polygonal path carrier | `poly`, `isCompact_poly`, `isConnected_poly`, `poly_concat` |
 | Lemma 1.1 polygonal connectedness (existence half) | `exists_poly_of_isPreconnected` |
 
+| Lemma 3.7 how two segments meet | `segment_inter_segment` |
+
 Lemma 1.1's passage from a polygonal path to a *simple* polygonal arc, and Lemma 1.2
 (finite polygonal unions), both rest on the same subdivision procedure and a simple path
 in the resulting finite graph; they are deferred to the graph module.
@@ -61,6 +63,48 @@ connectedness and connected components, frontiers, the pasting lemma, sequential
 criteria for continuity, and density of `ℚ²`. Notably `Metric.diam_closure` is Lemma 1.5
 verbatim. The plane topology proper — strips, parity, plane graphs, cellulations — is
 entirely new.
+
+## Relation to the `math` foundation
+
+The same blueprint has a foundation built in a separate, self-contained proof system,
+whose Layers 0–6 cover the plane's geometry, arcs and Jordan curves, finite graphs, and
+plane graphs with the polygonal overlay and the outer face. The blueprint's own content
+starts above that, at the two-sided strip lemma, and is unbuilt on both sides.
+
+Design decisions settled there and adopted here:
+
+* **Orientation, not angles.** `det(u, v) = u₁v₂ − u₂v₁` and its sign, with
+  `det(u, u^⊥) = ⟨u, u⟩` as the identity the strip lemma runs on. No trigonometry enters.
+* **A polygonal path is its vertex list**, not a union of segments from which vertices are
+  existentially recovered. `poly` is the carrier.
+* **A plane graph is an abstract graph *plus* a drawing, unbundled**, with plane points as
+  vertices, so every combinatorial theorem applies with no projection to go through.
+* **A polygonal edge *is* its pair of endpoints**, so deduplicating geometric subsegments
+  is deduplicating a list of names, with no geometry in it.
+* **Two segments meet in nothing or in a segment** — a dichotomy, since a point is a
+  degenerate segment — proved from compactness and convexity, with no parallel/non-parallel
+  split and no determinant.
+
+Two decisions deliberately not carried over:
+
+1. **No `Point` / `Vector` split.** There, two sealed types make `p + q` unwritable, and
+   the blueprint's affine idiom (`a + (x − a)/‖x − a‖²`) is typed exactly. Here the plane
+   is a single normed space, because `segment`, `Convex`, `Metric.ball` and `dist` are all
+   stated on it, and an affine/linear split would forfeit that API for a discipline the
+   type checker is not being asked to enforce.
+2. **Compactness and connectedness are Mathlib's**, in their open-cover and separation
+   forms, rather than sequential compactness and the clopen criterion taken as definitions.
+   The clopen criterion is a two-line consequence where it is wanted — see
+   `connectedComponentIn_eq_of_frontier_disjoint` and `exists_poly_of_isPreconnected`.
+
+## Findings
+
+1. **The meet of two segments needs no degenerate case.** The other development splits on
+   `a = b` first, so that an equation-shaped case never has to reconcile two spellings of
+   the same segment. Parametrizing by `AffineMap.lineMap a b` and pulling the meet back
+   removes the split: the preimage carries the meet forward whether or not the
+   parametrization is injective, so `a = b` is not special. `segment_inter_segment` has no
+   case analysis at all.
 
 ## License
 

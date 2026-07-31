@@ -91,7 +91,9 @@ at all.
 | **Lemma 3.7 polygonal overlay** | `polygonal_overlay`, `overlayGraph`, `orientPiece`, `subdivide_separated`, `exists_cut_points` |
 | "choose ε small enough for all of them" | `exists_pos_le_of_finite`, `exists_pos_forall_of_finite` |
 
-Every theorem checked depends only on `propext`, `Classical.choice` and `Quot.sound`.
+**Verification.** `#print axioms` was run over every non-private theorem in the development —
+498 of them. All depend only on `propext`, `Classical.choice` and `Quot.sound`; `sorryAx`
+appears nowhere, and a repository-wide sweep finds no `sorry`, `admit` or `native_decide`.
 
 ## Relation to the `math` foundation
 

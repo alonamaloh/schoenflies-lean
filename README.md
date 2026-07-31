@@ -6,7 +6,7 @@ Jordan curve theorem is not assumed — it is proved along the way.
 
 The prose blueprint this follows, written at formalization granularity with a
 statement-level citation index and a suggested module order, is at
-<https://github.com/alonamaloh/schoenflies>. Statement numbers below refer to
+<https://github.com/alonamaloh/jordan-schoenflies>. Statement numbers below refer to
 `jordan_schoenflies.tex` there.
 
 Lean 4.32.2, Mathlib v4.32.2. `lake build`.

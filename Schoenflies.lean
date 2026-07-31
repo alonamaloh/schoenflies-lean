@@ -12,6 +12,7 @@ import Schoenflies.Polygonal
 import Schoenflies.Curve
 import Schoenflies.Subarc
 import Schoenflies.Concatenate
+import Schoenflies.TwoArcs
 import Schoenflies.Graph.Walk
 import Schoenflies.Graph.Degree
 import Schoenflies.Graph.Drawing

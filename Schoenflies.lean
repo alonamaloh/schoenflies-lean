@@ -16,5 +16,6 @@ import Schoenflies.Concatenate
 import Schoenflies.TwoArcs
 import Schoenflies.Graph.Walk
 import Schoenflies.Graph.Degree
+import Schoenflies.Graph.Cycle
 import Schoenflies.Graph.Drawing
 import Schoenflies.Graph.OuterFace

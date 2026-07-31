@@ -21,8 +21,8 @@ the blueprint's own content, from the two-sided strip lemma on, is not started.
 | 0 — the plane's geometry | complete |
 | 1–3 — topology, compactness, connectedness | complete (Mathlib, plus three gap-fillers) |
 | 4 — arcs and Jordan curves | complete |
-| 5 — finite graphs | walks, paths, degree, cycles, 2-connectivity, path graphs, trees, ears |
-| 6 — plane graphs | drawings, faces, outer face, subdivision, cycle realisation, overlay |
+| 5 — finite graphs | complete |
+| 6 — plane graphs | complete but for `polygonal_redrawing` (H6) |
 
 ### Layer 0 — the plane
 
@@ -73,6 +73,10 @@ at all.
 | cycles, acyclicity, bridges | `Graph.LiesOnCycle`, `IsAcyclic`, `IsBridge`, `liesOnCycle_iff_deleteEdges_reaches` |
 | 2-connectivity | `Graph.IsTwoConnected`, `no_cut_vertex`, `no_bridge`, `IsTwoConnected.union` |
 | a path presented as a graph | `Graph.IsPathGraph`, `pathGraphOf`, `IsPathGraph.reaches_an_end` |
+| Lemma 3.4 trees with three leaves | `Graph.IsTree`, `has_leaf`, `delete_leaf`, `edge_count`, `IsTree.three_leaves` |
+| Lemma 3.6 subdivisions and ears preserve 2-connectivity | `Graph.IsTwoConnected.ear`, `replace_edge_by_path`, `Reaches.reroute` |
+| Lemma 3.5 ear decomposition | `Graph.IsTwoConnected.grows_by_ear`, `ear_exists` |
+| components and shortest paths | `Graph.component`, `induce_component_connected`, `exists_minLength_isPath` |
 
 ### Layer 6 — plane graphs
 
@@ -84,6 +88,8 @@ at all.
 | the outer face | `Graph.exists_unbounded_face`, `unbounded_face_unique`, `beyondSquare_subset_face` |
 | subdividing a segment list | `Piece`, `cover`, `subdivide`, `subdivide_cover` / `_ne` / `_interior_subset` / `_avoids` |
 | the realisation of a cycle is a Jordan curve | `Graph.IsDrawing.cycle_isJordanCurve`, `path_isArcBetween` |
+| **Lemma 3.7 polygonal overlay** | `polygonal_overlay`, `overlayGraph`, `orientPiece`, `subdivide_separated`, `exists_cut_points` |
+| "choose ε small enough for all of them" | `exists_pos_le_of_finite`, `exists_pos_forall_of_finite` |
 
 Every theorem checked depends only on `propext`, `Classical.choice` and `Quot.sound`.
 

@@ -18,51 +18,33 @@ started.
 
 | Blueprint | Lean |
 |---|---|
-| Appendix C.1 orientation form, right-angle rotation | `Plane.det`, `Plane.perp`, `Plane.det_perp_self` |
+| Appendix C.1 orientation form, right-angle rotation | `Plane.det`, `Plane.perp`, `det_perp_self`, `perp_perp`, `norm_perp`, `det_perp_left/right`, `det_eq_zero_iff_smul` |
+| Appendix C.1 sup metric and the comparison | `Plane.supNorm`, `supDist`, `supNorm_le_norm`, `norm_le_sqrt_two_mul_supNorm` |
+| Appendix C.1 directions, angle-free | `Direction.lean`: `IsDirection`, `arcCCW`, `same_arc_of_det_neg_of_det_pos`, `exists_isDirection_det_ne_zero` |
+| Appendix C.1 lines | `Line.lean`: `exists_segment_eq_of_isCompact_isConnected`, `exists_openSegment_eq_connectedComponentIn` (endpoints in `frontier U`), `affineMap_ext_of_affineIndependent`, `eqOn_line_of_fixed` |
+| Appendix C.4 components of open sets are open | `Plane.isOpen_connectedComponentIn` |
+| Appendix C.5 boundary of a component of a closed set's complement | `Plane.frontier_connectedComponentIn_compl_subset` |
+| Appendix C.6 pasting lemma | `Plane.continuousOn_union_of_isClosed` |
 | Lemma 1.3 nearest-point segment | `Plane.notMem_of_mem_segment_of_isMinOn` |
-| Lemma 1.4(a)–(c) compact separation | `Plane.exists_thickening_subset`, `Plane.exists_dist_pos`, `Plane.exists_ball_subset_diff` |
+| Lemma 1.4(a)–(c) compact separation | `Plane.exists_thickening_subset`, `exists_dist_pos`, `exists_ball_subset_diff` |
 | Lemma 1.6 nested compact singleton | `Plane.eq_singleton_iInter_of_diam_tendsto_zero` |
 | Lemma 1.7 recognizing a component | `Plane.connectedComponentIn_eq_of_frontier_disjoint` |
-| §1 polygonal path carrier | `poly`, `isCompact_poly`, `isConnected_poly`, `poly_concat` |
+| §1 polygonal path carrier | `poly`, `isCompact_poly`, `isConnected_poly`, `poly_concat`, `IsPolygonal` |
 | Lemma 1.1 polygonal connectedness (existence half) | `exists_poly_of_isPreconnected` |
-
 | Lemma 3.7 how two segments meet | `segment_inter_segment` |
+| cutting a segment | `segment_split`, `openSegment_left_subset`, `openSegment_right_subset` |
+| the distance from an end as a coordinate | `SegmentOrder.lean`: `parameter_le_of_distance`, `segment_inside_of_ends_outside`, `same_ends_of_meeting_interiors` |
+| §1 simple arc, Jordan curve | `IsArc`, `IsArcBetween`, `IsLoop`, `IsJordanCurve` |
+| subarcs and the open arc | `Subarc.lean`: `isArc_subarc`, `subarc_image`, `openArc`, `image_isRelOpen`, `basic_piece_inside_ball` |
+| gluing arcs | `Concatenate.lean`: `IsArcBetween.concatenate`, `IsLoop.concatenate`, `IsJordanCurve.of_two_arcs` |
+| a nondegenerate segment is an arc | `isArcBetween_segment` |
+| the outside of a square is connected | `Plane.isConnected_beyondSquare`, `beyondSquare_eq_compl` |
+| finite graphs: walks, paths, reachability | `Graph/Walk.lean`: `Graph.IsWalk`, `IsPath`, `IsWalk.contains_path`, `Reaches`, `Connected` |
+| finite graphs: degree and the handshake lemma | `Graph/Degree.lean`: `Graph.degree`, the degree-sum theorem, `IsLeaf` |
 
-Lemma 1.1's passage from a polygonal path to a *simple* polygonal arc, and Lemma 1.2
-(finite polygonal unions), both rest on the same subdivision procedure and a simple path
-in the resulting finite graph; they are deferred to the graph module.
-
-## The plane
-
-`EuclideanSpace ℝ (Fin 2)`, so that `‖·‖` is the Euclidean norm the blueprint takes as
-primary and `Metric.ball` is a round disk. Coordinates are `x 0` and `x 1`; `Plane.mk`
-and Mathlib's `!₂[x, y]` build points.
-
-## Module order
-
-Following Appendix B of the blueprint:
-
-1. metric compactness, segments, polygonal paths, and finite polygonal arrangements;
-2. polygonal strips, parity, polygonal Jordan separation, and polygonal crosscuts;
-3. finite graph infrastructure, polygonal redrawing, nonplanarity of `K₃,₃`, face cycles,
-   and the outer-chain lemma;
-4. complements of arcs, accessible boundary points, the general Jordan curve theorem, and
-   the general crosscut theorem;
-5. generated cellulations, carrier and parent compatibility, stars, and combinatorial
-   invariance;
-6. finite transfer, local source grids, anchored target meshes, and shrinking matched stars;
-7. the shrinking-star limit, boundary continuity, pointed bounded extensions, inversion,
-   and ambient pasting.
-
-## What Mathlib supplies
-
-Appendix C of the blueprint lists the imported background. Most of it is in Mathlib
-already: the Euclidean plane and its metric, compactness (Heine–Borel, sequential
-compactness, uniform continuity), the compact-to-Hausdorff homeomorphism criterion,
-connectedness and connected components, frontiers, the pasting lemma, sequential
-criteria for continuity, and density of `ℚ²`. Notably `Metric.diam_closure` is Lemma 1.5
-verbatim. The plane topology proper — strips, parity, plane graphs, cellulations — is
-entirely new.
+Not yet built: `IsJordanCurve.two_arcs` (cutting a curve at two points); graph cycles,
+trees, 2-connectivity and ear decomposition; and the whole of the plane-graph layer
+(drawings, faces, the polygonal overlay, the outer face, polygonal redrawing).
 
 ## Relation to the `math` foundation
 

@@ -23,6 +23,12 @@ started.
 | Lemma 1.4(a)–(c) compact separation | `Plane.exists_thickening_subset`, `Plane.exists_dist_pos`, `Plane.exists_ball_subset_diff` |
 | Lemma 1.6 nested compact singleton | `Plane.eq_singleton_iInter_of_diam_tendsto_zero` |
 | Lemma 1.7 recognizing a component | `Plane.connectedComponentIn_eq_of_frontier_disjoint` |
+| §1 polygonal path carrier | `poly`, `isCompact_poly`, `isConnected_poly`, `poly_concat` |
+| Lemma 1.1 polygonal connectedness (existence half) | `exists_poly_of_isPreconnected` |
+
+Lemma 1.1's passage from a polygonal path to a *simple* polygonal arc, and Lemma 1.2
+(finite polygonal unions), both rest on the same subdivision procedure and a simple path
+in the resulting finite graph; they are deferred to the graph module.
 
 ## The plane
 

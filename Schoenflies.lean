@@ -14,3 +14,5 @@ import Schoenflies.Subarc
 import Schoenflies.Concatenate
 import Schoenflies.Graph.Walk
 import Schoenflies.Graph.Degree
+import Schoenflies.Graph.Drawing
+import Schoenflies.Graph.OuterFace

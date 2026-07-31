@@ -7,6 +7,7 @@ import Schoenflies.SegmentCut
 import Schoenflies.SegmentMeet
 import Schoenflies.SegmentOrder
 import Schoenflies.Subdivide
+import Schoenflies.Overlay
 import Schoenflies.Line
 import Schoenflies.PolyPath
 import Schoenflies.Polygonal

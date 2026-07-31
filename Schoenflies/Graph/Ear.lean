@@ -103,13 +103,6 @@ this is the inclusion *out of* it, which the ear construction needs in order to 
 enlarged subgraph is still a subgraph. It is general and belongs beside the other two — the
 integrator should hoist it. -/
 
-/-- Two subgraphs of one graph have their union inside it. -/
-theorem union_le (hGK : G ≤ K) (hHK : H ≤ K) : G.union H ≤ K where
-  vertexSet_mono := Set.union_subset hGK.vertexSet_mono hHK.vertexSet_mono
-  isLink_mono := by
-    rintro g p q (h | ⟨-, h⟩)
-    exacts [hGK.isLink_mono h, hHK.isLink_mono h]
-
 /-! ### Rerouting one edge -/
 
 /-- **One edge swapped for any route between its ends.** If every edge of `G` other than `e`

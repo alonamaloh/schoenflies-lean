@@ -311,6 +311,13 @@ theorem left_le_union (G H : Graph α β) : G ≤ G.union H where
   vertexSet_mono := subset_union_left
   isLink_mono _ _ _ h := Or.inl h
 
+/-- Two subgraphs of one graph have their union inside it. -/
+theorem union_le (hGK : G ≤ K) (hHK : H ≤ K) : G.union H ≤ K where
+  vertexSet_mono := Set.union_subset hGK.vertexSet_mono hHK.vertexSet_mono
+  isLink_mono := by
+    rintro g p q (h | ⟨-, h⟩)
+    exacts [hGK.isLink_mono h, hHK.isLink_mono h]
+
 /-- The right-hand graph is a subgraph of the union only when the two agree about their shared
 edges — without that, no graph has both as subgraphs. -/
 theorem Compatible.right_le_union (h : G.Compatible H) : H ≤ G.union H where

@@ -9,6 +9,7 @@ import Schoenflies.SegmentMeet
 import Schoenflies.SegmentOrder
 import Schoenflies.Subdivide
 import Schoenflies.Overlay
+import Schoenflies.OverlayGraph
 import Schoenflies.Line
 import Schoenflies.PolyPath
 import Schoenflies.Polygonal
@@ -22,6 +23,8 @@ import Schoenflies.Graph.Cycle
 import Schoenflies.Graph.TwoConnected
 import Schoenflies.Graph.PathGraph
 import Schoenflies.Graph.Tree
+import Schoenflies.Graph.Component
+import Schoenflies.Graph.Ear
 import Schoenflies.Graph.Drawing
 import Schoenflies.Graph.OuterFace
 import Schoenflies.Graph.CycleJordan

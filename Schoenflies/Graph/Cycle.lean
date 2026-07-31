@@ -86,42 +86,14 @@ namespace Graph
 graph, which is what pulling a path *down* into a subgraph needs: the freshness clause of a
 path speaks about the subgraph's visited set, and that is the smaller one. -/
 
-theorem coveredVertices_mono_of_le (hHG : H ≤ G) : H.coveredVertices W ⊆ G.coveredVertices W :=
-  fun _ ⟨f, hf, y, hy⟩ ↦ ⟨f, hf, y, hy.mono hHG⟩
-
-theorem walkVertices_mono_of_le (hHG : H ≤ G) : H.walkVertices u W ⊆ G.walkVertices u W :=
-  Set.insert_subset_insert (coveredVertices_mono_of_le hHG)
-
-/-- A path of a graph whose edges all survive into a subgraph is a path of that subgraph —
-the companion of `Graph.IsWalk.anti`, which it is otherwise identical to. Freshness comes
-down the inclusion because the subgraph's edges touch no vertices the graph's do not. -/
-theorem IsPath.anti (hHG : H ≤ G) (h : G.IsPath u W v) (hu : u ∈ V(H))
-    (hE : ∀ e ∈ W, e ∈ E(H)) : H.IsPath u W v := by
-  induction h with
-  | nil => exact .nil hu
-  | @cons u w v e W hl hW hfresh ih =>
-    have he : e ∈ E(H) := hE e List.mem_cons_self
-    have hl' : H.IsLink e u w := (hHG.isLink_iff he).2 hl
-    exact .cons hl' (ih hl'.right_mem fun f hf ↦ hE f (List.mem_cons_of_mem _ hf))
-      fun hmem ↦ hfresh (walkVertices_mono_of_le hHG hmem)
-
 /-! ### Edge deletion
 
 `Graph.deleteEdges` is Mathlib's. These are the four transfer lemmas every deletion argument
 below reduces to. -/
 
-theorem mem_edgeSet_deleteEdges_iff : f ∈ E(G.deleteEdges F) ↔ f ∈ E(G) ∧ f ∉ F := by
-  simp
-
 /-- Deleting edges never removes a vertex, so a walk in the deletion is a walk. -/
 theorem IsWalk.of_deleteEdges (h : (G.deleteEdges F).IsWalk u W v) : G.IsWalk u W v :=
   h.mono deleteEdges_le
-
-/-- A walk that avoids the deleted names survives the deletion. -/
-theorem IsWalk.deleteEdges (h : G.IsWalk u W v) (hW : ∀ f ∈ W, f ∉ F) :
-    (G.deleteEdges F).IsWalk u W v :=
-  h.anti deleteEdges_le (by simpa using h.left_mem)
-    fun f hf ↦ mem_edgeSet_deleteEdges_iff.2 ⟨h.edge_mem hf, hW f hf⟩
 
 /-- Conversely, a walk in the deletion could not have used a deleted name. -/
 theorem IsWalk.notMem_of_deleteEdges (h : (G.deleteEdges F).IsWalk u W v) (hf : f ∈ W) :

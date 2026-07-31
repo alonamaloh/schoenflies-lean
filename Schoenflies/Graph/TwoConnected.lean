@@ -155,12 +155,6 @@ theorem IsWalk.notMem_of_inc_of_deleteVerts (h : (G.deleteVerts {x}).IsWalk u W 
   rcases hy.left_eq_or_eq hcd with rfl | rfl
   exacts [hc rfl, hd rfl]
 
-/-- A walk avoiding a set of edges is a walk after those edges are deleted. -/
-theorem IsWalk.deleteEdges (h : G.IsWalk u W v) (hF : ∀ g ∈ W, g ∉ F) :
-    (G.deleteEdges F).IsWalk u W v := by
-  refine h.anti Graph.deleteEdges_le (by simpa using h.left_mem) fun g hg ↦ ?_
-  simpa using ⟨h.edge_mem hg, hF g hg⟩
-
 /-- The bridge between the two deletions: a walk that routes around a vertex `x` cannot have
 used an edge incident to `x`, so it is still there after that edge is deleted. -/
 theorem Reaches.deleteEdges_of_deleteVerts (h : (G.deleteVerts {x}).Reaches u v)

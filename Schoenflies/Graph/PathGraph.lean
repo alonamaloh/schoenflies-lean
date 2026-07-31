@@ -90,19 +90,6 @@ theorem coveredVertices_anti (hHG : H ≤ G) : H.coveredVertices W ⊆ G.covered
 theorem walkVertices_anti (hHG : H ≤ G) : H.walkVertices u W ⊆ G.walkVertices u W :=
   Set.insert_subset_insert (coveredVertices_anti hHG)
 
-/-- A path of a graph whose edges all survive into a subgraph is a path of that subgraph.
-The companion of `Graph.IsWalk.anti`; the freshness clause reads only which vertices the
-remaining edges touch, and those shrink when the graph does. -/
-theorem IsPath.anti (hHG : H ≤ G) (h : G.IsPath u W v) (hu : u ∈ V(H))
-    (hE : ∀ e ∈ W, e ∈ E(H)) : H.IsPath u W v := by
-  induction h with
-  | nil => exact .nil hu
-  | @cons u w v e W hl _ hfresh ih =>
-    have he : e ∈ E(H) := hE e List.mem_cons_self
-    have hl' : H.IsLink e u w := (hHG.isLink_iff he).2 hl
-    exact .cons hl' (ih hl'.right_mem fun f hf ↦ hE f (List.mem_cons_of_mem _ hf))
-      fun hmem ↦ hfresh (walkVertices_anti hHG hmem)
-
 /-- **A walk that never visits `c` survives the deletion of `c`.** Every deletion argument in
 the ear layer reduces to this. -/
 theorem IsWalk.avoiding (h : G.IsWalk u W v) (hc : c ∉ G.walkVertices u W) :

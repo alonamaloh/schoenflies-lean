@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Álvaro Begué
 -/
 import Mathlib.Combinatorics.Graph.Subgraph
+import Mathlib.Combinatorics.Graph.Delete
 import Mathlib.Data.List.Basic
 
 /-!
@@ -499,5 +500,40 @@ fact about finite graphs, with the finiteness it does not actually need dropped.
 theorem Connected.exists_isPath (h : G.Connected) (hu : u ∈ V(G)) (hv : v ∈ V(G)) :
     ∃ P, G.IsPath u P v :=
   (h.reaches hu hv).exists_isPath
+
+/-! ### Transferring walks and paths along an inclusion or a deletion
+
+`IsWalk.anti` above pulls a walk down an inclusion. These are its companions, factored here
+because both the cycle module and the two-connectivity module reached for them independently.
+-/
+
+theorem coveredVertices_mono_of_le (hHG : H ≤ G) : H.coveredVertices W ⊆ G.coveredVertices W :=
+  fun _ ⟨f, hf, y, hy⟩ ↦ ⟨f, hf, y, hy.mono hHG⟩
+
+theorem walkVertices_mono_of_le (hHG : H ≤ G) : H.walkVertices u W ⊆ G.walkVertices u W :=
+  Set.insert_subset_insert (coveredVertices_mono_of_le hHG)
+
+/-- A path of a graph whose edges all survive into a subgraph is a path of that subgraph —
+the companion of `Graph.IsWalk.anti`, which it is otherwise identical to. Freshness comes
+down the inclusion because the subgraph's edges touch no vertices the graph's do not. -/
+theorem IsPath.anti (hHG : H ≤ G) (h : G.IsPath u W v) (hu : u ∈ V(H))
+    (hE : ∀ e ∈ W, e ∈ E(H)) : H.IsPath u W v := by
+  induction h with
+  | nil => exact .nil hu
+  | @cons u w v e W hl hW hfresh ih =>
+    have he : e ∈ E(H) := hE e List.mem_cons_self
+    have hl' : H.IsLink e u w := (hHG.isLink_iff he).2 hl
+    exact .cons hl' (ih hl'.right_mem fun f hf ↦ hE f (List.mem_cons_of_mem _ hf))
+      fun hmem ↦ hfresh (walkVertices_mono_of_le hHG hmem)
+
+theorem mem_edgeSet_deleteEdges_iff {F : Set β} {f : β} :
+    f ∈ E(G.deleteEdges F) ↔ f ∈ E(G) ∧ f ∉ F := by
+  simp
+
+/-- A walk that avoids the deleted names survives the deletion. -/
+theorem IsWalk.deleteEdges {F : Set β} (h : G.IsWalk u W v) (hW : ∀ f ∈ W, f ∉ F) :
+    (G.deleteEdges F).IsWalk u W v :=
+  h.anti deleteEdges_le (by simpa using h.left_mem)
+    fun f hf ↦ mem_edgeSet_deleteEdges_iff.2 ⟨h.edge_mem hf, hW f hf⟩
 
 end Graph

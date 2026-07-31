@@ -1,4 +1,5 @@
 import Schoenflies.Plane
+import Schoenflies.Topology
 import Schoenflies.PolyPath
 import Schoenflies.SegmentMeet
 import Schoenflies.SegmentCut

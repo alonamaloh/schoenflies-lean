@@ -113,6 +113,14 @@ theorem mem_faces_of_notMem_skel {σ : γ} (hσ : σ ∈ S.cells) (h : σ ∉ V(
   · exact absurd hσ h
   · exact hσ
 
+/-- A proper subcell of a 2-cell is a 0- or 1-cell: nothing but the 2-cell itself is a 2-cell
+below it. -/
+theorem mem_skel_of_sub_face (hS : S.CombInvariants) {σ F : γ}
+    (hσ : σ ∈ S.cells) (hsub : S.sub σ F) (hne : σ ≠ F) : σ ∈ V(S.skel) ∪ E(S.skel) := by
+  rcases hσ with hσ | hσ
+  · exact hσ
+  · exact absurd (hS.face_maximal hσ hsub).symm hne
+
 /-- A 2-cell is never an outer cell: outer cells are 0- and 1-cells of the skeleton. -/
 theorem notMem_outerCells_of_mem_faces {F : γ} (hF : F ∈ S.faces) : F ∉ S.outerCells := by
   rintro (hv | he)
@@ -195,6 +203,45 @@ theorem cell_disjoint_outerSet (h : R.IsCellDecomposition D) (hσ : σ ∈ S.cel
   rw [R.outerSet_eq_iUnion_cell, Set.disjoint_iUnion₂_right]
   intro κ hκ
   exact h.disjoint hσ (outerCells_subset_cells hκ) (fun hcon => hout (hcon ▸ hκ))
+
+/-- An open cell is disjoint from the union of the open cells of any collection of cells not
+containing it. This is how `IsCellDecomposition` sees the realized skeleton and the realized
+outer cycle, once those have been rewritten as unions of open cells. -/
+theorem cell_disjoint_biUnion (h : R.IsCellDecomposition D) (hσ : σ ∈ S.cells) {K : Set γ}
+    (hK : K ⊆ S.cells) (hnot : σ ∉ K) : Disjoint (R.cell σ) (⋃ κ ∈ K, R.cell κ) := by
+  rw [Set.disjoint_iUnion₂_right]
+  exact fun κ hκ => h.disjoint hσ (hK hκ) fun hcon => hnot (hcon ▸ hκ)
+
+/-- **An open 2-cell never meets the realized skeleton.** -/
+theorem cell_disjoint_skeletonSet (h : R.IsCellDecomposition D) {F : γ} (hF : F ∈ S.faces) :
+    Disjoint (R.cell F) R.skeletonSet := by
+  rw [R.skeletonSet_eq_iUnion_cell]
+  refine h.cell_disjoint_biUnion (S.mem_cells_of_mem_faces hF) (fun κ hκ => ?_) ?_
+  · rcases hκ with hv | he
+    exacts [S.mem_cells_of_mem_vertexSet hv, S.mem_cells_of_mem_edgeSet he]
+  · rintro (hv | he)
+    exacts [S.faces_ne_vertexSet hF hv rfl, S.faces_ne_edgeSet hF he rfl]
+
+/-- The realized skeleton lies in the closed domain. -/
+theorem skeletonSet_subset_domain (h : R.IsCellDecomposition D) : R.skeletonSet ⊆ D := by
+  rw [R.skeletonSet_eq_iUnion_cell]
+  refine Set.iUnion₂_subset fun κ hκ => h.cell_subset_domain ?_
+  rcases hκ with hv | he
+  exacts [S.mem_cells_of_mem_vertexSet hv, S.mem_cells_of_mem_edgeSet he]
+
+/-- **The closed star of a 2-cell is its own closed cell.** By `lem:star-face-mesh` a closed star
+is the union of the closed 2-cells above the cell, and `CombInvariants.face_maximal` says the
+only 2-cell above a 2-cell is itself. This is the step the blueprint attributes to assertion
+(viii) of `lem:cellulation-invariants`, and it needs neither (vii) nor openness of the open
+2-cell. -/
+theorem star_face_eq_closure (h : R.IsCellDecomposition D) (hS : S.CombInvariants) {F : γ}
+    (hF : F ∈ S.faces) : R.star F = closure (R.cell F) := by
+  rw [h.star_eq_faces hS (S.mem_cells_of_mem_faces hF)]
+  refine Set.Subset.antisymm (Set.iUnion₂_subset fun T hT => ?_)
+    (Set.subset_biUnion_of_mem (u := fun T => closure (R.cell T))
+      (show F ∈ {T | T ∈ S.faces ∧ S.sub F T} from
+        ⟨hF, h.sub_refl (S.mem_cells_of_mem_faces hF)⟩))
+  exact (congrArg (fun c => closure (R.cell c)) (hS.face_maximal hF hT.2)).le
 
 /-- The carrier of a point of the realized outer cycle is an outer cell. -/
 theorem carrier_mem_outerCells [Nonempty γ] (h : R.IsCellDecomposition D)
@@ -691,6 +738,113 @@ theorem exists_mem_region_F_eq (hy : y ∈ L.region') : ∃ x, x ∈ L.region �
   -- the stage-`n` source star of the target carrier of `y` misses `C`, by `lem:outer-incidence`
   obtain ⟨w, hw, hwb⟩ := (L.star_meets_bdry_iff n ((L.tgt n).carrier y)).1 ⟨x, hmem n, hb⟩
   exact (hn hw).2 hwb
+
+/-! #### Exact cell correspondence -/
+
+/-- The source counterpart of `tgt_cell_subset_region'`. -/
+theorem src_cell_subset_region (n : ℕ) {σ : γ} (hσ : σ ∈ (L.str n).cells)
+    (hout : σ ∉ (L.str n).outerCells) : (L.src n).cell σ ⊆ L.region := by
+  intro w hw
+  refine ⟨(L.srcDecomp n).cell_subset_domain hσ hw, fun hb => ?_⟩
+  rw [← L.srcOuterSet n] at hb
+  exact Set.disjoint_left.1 ((L.srcDecomp n).cell_disjoint_outerSet hσ hout) hw hb
+
+/-- A point of the open region has a nonboundary carrier: an outer cell's open cell lies on the
+outer cycle. -/
+theorem src_carrier_notMem_outerCells (hx : x ∈ L.region) (n : ℕ) :
+    (L.src n).carrier x ∉ (L.str n).outerCells := fun hc =>
+  hx.2 (by
+    rw [← L.srcOuterSet n]
+    exact Realization.cell_subset_outerSet hc ((L.srcDecomp n).mem_cell_carrier hx.1))
+
+theorem tgt_carrier_notMem_outerCells (hy : y ∈ L.region') (n : ℕ) :
+    (L.tgt n).carrier y ∉ (L.str n).outerCells := fun hc =>
+  hy.2 (by
+    rw [← L.tgtOuterSet n]
+    exact Realization.cell_subset_outerSet hc ((L.tgtDecomp n).mem_cell_carrier hy.1))
+
+/-- The half of `lem:exact-cell-correspondence` that carries the argument: an open source 2-cell
+is mapped **into** the corresponding open target 2-cell.
+
+The closed star of a 2-cell is its own closed cell, so `F x` lies in `closure σ'`; if it lay on
+the frontier it would be a stage-`n` target skeleton point, and its skeleton preimage `w` would
+be a second point of `D` with `F w = F x`, contradicting injectivity — while `x` itself, lying in
+an open 2-cell, is not a skeleton point. -/
+theorem F_mem_cell_of_mem_cell_face (n : ℕ) {σ : γ} (hσ : σ ∈ (L.str n).faces)
+    (hx : x ∈ (L.src n).cell σ) : L.F x ∈ (L.tgt n).cell σ := by
+  have hσc : σ ∈ (L.str n).cells := (L.str n).mem_cells_of_mem_faces hσ
+  have hxr : x ∈ L.region :=
+    src_cell_subset_region n hσc (notMem_outerCells_of_mem_faces hσ) hx
+  have hcar : (L.src n).carrier x = σ := (L.srcDecomp n).carrier_eq hσc hx
+  -- `T_n(x)` is exactly the closed target 2-cell
+  have hclos : L.F x ∈ closure ((L.tgt n).cell σ) := by
+    have := L.F_mem_tgtStar hxr.1 n
+    rwa [tgtStar_eq, hcar, (L.tgtDecomp n).star_face_eq_closure (L.comb n) hσ] at this
+  rw [(L.tgtDecomp n).closure_eq hσc] at hclos
+  obtain ⟨ρ, ⟨hρ, hρsub⟩, hFρ⟩ := Set.mem_iUnion₂.1 hclos
+  by_cases hρσ : ρ = σ
+  · exact hρσ ▸ hFρ
+  -- otherwise `F x` is a stage-`n` target skeleton point; its preimage contradicts injectivity
+  exfalso
+  have hFskel : L.F x ∈ (L.tgt n).skeletonSet :=
+    Realization.cell_subset_skeletonSet (mem_skel_of_sub_face (L.comb n) hρ hρsub hρσ) hFρ
+  obtain ⟨w, hwskel, hwF⟩ : ∃ w ∈ (L.src n).skeletonSet, (L.skelHomeo n).toFun w = L.F x := by
+    rw [← (L.skelHomeo n).image_skeletonSet] at hFskel
+    exact hFskel
+  have hFr : L.F x ∈ L.region' := F_mem_region' hxr
+  have hwr : w ∈ L.region := by
+    refine ⟨(L.srcDecomp n).skeletonSet_subset_domain hwskel, fun hb => hFr.2 ?_⟩
+    rw [← L.tgtOuterSet n, ← hwF, ← (L.skelHomeo n).image_outerSet]
+    exact Set.mem_image_of_mem _ (by rwa [L.srcOuterSet n])
+  have hwx : w = x := L.injOn_F hwr hxr (by
+    rw [F_eq_skelHomeo hwskel hwr.1, hwF])
+  exact Set.disjoint_left.1 ((L.srcDecomp n).cell_disjoint_skeletonSet hσ) hx (hwx ▸ hwskel)
+
+/-- **`lem:exact-cell-correspondence`**: `F` carries each nonboundary open cell of the stage-`n`
+source decomposition **onto** the corresponding open cell of the target decomposition. For a 0- or
+1-cell this is `prop:skeleton-agreement` together with the skeleton homeomorphism; for a 2-cell it
+is the previous lemma plus surjectivity. -/
+theorem image_cell (n : ℕ) {σ : γ} (hσ : σ ∈ (L.str n).cells)
+    (hout : σ ∉ (L.str n).outerCells) : L.F '' ((L.src n).cell σ) = (L.tgt n).cell σ := by
+  by_cases hskel : σ ∈ V((L.str n).skel) ∪ E((L.str n).skel)
+  · -- on the skeleton `F` *is* `g_n`
+    rw [Set.image_congr (fun w hw => F_eq_skelHomeo
+      (Realization.cell_subset_skeletonSet hskel hw)
+      ((L.srcDecomp n).cell_subset_domain hσ hw))]
+    exact (L.skelHomeo n).image_cell hskel
+  have hface : σ ∈ (L.str n).faces := mem_faces_of_notMem_skel hσ hskel
+  refine Set.Subset.antisymm ?_ fun y hy => ?_
+  · rintro _ ⟨w, hw, rfl⟩
+    exact F_mem_cell_of_mem_cell_face n hface hw
+  -- surjectivity produces a preimage; its carrier is a 2-cell, and open 2-cells are disjoint
+  obtain ⟨w, hwr, rfl⟩ := exists_mem_region_F_eq (tgt_cell_subset_region' n hσ hout hy)
+  refine Set.mem_image_of_mem _ ?_
+  set ρ := (L.src n).carrier w with hρdef
+  have hρc : ρ ∈ (L.str n).cells := (L.srcDecomp n).mem_cells_carrier hwr.1
+  have hρface : ρ ∈ (L.str n).faces := by
+    refine mem_faces_of_notMem_skel hρc fun hmem => ?_
+    -- a skeleton carrier would put `F w` on the target skeleton, which misses the open 2-cell
+    refine Set.disjoint_left.1 ((L.tgtDecomp n).cell_disjoint_skeletonSet hface) hy ?_
+    rw [F_eq_skelHomeo (Realization.cell_subset_skeletonSet hmem
+      ((L.srcDecomp n).mem_cell_carrier hwr.1)) hwr.1]
+    refine Realization.cell_subset_skeletonSet hmem ?_
+    rw [← (L.skelHomeo n).image_cell hmem]
+    exact Set.mem_image_of_mem _ ((L.srcDecomp n).mem_cell_carrier hwr.1)
+  have hin : L.F w ∈ (L.tgt n).cell ρ :=
+    F_mem_cell_of_mem_cell_face n hρface ((L.srcDecomp n).mem_cell_carrier hwr.1)
+  have : ρ = σ := by
+    by_contra hne
+    exact Set.disjoint_left.1 ((L.tgtDecomp n).disjoint hρc hσ hne) hin hy
+  rw [← this]
+  exact (L.srcDecomp n).mem_cell_carrier hwr.1
+
+/-- **The corollary the inverse argument runs on**: `F` matches carriers. -/
+theorem tgt_carrier_F (hx : x ∈ L.region) (n : ℕ) :
+    (L.tgt n).carrier (L.F x) = (L.src n).carrier x := by
+  refine (L.tgtDecomp n).carrier_eq ((L.srcDecomp n).mem_cells_carrier hx.1) ?_
+  rw [← image_cell n ((L.srcDecomp n).mem_cells_carrier hx.1)
+    (src_carrier_notMem_outerCells hx n)]
+  exact Set.mem_image_of_mem _ ((L.srcDecomp n).mem_cell_carrier hx.1)
 
 end LimitTower
 

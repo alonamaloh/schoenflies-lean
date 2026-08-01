@@ -698,4 +698,213 @@ theorem gridGraph_isCycleThrough_boundary {xc yc : ℕ → ℝ} {m n : ℕ} (hm 
       have hnext := hli.right_unique (h ▸ hlast.symm)
       exact absurd (gridBoundaryPt_inj hm hn hx hy (by omega) (by omega) hnext) (by omega)
 
+/-! ### What the outer cycle occupies
+
+Up to here nothing has been asked of the order of the coordinates. It is asked now: the union
+of the boundary edges is the frame of the bounding rectangle only if the coordinates increase,
+and the proof is the one-dimensional fact `Set.Icc_union_Icc_eq_Icc` transported along
+`Schoenflies.mem_segment_horiz` / `mem_segment_vert`. -/
+
+theorem gridBoundaryEdge_bottom {xc yc : ℕ → ℝ} {m n i : ℕ} (h : i < m) :
+    gridBoundaryEdge xc yc m n i = gridHEdge xc yc i 0 := by
+  unfold gridBoundaryEdge; rw [if_pos h]
+
+theorem gridBoundaryEdge_right {xc yc : ℕ → ℝ} {m n j : ℕ} (h : j < n) :
+    gridBoundaryEdge xc yc m n (m + j) = gridVEdge xc yc m j := by
+  unfold gridBoundaryEdge
+  rw [if_neg (by omega), if_pos (by omega), show m + j - m = j by omega]
+
+theorem gridBoundaryEdge_top {xc yc : ℕ → ℝ} {m n i : ℕ} (hn : 1 ≤ n) (h : i < m) :
+    gridBoundaryEdge xc yc m n (2 * m + n - 1 - i) = gridHEdge xc yc i n := by
+  unfold gridBoundaryEdge
+  rw [if_neg (by omega), if_neg (by omega), if_pos (by omega),
+    show 2 * m + n - 1 - (2 * m + n - 1 - i) = i by omega]
+
+theorem gridBoundaryEdge_left {xc yc : ℕ → ℝ} {m n j : ℕ} (h : j < n) :
+    gridBoundaryEdge xc yc m n (2 * m + 2 * n - 1 - j) = gridVEdge xc yc 0 j := by
+  unfold gridBoundaryEdge
+  rw [if_neg (by omega), if_neg (by omega), if_neg (by omega),
+    show 2 * m + 2 * n - 1 - (2 * m + 2 * n - 1 - j) = j by omega]
+
+/-- The realisation of the cycle is the union of the boundary edges, indexed by position on
+the walk. -/
+theorem edgesCover_gridBoundary_eq_iUnion (xc yc : ℕ → ℝ) {m n : ℕ} (hL : 1 ≤ 2 * m + 2 * n) :
+    Graph.edgesCover segmentDrawing
+        (gridBoundaryLast xc yc m n :: gridBoundaryDetour xc yc m n)
+      = ⋃ t ∈ Set.Iio (2 * m + 2 * n), (gridBoundaryEdge xc yc m n t).seg := by
+  ext z
+  simp only [Graph.mem_edgesCover_iff, List.mem_cons, gridBoundaryDetour, List.mem_map,
+    edgeArc_segmentDrawing, Set.mem_iUnion, Set.mem_Iio, exists_prop]
+  constructor
+  · rintro ⟨P, (rfl | ⟨i, hi, rfl⟩), hzP⟩
+    · exact ⟨2 * m + 2 * n - 1, by omega, hzP⟩
+    · rw [List.mem_range'_1] at hi
+      exact ⟨i, by omega, hzP⟩
+  · rintro ⟨t, ht, hz⟩
+    rcases eq_or_lt_of_le (show t ≤ 2 * m + 2 * n - 1 by omega) with rfl | hlt
+    · exact ⟨_, Or.inl rfl, hz⟩
+    · exact ⟨_, Or.inr ⟨t, List.mem_range'_1.2 ⟨Nat.zero_le t, by omega⟩, rfl⟩, hz⟩
+
+/-- The boundary edges, sorted into the four sides. -/
+theorem iUnion_gridBoundaryEdge (xc yc : ℕ → ℝ) {m n : ℕ} (hm : 1 ≤ m) (hn : 1 ≤ n) :
+    (⋃ t ∈ Set.Iio (2 * m + 2 * n), (gridBoundaryEdge xc yc m n t).seg) =
+      ((⋃ i ∈ Set.Iio m, (gridHEdge xc yc i 0).seg) ∪
+          ⋃ j ∈ Set.Iio n, (gridVEdge xc yc m j).seg) ∪
+        ((⋃ i ∈ Set.Iio m, (gridHEdge xc yc i n).seg) ∪
+          ⋃ j ∈ Set.Iio n, (gridVEdge xc yc 0 j).seg) := by
+  ext z
+  simp only [Set.mem_union, Set.mem_iUnion, Set.mem_Iio, exists_prop]
+  constructor
+  · rintro ⟨t, ht, hz⟩
+    rcases lt_or_ge t m with h₁ | h₁
+    · exact Or.inl (Or.inl ⟨t, h₁, by rwa [← gridBoundaryEdge_bottom h₁]⟩)
+    rcases lt_or_ge t (m + n) with h₂ | h₂
+    · refine Or.inl (Or.inr ⟨t - m, by omega, ?_⟩)
+      rwa [← gridBoundaryEdge_right (m := m) (show t - m < n by omega),
+        show m + (t - m) = t by omega]
+    rcases lt_or_ge t (2 * m + n) with h₃ | h₃
+    · refine Or.inr (Or.inl ⟨2 * m + n - 1 - t, by omega, ?_⟩)
+      rwa [← gridBoundaryEdge_top hn (show 2 * m + n - 1 - t < m by omega),
+        show 2 * m + n - 1 - (2 * m + n - 1 - t) = t by omega]
+    · refine Or.inr (Or.inr ⟨2 * m + 2 * n - 1 - t, by omega, ?_⟩)
+      rwa [← gridBoundaryEdge_left (m := m) (show 2 * m + 2 * n - 1 - t < n by omega),
+        show 2 * m + 2 * n - 1 - (2 * m + 2 * n - 1 - t) = t by omega]
+  · rintro ((⟨i, hi, hz⟩ | ⟨j, hj, hz⟩) | (⟨i, hi, hz⟩ | ⟨j, hj, hz⟩))
+    · exact ⟨i, by omega, by rwa [gridBoundaryEdge_bottom hi]⟩
+    · exact ⟨m + j, by omega, by rwa [gridBoundaryEdge_right hj]⟩
+    · exact ⟨2 * m + n - 1 - i, by omega, by rwa [gridBoundaryEdge_top hn hi]⟩
+    · exact ⟨2 * m + 2 * n - 1 - j, by omega, by rwa [gridBoundaryEdge_left (m := m) hj]⟩
+
+/-! ### Consecutive intervals -/
+
+theorem chain_le_of_le {f : ℕ → ℝ} {m : ℕ} (h : ∀ i, i < m → f i ≤ f (i + 1)) :
+    ∀ a b, a ≤ b → b ≤ m → f a ≤ f b := by
+  intro a b
+  induction b with
+  | zero =>
+    intro hab _
+    obtain rfl : a = 0 := by omega
+    exact le_rfl
+  | succ b ih =>
+    intro hab hb
+    rcases Nat.lt_or_ge a (b + 1) with h₁ | h₁
+    · exact (ih (by omega) (by omega)).trans (h b (by omega))
+    · obtain rfl : a = b + 1 := by omega
+      exact le_rfl
+
+theorem iUnion_Icc_chain {f : ℕ → ℝ} : ∀ m : ℕ, 1 ≤ m → (∀ i, i < m → f i ≤ f (i + 1)) →
+    (⋃ i ∈ Set.Iio m, Set.Icc (f i) (f (i + 1))) = Set.Icc (f 0) (f m) := by
+  intro m
+  induction m with
+  | zero => exact fun h => absurd h (by omega)
+  | succ m ih =>
+    intro _ hmono
+    rcases Nat.eq_zero_or_pos m with rfl | hm
+    · simp
+    · have hsplit : (⋃ i ∈ Set.Iio (m + 1), Set.Icc (f i) (f (i + 1)))
+          = (⋃ i ∈ Set.Iio m, Set.Icc (f i) (f (i + 1))) ∪ Set.Icc (f m) (f (m + 1)) := by
+        ext z
+        simp only [Set.mem_iUnion, Set.mem_Iio, exists_prop, Set.mem_union]
+        constructor
+        · rintro ⟨i, hi, hz⟩
+          rcases Nat.lt_succ_iff_lt_or_eq.1 hi with h | rfl
+          exacts [Or.inl ⟨i, h, hz⟩, Or.inr hz]
+        · rintro (⟨i, hi, hz⟩ | hz)
+          exacts [⟨i, by omega, hz⟩, ⟨m, by omega, hz⟩]
+      rw [hsplit, ih hm fun i hi => hmono i (by omega),
+        Set.Icc_union_Icc_eq_Icc (chain_le_of_le hmono 0 m (by omega) (by omega))
+          (hmono m (by omega))]
+
+/-- A run of horizontal grid edges occupies the whole horizontal segment. -/
+theorem iUnion_gridHEdge_seg {xc yc : ℕ → ℝ} {m : ℕ} (hm : 1 ≤ m)
+    (hmono : ∀ i, i < m → xc i ≤ xc (i + 1)) (j : ℕ) :
+    (⋃ i ∈ Set.Iio m, (gridHEdge xc yc i j).seg)
+      = segment ℝ (gridPt xc yc 0 j) (gridPt xc yc m j) := by
+  have h0m : xc 0 ≤ xc m := chain_le_of_le hmono 0 m (by omega) le_rfl
+  ext z
+  simp only [gridHEdge, gridPt, Piece.seg, Set.mem_iUnion, Set.mem_Iio, exists_prop,
+    mem_segment_horiz]
+  constructor
+  · rintro ⟨i, hi, hz1, hz0⟩
+    refine ⟨hz1, ?_⟩
+    rw [segment_eq_Icc (hmono i hi)] at hz0
+    rw [segment_eq_Icc h0m]
+    exact Set.Icc_subset_Icc (chain_le_of_le hmono 0 i (by omega) (by omega))
+      (chain_le_of_le hmono (i + 1) m (by omega) (by omega)) hz0
+  · rintro ⟨hz1, hz0⟩
+    rw [segment_eq_Icc h0m, ← iUnion_Icc_chain m hm hmono] at hz0
+    simp only [Set.mem_iUnion, Set.mem_Iio, exists_prop] at hz0
+    obtain ⟨i, hi, hz⟩ := hz0
+    exact ⟨i, hi, hz1, by rw [segment_eq_Icc (hmono i hi)]; exact hz⟩
+
+/-- A run of vertical grid edges occupies the whole vertical segment. -/
+theorem iUnion_gridVEdge_seg {xc yc : ℕ → ℝ} {n : ℕ} (hn : 1 ≤ n)
+    (hmono : ∀ j, j < n → yc j ≤ yc (j + 1)) (i : ℕ) :
+    (⋃ j ∈ Set.Iio n, (gridVEdge xc yc i j).seg)
+      = segment ℝ (gridPt xc yc i 0) (gridPt xc yc i n) := by
+  have h0n : yc 0 ≤ yc n := chain_le_of_le hmono 0 n (by omega) le_rfl
+  ext z
+  simp only [gridVEdge, gridPt, Piece.seg, Set.mem_iUnion, Set.mem_Iio, exists_prop,
+    mem_segment_vert]
+  constructor
+  · rintro ⟨j, hj, hz0, hz1⟩
+    refine ⟨hz0, ?_⟩
+    rw [segment_eq_Icc (hmono j hj)] at hz1
+    rw [segment_eq_Icc h0n]
+    exact Set.Icc_subset_Icc (chain_le_of_le hmono 0 j (by omega) (by omega))
+      (chain_le_of_le hmono (j + 1) n (by omega) (by omega)) hz1
+  · rintro ⟨hz0, hz1⟩
+    rw [segment_eq_Icc h0n, ← iUnion_Icc_chain n hn hmono] at hz1
+    simp only [Set.mem_iUnion, Set.mem_Iio, exists_prop] at hz1
+    obtain ⟨j, hj, hz⟩ := hz1
+    exact ⟨j, hj, hz0, by rw [segment_eq_Icc (hmono j hj)]; exact hz⟩
+
+/-- **What the outer cycle occupies**: the frame of the bounding rectangle, as the union of its
+four sides. -/
+theorem edgesCover_gridBoundary {xc yc : ℕ → ℝ} {m n : ℕ} (hm : 1 ≤ m) (hn : 1 ≤ n)
+    (hxmono : ∀ i, i < m → xc i ≤ xc (i + 1)) (hymono : ∀ j, j < n → yc j ≤ yc (j + 1)) :
+    Graph.edgesCover segmentDrawing
+        (gridBoundaryLast xc yc m n :: gridBoundaryDetour xc yc m n)
+      = (segment ℝ (gridPt xc yc 0 0) (gridPt xc yc m 0) ∪
+          segment ℝ (gridPt xc yc m 0) (gridPt xc yc m n)) ∪
+        (segment ℝ (gridPt xc yc 0 n) (gridPt xc yc m n) ∪
+          segment ℝ (gridPt xc yc 0 0) (gridPt xc yc 0 n)) := by
+  rw [edgesCover_gridBoundary_eq_iUnion _ _ (by omega), iUnion_gridBoundaryEdge _ _ hm hn,
+    iUnion_gridHEdge_seg hm hxmono 0, iUnion_gridHEdge_seg hm hxmono n,
+    iUnion_gridVEdge_seg hn hymono m, iUnion_gridVEdge_seg hn hymono 0]
+
+/-- **The outer cycle of a grid on `[-1,1]²` occupies exactly `S`.** This is the missing half of
+`prop:anchored-square-mesh` clause 3: not "the edges lying on `S` cover `S`", but "`S` is the
+realisation of a distinguished cycle of the graph", which is the form
+`thm:finite-transfer`(b) consumes. -/
+theorem edgesCover_gridBoundary_modelCurve {xc yc : ℕ → ℝ} {m n : ℕ} (hm : 1 ≤ m) (hn : 1 ≤ n)
+    (hxmono : ∀ i, i < m → xc i ≤ xc (i + 1)) (hymono : ∀ j, j < n → yc j ≤ yc (j + 1))
+    (hx0 : xc 0 = -1) (hxm : xc m = 1) (hy0 : yc 0 = -1) (hyn : yc n = 1) :
+    Graph.edgesCover segmentDrawing
+        (gridBoundaryLast xc yc m n :: gridBoundaryDetour xc yc m n) = modelCurve := by
+  have hcov : cover (ringPieces 1) = modelCurve := by
+    rw [cover_ringPieces zero_le_one, ringSet_one]
+  rw [edgesCover_gridBoundary hm hn hxmono hymono, ← hcov]
+  simp only [ringPieces, cover_cons, cover_nil, Set.union_empty, Piece.seg, gridPt, hx0, hxm,
+    hy0, hyn]
+  rw [segment_symm ℝ (Plane.mk (1 : ℝ) (1 : ℝ)) (Plane.mk (-1 : ℝ) (1 : ℝ)),
+    segment_symm ℝ (Plane.mk (-1 : ℝ) (1 : ℝ)) (Plane.mk (-1 : ℝ) (-1 : ℝ))]
+  ext z
+  simp only [Set.mem_union]
+  tauto
+
+/-- **The distinguished outer cycle of the grid on `[-1,1]²`**, both halves at once: it is a
+cycle of the grid graph, and what it occupies is `S`. -/
+theorem gridGraph_outer_cycle {xc yc : ℕ → ℝ} {m n : ℕ} (hm : 1 ≤ m) (hn : 1 ≤ n)
+    (hx : Set.InjOn xc (Set.Iic m)) (hy : Set.InjOn yc (Set.Iic n))
+    (hxmono : ∀ i, i < m → xc i ≤ xc (i + 1)) (hymono : ∀ j, j < n → yc j ≤ yc (j + 1))
+    (hx0 : xc 0 = -1) (hxm : xc m = 1) (hy0 : yc 0 = -1) (hyn : yc n = 1) :
+    (gridGraph xc yc m n).IsCycleThrough (gridBoundaryLast xc yc m n)
+        (gridBoundaryPt xc yc m n 0) (gridBoundaryPt xc yc m n (2 * m + 2 * n - 1))
+        (gridBoundaryDetour xc yc m n) ∧
+      Graph.edgesCover segmentDrawing
+        (gridBoundaryLast xc yc m n :: gridBoundaryDetour xc yc m n) = modelCurve :=
+  ⟨gridGraph_isCycleThrough_boundary hm hn hx hy,
+    edgesCover_gridBoundary_modelCurve hm hn hxmono hymono hx0 hxm hy0 hyn⟩
+
 end Schoenflies

@@ -730,4 +730,123 @@ theorem walkVertices_spokeWalk_subset {N : ℕ} (hN : 2 ≤ N) {fresh : List Pla
   walkVertices_subset_of_edges (left_mem_segment ℝ _ _)
     (fun _ hQ => spokeWalk_seg_subset hN hfresh anchors hz hQ) hx
 
+
+/-! ### The core: outer ring, two spokes, inner ring
+
+The blueprint assembles clause 5 by *"adding these finitely many cycles one at a time"*, but
+the first addition cannot be a cycle: distinct rings of the mesh are disjoint, so no two of
+them share the two vertices `lem:union-two-connected` asks for. What joins them is an **ear** —
+a path with both ends on the outer ring — and the only such path runs down one spoke, round
+part of the inner ring, and back up another spoke. That is why clause 5 needs **two distinct
+fresh points**, and why it is false with fewer
+(`Schoenflies.not_isTwoConnected_meshGraph_of_fresh_subsingleton`).
+
+Once that ear is in place the inner ring shares the two crossing points `N⁻¹ • z` and
+`N⁻¹ • w` with it, and `Graph.IsTwoConnected.union` applies; from then on every further ring
+shares `r • z` and `r • w`, and every further spoke is an ear between the outer and inner
+rings. -/
+
+/-- **Distinct spokes are disjoint** — the blueprint's *"two radial segments in the annulus can
+meet only if they lie on the same ray, and then their endpoints on `S` are equal"*. -/
+theorem spokePiece_disjoint {N : ℕ} (hN : 2 ≤ N) {z w : Plane} (hz : z ∈ modelCurve)
+    (hw : w ∈ modelCurve) (hzw : z ≠ w) {x : Plane} (hxz : x ∈ (spokePiece N z).seg)
+    (hxw : x ∈ (spokePiece N w).seg) : False := by
+  rw [spokePiece_seg hN] at hxz hxw
+  obtain ⟨t, ht, hxt⟩ := hxz
+  obtain ⟨s, hs, hxs⟩ := hxw
+  have hxt' : t • z = x := hxt
+  have hxs' : s • w = x := hxs
+  have htpos : (0 : ℝ) < t := lt_of_lt_of_le (inv_cast_pos hN) ht.1
+  have hspos : (0 : ℝ) ≤ s := le_trans (inv_cast_pos hN).le hs.1
+  have h1 : Plane.supNorm x = t := by
+    rw [← hxt']; exact supNorm_smul_of_mem_modelCurve htpos.le hz
+  have h2 : Plane.supNorm x = s := by
+    rw [← hxs']; exact supNorm_smul_of_mem_modelCurve hspos hw
+  rw [show s = t from by rw [← h2, h1]] at hxs'
+  exact hzw (smul_right_injective Plane (ne_of_gt htpos) (hxt'.trans hxs'.symm))
+
+theorem ringGraph_edge_seg_subset {N : ℕ} {fresh anchors : List Plane} {r : ℝ} (hr : 0 ≤ r)
+    {Q : Piece} (hQ : Q ∈ E(ringGraph N fresh anchors r)) : Q.seg ⊆ ringSet r := by
+  rw [← frontier_closedSquare_zero hr]
+  exact (mem_edgeSet_squareGraph_iff.1 hQ).2
+
+open scoped Classical in
+/-- An arc of the ring of radius `r` between two of its vertices, as data. The ring is
+2-connected, hence connected, so such a path exists; *which* of the two arcs is chosen does not
+matter — only that it is a path inside the ring. -/
+noncomputable def ringArc (N : ℕ) (fresh anchors : List Plane) (r : ℝ) (a b : Plane) :
+    List Piece :=
+  if h : ∃ P : List Piece, (ringGraph N fresh anchors r).IsPath a P b then h.choose else []
+
+theorem ringArc_isPath {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
+    (hfresh : ∀ u ∈ fresh, u ∈ modelCurve) (anchors : List Plane) {r : ℝ}
+    (hr : r ∈ meshRadii N) {a b : Plane} (ha : a ∈ V(ringGraph N fresh anchors r))
+    (hb : b ∈ V(ringGraph N fresh anchors r)) :
+    (ringGraph N fresh anchors r).IsPath a (ringArc N fresh anchors r a b) b := by
+  classical
+  have h : ∃ P : List Piece, (ringGraph N fresh anchors r).IsPath a P b :=
+    (ringGraph_isTwoConnected hN hfresh anchors hr).connected.exists_isPath ha hb
+  rw [ringArc, dif_pos h]
+  exact h.choose_spec
+
+/-- **The ear**: down the spoke at `z`, round the inner ring, and back up the spoke at `w`. -/
+noncomputable def meshEar (N : ℕ) (fresh anchors : List Plane) (z w : Plane) : List Piece :=
+  spokeWalk N fresh anchors z ++
+    ringArc N fresh anchors ((N : ℝ)⁻¹) (((N : ℝ)⁻¹) • z) (((N : ℝ)⁻¹) • w) ++
+    (spokeWalk N fresh anchors w).reverse
+
+theorem meshEar_isPath {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
+    (hfresh : ∀ u ∈ fresh, u ∈ modelCurve) (anchors : List Plane) {z w : Plane}
+    (hz : z ∈ fresh) (hw : w ∈ fresh) (hzw : z ≠ w) :
+    (meshGraph N fresh anchors).IsPath z (meshEar N fresh anchors z w) w := by
+  set G := meshGraph N fresh anchors with hG
+  set rmin : ℝ := ((N : ℝ)⁻¹) with hrmin
+  have hrm : rmin ∈ meshRadii N := inv_mem_meshRadii hN
+  have hrmpos : 0 < rmin := inv_cast_pos hN
+  have hzm : z ∈ modelCurve := hfresh z hz
+  have hwm : w ∈ modelCurve := hfresh w hw
+  -- the three pieces
+  have hP1 : G.IsPath z (spokeWalk N fresh anchors z) (rmin • z) :=
+    spokeWalk_isPath hN hfresh anchors hz
+  have hP3 : G.IsPath (rmin • w) (spokeWalk N fresh anchors w).reverse w :=
+    (spokeWalk_isPath hN hfresh anchors hw).reverse
+  have harc := ringArc_isPath hN hfresh anchors hrm
+    (smul_mem_vertexSet_ringGraph hN hfresh anchors hz hrm)
+    (smul_mem_vertexSet_ringGraph hN hfresh anchors hw hrm)
+  have hP2 : G.IsPath (rmin • z) (ringArc N fresh anchors rmin (rmin • z) (rmin • w))
+      (rmin • w) := harc.mono (ringGraph_le N fresh anchors rmin)
+  -- where each piece's vertices live
+  have harcseg : ∀ Q ∈ ringArc N fresh anchors rmin (rmin • z) (rmin • w), Q.seg ⊆ ringSet rmin :=
+    fun Q hQ => ringGraph_edge_seg_subset hrmpos.le (harc.isWalk.edgeSet_subset Q hQ)
+  have hV2 : ∀ x ∈ G.walkVertices (rmin • z)
+      (ringArc N fresh anchors rmin (rmin • z) (rmin • w)), x ∈ ringSet rmin :=
+    fun x hx => walkVertices_subset_of_edges (smul_mem_ringSet hrmpos.le hzm) harcseg hx
+  have hV3 : ∀ x ∈ G.walkVertices (rmin • w) (spokeWalk N fresh anchors w).reverse,
+      x ∈ (spokePiece N w).seg := by
+    refine fun x hx => walkVertices_subset_of_edges ?_ (fun Q hQ =>
+      spokeWalk_seg_subset hN hfresh anchors hw (List.mem_reverse.1 hQ)) hx
+    exact ((spokePiece_inter_ringSet hN hwm hrm).symm.subset rfl).1
+  -- first append: the spoke at `z`, then the inner arc, meeting only at `rmin • z`
+  have hp1 : G.IsPath z (spokeWalk N fresh anchors z ++
+      ringArc N fresh anchors rmin (rmin • z) (rmin • w)) (rmin • w) := by
+    refine hP1.append_of_disjoint hP2 fun x hx hx2 => ?_
+    have hxs : x ∈ (spokePiece N z).seg :=
+      walkVertices_spokeWalk_subset hN hfresh anchors hz hx
+    have := (spokePiece_inter_ringSet hN hzm hrm).subset ⟨hxs, hV2 x hx2⟩
+    exact this
+  have hV1 : ∀ x ∈ G.walkVertices z (spokeWalk N fresh anchors z ++
+      ringArc N fresh anchors rmin (rmin • z) (rmin • w)),
+      x ∈ (spokePiece N z).seg ∪ ringSet rmin := by
+    refine fun x hx => walkVertices_subset_of_edges (Or.inl (left_mem_segment ℝ _ _))
+      (fun Q hQ => ?_) hx
+    rcases List.mem_append.1 hQ with h | h
+    · exact (spokeWalk_seg_subset hN hfresh anchors hz h).trans Set.subset_union_left
+    · exact (harcseg Q h).trans Set.subset_union_right
+  -- second append: back up the spoke at `w`, meeting only at `rmin • w`
+  refine hp1.append_of_disjoint hP3 fun x hx hx2 => ?_
+  have hxw : x ∈ (spokePiece N w).seg := hV3 x hx2
+  rcases hV1 x hx with h | h
+  · exact absurd (spokePiece_disjoint hN hzm hwm hzw h hxw) not_false
+  · exact (spokePiece_inter_ringSet hN hwm hrm).subset ⟨hxw, h⟩
+
 end Schoenflies

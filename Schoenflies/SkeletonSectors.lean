@@ -21,7 +21,10 @@ form the blueprint states it: the punctured disk is the union, over the **consec
 local directions, of the open sectors between them
 (`Schoenflies.IsLocalRadius.ball_diff_eq_iUnion_cone`), each of which is open, connected,
 nonempty and disjoint from the graph. The sector is `Plane.cone x (Plane.arcCCW d w) r`, the
-object `Schoenflies/Strip.lean` already builds; nothing new is defined for it.
+object `Schoenflies/Strip.lean` already builds; nothing new is defined for it. The union is
+disjoint (`Schoenflies.cone_disjoint_of_isSectorPair`), so each sector is exactly a connected
+component of the punctured disk
+(`Schoenflies.IsLocalRadius.connectedComponentIn_eq_cone`).
 
 "Consecutive" is `Plane.IsSectorPair D d w`: both are in `D`, they are distinct, and no member
 of `D` lies strictly inside `arcCCW d w`. **No angle and no sorting is visible in that
@@ -30,7 +33,7 @@ piece with no analogue on `main`: read as a *ternary cyclic order*, `Plane.arcCC
 rotation (`Plane.mem_arcCCW_rotate`), asymmetry (`Plane.notMem_arcCCW_swap`,
 `Plane.notMem_arcCCW_asymm`), two transitivity laws (`Plane.arcCCW_trans`,
 `Plane.arcCCW_trans'`) and — for genuine directions — totality (`Plane.mem_arcCCW_total`). All
-five are pure sign-of-`det` facts, and the two transitivity laws are one instance each of the
+of them are pure sign-of-`det` facts, and the two transitivity laws are one instance each of the
 Grassmann identity `Plane.det_mul_det_add`; none of them needs a nondegeneracy hypothesis. Cut
 at any direction outside `D` and the cyclic order becomes a linear order; the greatest and the
 least element of `D` in it bound the sector containing the cut (`Plane.exists_isSectorPair`).
@@ -74,19 +77,20 @@ The sector decomposition and `Graph.exists_access_sector` assume that `x` has **
 local directions. That is not cosmetic: with one local direction the complement of the ray in
 the disk is a genuine sector of full turn, and `arcCCW d d` is empty, so it is not of the form
 `arcCCW d w` for `d, w ∈ localDirs`; with none it is the punctured disk. The unconditional
-consumer form is
-`Graph.IsDrawing.exists_access_region`, which returns the connected component of `y` in the
-punctured disk — a set with every property of a sector that the accessibility argument uses,
-but with no claim that it is bounded by two local directions. Whether the two degenerate
-punctured disks are connected is not settled here; it is not needed, because the component is
-connected by construction.
+consumer form is `Graph.IsDrawing.exists_access_region`, which returns the connected component
+of `y` in the punctured disk — a set with every property of a sector that the accessibility
+argument uses, but with no claim that it is bounded by two local directions. Whether the two
+degenerate punctured disks are connected is not settled here; it is not needed, because the
+component is connected by construction.
 
 ## Blueprint
 
 * `Schoenflies.IsLocalRadius.ball_diff_eq_iUnion_cone`,
-  `Schoenflies.IsLocalRadius.cone_subset_ball_diff`, `Schoenflies.IsLocalRadius.isConnected_cone`,
-  `Schoenflies.isOpen_cone_arcCCW` — "consequently `B(x,r) \ |G|` is a finite union of open
-  circular sectors" of `lem:local-skeleton-structure`.
+  `Schoenflies.IsLocalRadius.cone_subset_ball_diff`,
+  `Schoenflies.IsLocalRadius.isConnected_cone`, `Schoenflies.isOpen_cone_arcCCW`,
+  `Schoenflies.cone_disjoint_of_isSectorPair`,
+  `Schoenflies.IsLocalRadius.connectedComponentIn_eq_cone` — "consequently `B(x,r) \ |G|` is a
+  finite union of open circular sectors" of `lem:local-skeleton-structure`.
 * `Graph.IsDrawing.exists_edge_radial`, `Graph.IsDrawing.edge_radial_unique`,
   `Graph.IsDrawing.not_three_localDirs_on_edge`, `Graph.IsDrawing.localDirs_ncard_le` — "two of
   these radial segments with a common direction would have overlapping relative interiors,
@@ -94,14 +98,15 @@ connected by construction.
 * `Graph.IsLocalDisk`, `Graph.IsDrawing.exists_isLocalDisk` — the radius `r₀` of the same lemma,
   with the vertex clause the drawing axioms need.
 * `Graph.exists_access_sector`, `Graph.IsDrawing.exists_access_region` — "each sector is
-  connected and
-  disjoint from the skeleton … at least one sector lies in `F` … a short straight segment from
-  `x` into that sector is a polygonal access arc" of `lem:polygonal-side-accessibility`.
+  connected and disjoint from the skeleton … at least one sector lies in `F` … a short straight
+  segment from `x` into that sector is a polygonal access arc" of
+  `lem:polygonal-side-accessibility`.
 * `Plane.mem_arcCCW_rotate`, `Plane.notMem_arcCCW_swap`, `Plane.arcCCW_trans`,
-  `Plane.arcCCW_trans'`, `Plane.mem_arcCCW_total`, `Plane.exists_isSectorPair` — the cyclic
-  order of finitely many directions. `app:background`, item 1 lists the two arcs bounded by two
-  directions but not their cyclic order; this is the part of "pairwise distinct directions" that
-  the background package does not cover.
+  `Plane.arcCCW_trans'`, `Plane.mem_arcCCW_total`, `Plane.exists_isSectorPair`,
+  `Plane.IsSectorPair.unique` — the cyclic order of finitely many directions.
+  `app:background`, item 1 lists the two arcs bounded by two directions but not their cyclic
+  order; this is the part of "pairwise distinct directions" that the background package does
+  not cover.
 -/
 
 open Metric Set unitInterval
@@ -524,6 +529,96 @@ theorem exists_isSectorPair {D : Set Plane} (hfin : D.Finite) (hdir : ∀ v ∈ 
     exact h
 
 
+/-! #### The sector a direction lies in is unique
+
+Distinct consecutive pairs bound disjoint arcs, so the sectors are a *partition* of the free
+directions and not merely a cover. The proof is the same cyclic-order calculation as the
+existence proof, run backwards: a free direction inside `arcCCW d w` forces `d` to be the
+greatest and `w` the least element of `D` in the order seen from it. -/
+
+/-- A positive multiple of a direction which is itself a direction is that direction. -/
+private theorem eq_of_smul {c : ℝ} (hc : 0 < c) (hd : IsDirection d) (hz : IsDirection z)
+    (h : z = c • d) : z = d := by
+  have hc1 : c = 1 := by
+    have hn := hz.norm
+    rwa [h, norm_smul, Real.norm_eq_abs, abs_of_pos hc, hd.norm, mul_one] at hn
+  rw [h, hc1, one_smul]
+
+/-- A direction that is neither bounding ray of an arc and is not on it lies on the
+complementary arc. Both the generic case and the straight case `w = -d` are covered. -/
+theorem mem_arcCCW_rev_of_notMem {d w z : Plane} (hd : IsDirection d) (hw : IsDirection w)
+    (hdw : d ≠ w) (hz : IsDirection z) (hzd : z ≠ d) (hzw : z ≠ w) (h : z ∉ arcCCW d w) :
+    z ∈ arcCCW w d := by
+  rcases eq_or_ne (det d w) 0 with hdet | hdet
+  · -- Straight: the two arcs are the two open half-planes bounded by the line of `d`.
+    have hwd : w = -d := eq_neg_of_det_eq_zero hd hw hdw hdet
+    have harc : arcCCW d w = {v | 0 < det d v} := by rw [hwd]; exact arcCCW_neg d
+    have harc' : arcCCW w d = {v | 0 < det w v} := by
+      have hne := arcCCW_neg w
+      rw [hwd, neg_neg] at hne
+      rw [hwd]
+      exact hne
+    rw [harc, mem_setOf_eq, not_lt] at h
+    rw [harc', mem_setOf_eq, hwd]
+    have hdz : det d z ≠ 0 := by
+      intro hzero
+      rcases eq_dir_or_eq_neg_dir hd.ne_zero hz hzero with h1 | h1
+      · exact hzd (by rwa [dir_self hd] at h1)
+      · exact hzw (by rw [hwd]; rwa [dir_self hd] at h1)
+    have hsm : (-d : Plane) = (-1 : ℝ) • d := by module
+    rw [hsm, det_smul_left]
+    have : det d z < 0 := lt_of_le_of_ne h hdz
+    linarith
+  · rcases mem_ray_or_mem_arcCCW' hdet hz.ne_zero with ⟨c, hc, hcz⟩ | ⟨c, hc, hcz⟩ | harc | harc
+    · exact absurd (eq_of_smul hc hd hz hcz) hzd
+    · exact absurd (eq_of_smul hc hw hz hcz) hzw
+    · exact absurd harc h
+    · exact harc
+
+/-- **`d` is the greatest element of `D` seen from a direction of its sector.** -/
+theorem IsSectorPair.mem_arcCCW_left {D : Set Plane} {d w v z : Plane} (hp : IsSectorPair D d w)
+    (hdir : ∀ y ∈ D, IsDirection y) (hv : v ∈ arcCCW d w) (hz : z ∈ D) (hzd : z ≠ d) :
+    z ∈ arcCCW v d := by
+  have hrot : w ∈ arcCCW v d := mem_arcCCW_rotate.1 hv
+  rcases eq_or_ne z w with rfl | hzw
+  · exact hrot
+  have hzarc : z ∈ arcCCW w d := mem_arcCCW_rev_of_notMem (hdir d hp.1) (hdir w hp.2.1)
+    hp.2.2.1 (hdir z hz) hzd hzw (hp.2.2.2 z hz)
+  rw [mem_arcCCW_rotate]
+  exact arcCCW_trans' hzarc (mem_arcCCW_rotate.1 hrot)
+
+/-- **`w` is the least element of `D` seen from a direction of its sector.** -/
+theorem IsSectorPair.mem_arcCCW_right {D : Set Plane} {d w v z : Plane} (hp : IsSectorPair D d w)
+    (hdir : ∀ y ∈ D, IsDirection y) (hv : v ∈ arcCCW d w) (hz : z ∈ D) (hzw : z ≠ w) :
+    w ∈ arcCCW v z := by
+  rcases eq_or_ne z d with rfl | hzd
+  · exact mem_arcCCW_rotate.1 hv
+  have hzarc : z ∈ arcCCW w d := mem_arcCCW_rev_of_notMem (hdir d hp.1) (hdir w hp.2.1)
+    hp.2.2.1 (hdir z hz) hzd hzw (hp.2.2.2 z hz)
+  exact arcCCW_trans' hv (mem_arcCCW_rotate.1 (mem_arcCCW_rotate.1 hzarc))
+
+/-- **The sector containing a free direction is unique.** -/
+theorem IsSectorPair.unique {D : Set Plane} {d w d' w' v : Plane} (hdir : ∀ y ∈ D, IsDirection y)
+    (hp : IsSectorPair D d w) (hp' : IsSectorPair D d' w') (hv : v ∈ arcCCW d w)
+    (hv' : v ∈ arcCCW d' w') : d = d' ∧ w = w' := by
+  refine ⟨?_, ?_⟩
+  · by_contra hne
+    exact notMem_arcCCW_asymm (hp.mem_arcCCW_left hdir hv hp'.1 (Ne.symm hne))
+      (hp'.mem_arcCCW_left hdir hv' hp.1 hne)
+  · by_contra hne
+    exact notMem_arcCCW_asymm (hp.mem_arcCCW_right hdir hv hp'.2.1 (Ne.symm hne))
+      (hp'.mem_arcCCW_right hdir hv' hp.2.1 hne)
+
+/-- **Distinct consecutive pairs bound disjoint arcs.** -/
+theorem arcCCW_disjoint_of_isSectorPair {D : Set Plane} {d w d' w' : Plane}
+    (hdir : ∀ y ∈ D, IsDirection y) (hp : IsSectorPair D d w) (hp' : IsSectorPair D d' w')
+    (hne : d ≠ d' ∨ w ≠ w') : Disjoint (arcCCW d w) (arcCCW d' w') := by
+  rw [Set.disjoint_left]
+  intro v hv hv'
+  obtain ⟨h1, h2⟩ := IsSectorPair.unique hdir hp hp' hv hv'
+  exact hne.elim (fun h => h h1) fun h => h h2
+
+
 end Plane
 
 /-! ### The punctured local disk is a finite union of open sectors
@@ -606,9 +701,59 @@ theorem IsLocalRadius.ball_diff_eq_iUnion_cone (h : IsLocalRadius S x r)
     obtain ⟨p, hp, hzp⟩ := Set.mem_iUnion₂.1 hz
     exact h.cone_subset_ball_diff hp hzp
 
-/-- There are finitely many sectors. -/
-theorem sectorPairs_finite_of_localDirs (hfin : (localDirs S x).Finite) :
-    (Plane.sectorPairs (localDirs S x)).Finite := Plane.sectorPairs_finite hfin
+
+/-- **The sectors are pairwise disjoint**, so the decomposition of the punctured disk is a
+partition and not merely a cover. -/
+theorem cone_disjoint_of_isSectorPair {d w d' w' : Plane}
+    (hp : Plane.IsSectorPair (localDirs S x) d w)
+    (hp' : Plane.IsSectorPair (localDirs S x) d' w') (hne : d ≠ d' ∨ w ≠ w') :
+    Disjoint (Plane.cone x (Plane.arcCCW d w) r) (Plane.cone x (Plane.arcCCW d' w') r) := by
+  rw [Set.disjoint_left]
+  intro z hz hz'
+  exact Set.disjoint_left.1 (Plane.arcCCW_disjoint_of_isSectorPair
+    (fun _ hv => isDirection_of_mem_localDirs hv) hp hp' hne)
+    (Plane.mem_cone_iff.1 hz).1 (Plane.mem_cone_iff.1 hz').1
+
+
+/-- **Each sector is a connected component of the punctured disk.** The sectors are open,
+connected, pairwise disjoint and cover, so each is exactly the component of any of its points.
+This is what makes "the sector `y` lies in" and "the component of `y`" the same set, and hence
+`Graph.exists_access_region` and `Graph.exists_access_sector` two readings of one theorem. -/
+theorem IsLocalRadius.connectedComponentIn_eq_cone (h : IsLocalRadius S x r)
+    (hfin : (localDirs S x).Finite)
+    (h2 : ∃ a ∈ localDirs S x, ∃ b ∈ localDirs S x, a ≠ b) {d w : Plane}
+    (hp : Plane.IsSectorPair (localDirs S x) d w) (hz : z ∈ Plane.cone x (Plane.arcCCW d w) r) :
+    connectedComponentIn (ball x r \ S) z = Plane.cone x (Plane.arcCCW d w) r := by
+  classical
+  set U := Plane.cone x (Plane.arcCCW d w) r with hU
+  -- The union of all the *other* sectors.
+  set V := ⋃ p ∈ Plane.sectorPairs (localDirs S x) \ {(d, w)},
+    Plane.cone x (Plane.arcCCW p.1 p.2) r with hV
+  have hVopen : IsOpen V := isOpen_biUnion fun p _ => isOpen_cone_arcCCW _ _ _ _
+  have hdisj : Disjoint U V := by
+    rw [Set.disjoint_left]
+    intro y hyU hyV
+    obtain ⟨p, hp', hyp⟩ := Set.mem_iUnion₂.1 hyV
+    have hne : d ≠ p.1 ∨ w ≠ p.2 := by
+      by_contra hcon
+      push Not at hcon
+      exact hp'.2 (by simpa [Prod.ext_iff] using ⟨hcon.1.symm, hcon.2.symm⟩)
+    exact Set.disjoint_left.1 (cone_disjoint_of_isSectorPair hp hp'.1 hne) hyU hyp
+  have hcover : ball x r \ S ⊆ U ∪ V := by
+    intro y hy
+    obtain ⟨p, hp', hyp⟩ := Set.mem_iUnion₂.1 ((h.ball_diff_eq_iUnion_cone hfin h2) ▸ hy)
+    rcases eq_or_ne p (d, w) with rfl | hpne
+    · exact Or.inl hyp
+    · exact Or.inr (Set.mem_biUnion ⟨hp', hpne⟩ hyp)
+  refine subset_antisymm ?_ ?_
+  · rcases (isPreconnected_connectedComponentIn (F := ball x r \ S) (x := z)).subset_or_subset
+      (isOpen_cone_arcCCW _ _ _ _) hVopen hdisj
+      ((connectedComponentIn_subset _ _).trans hcover) with hsub | hsub
+    · exact hsub
+    · exact absurd (hsub (mem_connectedComponentIn (h.cone_subset_ball_diff hp hz))) 
+        (Set.disjoint_left.1 hdisj hz)
+  · exact (h.isConnected_cone hp).isPreconnected.subset_connectedComponentIn hz
+      (h.cone_subset_ball_diff hp)
 
 
 /-! ### Radial segments, two at a time

@@ -340,6 +340,96 @@ theorem IsCycleThrough.split_at {G : Graph α β} {e : β} {u v a b : α} {D : L
     refine ⟨Q ++ e :: P₁, P₂, hpath, hP2, List.perm_append_comm.trans hperm, fun y hy hy' => ?_⟩
     exact (hmeet y hy' hy).symm
 
+/-! ### Splicing an ear onto an arc
+
+The blueprint's "the crosscut replaces `F` by exactly two regions, both bounded by cycles": the
+two new cycles are the two arcs of the old one, each closed up by the ear. This is the
+combinatorial construction of one of them. -/
+
+/-- Incidence along edges of a subgraph is the same in the subgraph as in the graph, so the
+vertices a walk visits do not depend on which of the two it is read in. -/
+theorem coveredVertices_congr_of_le {H G : Graph α β} (hHG : H ≤ G) (hW : ∀ f ∈ W, f ∈ E(H)) :
+    G.coveredVertices W = H.coveredVertices W := by
+  ext x
+  constructor
+  · rintro ⟨g, hg, y, hy⟩
+    exact ⟨g, hg, y, (hHG.isLink_iff (hW g hg)).2 hy⟩
+  · rintro ⟨g, hg, y, hy⟩
+    exact ⟨g, hg, y, hy.mono hHG⟩
+
+theorem walkVertices_congr_of_le {H G : Graph α β} (hHG : H ≤ G) (hW : ∀ f ∈ W, f ∈ E(H)) :
+    G.walkVertices u W = H.walkVertices u W := by
+  rw [walkVertices, walkVertices, coveredVertices_congr_of_le hHG hW]
+
+/-- **The cycle an ear splices onto an arc of the old cycle.** The closed walk runs along the
+arc and back along the ear; presented as `Graph.IsCycleThrough`, its named edge is the ear's
+first, and its detour is the arc followed by the rest of the ear reversed. -/
+theorem exists_spliced_cycle {B G : Graph α β} (hBG : B ≤ G) {a b : α} {D₁ D' : List β}
+    (hD1 : B.IsPath a D₁ b) (hear : G.IsPath a D' b) (hab : a ≠ b)
+    (hnew : ∀ g ∈ D', g ∉ E(B))
+    (hint : ∀ y ∈ G.walkVertices a D', y ≠ a → y ≠ b → y ∉ V(B)) :
+    ∃ (f : β) (x y : α) (T : List β),
+      (B.union (G.pathGraphOf a D')).IsCycleThrough f x y T ∧ (f :: T).Perm (D₁ ++ D') := by
+  obtain ⟨f, T, rfl⟩ : ∃ f T, D' = f :: T := by
+    cases D' with
+    | nil => exact absurd hear.isWalk.eq_of_nil hab
+    | cons f T => exact ⟨f, T, rfl⟩
+  obtain ⟨w, hl, hT, hfresh⟩ :
+      ∃ w, G.IsLink f a w ∧ G.IsPath w T b ∧ a ∉ G.walkVertices w T := by
+    cases hear with
+    | cons hl hT hfr => exact ⟨_, hl, hT, hfr⟩
+  set P := G.pathGraphOf a (f :: T) with hP
+  have hPG : P ≤ G := pathGraphOf_le hear.isWalk
+  have hcompat : B.Compatible P := Compatible.of_le_le hBG hPG
+  have hPB : P ≤ B.union P := hcompat.right_le_union
+  have hBB : B ≤ B.union P := left_le_union _ _
+  have hedges : ∀ g ∈ T, g ∈ E(P) := fun g hg => by
+    rw [pathGraphOf_edgeSet hear.isWalk]; exact List.mem_cons_of_mem _ hg
+  -- The ear's tail, run backwards, is a path of the enlarged graph from the far end.
+  have hTrev : (B.union P).IsPath b T.reverse w := by
+    refine ((hT.reverse.anti hPG ?_ ?_).mono hPB)
+    · rw [pathGraphOf_vertexSet]; exact hear.isWalk.target_mem_walkVertices
+    · intro g hg; exact hedges g (List.mem_reverse.1 hg)
+  have hD1' : (B.union P).IsPath a D₁ b := hD1.mono hBB
+  have hTedges : ∀ g ∈ T.reverse, g ∈ E(P) := fun g hg => hedges g (List.mem_reverse.1 hg)
+  have hcovP : ∀ W' : List β, (∀ g ∈ W', g ∈ E(P)) →
+      (B.union P).coveredVertices W' = G.coveredVertices W' := by
+    intro W' hW'
+    rw [coveredVertices_congr_of_le hPB hW', ← coveredVertices_congr_of_le hPG hW']
+  -- The arc and the ear's tail meet only at the ear's far end: a common vertex lies in the old
+  -- subgraph, so the ear's freshness clause makes it one of the ear's two ends, and the source
+  -- is not one the rest of the ear visits.
+  have hmeet : ∀ y ∈ (B.union P).walkVertices a D₁, y ∈ (B.union P).walkVertices b T.reverse →
+      y = b := by
+    intro y hy hy'
+    have hyB : y ∈ V(B) := by
+      rw [walkVertices_congr_of_le hBB (fun g hg => hD1.edge_mem hg)] at hy
+      exact hD1.isWalk.walkVertices_subset hy
+    have hy'' : y = b ∨ y ∈ G.coveredVertices T := by
+      rcases mem_walkVertices_iff.1 hy' with rfl | hcov
+      · exact Or.inl rfl
+      · rw [hcovP _ hTedges, coveredVertices_reverse] at hcov
+        exact Or.inr hcov
+    rcases hy'' with rfl | hcov
+    · rfl
+    have hyD : y ∈ G.walkVertices a (f :: T) :=
+      mem_walkVertices_of_mem_covered (coveredVertices_mono (List.subset_cons_self _ _) hcov)
+    by_contra hyb
+    obtain rfl : y = a := by
+      by_contra hya
+      exact hint y hyD hya hyb hyB
+    exact hfresh (mem_walkVertices_of_mem_covered hcov)
+  refine ⟨f, a, w, D₁ ++ T.reverse, ⟨?_, hD1'.append hTrev hmeet, ?_⟩, ?_⟩
+  · exact (pathGraphOf_isLink.2 ⟨List.mem_cons_self, hl, mem_walkVertices_self,
+      mem_walkVertices_of_mem_covered ⟨f, List.mem_cons_self, hl.inc_right⟩⟩).mono hPB
+  · -- The ear's first edge is on neither the arc — it is not an edge of the old subgraph at
+    -- all — nor the rest of the ear, which is a path.
+    intro hmem
+    rcases List.mem_append.1 hmem with h | h
+    · exact hnew f List.mem_cons_self (hD1.edge_mem h)
+    · exact (List.nodup_cons.1 hear.nodup).1 (List.mem_reverse.1 h)
+  · exact ((List.reverse_perm T).append_left D₁).cons f |>.trans List.perm_middle.symm
+
 end GeneralWalk
 
 open Schoenflies

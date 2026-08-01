@@ -13,26 +13,75 @@ import Schoenflies.Line
 /-!
 # The initial matched pair
 
-The entry point of Part II (`prop:initial-pair`). Everything the refinement machinery of
-`def:generated-structure` builds is generated from the single object constructed here, so the
-construction is exported as data — an abstract `CellStructure`, two `Realization`s of it, and
-the `SkeletonHomeo` between them — and not as an existential bundle.
+The entry point of Part II (`prop:initial-pair`). `def:generated-structure` builds every later
+stage from this one by two elementary operations, so the construction is exported as **data** —
+one abstract `CellStructure`, two `Realization`s of it, and the `SkeletonHomeo` between them —
+and not as an existentially packaged bundle. `Schoenflies.initial_pair` at the end is only a
+restatement of the blueprint sentence; nothing should be consumed through it.
+
+## The shape of the construction
+
+The blueprint's `u : C → S` is taken as *data*, not produced inside the proof, because every
+later stage uses the same `u`. `Schoenflies.IsSetHomeoOn` is the set-level form of it, and
+`Schoenflies.exists_isSetHomeoOn_modelCurve` produces one from `lem:jordan-circle`.
+
+The **target** side is completely explicit: six marked points on `S` (four corners, `u(a)` on
+the top side and `u(b)` on the bottom side), seven straight edges. The **source** side is the
+pushforward of the target's outer cycle along `w = u⁻¹`, plus the polygonal crosscut. That
+asymmetry is deliberate: nothing about the six source arcs has to be proved, because `w` is
+injective on `S` and each drawing condition transfers.
+
+The nonadjacency hypothesis of `prop:initial-pair` is used in exactly one place,
+`Schoenflies.openSegment_chord_supNorm_lt`: `u(a)` and `u(b)` lie on **opposite** sides, so
+every interior point of the straight chord has sup norm `< 1`, hence lies in `Q°`.
+
+## What is assumed
+
+Exactly two hypotheses are carried, and only by the theorems that need them. Neither is a
+restatement of anything proved here.
+
+* `harc : ∀ A : Set Plane, IsArc A → IsConnected Aᶜ` — `thm:arc-complement`, the standing
+  hypothesis of `thm:jordan` in this library. It is what produces `IsSeparating C`, hence the
+  Jordan domain the crosscut runs in, and it is threaded into `thm:general-crosscut` in the
+  form that theorem takes.
+* `hcollars : Schoenflies.HasArcCollars (inside C) d.crossSet` — blueprint Lemma 1.8 (b) for
+  the polygonal crosscut, the standing hypothesis of `lem:crosscut-at-most-two`. It is needed
+  on the **source** side only: on the target side the chord is a straight segment, so
+  `Schoenflies.hasArcCollars_segment` discharges it outright
+  (`InitialData.hasArcCollarsTarget`).
 
 ## Blueprint
 
-* `Schoenflies.InitialCell` — the fifteen cell names of the base structure fixed by the
-  blueprint right after `def:generated-structure` (tex 1590–1602): six boundary vertices, six
-  outer edges, the crosscut edge, two 2-cells.
-* `Schoenflies.initialStructure` — the abstract record, with `initSub` the base value of
-  `≼_abs`.
+* `Schoenflies.IsSetHomeoOn`, `Schoenflies.exists_isSetHomeoOn_modelCurve` — `lem:jordan-circle`
+  in the set-level form the gluing needs.
+* `Schoenflies.InitialCell`, `Schoenflies.initSkel`, `Schoenflies.initOuter`,
+  `Schoenflies.faceCells`, `Schoenflies.initBoundary`, `Schoenflies.initSub`,
+  `Schoenflies.initialStructure` — the base cell structure the blueprint fixes right after
+  `def:generated-structure` (tex 1590–1602): six boundary vertices, six outer edges, the
+  crosscut edge, two 2-cells, and the stated base value of `≼_abs`.
+* `Schoenflies.outerEdgeUniqueFace_initialStructure` — assertion (vi) of
+  `lem:cellulation-invariants` for the base structure.
 * `Schoenflies.HexData`, `Schoenflies.HexData.realization` — a realization of that record from
-  six points and seven parametrizations, with the geometric side conditions isolated.
+  six points and seven parametrizations, with the geometric side conditions isolated;
+  `HexData.arcOf`, `HexData.arcOf_false_isArcBetween`, `HexData.arcOf_inter`,
+  `HexData.outerSet_realization`, `HexData.nonboundary_eq`,
+  `HexData.isConnected_nonboundary` are the `def:admissible-graph` clauses that follow.
+* `Schoenflies.isTwoConnected_initSkel`, `Schoenflies.HexData.isTwoConnected_graph` — the
+  2-connectivity clause of `def:admissible-graph`, proved once on the abstract graph and
+  transported by `lem:combinatorial-invariance` (a).
 * `Schoenflies.targetHex`, `Schoenflies.sourceHex` — the two realizations of
-  `prop:initial-pair`: `S` subdivided at the four corners and `u(a), u(b)` with the straight
-  chord, and `C` subdivided at their `u`-preimages with the polygonal crosscut.
-* `Schoenflies.initialSkeletonHomeo` — the skeleton homeomorphism `g` of `def:matched-pair`:
-  `u` on the outer cycle, a chosen homeomorphism on the crosscut.
-* `Schoenflies.initial_pair` — `prop:initial-pair`.
+  `prop:initial-pair`.
+* `Schoenflies.InitialData` — the data of an initial matched pair, with
+  `InitialData.sourceRealization`, `InitialData.targetRealization` and
+  `InitialData.skeletonHomeo` (the `g` of `def:matched-pair`: `u` on the outer cycle by
+  `InitialData.skeletonHomeo_eq_u`, the parameter-matching homeomorphism `P → [u(a), u(b)]` on
+  the crosscut by `InitialData.skeletonHomeo_cross`).
+* `Schoenflies.InitialData.isCrosscut`, `.isCutPair`, `.source_cells_cover`,
+  `.source_cell_isComponent`, `.source_closure_cell_inter` and their target counterparts —
+  `thm:general-crosscut` applied on each side: the two abstract 2-cells are realized by the two
+  sides of the crosscut, labelled by which arc of the outer cycle their closure meets.
+* `Schoenflies.InitialData.exists_initialData`, `Schoenflies.initial_pair` —
+  `prop:initial-pair`.
 -/
 
 open Metric Set Topology unitInterval
@@ -739,6 +788,92 @@ theorem isConnected_nonboundary : IsConnected H.realization.nonboundary := by
 end HexData
 
 
+/-! ### The initial skeleton is 2-connected
+
+The first clause of `def:admissible-graph`. It is a fact about the *abstract* graph — a hexagon
+with one chord — and `Graph.isTwoConnected_map_iff` carries it to both realizations at once, so
+it is proved here and nowhere else. The chord plays no part: the hexagon alone is 2-connected,
+because deleting one of its vertices leaves a path. All the cyclic index arithmetic is
+`decide`. -/
+
+private theorem fin6_add_sub : ∀ k j : Fin 6, j = k + (j - k) := by decide
+
+private theorem fin6_add_one : ∀ k m : Fin 6, k + m + 1 = k + (m + 1) := by decide
+
+private theorem fin6_add_eq_self : ∀ k n : Fin 6, k + n = k → n = 0 := by decide
+
+private theorem stepFull {m m' : Fin 6} (h : m + 1 = m') :
+    initSkel.Reaches (.vert m) (.vert m') := by
+  subst h
+  exact Graph.Reaches.of_isLink (initSkel_isLink_ends (InitialCell.edge_mem_edges m))
+
+/-- The abstract hexagon-with-chord is connected. -/
+theorem connected_initSkel : initSkel.Connected := by
+  refine Graph.Connected.of_hub (u := .vert 0) ⟨0, rfl⟩ ?_
+  rintro _ ⟨j, rfl⟩
+  have s01 : initSkel.Reaches (.vert 0) (.vert 1) := stepFull (by decide)
+  have s12 : initSkel.Reaches (.vert 1) (.vert 2) := stepFull (by decide)
+  have s23 : initSkel.Reaches (.vert 2) (.vert 3) := stepFull (by decide)
+  have s34 : initSkel.Reaches (.vert 3) (.vert 4) := stepFull (by decide)
+  have s45 : initSkel.Reaches (.vert 4) (.vert 5) := stepFull (by decide)
+  fin_cases j
+  · exact Graph.Reaches.refl ⟨0, rfl⟩
+  · exact s01
+  · exact s01.trans s12
+  · exact (s01.trans s12).trans s23
+  · exact ((s01.trans s12).trans s23).trans s34
+  · exact (((s01.trans s12).trans s23).trans s34).trans s45
+
+private theorem vert_notMem_del {k n : Fin 6} (hn : n ≠ 0) :
+    (InitialCell.vert (k + n)) ∉ ({InitialCell.vert k} : Set InitialCell) := by
+  simp only [Set.mem_singleton_iff, InitialCell.vert.injEq]
+  exact fun h => hn (fin6_add_eq_self k n h)
+
+private theorem stepDel (k : Fin 6) {m m' : Fin 6} (hmm : m + 1 = m') (hm : m ≠ 0)
+    (hm' : m' ≠ 0) :
+    (initSkel.deleteVerts {InitialCell.vert k}).Reaches (.vert (k + m)) (.vert (k + m')) := by
+  have h0 : initSkel.IsLink (InitialCell.edge (k + m)) (.vert (k + m)) (.vert (k + m + 1)) :=
+    initSkel_isLink_ends (InitialCell.edge_mem_edges (k + m))
+  rw [fin6_add_one k m, hmm] at h0
+  refine Graph.Reaches.of_isLink (e := InitialCell.edge (k + m)) ?_
+  rw [Graph.deleteVerts_isLink]
+  exact ⟨h0, vert_notMem_del hm, vert_notMem_del hm'⟩
+
+/-- Deleting one vertex of the hexagon leaves a path, hence a connected graph. -/
+theorem deleteVert_connected_initSkel (k : Fin 6) :
+    (initSkel.deleteVerts {InitialCell.vert k}).Connected := by
+  have h12 := stepDel k (m := 1) (m' := 2) (by decide) (by decide) (by decide)
+  have h23 := stepDel k (m := 2) (m' := 3) (by decide) (by decide) (by decide)
+  have h34 := stepDel k (m := 3) (m' := 4) (by decide) (by decide) (by decide)
+  have h45 := stepDel k (m := 4) (m' := 5) (by decide) (by decide) (by decide)
+  have hhub : (InitialCell.vert (k + 1)) ∈ V(initSkel.deleteVerts {InitialCell.vert k}) :=
+    ⟨⟨k + 1, rfl⟩, vert_notMem_del (by decide)⟩
+  refine Graph.Connected.of_hub hhub ?_
+  rintro _ ⟨⟨j, rfl⟩, hj⟩
+  obtain ⟨m, rfl⟩ : ∃ m, j = k + m := ⟨j - k, fin6_add_sub k j⟩
+  have hm : m ≠ 0 := by
+    rintro rfl
+    exact hj (by simp)
+  fin_cases m
+  · exact absurd rfl hm
+  · exact Graph.Reaches.refl hhub
+  · exact h12
+  · exact h12.trans h23
+  · exact (h12.trans h23).trans h34
+  · exact ((h12.trans h23).trans h34).trans h45
+
+/-- **The initial skeleton is 2-connected** — the first clause of `def:admissible-graph`. -/
+theorem isTwoConnected_initSkel : initSkel.IsTwoConnected where
+  hasThreeVertices :=
+    ⟨.vert 0, ⟨0, rfl⟩, .vert 1, ⟨1, rfl⟩, .vert 2, ⟨2, rfl⟩, by decide, by decide, by decide⟩
+  connected := connected_initSkel
+  deleteVerts_connected := by rintro _ ⟨k, rfl⟩; exact deleteVert_connected_initSkel k
+
+/-- **Both drawn skeleta are 2-connected.** By `lem:combinatorial-invariance` (a) there is only
+one statement to prove, and it is the abstract one. -/
+theorem HexData.isTwoConnected_graph (H : HexData) : (H.realization.graph).IsTwoConnected :=
+  (Graph.isTwoConnected_map_iff H.injOn_point).2 isTwoConnected_initSkel
+
 /-! ### The target realization: the square with one straight chord
 
 The target side of `prop:initial-pair` is completely explicit. The six marked points of `S` are
@@ -1213,6 +1348,10 @@ theorem u_a : d.u (d.w (tgtPos d.xa d.xb 1)) = tgtPos d.xa d.xb 1 :=
 theorem u_b : d.u (d.w (tgtPos d.xa d.xb 4)) = tgtPos d.xa d.xb 4 :=
   d.homeo.rightInvOn (tgtPos_mem_modelCurve d.abs_xa d.abs_xb 4)
 
+@[simp] theorem u_apply_a : d.u d.a = Plane.mk d.xa 1 := d.u_a
+
+@[simp] theorem u_apply_b : d.u d.b = Plane.mk d.xb (-1) := d.u_b
+
 theorem sourceRealization_skeletonSet : d.sourceRealization.skeletonSet = C ∪ d.crossSet := by
   rw [sourceRealization, HexData.skeletonSet_realization, d.src_outerArcs]
   rfl
@@ -1220,6 +1359,24 @@ theorem sourceRealization_skeletonSet : d.sourceRealization.skeletonSet = C ∪ 
 theorem targetRealization_skeletonSet :
     d.targetRealization.skeletonSet = modelCurve ∪ d.tgt.chordSet := by
   rw [targetRealization, HexData.skeletonSet_realization, d.tgt_outerArcs]
+
+theorem sourceRealization_outerSet : d.sourceRealization.outerSet = C := by
+  rw [sourceRealization, HexData.outerSet_realization, d.src_outerArcs]
+
+theorem targetRealization_outerSet : d.targetRealization.outerSet = modelCurve := by
+  rw [targetRealization, HexData.outerSet_realization, d.tgt_outerArcs]
+
+theorem isConnected_sourceRealization_nonboundary :
+    IsConnected d.sourceRealization.nonboundary := d.src.isConnected_nonboundary
+
+theorem isConnected_targetRealization_nonboundary :
+    IsConnected d.targetRealization.nonboundary := d.tgt.isConnected_nonboundary
+
+theorem isTwoConnected_sourceRealization : (d.sourceRealization.graph).IsTwoConnected :=
+  d.src.isTwoConnected_graph
+
+theorem isTwoConnected_targetRealization : (d.targetRealization.graph).IsTwoConnected :=
+  d.tgt.isTwoConnected_graph
 
 /-! #### `a` and `b` are the only points the crosscut shares with the curve -/
 
@@ -1423,32 +1580,32 @@ theorem sourceRealization_cell_face (k : Bool) :
     d.sourceRealization.cell (.face k) = inside (d.src.arcOf k ∪ d.crossSet) := rfl
 
 /-- **The two source 2-cells exhaust `D ∖ P`** — `thm:general-crosscut`, first sentence. -/
-theorem source_cells_cover (hjordan : ∀ S : Set Plane, IsJordanCurve S → IsSeparating S)
+theorem source_cells_cover (harc : ∀ A : Set Plane, IsArc A → IsConnected Aᶜ)
     (hcollars : HasArcCollars (inside C) d.crossSet) :
     inside C \ d.crossSet =
       d.sourceRealization.cell (.face false) ∪ d.sourceRealization.cell (.face true) :=
-  d.isCrosscut.inside_diff_eq hjordan d.isCutPair hcollars
+  d.isCrosscut.inside_diff_eq (fun _ h => h.isSeparating harc) d.isCutPair hcollars
 
 /-- **Each source 2-cell is a component of `D ∖ P`.** -/
-theorem source_cell_isComponent (hjordan : ∀ S : Set Plane, IsJordanCurve S → IsSeparating S)
+theorem source_cell_isComponent (harc : ∀ A : Set Plane, IsArc A → IsConnected Aᶜ)
     (k : Bool) : ∀ z ∈ d.sourceRealization.cell (.face k),
       connectedComponentIn (inside C \ d.crossSet) z = d.sourceRealization.cell (.face k) := by
   cases k
-  · exact d.isCrosscut.side_isComponent hjordan d.isCutPair
-  · exact d.isCrosscut.side_isComponent hjordan d.isCutPair.symm
+  · exact d.isCrosscut.side_isComponent (fun _ h => h.isSeparating harc) d.isCutPair
+  · exact d.isCrosscut.side_isComponent (fun _ h => h.isSeparating harc) d.isCutPair.symm
 
 /-- **The labelling of the two source 2-cells**: the closure of `Rₖ` meets `C` exactly in
 `Aₖ`. This is what makes `k ↦ face k` the correspondence `lem:crosscut-side-correspondence`
 asks for. -/
-theorem source_closure_cell_inter (hjordan : ∀ S : Set Plane, IsJordanCurve S → IsSeparating S)
+theorem source_closure_cell_inter (harc : ∀ A : Set Plane, IsArc A → IsConnected Aᶜ)
     (k : Bool) : closure (d.sourceRealization.cell (.face k)) ∩ C = d.src.arcOf k := by
   cases k
-  · exact d.isCrosscut.closure_side_inter hjordan d.isCutPair
-  · exact d.isCrosscut.closure_side_inter hjordan d.isCutPair.symm
+  · exact d.isCrosscut.closure_side_inter (fun _ h => h.isSeparating harc) d.isCutPair
+  · exact d.isCrosscut.closure_side_inter (fun _ h => h.isSeparating harc) d.isCutPair.symm
 
-theorem source_cells_ne (hjordan : ∀ S : Set Plane, IsJordanCurve S → IsSeparating S) :
+theorem source_cells_ne (harc : ∀ A : Set Plane, IsArc A → IsConnected Aᶜ) :
     d.sourceRealization.cell (.face false) ≠ d.sourceRealization.cell (.face true) :=
-  d.isCrosscut.side_ne hjordan d.isCutPair
+  d.isCrosscut.side_ne (fun _ h => h.isSeparating harc) d.isCutPair
 
 /-! #### The target side -/
 
@@ -1526,18 +1683,20 @@ theorem targetRealization_cell_face (k : Bool) :
     d.targetRealization.cell (.face k) = inside (d.tgt.arcOf k ∪ d.tgt.chordSet) := rfl
 
 /-- **The two target 2-cells exhaust `Q° ∖ [u(a), u(b)]`.** -/
-theorem target_cells_cover (hjordan : ∀ S : Set Plane, IsJordanCurve S → IsSeparating S) :
+theorem target_cells_cover (harc : ∀ A : Set Plane, IsArc A → IsConnected Aᶜ) :
     inside modelCurve \ d.tgt.chordSet =
       d.targetRealization.cell (.face false) ∪ d.targetRealization.cell (.face true) :=
-  d.isCrosscutTarget.inside_diff_eq hjordan d.isCutPairTarget d.hasArcCollarsTarget
+  d.isCrosscutTarget.inside_diff_eq (fun _ h => h.isSeparating harc) d.isCutPairTarget
+    d.hasArcCollarsTarget
 
 /-- **The labelling of the two target 2-cells.** -/
-theorem target_closure_cell_inter (hjordan : ∀ S : Set Plane, IsJordanCurve S → IsSeparating S)
+theorem target_closure_cell_inter (harc : ∀ A : Set Plane, IsArc A → IsConnected Aᶜ)
     (k : Bool) :
     closure (d.targetRealization.cell (.face k)) ∩ modelCurve = d.tgt.arcOf k := by
   cases k
-  · exact d.isCrosscutTarget.closure_side_inter hjordan d.isCutPairTarget
-  · exact d.isCrosscutTarget.closure_side_inter hjordan d.isCutPairTarget.symm
+  · exact d.isCrosscutTarget.closure_side_inter (fun _ h => h.isSeparating harc) d.isCutPairTarget
+  · exact d.isCrosscutTarget.closure_side_inter (fun _ h => h.isSeparating harc)
+      d.isCutPairTarget.symm
 
 
 end InitialData
@@ -1687,6 +1846,41 @@ theorem exists_initialData (harc : ∀ A : Set Plane, IsArc A → IsConnected A�
     exact hwsin ⟨hz.1, by simpa [hf0, hf1] using hz.2⟩
   · rw [hfim]
     exact ⟨ws, rfl⟩
+
+
+/-- **`prop:initial-pair`, assembled.** There is a matched pair whose source realization is `C`
+subdivided at the `u`-preimages of the four corners of `Q` and at two further points `a, b` of
+the countable dense strongly accessible set lying in two nonadjacent corner arcs, together with
+one polygonal crosscut of `D` from `a` to `b`, and whose target realization is `S`
+correspondingly subdivided together with the straight chord `[u(a), u(b)]`.
+
+Both realizations realize the one `Schoenflies.initialStructure`, so clause 1 of
+`def:matched-pair` is definitional; clause 2 is the last conjunct; clause 3 is
+`InitialData.skeletonHomeo` together with `InitialData.skeletonHomeo_cross`. Admissibility
+(`def:admissible-graph`) is the first six conjuncts.
+
+Everything here is available separately, as a function of the `InitialData` produced: this
+bundle exists so that the blueprint statement appears once, in one place. `def:generated-
+structure` builds every later stage from `InitialData.sourceRealization`,
+`InitialData.targetRealization` and `InitialData.skeletonHomeo`, and needs them as data, not as
+the content of an existential. -/
+theorem initial_pair (harc : ∀ A : Set Plane, IsArc A → IsConnected Aᶜ) (hC : IsJordanCurve C) :
+    ∃ d : InitialData C,
+      (d.sourceRealization.graph).IsTwoConnected ∧
+      (d.targetRealization.graph).IsTwoConnected ∧
+      d.sourceRealization.outerSet = C ∧
+      d.targetRealization.outerSet = modelCurve ∧
+      IsConnected d.sourceRealization.nonboundary ∧
+      IsConnected d.targetRealization.nonboundary ∧
+      IsPolygonal d.crossSet ∧
+      d.tgt.chordSet = segment ℝ (d.u d.a) (d.u d.b) ∧
+      (∀ x ∈ C, d.skeletonHomeo.toFun x = d.u x) := by
+  obtain ⟨d⟩ := exists_initialData harc hC
+  exact ⟨d, d.isTwoConnected_sourceRealization, d.isTwoConnected_targetRealization,
+    d.sourceRealization_outerSet, d.targetRealization_outerSet,
+    d.isConnected_sourceRealization_nonboundary, d.isConnected_targetRealization_nonboundary,
+    d.polygonal_cross, by rw [d.tgt_chordSet, d.u_apply_a, d.u_apply_b],
+    fun x hx => d.skeletonHomeo_eq_u hx⟩
 
 
 end Schoenflies

@@ -86,3 +86,8 @@ import Schoenflies.SkeletonAccess
 import Schoenflies.InitialPair
 import Schoenflies.GeneratedStructure
 import Schoenflies.SquareMeshFixed
+import Schoenflies.RefinementStars
+import Schoenflies.InitialPairFixed
+import Schoenflies.LocalGrid
+import Schoenflies.BoundaryContinuity
+import Schoenflies.Endgame

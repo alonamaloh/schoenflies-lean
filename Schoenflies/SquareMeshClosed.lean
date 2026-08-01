@@ -3,7 +3,7 @@ Copyright (c) 2026 Álvaro Begué. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Álvaro Begué
 -/
-import Schoenflies.LocalGrid
+import Schoenflies.GridAttach
 import Schoenflies.SquareCycle
 
 /-!
@@ -503,5 +503,59 @@ theorem meshGraph_ring_cycle {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
       · exact Graph.mem_edgesCover List.mem_cons_self hzQ
       · exact Graph.mem_edgesCover (List.mem_cons_of_mem _
           (List.mem_append_right _ (List.mem_reverse.2 hQ'))) hzQ
+
+
+/-! ### Each ring of the mesh, as a named 2-connected subgraph
+
+`Schoenflies/SquareCycle.lean` proves that the part of *any* polygonal overlay lying on the
+boundary of a square whose four sides are among the overlay's source segments is a long cycle,
+and is 2-connected — at any centre and any positive radius. The rings of the mesh are exactly
+that, at centre `0`: `squarePieces 0 r` and `ringPieces r` are the same list. So each ring comes
+with a name, `ringGraph`, a 2-connectivity proof, and the two membership lemmas the assembly of
+clause 5 needs, at no cost. -/
+
+/-- The four sides of the square of radius `r` about the origin are the four sides of the ring
+of radius `r`: the two lists are equal, entry for entry. -/
+theorem squarePieces_zero (r : ℝ) : squarePieces 0 r = ringPieces r := by
+  simp [squarePieces, ringPieces, sqNE, sqNW, sqSW, sqSE, Plane.mk]
+
+/-- The frontier of the closed square of radius `r` about the origin is the ring of radius
+`r`. -/
+theorem frontier_closedSquare_zero {r : ℝ} (hr : 0 ≤ r) :
+    frontier (Plane.closedSquare 0 r) = ringSet r := by
+  rw [← cover_squarePieces 0 hr, squarePieces_zero, cover_ringPieces hr]
+
+/-- **The ring of radius `r` of the mesh, as a subgraph**: the mesh edges lying on that ring. -/
+noncomputable def ringGraph (N : ℕ) (fresh anchors : List Plane) (r : ℝ) : Graph Plane Piece :=
+  squareGraph (meshSegments N fresh) (meshPoints N fresh anchors) 0 r
+
+theorem ringGraph_le (N : ℕ) (fresh anchors : List Plane) (r : ℝ) :
+    ringGraph N fresh anchors r ≤ meshGraph N fresh anchors :=
+  squareGraph_le
+
+/-- The sides of the ring of radius `r` are mesh segments, for every radius the mesh uses. -/
+theorem squarePieces_zero_subset_meshSegments {N : ℕ} {fresh : List Plane} {r : ℝ}
+    (hr : r ∈ meshRadii N) : ∀ P ∈ squarePieces 0 r, P ∈ meshSegments N fresh := by
+  rw [squarePieces_zero]
+  exact fun P hP => ring_ringPieces_mem hr hP
+
+/-- **Every ring of the mesh is a 2-connected subgraph.** -/
+theorem ringGraph_isTwoConnected {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
+    (hfresh : ∀ z ∈ fresh, z ∈ modelCurve) (anchors : List Plane) {r : ℝ}
+    (hr : r ∈ meshRadii N) : (ringGraph N fresh anchors r).IsTwoConnected :=
+  squareGraph_isTwoConnected (meshSegments_nondeg hN hfresh)
+    (meshPoints_endsAreCut N fresh anchors) (meshPoints_meetsAreCut N fresh anchors)
+    (meshRadii_pos hN hr) (squarePieces_zero_subset_meshSegments hr)
+
+/-- **A cut point of the mesh lying on a ring is a vertex of that ring.** This is what makes the
+crossing points of the spokes with the rings usable as the shared vertices of
+`lem:union-two-connected`. -/
+theorem mem_vertexSet_ringGraph {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
+    (hfresh : ∀ z ∈ fresh, z ∈ modelCurve) {anchors : List Plane} {r : ℝ}
+    (hr : r ∈ meshRadii N) {y : Plane} (hy : y ∈ meshPoints N fresh anchors)
+    (hyr : y ∈ ringSet r) : y ∈ V(ringGraph N fresh anchors r) :=
+  mem_vertexSet_squareGraph (meshSegments_nondeg hN hfresh) (meshRadii_pos hN hr).le
+    (squarePieces_zero_subset_meshSegments hr) hy
+    (by rw [frontier_closedSquare_zero (meshRadii_pos hN hr).le]; exact hyr)
 
 end Schoenflies

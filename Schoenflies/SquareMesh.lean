@@ -11,11 +11,71 @@ import Schoenflies.Graph.Redrawing
 /-!
 # The anchored square mesh
 
-The geometric core of `prop:anchored-square-mesh`.
+The geometric core of Proposition `prop:anchored-square-mesh`, in vocabulary that exists today:
+Part II's cellulations, `V_boundary` and fresh points `u(𝒜)` are not built here, so the mesh is
+stated as a **finite plane graph with a straight-line drawing**, with the clauses of the
+proposition as separate theorems about it.
+
+## The construction
+
+`squareMesh δ fresh anchors` is `meshCount δ` concentric ring frames of radii
+`1/N, 2/N, …, 1` inside `Q = [-1,1]²`, together with one full-length radial spoke
+`[z, N⁻¹ • z]` at each fresh boundary point `z`. The list of segments is handed to
+`overlayGraph` (Lemma 3.7), which subdivides at every crossing; the anchors are added to the
+cut points, which is what makes each of them a vertex.
+
+**This is not literally the blueprint's construction, and the difference is deliberate.** The
+blueprint has one collar `λ ≤ ‖x‖∞ ≤ 1` plus a rectangular grid filling `λQ`. Here the collar
+is repeated `N` times and there is no grid at all: the innermost square `N⁻¹ Q` is a *single*
+cell, of diameter `2√2/N < δ`. That removes the "choose fine enough horizontal and vertical
+coordinates, including the four corners and all the points `λ z_i`" step entirely, and makes
+the whole mesh radial, so that one estimate — `‖tz - sw‖ ≤ t‖z - w‖ + |t - s|‖w‖`, the
+blueprint's own — covers every cell. Nothing downstream can tell the difference: the clauses
+are the interface.
+
+The blueprint's cyclic ordering of the fresh points is likewise gone. Where it says "choose
+`z_0, …, z_{m-1}` in cyclic order so that each boundary arc between consecutive ones has
+diameter `< δ/4`", this module takes the order-free consequence as a hypothesis,
+`FreshDense fresh δ`: *every connected subset of `S` avoiding all the fresh points has diameter
+at most `δ/2`*. A set-level statement needs no ordering, and it is exactly what the blueprint's
+own argument (parametrize `S` by a circle, cut it into small arcs, put one fresh point inside
+each) produces.
+
+## What is proved, and what is not
+
+The clauses about faces, anchors, edges reaching `S` and connectedness of `|T| ∖ S` are proved
+in full. Two gaps, both stated plainly:
+
+* **The outer cycle is proved only as a point set.** `squareMesh_cover_outerEdges` says the
+  edges whose segments lie on `S` occupy exactly `S`. That these edges form a **cycle** of the
+  graph is *not* proved: it needs the fresh points, the anchors and the four corners put in
+  cyclic order along `S`, which is precisely the ordering this construction was designed to
+  avoid. A later module wanting the outer cycle must build it.
+* **2-connectivity is not proved at all.** It is not present as a hypothesis either — a
+  hypothesis restating the goal would be worthless. The route is the blueprint's: the innermost
+  ring is a cycle, and each annulus between consecutive rings is added one rectangle at a time
+  by `Graph.IsTwoConnected.union`, each added cycle sharing at least two vertices with what is
+  already there. Nothing in this module obstructs it.
+
+Connectedness of `|T| ∖ S` needs at least one fresh point (`hz₀ : z₀ ∈ fresh`): with no spokes
+the rings are disjoint frames.
 
 ## Blueprint
 
-* `squareMesh` — Proposition "Anchored square mesh".
+* `ringSet`, `ringPieces`, `spokePiece`, `meshSegments` — the mesh as a list of segments.
+* `meshGraph`, `squareMesh` — Proposition "Anchored square mesh", the construction itself.
+* `FreshDense` — the order-free form of "consecutive fresh points bound an arc of diameter
+  `< δ/4`".
+* `squareMesh_face_small` — clause 1: every bounded 2-cell has diameter `< δ`, and lies in `Q`.
+* `squareMesh_anchor_mem_vertexSet` — clause 2: every boundary vertex survives.
+* `squareMesh_inner_edge_at_fresh`, `squareMesh_unique_inner_edge` — clauses 3 and 4: a new
+  internal edge meeting `S` ends at a fresh point, and exactly one such edge is incident with
+  each fresh point.
+* `squareMesh_cover_outerEdges` — the point-set half of "`S` is the outer cycle" (see above).
+* `squareMesh_isConnected_diff` — clause 6: `|T| ∖ S` is connected.
+* `radial_diam_bound` — the blueprint's radial estimate, isolated from all graph language.
+* `subdivide_covers_source`, `subdivide_end_of_mem` — two general facts about `subdivide` that
+  belong in `Schoenflies/Subdivide.lean`.
 -/
 
 open Metric Set
@@ -51,13 +111,18 @@ theorem cover_ringPieces {r : ℝ} (hr : 0 ≤ r) : cover (ringPieces r) = ringS
   simp only [ringPieces, cover_cons, cover_nil, union_empty, mem_union, Piece.seg,
     mem_segment_horiz, mem_segment_vert, segment_symm_Icc hr, segment_symm_Icc' hr,
     mem_Icc, ringSet, mem_setOf_eq, Plane.supNorm]
+  -- On each side one coordinate is pinned to `±r` and the other is confined to `[-r, r]`;
+  -- which of the two is pinned is the only difference between the four sides.
+  have hleft : ∀ u v : ℝ, |u| = r → |v| ≤ r → max |u| |v| = r := by
+    intro u v hu hv; rw [hu]; exact max_eq_left hv
+  have hright : ∀ u v : ℝ, |u| ≤ r → |v| = r → max |u| |v| = r := by
+    intro u v hu hv; rw [hv]; exact max_eq_right hu
   constructor
   · rintro (⟨h1, h2, h3⟩ | ⟨h1, h2, h3⟩ | ⟨h1, h2, h3⟩ | ⟨h1, h2, h3⟩)
-    · rw [h1]; rw [max_eq_right] <;> [skip; skip] <;>
-        simp [abs_of_nonneg hr, abs_le.2 ⟨h2, h3⟩]
-    · rw [h1]; rw [max_eq_left] <;> simp [abs_of_nonneg hr, abs_le.2 ⟨h2, h3⟩]
-    · rw [h1]; rw [max_eq_right] <;> simp [abs_of_nonneg hr, abs_le.2 ⟨h2, h3⟩]
-    · rw [h1]; rw [max_eq_left] <;> simp [abs_of_nonneg hr, abs_le.2 ⟨h2, h3⟩]
+    · exact hright _ _ (abs_le.2 ⟨h2, h3⟩) (by rw [h1, abs_of_nonneg hr])
+    · exact hleft _ _ (by rw [h1, abs_neg, abs_of_nonneg hr]) (abs_le.2 ⟨h2, h3⟩)
+    · exact hright _ _ (abs_le.2 ⟨h2, h3⟩) (by rw [h1, abs_neg, abs_of_nonneg hr])
+    · exact hleft _ _ (by rw [h1, abs_of_nonneg hr]) (abs_le.2 ⟨h2, h3⟩)
   · intro h
     have h0 : |x 0| ≤ r := h ▸ le_max_left _ _
     have h1 : |x 1| ≤ r := h ▸ le_max_right _ _
@@ -564,7 +629,7 @@ theorem smul_openSegment_eq_image {a b : ℝ} (hab : a < b) (z : Plane) :
 /-- A nondegenerate subsegment of a spoke having the spoke's outer end `z` as an endpoint runs
 from `z` inwards: its interior is `{t • z : t₀ < t < 1}` for some `t₀ < 1`. This is the whole
 of "only one edge leaves `S` at a fresh point" — two such edges would overlap near `z`. -/
-theorem spoke_subpiece_interior {N : ℕ} (hN : 2 ≤ N) {z : Plane} (hz : z ∈ modelCurve)
+theorem spoke_subpiece_interior {N : ℕ} (hN : 2 ≤ N) {z : Plane}
     {P : Piece} (hnd : P.Nondeg) (hsub : P.seg ⊆ (spokePiece N z).seg)
     (hend : z = P.1 ∨ z = P.2) :
     ∃ t₀ : ℝ, t₀ < 1 ∧ P.interior = (fun t : ℝ => t • z) '' Ioo t₀ 1 := by
@@ -626,14 +691,16 @@ theorem inner_edge_at_fresh_unique {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
       have : z ∈ ({w} : Set Plane) := hmeetw ▸ (show z ∈ R.seg ∩ modelCurve from ⟨hzR, hzS⟩)
       exact this
     rwa [← hzw] at hsubw
-  obtain ⟨tP, hltP, hintP⟩ := spoke_subpiece_interior hN hzS
+  obtain ⟨tP, hltP, hintP⟩ := spoke_subpiece_interior hN
     (meshGraph_edge_nondeg hN hfresh hP) (spoke_of P hP hendP hnotP) hendP
-  obtain ⟨tQ, hltQ, hintQ⟩ := spoke_subpiece_interior hN hzS
+  obtain ⟨tQ, hltQ, hintQ⟩ := spoke_subpiece_interior hN
     (meshGraph_edge_nondeg hN hfresh hQ) (spoke_of Q hQ hendQ hnotQ) hendQ
   by_contra hne
   -- both interiors contain every multiple `s • z` with `max tP tQ < s < 1`
   set s : ℝ := (max tP tQ + 1) / 2 with hs
-  have hs1 : s < 1 := by rw [hs]; rcases max_cases tP tQ with ⟨h, -⟩ | ⟨h, -⟩ <;> rw [h] <;> linarith
+  have hs1 : s < 1 := by
+    rw [hs]
+    rcases max_cases tP tQ with ⟨h, -⟩ | ⟨h, -⟩ <;> rw [h] <;> linarith
   have hsP : tP < s := by
     rw [hs]; have : tP ≤ max tP tQ := le_max_left _ _
     have : max tP tQ < 1 := max_lt hltP hltQ
@@ -707,7 +774,7 @@ theorem spokePiece_seg_subset_cover {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane
 
 /-- **The radial estimate.** A connected set missing the mesh stays inside the open square and
 has diameter at most `δ/2 + √2/N`. -/
-theorem radial_diam_bound {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane} {δ : ℝ} (hδ : 0 < δ)
+theorem radial_diam_bound {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane} {δ : ℝ}
     (hNδ : 2 * Real.sqrt 2 ≤ δ * N) (hdense : FreshDense fresh δ)
     {F : Set Plane} (hconn : IsPreconnected F)
     (hdisj : ∀ x ∈ F, x ∉ cover (meshSegments N fresh))
@@ -796,7 +863,7 @@ theorem radial_diam_bound {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane} {δ : �
       rw [mul_inv_cancel₀ (ne_of_gt (hpos x hx)), one_smul]
     have hgS : ∀ x ∈ F, g x ∈ modelCurve := by
       intro x hx
-      show Plane.supNorm ((Plane.supNorm x)⁻¹ • x) = 1
+      change Plane.supNorm ((Plane.supNorm x)⁻¹ • x) = 1
       rw [Plane.supNorm_smul, abs_of_nonneg (inv_nonneg.2 (Plane.supNorm_nonneg x))]
       exact inv_mul_cancel₀ (ne_of_gt (hpos x hx))
     have hgcont : ContinuousOn g F :=
@@ -839,5 +906,253 @@ theorem radial_diam_bound {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane} {δ : �
           rw [← dist_eq_norm]
           exact hgdist x hx y hy
       _ = δ / 2 + Real.sqrt 2 / N := by ring
+
+/-- The mesh occupies a subset of the closed square. -/
+theorem cover_meshSegments_subset {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
+    (hfresh : ∀ z ∈ fresh, z ∈ modelCurve) :
+    cover (meshSegments N fresh) ⊆ Plane.closedSquare 0 1 := by
+  intro x hx
+  obtain ⟨P, hP, hxP⟩ := mem_cover_iff.1 hx
+  exact meshSegments_subset_closedSquare hN hfresh hP hxP
+
+/-- **Clause 1.** Every bounded face of the mesh lies in the open square and has diameter
+`< δ`. -/
+theorem meshGraph_face_small {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
+    (hfresh : ∀ z ∈ fresh, z ∈ modelCurve) {anchors : List Plane} {δ : ℝ} (hδ : 0 < δ)
+    (hNδ : 2 * Real.sqrt 2 < δ * N) (hdense : FreshDense fresh δ) {base : Plane}
+    (hbase : base ∈ Graph.exterior (meshGraph N fresh anchors) segmentDrawing)
+    (hbdd : Bornology.IsBounded (Graph.face (meshGraph N fresh anchors) segmentDrawing base)) :
+    Graph.face (meshGraph N fresh anchors) segmentDrawing base ⊆ Plane.openSquare 0 1 ∧
+      Metric.diam (Graph.face (meshGraph N fresh anchors) segmentDrawing base) < δ := by
+  have hNR0 : (0 : ℝ) < N := by exact_mod_cast Nat.lt_of_lt_of_le two_pos hN
+  set F := Graph.face (meshGraph N fresh anchors) segmentDrawing base with hF
+  have hpt : Graph.pointSet (meshGraph N fresh anchors) segmentDrawing
+      = cover (meshSegments N fresh) := meshGraph_pointSet N fresh anchors
+  have hsq : Graph.pointSet (meshGraph N fresh anchors) segmentDrawing
+      ⊆ Plane.closedSquare 0 1 := by rw [hpt]; exact cover_meshSegments_subset hN hfresh
+  -- the base point is inside the square: outside it the face would be the unbounded one
+  have hbM : base ∉ cover (meshSegments N fresh) := by rw [← hpt]; exact hbase
+  have hb1 : Plane.supNorm base < 1 := by
+    rcases lt_trichotomy (Plane.supNorm base) 1 with h | h | h
+    · exact h
+    · exact absurd (ringSet_subset_cover hN (one_mem_meshRadii hN) h) hbM
+    · exfalso
+      have hmem : base ∈ Plane.beyondSquare 1 := by
+        rw [Plane.beyondSquare_eq_compl]
+        exact fun hc => absurd (mem_closedSquare_zero_one.1 hc) (not_le.2 h)
+      exact Graph.not_isBounded_beyondSquare 1
+        (hbdd.subset (Graph.beyondSquare_subset_face hsq hmem))
+  have hdisj : ∀ x ∈ F, x ∉ cover (meshSegments N fresh) := by
+    intro x hx
+    have := Graph.face_subset_exterior _ _ _ hx
+    rwa [Graph.exterior, hpt, mem_compl_iff] at this
+  obtain ⟨hin, hdist⟩ := radial_diam_bound hN hNδ.le hdense
+    (Graph.isConnected_face hbase).isPreconnected hdisj (Graph.mem_face hbase) hb1
+  refine ⟨fun x hx => mem_openSquare_zero_one.2 (hin x hx), ?_⟩
+  have hthin : Real.sqrt 2 / (N : ℝ) < δ / 2 := by
+    rw [div_lt_div_iff₀ hNR0 two_pos]; linarith
+  refine lt_of_le_of_lt (Metric.diam_le_of_forall_dist_le (by positivity) hdist) ?_
+  linarith
+
+/-! ### Clause 5: the mesh minus `S` is connected
+
+The inner rings and the spokes-minus-their-outer-endpoint are each connected, every inner ring
+meets every spoke, and every spoke meets the innermost ring. So a single point of the innermost
+ring reaches everything, which is what `isPreconnected_of_forall` asks for. At least one fresh
+point is needed: with no spokes the rings are disjoint circles. -/
+
+/-- A spoke with its outer endpoint removed. -/
+noncomputable def halfSpoke (N : ℕ) (z : Plane) : Set Plane :=
+  (fun t : ℝ => t • z) '' Ico ((N : ℝ)⁻¹) 1
+
+theorem isConnected_halfSpoke {N : ℕ} (hN : 2 ≤ N) (z : Plane) :
+    IsConnected (halfSpoke N z) :=
+  (isConnected_Ico (inv_cast_lt_one hN)).image _
+    (Continuous.continuousOn (continuous_id.smul continuous_const))
+
+theorem halfSpoke_subset {N : ℕ} (hN : 2 ≤ N) (z : Plane) :
+    halfSpoke N z ⊆ (spokePiece N z).seg := by
+  rw [halfSpoke, spokePiece_seg hN]
+  exact Set.image_mono Ico_subset_Icc_self
+
+theorem halfSpoke_disjoint_modelCurve {N : ℕ} (hN : 2 ≤ N) {z : Plane} (hz : z ∈ modelCurve) :
+    ∀ x ∈ halfSpoke N z, x ∉ modelCurve := by
+  rintro _ ⟨t, ht, rfl⟩ hmem
+  have h0 : (0 : ℝ) ≤ t := le_trans (inv_cast_pos hN).le ht.1
+  have : t = 1 := by
+    have hval := supNorm_smul_of_mem_modelCurve h0 hz
+    rw [show Plane.supNorm (t • z) = 1 from hmem] at hval
+    exact hval.symm
+  exact absurd this (ne_of_lt ht.2)
+
+theorem smul_mem_halfSpoke {N : ℕ} {t : ℝ} (ht : (N : ℝ)⁻¹ ≤ t) (ht1 : t < 1) (z : Plane) :
+    t • z ∈ halfSpoke N z := ⟨t, ⟨ht, ht1⟩, rfl⟩
+
+/-- The frame of a square is connected: four segments in a cycle, meeting at the corners. -/
+theorem isConnected_ringSet {r : ℝ} (hr : 0 ≤ r) : IsConnected (ringSet r) := by
+  have hseg : ∀ u v : Plane, IsConnected (segment ℝ u v) := fun u v =>
+    (convex_segment u v).isConnected ⟨u, left_mem_segment ℝ _ _⟩
+  rw [← cover_ringPieces hr]
+  simp only [ringPieces, cover_cons, cover_nil, union_empty]
+  have hCD : IsConnected (segment ℝ (Plane.mk (-r) (-r)) (Plane.mk r (-r))
+      ∪ segment ℝ (Plane.mk r (-r)) (Plane.mk r r)) :=
+    (hseg _ _).union ⟨Plane.mk r (-r), right_mem_segment ℝ _ _, left_mem_segment ℝ _ _⟩ (hseg _ _)
+  have hBCD := (hseg (Plane.mk (-r) r) (Plane.mk (-r) (-r))).union
+    ⟨Plane.mk (-r) (-r), right_mem_segment ℝ _ _, Or.inl (left_mem_segment ℝ _ _)⟩ hCD
+  exact (hseg (Plane.mk r r) (Plane.mk (-r) r)).union
+    ⟨Plane.mk (-r) r, right_mem_segment ℝ _ _, Or.inl (left_mem_segment ℝ _ _)⟩ hBCD
+
+/-- **Clause 5.** The mesh with `S` removed is connected. -/
+theorem isConnected_cover_diff_modelCurve {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
+    (hfresh : ∀ z ∈ fresh, z ∈ modelCurve) {z₀ : Plane} (hz₀ : z₀ ∈ fresh) :
+    IsConnected (cover (meshSegments N fresh) \ modelCurve) := by
+  have hinvpos := inv_cast_pos hN
+  have hinvlt := inv_cast_lt_one hN
+  set p : Plane := ((N : ℝ)⁻¹) • z₀ with hp
+  have hpring : p ∈ ringSet ((N : ℝ)⁻¹) :=
+    supNorm_smul_of_mem_modelCurve hinvpos.le (hfresh z₀ hz₀)
+  have hphalf : p ∈ halfSpoke N z₀ := smul_mem_halfSpoke le_rfl hinvlt z₀
+  have hinvmem : ((N : ℝ)⁻¹) ∈ meshRadii N := inv_mem_meshRadii hN
+  -- the two building blocks, and the fact that they miss `S`
+  have hringsub : ∀ r ∈ meshRadii N, r ≠ 1 →
+      ringSet r ⊆ cover (meshSegments N fresh) \ modelCurve := by
+    intro r hr hr1 x hx
+    exact ⟨ringSet_subset_cover hN hr hx, fun hc => hr1 (hx.symm.trans hc)⟩
+  have hhalfsub : ∀ z ∈ fresh, halfSpoke N z ⊆ cover (meshSegments N fresh) \ modelCurve := by
+    intro z hz x hx
+    exact ⟨spokePiece_seg_subset_cover hN hz (halfSpoke_subset hN z hx),
+      halfSpoke_disjoint_modelCurve hN (hfresh z hz) x hx⟩
+  refine ⟨⟨p, hhalfsub z₀ hz₀ hphalf⟩, isPreconnected_of_forall p ?_⟩
+  intro y hy
+  obtain ⟨hyM, hyS⟩ := hy
+  rw [cover_meshSegments hN] at hyM
+  rcases hyM with hyr | hyz
+  · -- `y` is on a ring, which is not the outer one, and the ring meets the spoke at `z₀`
+    obtain ⟨r, hr, hyr⟩ := mem_iUnion₂.1 hyr
+    have hr1 : r ≠ 1 := fun h => hyS (by rw [← ringSet_one, ← h]; exact hyr)
+    have hrpos : 0 < r := meshRadii_pos hN hr
+    have hrlt : r < 1 := lt_of_le_of_ne (meshRadii_le_one hN hr) hr1
+    have hrinv : ((N : ℝ)⁻¹) ≤ r := by
+      obtain ⟨j, hj, rfl⟩ := mem_meshRadii.1 hr
+      have hNR0 : (0 : ℝ) < N := by exact_mod_cast Nat.lt_of_lt_of_le two_pos hN
+      rw [inv_eq_one_div, div_le_div_iff_of_pos_right hNR0]
+      linarith [Nat.cast_nonneg (α := ℝ) j]
+    refine ⟨ringSet r ∪ halfSpoke N z₀, union_subset (hringsub r hr hr1) (hhalfsub z₀ hz₀),
+      Or.inr hphalf, Or.inl hyr, ?_⟩
+    exact ((isConnected_ringSet hrpos.le).union
+      ⟨r • z₀, supNorm_smul_of_mem_modelCurve hrpos.le (hfresh z₀ hz₀),
+        smul_mem_halfSpoke hrinv hrlt z₀⟩ (isConnected_halfSpoke hN z₀)).isPreconnected
+  · -- `y` is on a spoke, below `S`, and the spoke meets the innermost ring
+    obtain ⟨z, hz, hyz⟩ := mem_iUnion₂.1 hyz
+    rw [spokePiece_seg hN] at hyz
+    obtain ⟨t, ht, rfl⟩ := hyz
+    have h0 : (0 : ℝ) ≤ t := le_trans hinvpos.le ht.1
+    have ht1 : t < 1 := lt_of_le_of_ne ht.2 fun h => hyS (by
+      rw [← ringSet_one]
+      exact (supNorm_smul_of_mem_modelCurve h0 (hfresh z hz)).trans h)
+    refine ⟨halfSpoke N z ∪ ringSet ((N : ℝ)⁻¹),
+      union_subset (hhalfsub z hz) (hringsub _ hinvmem (ne_of_lt hinvlt)),
+      Or.inr hpring, Or.inl (smul_mem_halfSpoke ht.1 ht1 z), ?_⟩
+    exact ((isConnected_halfSpoke hN z).union
+      ⟨((N : ℝ)⁻¹) • z, smul_mem_halfSpoke le_rfl hinvlt z,
+        supNorm_smul_of_mem_modelCurve hinvpos.le (hfresh z hz)⟩
+      (isConnected_ringSet hinvpos.le)).isPreconnected
+
+/-! ### The mesh of a given size
+
+`meshCount δ` rings make both the innermost square and one ring thickness small compared with
+`δ`; `2 √2 < δ N` is the single inequality the whole diameter estimate rests on. -/
+
+/-- The number of concentric rings used for mesh size `δ`. -/
+noncomputable def meshCount (δ : ℝ) : ℕ := max 2 (⌈2 * Real.sqrt 2 / δ⌉₊ + 1)
+
+theorem two_le_meshCount (δ : ℝ) : 2 ≤ meshCount δ := le_max_left _ _
+
+theorem meshCount_spec {δ : ℝ} (hδ : 0 < δ) : 2 * Real.sqrt 2 < δ * meshCount δ := by
+  have h1 : 2 * Real.sqrt 2 / δ < (meshCount δ : ℝ) := by
+    calc 2 * Real.sqrt 2 / δ ≤ (⌈2 * Real.sqrt 2 / δ⌉₊ : ℝ) := Nat.le_ceil _
+      _ < (⌈2 * Real.sqrt 2 / δ⌉₊ : ℝ) + 1 := by linarith
+      _ ≤ (meshCount δ : ℝ) := by exact_mod_cast le_max_right 2 (⌈2 * Real.sqrt 2 / δ⌉₊ + 1)
+  rw [div_lt_iff₀ hδ] at h1
+  linarith
+
+/-- **The anchored square mesh**: `meshCount δ` concentric ring frames inside `Q = [-1,1]²`,
+one radial spoke at each fresh boundary point, and the anchors inserted as extra vertices of
+the outer ring. -/
+noncomputable def squareMesh (δ : ℝ) (fresh anchors : List Plane) : Graph Plane Piece :=
+  meshGraph (meshCount δ) fresh anchors
+
+instance squareMesh_finite (δ : ℝ) (fresh anchors : List Plane) :
+    Graph.Finite (squareMesh δ fresh anchors) := meshGraph_finite _ _ _
+
+/-- The mesh is a plane graph, drawn with straight edges. -/
+theorem squareMesh_isDrawing {fresh : List Plane} (hfresh : ∀ z ∈ fresh, z ∈ modelCurve)
+    (δ : ℝ) (anchors : List Plane) :
+    Graph.IsDrawing (squareMesh δ fresh anchors) segmentDrawing :=
+  meshGraph_isDrawing (two_le_meshCount δ) hfresh anchors
+
+theorem squareMesh_pointSet (δ : ℝ) (fresh anchors : List Plane) :
+    Graph.pointSet (squareMesh δ fresh anchors) segmentDrawing
+      = cover (meshSegments (meshCount δ) fresh) :=
+  meshGraph_pointSet _ _ _
+
+/-- The whole model curve is part of the mesh. -/
+theorem modelCurve_subset_squareMesh_pointSet (δ : ℝ) (fresh anchors : List Plane) :
+    modelCurve ⊆ Graph.pointSet (squareMesh δ fresh anchors) segmentDrawing := by
+  rw [squareMesh_pointSet, ← ringSet_one]
+  exact ringSet_subset_cover (two_le_meshCount δ) (one_mem_meshRadii (two_le_meshCount δ))
+
+/-- The mesh occupies a subset of `Q`. -/
+theorem squareMesh_pointSet_subset {fresh : List Plane} (hfresh : ∀ z ∈ fresh, z ∈ modelCurve)
+    (δ : ℝ) (anchors : List Plane) :
+    Graph.pointSet (squareMesh δ fresh anchors) segmentDrawing ⊆ Plane.closedSquare 0 1 := by
+  rw [squareMesh_pointSet]
+  exact cover_meshSegments_subset (two_le_meshCount δ) hfresh
+
+/-- **Clause 1.** Every bounded face lies in the open square and has diameter `< δ`. -/
+theorem squareMesh_face_small {fresh : List Plane} (hfresh : ∀ z ∈ fresh, z ∈ modelCurve)
+    {δ : ℝ} (hδ : 0 < δ) (hdense : FreshDense fresh δ) {anchors : List Plane} {base : Plane}
+    (hbase : base ∈ Graph.exterior (squareMesh δ fresh anchors) segmentDrawing)
+    (hbdd : Bornology.IsBounded (Graph.face (squareMesh δ fresh anchors) segmentDrawing base)) :
+    Graph.face (squareMesh δ fresh anchors) segmentDrawing base ⊆ Plane.openSquare 0 1 ∧
+      Metric.diam (Graph.face (squareMesh δ fresh anchors) segmentDrawing base) < δ :=
+  meshGraph_face_small (two_le_meshCount δ) hfresh hδ (meshCount_spec hδ) hdense hbase hbdd
+
+/-- **Clause 2.** Every anchor lying on `S` is a vertex. -/
+theorem squareMesh_anchor_mem_vertexSet (δ : ℝ) {fresh anchors : List Plane} {p : Plane}
+    (hp : p ∈ anchors) (hpS : p ∈ modelCurve) : p ∈ V(squareMesh δ fresh anchors) :=
+  anchor_mem_vertexSet (two_le_meshCount δ) hp hpS
+
+/-- **Clause 3.** The edges lying on `S` occupy exactly `S`. -/
+theorem squareMesh_cover_outerEdges (δ : ℝ) (fresh anchors : List Plane) :
+    ⋃ P ∈ outerEdges (meshCount δ) fresh anchors, P.seg = modelCurve :=
+  cover_outerEdges (two_le_meshCount δ) fresh anchors
+
+/-- **Clause 4, first half.** An edge meeting `S` without lying on it meets it in a single
+fresh point, which is one of its endpoints. -/
+theorem squareMesh_inner_edge_at_fresh {fresh : List Plane}
+    (hfresh : ∀ z ∈ fresh, z ∈ modelCurve) (δ : ℝ) {anchors : List Plane} {P : Piece}
+    (hP : P ∈ E(squareMesh δ fresh anchors)) (hmeet : (P.seg ∩ modelCurve).Nonempty)
+    (hnot : ¬ P.seg ⊆ modelCurve) :
+    ∃ z ∈ fresh, P.seg ∩ modelCurve = {z} ∧ (z = P.1 ∨ z = P.2) ∧
+      P.seg ⊆ (spokePiece (meshCount δ) z).seg :=
+  meshGraph_inner_edge_at_fresh (two_le_meshCount δ) hfresh hP hmeet hnot
+
+/-- **Clause 4, second half.** Exactly one edge leaves `S` at each fresh point. -/
+theorem squareMesh_unique_inner_edge {fresh : List Plane}
+    (hfresh : ∀ z ∈ fresh, z ∈ modelCurve) (δ : ℝ) (anchors : List Plane) {z : Plane}
+    (hz : z ∈ fresh) :
+    ∃! P : Piece, P ∈ E(squareMesh δ fresh anchors) ∧ (z = P.1 ∨ z = P.2) ∧
+      ¬ P.seg ⊆ modelCurve :=
+  unique_inner_edge_at_fresh (two_le_meshCount δ) hfresh anchors hz
+
+/-- **Clause 5.** The mesh minus `S` is connected. -/
+theorem squareMesh_isConnected_diff {fresh : List Plane}
+    (hfresh : ∀ z ∈ fresh, z ∈ modelCurve) (δ : ℝ) (anchors : List Plane) {z₀ : Plane}
+    (hz₀ : z₀ ∈ fresh) :
+    IsConnected
+      (Graph.pointSet (squareMesh δ fresh anchors) segmentDrawing \ modelCurve) := by
+  rw [squareMesh_pointSet]
+  exact isConnected_cover_diff_modelCurve (two_le_meshCount δ) hfresh hz₀
 
 end Schoenflies

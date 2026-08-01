@@ -62,10 +62,10 @@ survives verbatim is what the construction uses downstream — the occupied set,
   from `v*` to `w*`, which by `thm:general-crosscut` splits `F*` into exactly the two Jordan
   regions bounded by `P*` and the two boundary paths. That whole paragraph is closed,
   unconditionally.
-* **The second sentence of step 2** — `Schoenflies.CellStructure.Realization`
-  `.exists_unique_face_subset_cell`: the interior of an ear lies in one current face, because it
-  is connected and disjoint from the current skeleton. On one named hypothesis,
-  `Schoenflies.CellsAbsorb`.
+* **The second sentence of step 2** — `…IsCellDecomposition.exists_unique_face_subset_cell` and
+  `…IsCellDecomposition.exists_face_of_ear`: the interior of an ear lies in one current face,
+  because it is connected and disjoint from the current skeleton, and its two endpoints then lie
+  on that face's boundary cycle. On one named hypothesis, `Schoenflies.CellsAbsorb`.
 * **The last paragraph of the proof** — `Schoenflies.GeneratedPair.src_isAdmissible` and
   `Schoenflies.GeneratedPair.tgt_isAdmissible`. Admissibility of the *final* object is
   recovered from `lem:combinatorial-invariance`: the reproduced realization has the same
@@ -108,8 +108,10 @@ survives verbatim is what the construction uses downstream — the occupied set,
   the fourth paragraph of the proof of `thm:finite-transfer`, direction (a):
   `lem:cellulation-invariants`(vii) + `lem:polygonal-side-accessibility` +
   `lem:accessible-endpoints` + `thm:general-crosscut`.
-* `Schoenflies.CellStructure.Realization.exists_unique_face_subset_cell` — "the interior of each
-  ear lies in one current face", with
+* `Schoenflies.CellStructure.Realization.IsCellDecomposition.exists_unique_face_subset_cell`,
+  `…IsCellDecomposition.exists_face_of_ear`,
+  `…IsCellDecomposition.sub_of_pos_mem_closure_cell` — "the interior of each ear lies in one
+  current face", with the two supporting facts
   `Schoenflies.CellStructure.Realization.cell_subset_skeletonSet` and
   `Schoenflies.CellStructure.Realization.mem_faces_of_notMem_skeletonSet`.
 * `Schoenflies.CellStructure.Realization.pos_mem_closure_cell_congr`,
@@ -201,6 +203,19 @@ theorem mem_faces_of_notMem_skeletonSet (R : S.Realization) (hσ : σ ∈ S.cell
   · exact absurd (R.cell_subset_skeletonSet hσ hz) hznot
   · exact hσ
 
+namespace IsCellDecomposition
+
+/-- A 0-cell in the closure of an open 2-cell is a subcell of it — assertion (ix) read at a
+vertex. This is how an ear's endpoint is recognised as lying on the boundary cycle of the face
+its interior occupies. -/
+theorem sub_of_pos_mem_closure_cell (h : R.IsCellDecomposition D) {a F : γ}
+    (ha : a ∈ V(S.skel)) (hF : F ∈ S.faces) (hmem : R.pos a ∈ closure (R.cell F)) :
+    S.sub a F := by
+  refine h.sub_of_subset_closure (S.mem_cells_of_mem_vertexSet ha)
+    (S.mem_cells_of_mem_faces hF) ?_
+  rw [R.cell_vertex ha]
+  exact Set.singleton_subset_iff.2 hmem
+
 /-- **An ear lies in a single current face.** A nonempty connected subset of the closed domain
 disjoint from the realized skeleton lies inside one open 2-cell, and inside only that one. -/
 theorem exists_unique_face_subset_cell (h : R.IsCellDecomposition D)
@@ -215,6 +230,28 @@ theorem exists_unique_face_subset_cell (h : R.IsCellDecomposition D)
   refine ⟨F, hFf, hcells N hN hNdisj (R.cell F) ⟨F, hFf, rfl⟩ ⟨z, hz, hzF⟩, fun T hT hNT => ?_⟩
   by_contra hne
   exact Set.disjoint_left.1 (h.disjoint (S.mem_cells_of_mem_faces hT) hFc hne) (hNT hz) hzF
+
+/-- **One ear, placed — the source-side input of the induction step.** The open part `N` of the
+ear is connected, inside the closed domain and disjoint from the current skeleton, so it lies in
+a unique current 2-cell `F`; and each endpoint of the ear, being a 0-cell in the closure of `N`,
+is a subcell of `F`, i.e. lies on its boundary cycle.
+
+Feeding the two `S.sub` conclusions back through `IsCellDecomposition.subset_closure` in the
+*other* realization is exactly `Schoenflies.exists_target_ear`'s two closure hypotheses. -/
+theorem exists_face_of_ear (h : R.IsCellDecomposition D)
+    (hcells : CellsAbsorb R.skeletonSet {A | ∃ F ∈ S.faces, A = R.cell F})
+    (hN : IsPreconnected N) (hNne : N.Nonempty) (hND : N ⊆ D)
+    (hNdisj : Disjoint N R.skeletonSet) {a b : γ}
+    (ha : a ∈ V(S.skel)) (hb : b ∈ V(S.skel))
+    (hacl : R.pos a ∈ closure N) (hbcl : R.pos b ∈ closure N) :
+    ∃ F ∈ S.faces, N ⊆ R.cell F ∧ S.sub a F ∧ S.sub b F ∧
+      ∀ T ∈ S.faces, N ⊆ R.cell T → T = F := by
+  obtain ⟨F, hF, hNF, huniq⟩ := h.exists_unique_face_subset_cell hcells hN hNne hND hNdisj
+  exact ⟨F, hF, hNF,
+    h.sub_of_pos_mem_closure_cell ha hF (closure_mono hNF hacl),
+    h.sub_of_pos_mem_closure_cell hb hF (closure_mono hNF hbcl), huniq⟩
+
+end IsCellDecomposition
 
 end Realization
 
@@ -583,13 +620,8 @@ theorem CellStructure.Realization.pos_mem_closure_cell_congr
     (h₁ : R₁.IsCellDecomposition D₁) (h₂ : R₂.IsCellDecomposition D₂)
     (ha : a ∈ V(S.skel)) (hF : F ∈ S.faces) (hmem : R₁.pos a ∈ closure (R₁.cell F)) :
     R₂.pos a ∈ closure (R₂.cell F) := by
-  have hac : a ∈ S.cells := S.mem_cells_of_mem_vertexSet ha
-  have hFc : F ∈ S.cells := S.mem_cells_of_mem_faces hF
-  have hsub : S.sub a F := by
-    refine h₁.sub_of_subset_closure hac hFc ?_
-    rw [R₁.cell_vertex ha]
-    exact Set.singleton_subset_iff.2 hmem
-  have := h₂.subset_closure hac hFc hsub
+  have := h₂.subset_closure (S.mem_cells_of_mem_vertexSet ha) (S.mem_cells_of_mem_faces hF)
+    (h₁.sub_of_pos_mem_closure_cell ha hF hmem)
   rw [R₂.cell_vertex ha] at this
   exact this (Set.mem_singleton _)
 

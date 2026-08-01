@@ -72,6 +72,9 @@ holding the anchored form.
   `Schoenflies.InitialData.isOpen_sourceRealization_cell_face`,
   `.isOpen_targetRealization_cell_face` — openness of the two 2-cells: the hypothesis
   `lem:cellulation-invariants`(viii) takes and `IsCellDecomposition` does not record.
+* `Schoenflies.not_infinite_initialCell` — the one place where the base case and the recursion
+  do not yet meet: `thm:finite-transfer` needs `[Infinite γ]` and `InitialCell` is finite, so a
+  `CellStructure` relabelling along `InitialCell ↪ γ` is still missing on `main`.
 * `Schoenflies.modelCurve_union_inside` — `S ∪ Int(S) = Q`, the closed target domain.
 * `Schoenflies.InitialData.generatedPair_src_isAdmissible`, `.generatedPair_tgt_isAdmissible` —
   the *strong* form of
@@ -748,6 +751,37 @@ noncomputable def AnchoredInitialData.generatedPair {C : Set Plane} {A : AnchorS
     (D : AnchoredInitialData C A) :
     GeneratedPair initialStructure C (C ∪ inside C) modelCurve (Plane.closedSquare 0 1) :=
   D.toInitialData.generatedPair
+
+/-! ### `InitialCell` is finite, and `thm:finite-transfer` is not applicable to stage 0
+
+`Schoenflies.finite_transfer_toward_square` and `Schoenflies.EarStep` carry `[Infinite γ]`, and
+`FiniteTransfer.lean` argues at length that without it `EarStep` is *false*: an ear insertion
+consumes fresh cell names. The cell type of the initial structure is `InitialCell`, which has
+fifteen elements. So the pair built above cannot be handed to `thm:finite-transfer` as it stands.
+
+That is recorded here as a theorem rather than as a remark, because it is the one place where the
+base case and the recursion do not yet meet: what is missing on `main` is a relabelling of a
+`CellStructure` (and of its realizations) along an injection `InitialCell ↪ γ` into an infinite
+naming type. `Graph.map` and the transport lemmas of `Schoenflies/CombinatorialInvariance.lean`
+(`connected_map_iff`, `isTwoConnected_map_iff`) are the ingredients; the `CellStructure`-level
+relabelling itself does not exist. -/
+
+private def initialCellIdx : InitialCell → Fin 6 ⊕ Fin 6 ⊕ Unit ⊕ Bool
+  | .vert i => Sum.inl i
+  | .edge i => Sum.inr (Sum.inl i)
+  | .chord => Sum.inr (Sum.inr (Sum.inl ()))
+  | .face k => Sum.inr (Sum.inr (Sum.inr k))
+
+private theorem initialCellIdx_injective : Function.Injective initialCellIdx := by
+  rintro (i | i | - | k) (j | j | - | l) h <;> simp [initialCellIdx] at h <;> simp [h]
+
+instance : Finite InitialCell := Finite.of_injective _ initialCellIdx_injective
+
+/-- **The naming type of the initial structure is finite.** Hence `[Infinite InitialCell]` is
+unsatisfiable and `Schoenflies.finite_transfer_toward_square` does not apply to
+`InitialData.generatedPair` over its own cell type. -/
+theorem not_infinite_initialCell : ¬ Infinite InitialCell :=
+  Finite.not_infinite inferInstance
 
 /-! ### The interface, exercised
 

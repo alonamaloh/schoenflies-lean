@@ -13,23 +13,55 @@ Lean 4.32.2, Mathlib v4.32.2. `lake build`.
 
 ## Status
 
-**In progress.** The foundation (Layers 0–6 of the companion plan) is most of the way in;
-the blueprint's own content, from the two-sided strip lemma on, is not started.
+**Part I is complete.** The Jordan curve theorem and the general crosscut theorem are proved,
+with nothing assumed:
 
-| Layer | State |
+| | |
 |---|---|
-| 0 — the plane's geometry | complete |
-| 1–3 — topology, compactness, connectedness | complete (Mathlib, plus three gap-fillers) |
-| 4 — arcs and Jordan curves | complete |
-| 5 — finite graphs | complete |
-| 6 — plane graphs | complete, including `polygonal_redrawing` (H6) |
+| `Schoenflies.arc_complement` | `thm:arc-complement` — the complement of a simple arc is connected |
+| `Schoenflies.jordan_curve_theorem` | `thm:jordan` — a Jordan curve separates the plane into exactly two regions, each with the curve as its boundary |
+| `Schoenflies.crosscut_theorem` | `thm:general-crosscut` — a polygonal crosscut cuts a Jordan domain into exactly two, with named sides |
 
-**The foundation is finished.** What follows is the blueprint's own content, built on top of
-it. The milestones are H7 the polygonal Jordan curve theorem, H8 nonplanarity of `K₃,₃`,
-H9 the Jordan curve theorem, H10 the general crosscut theorem, H11 Jordan–Schönflies. Work is
-scheduled off Appendix A of the blueprint — its machine-generated citation index — rather than
-off the milestone list, because the index shows a good deal that does not lie on the critical
-path.
+all in `Schoenflies/JordanClosed.lean`, and all on `propext`, `Classical.choice` and
+`Quot.sound` alone. `thm:jordan` is stated as `IsSeparating C` — the *same* predicate the
+polygonal case is stated through — so `inside`, `outside` and the whole region API apply to a
+general Jordan curve with nothing to transport, and every consumer written against
+`ClosedPolygon.polygonal_jordan` applies verbatim.
+
+**Part II — the Schönflies extension — is in progress.** The abstract scaffolding was built
+first, because `lem:combinatorial-invariance` has no internal prerequisites and could be proved
+while the Jordan curve theorem was still open. The critical path is now assertions (i) and (vii)
+of `lem:cellulation-invariants`, then `thm:finite-transfer`.
+
+`docs/ROADMAP.md` has every one of the blueprint's 84 labelled statements with its status and
+its Lean home. Work is scheduled off Appendix A of the blueprint — its machine-generated
+citation index — rather than off the milestone list, because the index repeatedly reveals
+substantial statements with no internal prerequisites that can be built in parallel far ahead
+of the critical path.
+
+### Milestones
+
+| | |
+|---|---|
+| H6 polygonal redrawing | done |
+| H7 the polygonal Jordan curve theorem | done |
+| H8 nonplanarity of `K₃,₃` | done |
+| H9 the outer-chain lemma | done |
+| the Jordan curve theorem | **done** |
+| H10 the general crosscut theorem | **done** |
+| H11 Jordan–Schönflies | in progress |
+
+### Two gates, and why the build is not enough
+
+```sh
+python3 docs/regen-inventory.py   # rewrites docs/INVENTORY.md; exits 1 on a duplicate name
+python3 docs/audit-axioms.py      # #print axioms on every declaration; exits 1 on any other axiom
+```
+
+Neither is redundant. Lean's import checker accepts two modules declaring the same name when
+the statements are alpha-equivalent `Prop`s, because proof irrelevance makes them defeq — so a
+clean build is not a collision check. And a `sorry` reached through a chain of definitions shows
+up as `sorryAx` in the axiom audit and nowhere else. Both run in about two seconds.
 
 ### Layer 0 — the plane
 
@@ -113,16 +145,18 @@ four sides are segments, each an arc by `isArcBetween_segment`, glued by
 | **Lemma 3.7 polygonal overlay** | `polygonal_overlay`, `overlayGraph`, `orientPiece`, `subdivide_separated`, `exists_cut_points` |
 | "choose ε small enough for all of them" | `exists_pos_le_of_finite`, `exists_pos_forall_of_finite` |
 
-**Verification.** `#print axioms` was run over every non-private theorem in the development —
-498 of them. All depend only on `propext`, `Classical.choice` and `Quot.sound`; `sorryAx`
-appears nowhere, and a repository-wide sweep finds no `sorry`, `admit` or `native_decide`.
+**Verification.** `docs/audit-axioms.py` runs `#print axioms` over every declaration in the
+development on every check — over three thousand of them. All depend only on `propext`,
+`Classical.choice` and `Quot.sound`; `sorryAx` appears nowhere, and a repository-wide sweep
+finds no `sorry`, `admit` or `native_decide`.
 
 ## Relation to the `math` foundation
 
 The same blueprint has a foundation built in a separate, self-contained proof system,
 whose Layers 0–6 cover the plane's geometry, arcs and Jordan curves, finite graphs, and
-plane graphs with the polygonal overlay and the outer face. The blueprint's own content
-starts above that, at the two-sided strip lemma, and is unbuilt on both sides.
+plane graphs with the polygonal overlay and the outer face. This development has since carried
+the blueprint's own content, from the two-sided strip lemma through the Jordan curve theorem,
+well past where that foundation stops.
 
 Design decisions settled there and adopted here:
 
@@ -307,6 +341,42 @@ under-assuming, or doing more work than needed. None is an error in the mathemat
     Unlike findings 11 and 17 — omissions from a conclusion — this one is a *definition* too
     strong to be closed under the operations its consumers need, which is why it surfaced only
     when three separate consumers reached for it at once.
+
+19. **A hypothesis assumed for a whole wave was false, and the no-`sorry` rule is what caught
+    it.** `Graph.CrosscutEncloses` — the geometric half of the descent step of `lem:outer-chain`
+    — stood on `main` as a named hypothesis while `lem:outer-chain` was proved from it. It is
+    false. Nothing in its hypotheses stopped the crosscut from being drawn *through* the point
+    `x`: take the unit square cycle with cut points `(0,0)` and `(1,1)`, let `R` be the two
+    straight edges `(0,0) → (1/2,1/2) → (1,1)` through a fresh vertex, and let `x = (2/5,2/5)`.
+    Every field of `IsCycleCrosscut` holds and `x` is inside the cycle; but `x` lies *on* both
+    spliced curves, and `mem_inside_iff` puts a point of a curve inside neither region.
+
+    The repair was one clause, `x ∈ exterior H drawing`, which the consumer already had from
+    `OuterOnPairs` — so `Graph.Descent` came out verbatim and nothing downstream changed. The
+    point is the failure mode avoided: had the gap been a `sorry`, it would have been filled in
+    eventually and the falsity discovered only then, with everything written in the meantime
+    resting on it. Because it was a named hypothesis, the discharger's job was to *prove* it,
+    and what came back was a counterexample. The counterexample is recorded in `OuterChain.lean`
+    where the false version stood.
+
+20. **A blueprint clause is false as formalized, for a degenerate parameter the blueprint never
+    hits.** `prop:anchored-square-mesh` clause 5 asserts the mesh skeleton is 2-connected. For
+    `Schoenflies.squareMesh` with an empty fresh-point set it is not even connected — the mesh
+    is then concentric ring frames, pairwise disjoint — and with exactly one fresh point its
+    single spoke is the only thing joining the rings, so every interior vertex of that spoke is
+    a cut vertex. The blueprint's own construction never reaches either case, because it chooses
+    enough fresh points to make every boundary arc have diameter `< δ/4`; what is missing on the
+    Lean side is that hypothesis on the parameter. Formalized as
+    `not_isTwoConnected_squareMesh_of_fresh_nil`.
+
+21. **`_root_.Foo` inside a namespace defeats a naive duplicate scan.** The inventory scanner
+    recorded `theorem _root_.Schoenflies.X` written inside `namespace Graph` as
+    `Graph._root_.Schoenflies.X`, so it could never collide with the real `Schoenflies.X`. Two
+    modules had in fact both declared `IsArcBetween.left_mem_closure_diff`, with identical
+    statements and different proofs, in modules that do not import each other — invisible to the
+    build for the reason in the first friction below, and invisible to the scanner for this one.
+    The same scanner also truncated subscripted names (`carrier₁` and `carrier₂` both became
+    `carrier`), which both loses real names and manufactures phantom duplicates.
 
 ## Frictions
 

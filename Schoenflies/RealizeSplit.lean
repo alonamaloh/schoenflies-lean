@@ -92,6 +92,20 @@ theorem IsPath.map (hf : InjOn f V(G)) (h : G.IsPath u W v) : (G.map f).IsPath (
     have hzV : z ∈ V(G) := walkVertices_subset_vertexSet hW.isWalk.left_mem hz
     exact hfresh (hf hzV hl.left_mem hzf ▸ hz)
 
+/-- Relabelling commutes with the union. Both sides resolve a shared edge name in favour of
+the left-hand graph, and `Graph.map` keeps the edge set, so the two resolutions agree. -/
+theorem map_union (G H : Graph α β) (f : α → α') :
+    (G.union H).map f = (G.map f).union (H.map f) := by
+  refine Graph.ext (by simp [Set.image_union]) fun e x y => ?_
+  simp only [map_isLink, union_isLink, Relation.map_apply, edgeSet_map]
+  constructor
+  · rintro ⟨a, b, hab | ⟨he, hab⟩, rfl, rfl⟩
+    · exact Or.inl ⟨a, b, hab, rfl, rfl⟩
+    · exact Or.inr ⟨he, a, b, hab, rfl, rfl⟩
+  · rintro (⟨a, b, hab, rfl, rfl⟩ | ⟨he, a, b, hab, rfl, rfl⟩)
+    · exact ⟨a, b, Or.inl hab, rfl, rfl⟩
+    · exact ⟨a, b, Or.inr ⟨he, hab⟩, rfl, rfl⟩
+
 theorem IsPathGraph.map {P : Graph α β} (hf : InjOn f V(P)) (h : P.IsPathGraph u W v) :
     (P.map f).IsPathGraph (f u) W (f v) where
   isPath := h.isPath.map hf
@@ -285,6 +299,249 @@ theorem disjoint_cell_skeletonSet {D : Set Plane} (hcd : R.IsCellDecomposition D
   exact Set.disjoint_left.1 (hcd.disjoint (S.mem_cells_of_mem_faces hF) hσc hne) hxF hxσ
 
 end Realization
+
+/-! ## The ear, drawn
+
+`SplitData` fixes the *abstract* ear: a path graph `d.ear` glued to the skeleton at
+`d.source` and `d.target`. Drawing it means choosing a point for each of its vertices and a
+parametrization for each of its edges. `EarCrosscut` is the bundle of conditions under which
+that drawing is a polygonal crosscut of the realized open 2-cell `R.cell d.face`. -/
+
+namespace SplitData
+
+variable (d : S.SplitData)
+
+theorem source_mem_ear : d.source ∈ V(d.ear) :=
+  (d.vertexSet_inter ▸ (Set.mem_insert _ _ : d.source ∈ ({d.source, d.target} : Set γ))).1
+
+theorem target_mem_ear : d.target ∈ V(d.ear) :=
+  (d.vertexSet_inter ▸
+    (Set.mem_insert_of_mem _ rfl : d.target ∈ ({d.source, d.target} : Set γ))).1
+
+theorem source_mem_cells₂ : d.source ∈ d.cells₂ :=
+  Or.inr Graph.mem_walkVertices_self
+
+theorem target_mem_cells₂ : d.target ∈ d.cells₂ :=
+  Or.inr d.isPath₂.isWalk.target_mem_walkVertices
+
+/-- **The cells strictly below the split 2-cell are the cells of its two boundary paths.**
+This is `SplitData.sub_face` read as a set identity; with assertion (i) it identifies the
+frontier of the old open 2-cell with the two realized boundary paths. -/
+theorem subcells_face_diff : S.subcells d.face \ {d.face} = d.cells₁ ∪ d.cells₂ := by
+  ext σ
+  simp only [Set.mem_sdiff, Set.mem_singleton_iff, CellStructure.mem_subcells_iff, Set.mem_union]
+  constructor
+  · rintro ⟨⟨-, hsub⟩, hne⟩
+    rcases d.sub_face.1 hsub with rfl | h
+    · exact absurd rfl hne
+    · exact h
+  · intro h
+    refine ⟨⟨?_, d.sub_face.2 (Or.inr h)⟩, ?_⟩
+    · rcases h with h | h
+      exacts [d.cells₁_subset h, d.cells₂_subset h]
+    · rcases h with h | h
+      exacts [d.cells₁_ne_face h, d.cells₂_ne_face h]
+
+/-- The drawn ear: the abstract ear pushed into the plane along the chosen positions. -/
+def earGraph (d : S.SplitData) (earPos : γ → Plane) : Graph Plane γ := d.ear.map earPos
+
+@[simp] theorem vertexSet_earGraph (earPos : γ → Plane) :
+    V(d.earGraph earPos) = earPos '' V(d.ear) := Graph.vertexSet_map _ _
+
+@[simp] theorem edgeSet_earGraph (earPos : γ → Plane) :
+    E(d.earGraph earPos) = E(d.ear) := Graph.edgeSet_map _ _
+
+/-- The point set the drawn ear occupies: the crosscut `P` of `thm:general-crosscut`. -/
+def earSet (d : S.SplitData) (earPos : γ → Plane) (earDraw : γ → ℝ → Plane) : Set Plane :=
+  Graph.pointSet (d.earGraph earPos) earDraw
+
+/-- **The geometric input of one 2-cell split.** A position for each vertex of the abstract
+ear and a parametrization for each of its edges, drawing the ear as a polygonal crosscut of
+the realized open 2-cell `R.cell d.face`.
+
+Every clause is a statement about the ear's own drawing, and every one of them is what the
+finite-transfer module has in hand when it produces a crosscut from
+`Schoenflies.exists_crosscut_of_polyAccessible`: it starts from a simple polygonal arc `P`
+inside the face with its two ends on the boundary, and cuts `P` into the ear's edges. -/
+structure EarCrosscut (d : S.SplitData) (R : S.Realization) (earPos : γ → Plane)
+    (earDraw : γ → ℝ → Plane) : Prop where
+  /-- The ear starts where the old 0-cell `d.source` sits. -/
+  pos_source : earPos d.source = R.pos d.source
+  /-- …and ends where `d.target` sits. -/
+  pos_target : earPos d.target = R.pos d.target
+  /-- Distinct vertices of the ear are drawn at distinct points. -/
+  injOn : InjOn earPos V(d.ear)
+  /-- The ear is drawn as a plane graph. -/
+  isDrawing : Graph.IsDrawing (d.earGraph earPos) earDraw
+  /-- Every point of the drawn ear but its two ends is inside the old open 2-cell. -/
+  subset_face : d.earSet earPos earDraw \ {R.pos d.source, R.pos d.target} ⊆ R.cell d.face
+  /-- The drawn ear is polygonal. -/
+  polygonal : IsPolygonal (d.earSet earPos earDraw)
+
+namespace EarCrosscut
+
+variable {d} {R : S.Realization} {earPos : γ → Plane} {earDraw : γ → ℝ → Plane}
+theorem source_ne_target_pos : R.pos d.source ≠ R.pos d.target := fun h =>
+  d.source_ne_target (R.injOn_pos d.source_mem_skel d.target_mem_skel h)
+
+theorem mem_earSet_of_mem_ear {z : γ} (hz : z ∈ V(d.ear)) : earPos z ∈ d.earSet earPos earDraw :=
+  Graph.vertexSet_subset_pointSet (by rw [d.vertexSet_earGraph]; exact ⟨z, hz, rfl⟩)
+
+theorem edgeArc_subset_earSet {f : γ} (hf : f ∈ E(d.ear)) :
+    Graph.edgeArc earDraw f ⊆ d.earSet earPos earDraw :=
+  Graph.edgeArc_subset_pointSet (by rw [d.edgeSet_earGraph]; exact hf)
+
+variable (hE : d.EarCrosscut R earPos earDraw)
+
+include hE
+
+/-- On the two ends — the only vertices the ear shares with the old skeleton — the ear's
+positions agree with the old ones. -/
+theorem earPos_eq {z : γ} (hz : z ∈ V(d.ear)) (hz' : z ∈ V(S.skel)) : earPos z = R.pos z := by
+  have : z ∈ ({d.source, d.target} : Set γ) := d.vertexSet_inter ▸ ⟨hz, hz'⟩
+  rcases this with rfl | rfl
+  exacts [hE.pos_source, hE.pos_target]
+
+theorem pos_source_mem_earSet : R.pos d.source ∈ d.earSet earPos earDraw :=
+  hE.pos_source ▸ mem_earSet_of_mem_ear d.source_mem_ear
+
+theorem pos_target_mem_earSet : R.pos d.target ∈ d.earSet earPos earDraw :=
+  hE.pos_target ▸ mem_earSet_of_mem_ear d.target_mem_ear
+
+/-- An interior vertex of the ear is drawn strictly inside the old open 2-cell. -/
+theorem earPos_mem_cell_face {z : γ} (hz : z ∈ V(d.ear)) (hs : z ≠ d.source)
+    (ht : z ≠ d.target) : earPos z ∈ R.cell d.face := by
+  refine hE.subset_face ⟨mem_earSet_of_mem_ear hz, ?_⟩
+  simp only [Set.mem_insert_iff, Set.mem_singleton_iff]
+  rintro (h | h)
+  · exact hs (hE.injOn hz d.source_mem_ear (h.trans hE.pos_source.symm))
+  · exact ht (hE.injOn hz d.target_mem_ear (h.trans hE.pos_target.symm))
+
+/-- **The drawn ear meets the old skeleton exactly in its two ends.** The interior of the ear
+is inside the open 2-cell, and an open 2-cell misses the drawn skeleton. -/
+theorem earSet_inter_skeletonSet {D : Set Plane} (hcd : R.IsCellDecomposition D) :
+    d.earSet earPos earDraw ∩ R.skeletonSet ⊆ {R.pos d.source, R.pos d.target} := by
+  rintro x ⟨hx, hx'⟩
+  by_contra hcon
+  exact Set.disjoint_left.1 (R.disjoint_cell_skeletonSet hcd d.face_mem)
+    (hE.subset_face ⟨hx, hcon⟩) hx'
+
+/-- **An ear edge's arc meets the ear's vertices exactly at its own two ends**, so dropping
+all of the ear's vertices from it is the same as dropping its own two ends. This is what makes
+the definition of the new open 1-cells independent of a choice of orientation. -/
+theorem edgeArc_diff {f a b : γ} (hl : d.ear.IsLink f a b) :
+    Graph.edgeArc earDraw f \ earPos '' V(d.ear) =
+      Graph.edgeArc earDraw f \ {earPos a, earPos b} := by
+  have hlm : (d.earGraph earPos).IsLink f (earPos a) (earPos b) := hl.map earPos
+  refine Set.Subset.antisymm (Set.sdiff_subset_sdiff_right ?_) (fun x ⟨hx, hx'⟩ => ⟨hx, ?_⟩)
+  · rintro _ (rfl | rfl)
+    exacts [⟨a, hl.left_mem, rfl⟩, ⟨b, hl.right_mem, rfl⟩]
+  · rintro ⟨w, hw, rfl⟩
+    have hwV : earPos w ∈ V(d.earGraph earPos) := by
+      rw [d.vertexSet_earGraph]; exact ⟨w, hw, rfl⟩
+    exact hx' (hE.isDrawing.vertex_mem_edgeArc hlm hwV hx)
+
+end EarCrosscut
+
+/-! ## The realization built from a drawn ear -/
+
+open scoped Classical in
+/-- Where the split puts each 0-cell: the ear's vertices go where the ear's drawing puts them,
+everything else stays. On the ear's two ends the two prescriptions agree. -/
+noncomputable def splitPos (d : S.SplitData) (R : S.Realization) (earPos : γ → Plane) :
+    γ → Plane := fun z => if z ∈ V(d.ear) then earPos z else R.pos z
+
+open scoped Classical in
+/-- How the split draws each 1-cell. -/
+noncomputable def splitDrawing (d : S.SplitData) (R : S.Realization)
+    (earDraw : γ → ℝ → Plane) : γ → ℝ → Plane :=
+  fun f => if f ∈ E(d.ear) then earDraw f else R.drawing f
+
+open scoped Classical in
+/-- The point set of each open cell after the split: the two new 2-cells are the two sides of
+the crosscut, the ear's vertices and edges are their points and their open arcs, and every
+surviving cell keeps its old point set. -/
+noncomputable def splitCell (d : S.SplitData) (R : S.Realization) (earPos : γ → Plane)
+    (earDraw : γ → ℝ → Plane) : γ → Set Plane := fun σ =>
+  if σ = d.face₁ then inside (R.cellUnion d.cells₁ ∪ d.earSet earPos earDraw)
+  else if σ = d.face₂ then inside (R.cellUnion d.cells₂ ∪ d.earSet earPos earDraw)
+  else if σ ∈ V(d.ear) ∧ σ ∉ V(S.skel) then {earPos σ}
+  else if σ ∈ E(d.ear) then Graph.edgeArc earDraw σ \ earPos '' V(d.ear)
+  else R.cell σ
+
+variable {d} {R : S.Realization} {earPos : γ → Plane} {earDraw : γ → ℝ → Plane}
+
+theorem splitPos_of_mem_ear {z : γ} (hz : z ∈ V(d.ear)) : d.splitPos R earPos z = earPos z := by
+  classical
+  simp only [splitPos, if_pos hz]
+
+theorem splitPos_of_notMem_ear {z : γ} (hz : z ∉ V(d.ear)) : d.splitPos R earPos z = R.pos z := by
+  classical
+  simp only [splitPos, if_neg hz]
+
+theorem EarCrosscut.splitPos_eq (hE : d.EarCrosscut R earPos earDraw) {z : γ}
+    (hz : z ∈ V(S.skel)) : d.splitPos R earPos z = R.pos z := by
+  by_cases hz' : z ∈ V(d.ear)
+  · rw [splitPos_of_mem_ear hz', hE.earPos_eq hz' hz]
+  · rw [splitPos_of_notMem_ear hz']
+
+theorem splitDrawing_of_mem_ear {f : γ} (hf : f ∈ E(d.ear)) :
+    d.splitDrawing R earDraw f = earDraw f := by
+  classical
+  simp only [splitDrawing, if_pos hf]
+
+theorem splitDrawing_of_mem_skel {f : γ} (hf : f ∈ E(S.skel)) :
+    d.splitDrawing R earDraw f = R.drawing f := by
+  classical
+  simp only [splitDrawing, if_neg (Set.disjoint_left.1 d.disjoint_edgeSet hf)]
+
+theorem splitCell_face₁ : d.splitCell R earPos earDraw d.face₁ =
+    inside (R.cellUnion d.cells₁ ∪ d.earSet earPos earDraw) := by
+  classical
+  unfold splitCell
+  rw [if_pos rfl]
+
+theorem splitCell_face₂ : d.splitCell R earPos earDraw d.face₂ =
+    inside (R.cellUnion d.cells₂ ∪ d.earSet earPos earDraw) := by
+  classical
+  unfold splitCell
+  rw [if_neg (Ne.symm d.face_ne), if_pos rfl]
+
+theorem splitCell_of_mem_cells {σ : γ} (hσ : σ ∈ S.cells) :
+    d.splitCell R earPos earDraw σ = R.cell σ := by
+  classical
+  have h₁ : σ ≠ d.face₁ := by rintro rfl; exact d.face₁_notMem hσ
+  have h₂ : σ ≠ d.face₂ := by rintro rfl; exact d.face₂_notMem hσ
+  have h₃ : ¬ (σ ∈ V(d.ear) ∧ σ ∉ V(S.skel)) := by
+    rintro ⟨hv, hnv⟩
+    rcases d.mem_cells_of_mem_ear_vertexSet hv hσ with rfl | rfl
+    exacts [hnv d.source_mem_skel, hnv d.target_mem_skel]
+  have h₄ : σ ∉ E(d.ear) := fun h => d.edge_fresh h hσ
+  unfold splitCell
+  rw [if_neg h₁, if_neg h₂, if_neg h₃, if_neg h₄]
+
+theorem EarCrosscut.splitCell_earVertex (hE : d.EarCrosscut R earPos earDraw) {z : γ}
+    (hz : z ∈ V(d.ear)) : d.splitCell R earPos earDraw z = {earPos z} := by
+  classical
+  by_cases hz' : z ∈ V(S.skel)
+  · rw [splitCell_of_mem_cells (S.mem_cells_of_mem_vertexSet hz'), R.cell_vertex hz',
+      hE.earPos_eq hz hz']
+  · have h₁ : z ≠ d.face₁ := by rintro rfl; exact d.face₁_notMem_ear (Or.inl hz)
+    have h₂ : z ≠ d.face₂ := by rintro rfl; exact d.face₂_notMem_ear (Or.inl hz)
+    unfold splitCell
+    rw [if_neg h₁, if_neg h₂, if_pos (show z ∈ V(d.ear) ∧ z ∉ V(S.skel) from ⟨hz, hz'⟩)]
+
+theorem splitCell_earEdge {f : γ} (hf : f ∈ E(d.ear)) :
+    d.splitCell R earPos earDraw f = Graph.edgeArc earDraw f \ earPos '' V(d.ear) := by
+  classical
+  have h₁ : f ≠ d.face₁ := by rintro rfl; exact d.face₁_notMem_ear (Or.inr hf)
+  have h₂ : f ≠ d.face₂ := by rintro rfl; exact d.face₂_notMem_ear (Or.inr hf)
+  have h₃ : ¬ (f ∈ V(d.ear) ∧ f ∉ V(S.skel)) := fun h =>
+    Set.disjoint_left.1 d.ear_disjoint h.1 hf
+  unfold splitCell
+  rw [if_neg h₁, if_neg h₂, if_neg h₃, if_pos hf]
+
+end SplitData
 
 end CellStructure
 

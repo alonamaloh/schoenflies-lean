@@ -281,6 +281,33 @@ under-assuming, or doing more work than needed. None is an error in the mathemat
     kinds of failure but not the fourth, because the bundle does compose — it just composes
     into something too weak.
 
+18. **A presentation stronger than the notion its theorems are about.** The blueprint defines
+    "polygonal" set-theoretically — *a finite union of line segments* — so a simple closed
+    polygonal curve is exactly `IsJordanCurve C ∧ IsPolygonal C`, with no condition on vertices.
+    This development works with `ClosedPolygon m`, a cyclic vertex list carrying `corner`
+    (no three consecutive vertices collinear). The strip lemma genuinely needs `corner`, since
+    its germ argument needs a nonzero determinant at each vertex — but nothing said that every
+    set-level polygonal Jordan curve *admits* such a presentation, and without that the
+    `ClosedPolygon` theorems say nothing about the objects the blueprint quantifies over.
+
+    It bites where the crosscut theorem splices. At a join vertex the crosscut may leave along
+    the ray directly opposite the arriving arc edge — perfectly compatible with the crosscut
+    meeting the curve only at its two endpoints — so three consecutive points are collinear and
+    the spliced curve is a genuine simple closed polygonal curve that is *not* a
+    `ClosedPolygon`. Deleting the redundant vertex is the blueprint's own opening move in the
+    strip lemma; the structure bakes it in as an invariant rather than offering it as an
+    operation, and so cannot be closed under the splice its consumers perform.
+
+    **The blueprint is not at fault.** Its statements are about the set-level notion throughout,
+    and `thm:polygonal-crosscut`'s "all three curves are separating" is correct because `A_i ∪ P`
+    is a Jordan curve and a finite union of segments. The divergence is entirely ours, and the
+    repair is a realization theorem: every set-level simple closed polygonal curve admits a
+    `ClosedPolygon` presentation, via a normalization that deletes redundant collinear vertices.
+
+    Unlike findings 11 and 17 — omissions from a conclusion — this one is a *definition* too
+    strong to be closed under the operations its consumers need, which is why it surfaced only
+    when three separate consumers reached for it at once.
+
 ## Frictions
 
 - **A duplicate theorem can compile.** `supDist_triangle` was proved independently in two

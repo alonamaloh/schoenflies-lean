@@ -6,7 +6,7 @@ Authors: Álvaro Begué
 import Schoenflies.ArcComplementPrep
 import Schoenflies.CombinatorialInvariance
 import Schoenflies.Graph.VertexSquares
-import Schoenflies.OuterChain
+import Schoenflies.OuterChainClosed
 import Schoenflies.AccessibleJoin
 
 /-!
@@ -544,13 +544,11 @@ descent step exactly as `Schoenflies/OuterChain.lean` defines them and for *this
 a discharger's terms substitute here with nothing to adapt. -/
 theorem outer_face_familyChain {n : ℕ} {x : Plane}
     (hchain : Graph.IsPlaneChain (familyChain c N m r) segmentDrawing (familyOverlay c N r) n)
-    (hout : Graph.OuterOnPairs (familyChain c N m r) segmentDrawing n x)
-    (hce : Graph.CrosscutExists (familyChain c N m r) segmentDrawing n x)
-    (hcen : Graph.CrosscutEncloses (β := Piece) segmentDrawing x) :
+    (hout : Graph.OuterOnPairs (familyChain c N m r) segmentDrawing n x) :
     x ∈ Graph.exterior (Graph.chainUnion (familyChain c N m r) 0 n) segmentDrawing ∧
       ¬ Bornology.IsBounded
         (Graph.face (Graph.chainUnion (familyChain c N m r) 0 n) segmentDrawing x) :=
-  hchain.outer_chain_of_crosscut hout hce hcen
+  hchain.outer_chain' hout
 
 /-! ## Part 6: from the Euclidean distance to the sup distance
 
@@ -597,9 +595,6 @@ of the descent step of `lem:outer-chain`, quoted verbatim from `Schoenflies/Oute
 /-- **The heart of `thm:arc-complement`**: two points off a simple arc lie in a common open
 connected set missing the arc — the outer face of the chain of small squares along the arc. -/
 theorem exists_face_of_notMem_arc {A : Set Plane} (hA : IsArc A) (h2c : SquaresTwoConnected)
-    (hce : ∀ (Γ : ℕ → Graph Plane Piece) (Gamb : Graph Plane Piece) (k : ℕ) (x : Plane),
-      Graph.IsPlaneChain Γ segmentDrawing Gamb k → Graph.CrosscutExists Γ segmentDrawing k x)
-    (hcen : ∀ x : Plane, Graph.CrosscutEncloses (β := Piece) segmentDrawing x)
     {u w : Plane} (hu : u ∉ A) (hw : w ∉ A) :
     ∃ F : Set Plane, IsOpen F ∧ IsConnected F ∧ u ∈ F ∧ w ∈ F ∧ Disjoint F A := by
   obtain ⟨α, hα, hinj, rfl⟩ := hA
@@ -716,9 +711,9 @@ theorem exists_face_of_notMem_arc {A : Set Plane} (hA : IsArc A) (h2c : SquaresT
   have hmemu : u ∈ ({u, w} : Set Plane) := Or.inl rfl
   have hmemw : w ∈ ({u, w} : Set Plane) := Or.inr rfl
   have houtu := outer_face_familyChain hchain
-    (outerOnPairs_familyChain hcontain (hxfar u hmemu)) (hce _ _ _ _ hchain) (hcen u)
+    (outerOnPairs_familyChain hcontain (hxfar u hmemu))
   have houtw := outer_face_familyChain hchain
-    (outerOnPairs_familyChain hcontain (hxfar w hmemw)) (hce _ _ _ _ hchain) (hcen w)
+    (outerOnPairs_familyChain hcontain (hxfar w hmemw))
   haveI : (Graph.chainUnion (familyChain c ((n + 1) * m) m r) 0 n).Finite :=
     hchain.block_finite (i := 0) (m := n) (by omega)
   have hdraw : Graph.IsDrawing (Graph.chainUnion (familyChain c ((n + 1) * m) m r) 0 n)
@@ -757,12 +752,9 @@ theorem exists_face_of_notMem_arc {A : Set Plane} (hA : IsArc A) (h2c : SquaresT
 joined, off the arc, by a *simple polygonal* arc.  This is the form `lem:accessible-dense`
 consumes; the joining is `lem:polygonal-connected` inside the outer face. -/
 theorem exists_simple_poly_compl_arc {A : Set Plane} (hA : IsArc A) (h2c : SquaresTwoConnected)
-    (hce : ∀ (Γ : ℕ → Graph Plane Piece) (Gamb : Graph Plane Piece) (k : ℕ) (x : Plane),
-      Graph.IsPlaneChain Γ segmentDrawing Gamb k → Graph.CrosscutExists Γ segmentDrawing k x)
-    (hcen : ∀ x : Plane, Graph.CrosscutEncloses (β := Piece) segmentDrawing x)
     {u w : Plane} (huw : u ≠ w) (hu : u ∉ A) (hw : w ∉ A) :
     ∃ P : Set Plane, IsPolygonal P ∧ IsArcBetween P u w ∧ P ⊆ Aᶜ := by
-  obtain ⟨F, hFopen, hFconn, huF, hwF, hFA⟩ := exists_face_of_notMem_arc hA h2c hce hcen hu hw
+  obtain ⟨F, hFopen, hFconn, huF, hwF, hFA⟩ := exists_face_of_notMem_arc hA h2c hu hw
   obtain ⟨P, hPpoly, hParc, hPsub⟩ :=
     exists_simple_arc_of_polyAccessible hFopen hFconn.isPreconnected huw
       (polyAccessible_of_mem huF) (polyAccessible_of_mem hwF)
@@ -773,10 +765,7 @@ theorem exists_simple_poly_compl_arc {A : Set Plane} (hA : IsArc A) (h2c : Squar
   · exact Set.disjoint_left.1 hFA (hPsub ⟨hz, by simpa using hzuw⟩)
 
 /-- **`thm:arc-complement`.**  The complement of a simple arc in the plane is connected. -/
-theorem isConnected_compl_arc {A : Set Plane} (hA : IsArc A) (h2c : SquaresTwoConnected)
-    (hce : ∀ (Γ : ℕ → Graph Plane Piece) (Gamb : Graph Plane Piece) (k : ℕ) (x : Plane),
-      Graph.IsPlaneChain Γ segmentDrawing Gamb k → Graph.CrosscutExists Γ segmentDrawing k x)
-    (hcen : ∀ x : Plane, Graph.CrosscutEncloses (β := Piece) segmentDrawing x) :
+theorem isConnected_compl_arc {A : Set Plane} (hA : IsArc A) (h2c : SquaresTwoConnected) :
     IsConnected Aᶜ := by
   refine ⟨?_, isPreconnected_of_forall_pair fun z hz y hy => ?_⟩
   · -- An arc is compact, so it misses the outside of a large square.
@@ -784,7 +773,7 @@ theorem isConnected_compl_arc {A : Set Plane} (hA : IsArc A) (h2c : SquaresTwoCo
     obtain ⟨t, ht⟩ := (Plane.isConnected_beyondSquare s).nonempty
     rw [Plane.beyondSquare_eq_compl] at ht
     exact ⟨t, fun htA => ht (hs htA)⟩
-  · obtain ⟨F, -, hFconn, hzF, hyF, hFA⟩ := exists_face_of_notMem_arc hA h2c hce hcen hz hy
+  · obtain ⟨F, -, hFconn, hzF, hyF, hFA⟩ := exists_face_of_notMem_arc hA h2c hz hy
     exact ⟨F, fun v hv => Set.disjoint_left.1 hFA hv, hzF, hyF, hFconn.isPreconnected⟩
 
 end Schoenflies

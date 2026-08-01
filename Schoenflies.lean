@@ -71,3 +71,9 @@ import Schoenflies.OuterChain
 import Schoenflies.CrosscutExists
 import Schoenflies.CrosscutEncloses
 import Schoenflies.OuterChainClosed
+import Schoenflies.ArcCollars
+import Schoenflies.SkeletonSectors
+import Schoenflies.SquareMeshConnected
+import Schoenflies.ArcComplement
+import Schoenflies.Jordan
+import Schoenflies.GeneralCrosscut

@@ -34,11 +34,11 @@ needs the coordinates **distinct** (`Set.InjOn xc (Set.Iic m)`), and only the dr
 clause that makes the grid a plane graph — needs them **increasing**
 (`StrictMonoOn xc (Set.Iic m)`).
 
-The graph is `segGraph (gridEdges xc yc m n)`, where `segGraph` is the general "a list of
+The graph is `pieceListGraph (gridEdges xc yc m n)`, where `pieceListGraph` is the general "a list of
 straight segments, read as a graph" constructor: an edge is a `Piece`, and it links exactly its
-two ends. `segGraph` is `overlayGraph` without the subdivision — the vertices are the ends of
-the listed segments and nothing is cut — and its point is that `segGraph l₁ ∪ segGraph l₂ =
-segGraph (l₁ ++ l₂)` **on the nose** (`segGraph_union`), so that the blueprint's "add these
+two ends. `pieceListGraph` is `overlayGraph` without the subdivision — the vertices are the ends of
+the listed segments and nothing is cut — and its point is that `pieceListGraph l₁ ∪ pieceListGraph l₂ =
+pieceListGraph (l₁ ++ l₂)` **on the nose** (`pieceListGraph_union`), so that the blueprint's "add these
 finitely many cycles one at a time" is list concatenation and every union is an equation
 rather than an inclusion.
 
@@ -112,7 +112,7 @@ carried explicitly by every theorem below that needs it.
 * `lem:union-two-connected` — used through `Graph.IsTwoConnected.union`; iterated here as
   `Graph.IsTwoConnected.attach_cycles`, which is the blueprint's "adding these finitely many
   cycles one at a time".
-* `segGraph`, `segGraph_union` — the list-of-segments graph, and the fact that its unions are
+* `pieceListGraph`, `pieceListGraph_union` — the list-of-segments graph, and the fact that its unions are
   concatenations.
 -/
 
@@ -295,10 +295,16 @@ namespace Schoenflies
 
 `overlayGraph` subdivides; this does not. When the segments are already in general position —
 which for a grid they are, by construction — no subdivision is wanted, and what is gained is
-that unions are concatenations. -/
+that unions are concatenations.
+
+`Schoenflies/ArcComplement.lean` has the same construction indexed by a `Set Piece`, under the
+name `segGraph`, and `pieceListGraph l` is `segGraph {P | P ∈ l}`. The two were written in
+parallel and collided at merge; they are kept apart for now because this module's proofs run on
+the list and the other's on the set. If a third consumer appears, hoist the set version into
+`Schoenflies/OverlayGraph.lean` beside `endSet` and derive this one from it. -/
 
 /-- The graph whose edges are the listed segments and whose vertices are their ends. -/
-def segGraph (edges : List Piece) : Graph Plane Piece where
+def pieceListGraph (edges : List Piece) : Graph Plane Piece where
   vertexSet := endSet edges
   IsLink P x y := P ∈ edges ∧ ((x = P.1 ∧ y = P.2) ∨ (x = P.2 ∧ y = P.1))
   edgeSet := {P | P ∈ edges}
@@ -314,31 +320,31 @@ def segGraph (edges : List Piece) : Graph Plane Piece where
     rintro P x y ⟨hP, h⟩
     exact ⟨P, hP, by tauto⟩
 
-@[simp] theorem segGraph_vertexSet (l : List Piece) : V(segGraph l) = endSet l := rfl
+@[simp] theorem pieceListGraph_vertexSet (l : List Piece) : V(pieceListGraph l) = endSet l := rfl
 
-@[simp] theorem segGraph_mem_edgeSet {l : List Piece} {P : Piece} :
-    P ∈ E(segGraph l) ↔ P ∈ l := Iff.rfl
+@[simp] theorem pieceListGraph_mem_edgeSet {l : List Piece} {P : Piece} :
+    P ∈ E(pieceListGraph l) ↔ P ∈ l := Iff.rfl
 
-@[simp] theorem segGraph_isLink {l : List Piece} {P : Piece} {x y : Plane} :
-    (segGraph l).IsLink P x y ↔
+@[simp] theorem pieceListGraph_isLink {l : List Piece} {P : Piece} {x y : Plane} :
+    (pieceListGraph l).IsLink P x y ↔
       P ∈ l ∧ ((x = P.1 ∧ y = P.2) ∨ (x = P.2 ∧ y = P.1)) := Iff.rfl
 
-theorem segGraph_mem_vertexSet {l : List Piece} {v : Plane} :
-    v ∈ V(segGraph l) ↔ ∃ P ∈ l, v = P.1 ∨ v = P.2 := Iff.rfl
+theorem pieceListGraph_mem_vertexSet {l : List Piece} {v : Plane} :
+    v ∈ V(pieceListGraph l) ↔ ∃ P ∈ l, v = P.1 ∨ v = P.2 := Iff.rfl
 
 /-- The canonical link of a listed segment: it joins its own two ends. -/
-theorem segGraph_isLink_self {l : List Piece} {P : Piece} (h : P ∈ l) :
-    (segGraph l).IsLink P P.1 P.2 := ⟨h, Or.inl ⟨rfl, rfl⟩⟩
+theorem pieceListGraph_isLink_self {l : List Piece} {P : Piece} (h : P ∈ l) :
+    (pieceListGraph l).IsLink P P.1 P.2 := ⟨h, Or.inl ⟨rfl, rfl⟩⟩
 
-theorem mem_vertexSet_segGraph_left {l : List Piece} {P : Piece} (h : P ∈ l) :
-    P.1 ∈ V(segGraph l) := ⟨P, h, Or.inl rfl⟩
+theorem mem_vertexSet_pieceListGraph_left {l : List Piece} {P : Piece} (h : P ∈ l) :
+    P.1 ∈ V(pieceListGraph l) := ⟨P, h, Or.inl rfl⟩
 
-theorem mem_vertexSet_segGraph_right {l : List Piece} {P : Piece} (h : P ∈ l) :
-    P.2 ∈ V(segGraph l) := ⟨P, h, Or.inr rfl⟩
+theorem mem_vertexSet_pieceListGraph_right {l : List Piece} {P : Piece} (h : P ∈ l) :
+    P.2 ∈ V(pieceListGraph l) := ⟨P, h, Or.inr rfl⟩
 
 /-- An end of a listed segment is incident with it. -/
-theorem segGraph_inc {l : List Piece} {P : Piece} {v : Plane} (hP : P ∈ l)
-    (h : v = P.1 ∨ v = P.2) : (segGraph l).Inc P v := by
+theorem pieceListGraph_inc {l : List Piece} {P : Piece} {v : Plane} (hP : P ∈ l)
+    (h : v = P.1 ∨ v = P.2) : (pieceListGraph l).Inc P v := by
   rcases h with rfl | rfl
   · exact ⟨P.2, hP, Or.inl ⟨rfl, rfl⟩⟩
   · exact ⟨P.1, hP, Or.inr ⟨rfl, rfl⟩⟩
@@ -362,17 +368,17 @@ theorem endSet_append (l l' : List Piece) : endSet (l ++ l') = endSet l ∪ endS
   · rintro (⟨P, hP, h⟩ | ⟨P, hP, h⟩)
     exacts [⟨P, Or.inl hP, h⟩, ⟨P, Or.inr hP, h⟩]
 
-instance segGraph_finite (l : List Piece) : Graph.Finite (segGraph l) where
+instance pieceListGraph_finite (l : List Piece) : Graph.Finite (pieceListGraph l) where
   finite_vertexSet := finite_endSet l
   finite_edgeSet := l.finite_toSet
 
 /-- What a segment graph occupies is what its segments occupy: every vertex is an end of a
 listed segment, so the vertices add nothing. -/
-theorem segGraph_pointSet (l : List Piece) :
-    Graph.pointSet (segGraph l) segmentDrawing = cover l := by
+theorem pieceListGraph_pointSet (l : List Piece) :
+    Graph.pointSet (pieceListGraph l) segmentDrawing = cover l := by
   ext z
-  simp only [Graph.pointSet, Set.mem_union, Set.mem_iUnion, exists_prop, segGraph_vertexSet,
-    endSet, Set.mem_setOf_eq, segGraph_mem_edgeSet, edgeArc_segmentDrawing, cover]
+  simp only [Graph.pointSet, Set.mem_union, Set.mem_iUnion, exists_prop, pieceListGraph_vertexSet,
+    endSet, Set.mem_setOf_eq, pieceListGraph_mem_edgeSet, edgeArc_segmentDrawing, cover]
   constructor
   · rintro (⟨P, hP, hzP⟩ | ⟨P, hP, hzP⟩)
     · refine ⟨P, hP, ?_⟩
@@ -383,7 +389,7 @@ theorem segGraph_pointSet (l : List Piece) :
   · rintro ⟨P, hP, hzP⟩
     exact Or.inr ⟨P, hP, hzP⟩
 
-theorem segGraph_mono {l l' : List Piece} (h : l ⊆ l') : segGraph l ≤ segGraph l' where
+theorem pieceListGraph_mono {l l' : List Piece} (h : l ⊆ l') : pieceListGraph l ≤ pieceListGraph l' where
   vertexSet_mono := by
     rintro v ⟨P, hP, hv⟩
     exact ⟨P, h hP, hv⟩
@@ -392,18 +398,18 @@ theorem segGraph_mono {l l' : List Piece} (h : l ⊆ l') : segGraph l ≤ segGra
     exact ⟨h hP, hxy⟩
 
 /-- Two segment graphs never disagree about a shared edge: an edge is its own pair of ends. -/
-theorem segGraph_compatible (l l' : List Piece) : (segGraph l).Compatible (segGraph l') := by
+theorem pieceListGraph_compatible (l l' : List Piece) : (pieceListGraph l).Compatible (pieceListGraph l') := by
   intro P hP hP' x y
   exact ⟨fun h => ⟨hP', h.2⟩, fun h => ⟨hP, h.2⟩⟩
 
 /-- **The union of two segment graphs is the segment graph of the concatenation.** This is the
-whole reason for `segGraph`: it turns "glue one more cycle on" into an equation. -/
-theorem segGraph_union (l l' : List Piece) :
-    (segGraph l).union (segGraph l') = segGraph (l ++ l') := by
+whole reason for `pieceListGraph`: it turns "glue one more cycle on" into an equation. -/
+theorem pieceListGraph_union (l l' : List Piece) :
+    (pieceListGraph l).union (pieceListGraph l') = pieceListGraph (l ++ l') := by
   refine Graph.eq_of_le_of_subset_subset
-    (Graph.union_le (segGraph_mono (List.subset_append_left _ _))
-      (segGraph_mono (List.subset_append_right _ _))) ?_ ?_
-  · rw [segGraph_vertexSet, endSet_append, Graph.vertexSet_union]
+    (Graph.union_le (pieceListGraph_mono (List.subset_append_left _ _))
+      (pieceListGraph_mono (List.subset_append_right _ _))) ?_ ?_
+  · rw [pieceListGraph_vertexSet, endSet_append, Graph.vertexSet_union]
     exact subset_rfl
   · rintro P hP
     rcases List.mem_append.1 hP with h | h
@@ -453,7 +459,7 @@ def gridEdges (xc yc : ℕ → ℝ) (m n : ℕ) : List Piece :=
 
 /-- **The grid graph**: the `m × n` rectangular grid on the coordinates `xc`, `yc`, as a plane
 graph with straight edges. -/
-def gridGraph (xc yc : ℕ → ℝ) (m n : ℕ) : Graph Plane Piece := segGraph (gridEdges xc yc m n)
+def gridGraph (xc yc : ℕ → ℝ) (m n : ℕ) : Graph Plane Piece := pieceListGraph (gridEdges xc yc m n)
 
 theorem stripEdges_succ (xc yc : ℕ → ℝ) (i n : ℕ) :
     stripEdges xc yc i (n + 1) = stripEdges xc yc i n ++ cellEdges xc yc i n := by
@@ -485,15 +491,15 @@ theorem stripEdges_subset_gridEdges {xc yc : ℕ → ℝ} {i m n : ℕ} (h : i <
 `Graph.isTwoConnected_of_quad` with the four corners named. Only the two consecutive-coordinate
 inequalities are used. -/
 theorem cellGraph_isTwoConnected {xc yc : ℕ → ℝ} {i j : ℕ} (hx : xc i ≠ xc (i + 1))
-    (hy : yc j ≠ yc (j + 1)) : (segGraph (cellEdges xc yc i j)).IsTwoConnected := by
+    (hy : yc j ≠ yc (j + 1)) : (pieceListGraph (cellEdges xc yc i j)).IsTwoConnected := by
   have h₁ : gridHEdge xc yc i j ∈ cellEdges xc yc i j := by simp [cellEdges]
   have h₂ : gridVEdge xc yc (i + 1) j ∈ cellEdges xc yc i j := by simp [cellEdges]
   have h₃ : gridHEdge xc yc i (j + 1) ∈ cellEdges xc yc i j := by simp [cellEdges]
   have h₄ : gridVEdge xc yc i j ∈ cellEdges xc yc i j := by simp [cellEdges]
   refine Graph.isTwoConnected_of_quad (a := gridPt xc yc i j) (b := gridPt xc yc (i + 1) j)
     (c := gridPt xc yc (i + 1) (j + 1)) (d := gridPt xc yc i (j + 1))
-    (segGraph_isLink_self h₁) (segGraph_isLink_self h₂)
-    (segGraph_isLink_self h₃).symm (segGraph_isLink_self h₄).symm ?_
+    (pieceListGraph_isLink_self h₁) (pieceListGraph_isLink_self h₂)
+    (pieceListGraph_isLink_self h₃).symm (pieceListGraph_isLink_self h₄).symm ?_
     (gridPt_ne_of_fst hx) (gridPt_ne_of_snd hy) (gridPt_ne_of_fst (Ne.symm hx))
     (gridPt_ne_of_snd (Ne.symm hy)) (gridPt_ne_of_fst hx) (gridPt_ne_of_fst (Ne.symm hx))
   rintro v ⟨P, hP, hv⟩
@@ -510,7 +516,7 @@ two ends of one edge that both parts contain. -/
 them, hence its two ends. -/
 theorem stripGraph_isTwoConnected {xc yc : ℕ → ℝ} {i : ℕ} (hx : xc i ≠ xc (i + 1)) :
     ∀ k : ℕ, (∀ j ≤ k, yc j ≠ yc (j + 1)) →
-      (segGraph (stripEdges xc yc i (k + 1))).IsTwoConnected := by
+      (pieceListGraph (stripEdges xc yc i (k + 1))).IsTwoConnected := by
   intro k
   induction k with
   | zero =>
@@ -524,11 +530,11 @@ theorem stripGraph_isTwoConnected {xc yc : ℕ → ℝ} {i : ℕ} (hx : xc i ≠
     have hold : gridHEdge xc yc i (k + 1) ∈ stripEdges xc yc i (k + 1) :=
       cellEdges_subset_stripEdges (Nat.lt_succ_self k) (by simp [cellEdges])
     have hnew : gridHEdge xc yc i (k + 1) ∈ cellEdges xc yc i (k + 1) := by simp [cellEdges]
-    rw [stripEdges_succ, ← segGraph_union]
-    exact (ih fun j hj => hy j (by omega)).union (segGraph_compatible _ _)
+    rw [stripEdges_succ, ← pieceListGraph_union]
+    exact (ih fun j hj => hy j (by omega)).union (pieceListGraph_compatible _ _)
       (cellGraph_isTwoConnected hx (hy (k + 1) le_rfl)) (gridPt_ne_of_fst hx)
-      (mem_vertexSet_segGraph_left hold) (mem_vertexSet_segGraph_left hnew)
-      (mem_vertexSet_segGraph_right hold) (mem_vertexSet_segGraph_right hnew)
+      (mem_vertexSet_pieceListGraph_left hold) (mem_vertexSet_pieceListGraph_left hnew)
+      (mem_vertexSet_pieceListGraph_right hold) (mem_vertexSet_pieceListGraph_right hnew)
 
 /-- **The grid is 2-connected.** Each new column shares with what is already there the whole
 vertical line between them — in particular the two ends of its lowest edge.
@@ -538,7 +544,7 @@ The two size hypotheses are not decoration: a grid one point wide is a path, and
 theorem gridGraph_isTwoConnected_aux {xc yc : ℕ → ℝ} {n : ℕ}
     (hy : ∀ j ≤ n, yc j ≠ yc (j + 1)) :
     ∀ k : ℕ, (∀ i ≤ k, xc i ≠ xc (i + 1)) →
-      (segGraph (gridEdges xc yc (k + 1) (n + 1))).IsTwoConnected := by
+      (pieceListGraph (gridEdges xc yc (k + 1) (n + 1))).IsTwoConnected := by
   intro k
   induction k with
   | zero =>
@@ -554,11 +560,11 @@ theorem gridGraph_isTwoConnected_aux {xc yc : ℕ → ℝ} {n : ℕ}
         (cellEdges_subset_stripEdges (Nat.succ_pos n) (by simp [cellEdges]))
     have hnew : gridVEdge xc yc (k + 1) 0 ∈ stripEdges xc yc (k + 1) (n + 1) :=
       cellEdges_subset_stripEdges (Nat.succ_pos n) (by simp [cellEdges])
-    rw [gridEdges_succ, ← segGraph_union]
-    exact (ih fun i hi => hx i (by omega)).union (segGraph_compatible _ _)
+    rw [gridEdges_succ, ← pieceListGraph_union]
+    exact (ih fun i hi => hx i (by omega)).union (pieceListGraph_compatible _ _)
       (stripGraph_isTwoConnected (hx (k + 1) le_rfl) n hy) (gridPt_ne_of_snd (hy 0 (by omega)))
-      (mem_vertexSet_segGraph_left hold) (mem_vertexSet_segGraph_left hnew)
-      (mem_vertexSet_segGraph_right hold) (mem_vertexSet_segGraph_right hnew)
+      (mem_vertexSet_pieceListGraph_left hold) (mem_vertexSet_pieceListGraph_left hnew)
+      (mem_vertexSet_pieceListGraph_right hold) (mem_vertexSet_pieceListGraph_right hnew)
 
 /-- **`prop:anchored-square-mesh`, clause 5, for the inner grid.** -/
 theorem gridGraph_isTwoConnected {xc yc : ℕ → ℝ} {m n : ℕ} (hm : 1 ≤ m) (hn : 1 ≤ n)
@@ -627,10 +633,10 @@ theorem mem_vertexSet_gridGraph_iff {xc yc : ℕ → ℝ} {m n : ℕ} (hm : 1 �
   · rintro ⟨i, hi, j, hj, rfl⟩
     -- a grid point is an end of the horizontal edge on one side of it
     rcases lt_or_ge i m with h | h
-    · exact mem_vertexSet_segGraph_left (gridHEdge_mem_gridEdges h hj hn)
+    · exact mem_vertexSet_pieceListGraph_left (gridHEdge_mem_gridEdges h hj hn)
     · obtain rfl : i = m := le_antisymm hi h
       obtain ⟨k, rfl⟩ : ∃ k, i = k + 1 := ⟨i - 1, by omega⟩
-      exact mem_vertexSet_segGraph_right (gridHEdge_mem_gridEdges (Nat.lt_succ_self k) hj hn)
+      exact mem_vertexSet_pieceListGraph_right (gridHEdge_mem_gridEdges (Nat.lt_succ_self k) hj hn)
 
 /-! ### The outer cycle
 
@@ -731,20 +737,20 @@ theorem gridBoundary_isLink {xc yc : ℕ → ℝ} {m n t : ℕ} (hm : 1 ≤ m) (
   · -- along the bottom
     rw [if_pos h₁, bIdx_bottom (by omega), bIdy_bottom (by omega), bIdx_bottom (by omega),
       bIdy_bottom (by omega)]
-    exact segGraph_isLink_self (gridHEdge_mem_gridEdges h₁ (Nat.zero_le n) hn)
+    exact pieceListGraph_isLink_self (gridHEdge_mem_gridEdges h₁ (Nat.zero_le n) hn)
   rcases lt_or_ge t (m + n) with h₂ | h₂
   · -- up the right side
     rw [if_neg (by omega), if_pos h₂, bIdx_right (by omega) (by omega),
       bIdy_right (by omega) (by omega), bIdx_right (by omega) (by omega),
       bIdy_right (by omega) (by omega), show t + 1 - m = (t - m) + 1 by omega]
-    exact segGraph_isLink_self (gridVEdge_mem_gridEdges le_rfl (by omega) hm)
+    exact pieceListGraph_isLink_self (gridVEdge_mem_gridEdges le_rfl (by omega) hm)
   rcases lt_or_ge t (2 * m + n) with h₃ | h₃
   · -- back along the top, so the walk runs against the edge's own orientation
     rw [if_neg (by omega), if_neg (by omega), if_pos h₃, bIdx_top (by omega) (by omega),
       bIdy_top (by omega) (by omega), bIdx_top (by omega) (by omega),
       bIdy_top (by omega) (by omega), show 2 * m + n - (t + 1) = 2 * m + n - 1 - t by omega,
       show 2 * m + n - t = 2 * m + n - 1 - t + 1 by omega]
-    exact (segGraph_isLink_self (gridHEdge_mem_gridEdges
+    exact (pieceListGraph_isLink_self (gridHEdge_mem_gridEdges
       (show 2 * m + n - 1 - t < m by omega) le_rfl hn)).symm
   · -- down the left side, again against the edge's orientation
     rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), bIdx_left (by omega) (by omega),
@@ -752,7 +758,7 @@ theorem gridBoundary_isLink {xc yc : ℕ → ℝ} {m n t : ℕ} (hm : 1 ≤ m) (
       bIdy_left (by omega) (by omega),
       show 2 * m + 2 * n - (t + 1) = 2 * m + 2 * n - 1 - t by omega,
       show 2 * m + 2 * n - t = 2 * m + 2 * n - 1 - t + 1 by omega]
-    exact (segGraph_isLink_self (gridVEdge_mem_gridEdges (Nat.zero_le m)
+    exact (pieceListGraph_isLink_self (gridVEdge_mem_gridEdges (Nat.zero_le m)
       (show 2 * m + 2 * n - 1 - t < n by omega) hm)).symm
 
 /-- The detour: all the boundary edges but the last. -/
@@ -1126,7 +1132,7 @@ theorem gridGraph_isDrawing (hxs : StrictMonoOn xc (Set.Iic m))
     have h0 : segmentDrawing P 0 = P.1 := by simp [segmentDrawing]
     have h1 : segmentDrawing P 1 = P.2 := by simp [segmentDrawing]
     rw [h0, h1]
-    exact segGraph_isLink_self hP
+    exact pieceListGraph_isLink_self hP
   · rintro P x y v ⟨hP, hxy⟩ hv hvarc
     rw [edgeArc_segmentDrawing] at hvarc
     obtain ⟨a, ha, b, hb, rfl⟩ := (mem_vertexSet_gridGraph_iff hm hn).1 hv
@@ -1139,8 +1145,8 @@ theorem gridGraph_isDrawing (hxs : StrictMonoOn xc (Set.Iic m))
     obtain ⟨a, ha, b, hb, rfl⟩ := gridPt_of_mem_two_edges hxs hys hm hn hP hQ hPQ hpP hpQ
     have hvert : gridPt xc yc a b ∈ V(gridGraph xc yc m n) :=
       (mem_vertexSet_gridGraph_iff hm hn).2 ⟨a, ha, b, hb, rfl⟩
-    exact ⟨hvert, segGraph_inc hP (end_of_gridPt_mem_seg hxs hys hm hn hP ha hb hpP),
-      segGraph_inc hQ (end_of_gridPt_mem_seg hxs hys hm hn hQ ha hb hpQ)⟩
+    exact ⟨hvert, pieceListGraph_inc hP (end_of_gridPt_mem_seg hxs hys hm hn hP ha hb hpP),
+      pieceListGraph_inc hQ (end_of_gridPt_mem_seg hxs hys hm hn hQ ha hb hpQ)⟩
 
 /-- **The outer cycle is a Jordan curve.** Now that the grid is a plane graph this is
 `Graph.IsDrawing.cycle_isJordanCurve` applied to the boundary cycle. -/

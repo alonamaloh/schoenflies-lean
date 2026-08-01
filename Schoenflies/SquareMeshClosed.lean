@@ -948,4 +948,130 @@ theorem meshCore_isTwoConnected {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
     (Or.inr hmemz) (smul_mem_vertexSet_ringGraph hN hfresh anchors hz hrm)
     (Or.inr hmemw) (smul_mem_vertexSet_ringGraph hN hfresh anchors hw hrm)
 
+
+/-! ### Adding every ring and every spoke -/
+
+/-- Both crossing points of a spoke lie on the ear, whichever ring they belong to. -/
+theorem smul_mem_walkVertices_meshEar {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
+    (hfresh : ∀ x ∈ fresh, x ∈ modelCurve) (anchors : List Plane) {z w : Plane}
+    (hz : z ∈ fresh) (hw : w ∈ fresh) (hzw : z ≠ w) {r : ℝ} (hr : r ∈ meshRadii N) :
+    r • z ∈ (meshGraph N fresh anchors).walkVertices z (meshEar N fresh anchors z w) ∧
+      r • w ∈ (meshGraph N fresh anchors).walkVertices z (meshEar N fresh anchors z w) := by
+  have hear := meshEar_isPath hN hfresh anchors hz hw hzw
+  constructor
+  · exact Graph.walkVertices_mono
+      (fun _ hQ => List.mem_append_left _ (List.mem_append_left _ hQ))
+      (smul_mem_walkVertices_spokeWalk hN hfresh anchors hz hr)
+  · by_cases h1 : r = 1
+    · rw [h1, one_smul]; exact hear.isWalk.target_mem_walkVertices
+    · exact Graph.mem_walkVertices_of_mem_covered (Graph.coveredVertices_mono
+        (fun _ hQ => List.mem_append_right _ (List.mem_reverse.2 hQ))
+        (smul_mem_coveredVertices_spokeWalk hN hfresh anchors hw hr h1))
+
+/-- The rings of the mesh, attached one at a time — `lem:union-two-connected` iterated. -/
+noncomputable def attachRings (N : ℕ) (fresh anchors : List Plane) (K : Graph Plane Piece) :
+    List ℝ → Graph Plane Piece
+  | [] => K
+  | r :: rs => (attachRings N fresh anchors K rs).union (ringGraph N fresh anchors r)
+
+/-- The spokes of the mesh, attached one at a time — `lem:subdivision-ear-preserve` (b)
+iterated. -/
+noncomputable def attachSpokes (N : ℕ) (fresh anchors : List Plane) (K : Graph Plane Piece) :
+    List Plane → Graph Plane Piece
+  | [] => K
+  | u :: us => (attachSpokes N fresh anchors K us).union (spokeGraph N fresh anchors u)
+
+theorem le_attachRings (N : ℕ) (fresh anchors : List Plane) (K : Graph Plane Piece)
+    (l : List ℝ) : K ≤ attachRings N fresh anchors K l := by
+  induction l with
+  | nil => exact le_refl K
+  | cons r rs ih => exact ih.trans (Graph.left_le_union _ _)
+
+theorem le_attachSpokes (N : ℕ) (fresh anchors : List Plane) (K : Graph Plane Piece)
+    (l : List Plane) : K ≤ attachSpokes N fresh anchors K l := by
+  induction l with
+  | nil => exact le_refl K
+  | cons u us ih => exact ih.trans (Graph.left_le_union _ _)
+
+theorem attachRings_le {N : ℕ} {fresh anchors : List Plane} {K : Graph Plane Piece}
+    (hK : K ≤ meshGraph N fresh anchors) (l : List ℝ) :
+    attachRings N fresh anchors K l ≤ meshGraph N fresh anchors := by
+  induction l with
+  | nil => exact hK
+  | cons r rs ih => exact Graph.union_le ih (ringGraph_le _ _ _ _)
+
+theorem attachSpokes_le {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
+    (hfresh : ∀ x ∈ fresh, x ∈ modelCurve) {anchors : List Plane} {K : Graph Plane Piece}
+    (hK : K ≤ meshGraph N fresh anchors) {l : List Plane} (hl : ∀ u ∈ l, u ∈ fresh) :
+    attachSpokes N fresh anchors K l ≤ meshGraph N fresh anchors := by
+  induction l with
+  | nil => exact hK
+  | cons u us ih =>
+    exact Graph.union_le (ih fun x hx => hl x (List.mem_cons_of_mem _ hx))
+      (spokeGraph_le hN hfresh anchors (hl u List.mem_cons_self))
+
+theorem ringGraph_le_attachRings {N : ℕ} {fresh anchors : List Plane} {K : Graph Plane Piece}
+    (hK : K ≤ meshGraph N fresh anchors) {l : List ℝ} {r : ℝ} (hr : r ∈ l) :
+    ringGraph N fresh anchors r ≤ attachRings N fresh anchors K l := by
+  induction l with
+  | nil => exact absurd hr (List.not_mem_nil)
+  | cons r' rs ih =>
+    rcases List.mem_cons.1 hr with rfl | h
+    · exact (Graph.Compatible.of_le_le (attachRings_le hK rs)
+        (ringGraph_le N fresh anchors r)).right_le_union
+    · exact (ih h).trans (Graph.left_le_union _ _)
+
+theorem spokeGraph_le_attachSpokes {N : ℕ} {fresh anchors : List Plane}
+    {K : Graph Plane Piece} (hK : K ≤ meshGraph N fresh anchors) {l : List Plane} {u : Plane}
+    (hN : 2 ≤ N) (hfresh : ∀ x ∈ fresh, x ∈ modelCurve) (hl : ∀ x ∈ l, x ∈ fresh)
+    (hu : u ∈ l) : spokeGraph N fresh anchors u ≤ attachSpokes N fresh anchors K l := by
+  induction l with
+  | nil => exact absurd hu (List.not_mem_nil)
+  | cons u' us ih =>
+    rcases List.mem_cons.1 hu with rfl | h
+    · exact (Graph.Compatible.of_le_le
+        (attachSpokes_le hN hfresh hK fun x hx => hl x (List.mem_cons_of_mem _ hx))
+        (spokeGraph_le hN hfresh anchors (hl u List.mem_cons_self))).right_le_union
+    · exact (ih (fun x hx => hl x (List.mem_cons_of_mem _ hx)) h).trans (Graph.left_le_union _ _)
+
+theorem attachRings_isTwoConnected {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
+    (hfresh : ∀ x ∈ fresh, x ∈ modelCurve) {anchors : List Plane} {z w : Plane}
+    (hz : z ∈ fresh) (hw : w ∈ fresh) (hzw : z ≠ w) {K : Graph Plane Piece}
+    (hK : K.IsTwoConnected) (hKle : K ≤ meshGraph N fresh anchors)
+    (hzK : ∀ r ∈ meshRadii N, r • z ∈ V(K)) (hwK : ∀ r ∈ meshRadii N, r • w ∈ V(K))
+    {l : List ℝ} (hl : ∀ r ∈ l, r ∈ meshRadii N) :
+    (attachRings N fresh anchors K l).IsTwoConnected := by
+  induction l with
+  | nil => exact hK
+  | cons r rs ih =>
+    have hrm : r ∈ meshRadii N := hl r List.mem_cons_self
+    have hacc := ih fun x hx => hl x (List.mem_cons_of_mem _ hx)
+    have hmono := (le_attachRings N fresh anchors K rs).vertexSet_mono
+    exact hacc.union (Graph.Compatible.of_le_le
+        (attachRings_le hKle rs) (ringGraph_le N fresh anchors r))
+      (ringGraph_isTwoConnected hN hfresh anchors hrm)
+      (smul_ne_smul (ne_of_gt (meshRadii_pos hN hrm)) hzw)
+      (hmono (hzK r hrm)) (smul_mem_vertexSet_ringGraph hN hfresh anchors hz hrm)
+      (hmono (hwK r hrm)) (smul_mem_vertexSet_ringGraph hN hfresh anchors hw hrm)
+
+theorem attachSpokes_isTwoConnected {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
+    (hfresh : ∀ x ∈ fresh, x ∈ modelCurve) {anchors : List Plane} {K : Graph Plane Piece}
+    (hK : K.IsTwoConnected) (hKle : K ≤ meshGraph N fresh anchors)
+    (houter : ∀ u ∈ fresh, u ∈ V(K)) (hinner : ∀ u ∈ fresh, ((N : ℝ)⁻¹) • u ∈ V(K))
+    {l : List Plane} (hl : ∀ u ∈ l, u ∈ fresh) :
+    (attachSpokes N fresh anchors K l).IsTwoConnected := by
+  induction l with
+  | nil => exact hK
+  | cons u us ih =>
+    have hu : u ∈ fresh := hl u List.mem_cons_self
+    have hacc := ih fun x hx => hl x (List.mem_cons_of_mem _ hx)
+    have hmono := (le_attachSpokes N fresh anchors K us).vertexSet_mono
+    refine hacc.ear (Graph.Compatible.of_le_le
+        (attachSpokes_le hN hfresh hKle fun x hx => hl x (List.mem_cons_of_mem _ hx))
+        (spokeGraph_le hN hfresh anchors hu))
+      (spokeWalk_isPath hN hfresh anchors hu).isPathGraph_pathGraphOf ?_
+      (hmono (houter u hu)) (hmono (hinner u hu))
+    exact fun h => smul_ne_self hN (hfresh u hu) (inv_mem_meshRadii hN)
+      (inv_cast_lt_one hN).ne h.symm
+
 end Schoenflies

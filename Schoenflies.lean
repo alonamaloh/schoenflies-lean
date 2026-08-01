@@ -44,3 +44,4 @@ import Schoenflies.SquareMover
 import Schoenflies.StripConstants
 import Schoenflies.StripConnected
 import Schoenflies.Parity
+import Schoenflies.StripLocal

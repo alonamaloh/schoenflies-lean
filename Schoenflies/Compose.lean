@@ -58,19 +58,28 @@ theorem two_arcs_roundtrip {C : Set Plane} (hC : IsJordanCurve C) {p q : Plane}
   exact ⟨A, B, hcov, IsJordanCurve.two_arcs_of_two_arcs hA hB hmeet⟩
 
 /-- **Lemma 1.8 (a) (two-sided polygonal strips).** A simple closed polygonal curve has an open
-neighbourhood, inside any prescribed open set containing it, whose complement in the curve is
-the disjoint union of two connected open sets.
+neighbourhood `N`, inside any prescribed open set containing it, such that `N` minus the curve
+is the disjoint union of two connected open sets.
 
 This is `Strip.lean` (the apparatus, the germ argument and the disjointness),
 `StripConstants.lean` (the constants exist) and `StripConnected.lean` (each side is connected,
 and the collar minus the curve is exactly the two sides) composed. It is stated here rather
-than in any one of them because no one of them can state it. -/
+than in any one of them because no one of them can state it.
+
+`IsOpen N` and `P.carrier ⊆ N` are not decoration: without them "neighbourhood" is not being
+asserted at all, and the Jordan curve argument needs `N` to be a neighbourhood of the curve —
+it has to land the final portion of a segment `[x, a)` inside `N`. An earlier version of this
+statement omitted both and was correspondingly useless to its consumer.
+
+`ClosedPolygon.exists_two_sided_collar` strengthens this further with the local clauses: every
+point of the curve lies in the closure of *both* sides. -/
 theorem polygonal_collar {m : ℕ} (P : ClosedPolygon m) {U : Set Plane} (hU : IsOpen U)
     (hPU : P.carrier ⊆ U) :
-    ∃ N L R : Set Plane, N ⊆ U ∧ IsOpen L ∧ IsOpen R ∧
+    ∃ N L R : Set Plane, IsOpen N ∧ P.carrier ⊆ N ∧ N ⊆ U ∧ IsOpen L ∧ IsOpen R ∧
       N \ P.carrier = L ∪ R ∧ Disjoint L R ∧ IsConnected L ∧ IsConnected R := by
   obtain ⟨D, hDU⟩ := exists_stripData_subset P hU hPU
-  exact ⟨D.nbhd, D.sideL, D.sideR, hDU, D.isOpen_sideL, D.isOpen_sideR,
-    D.nbhd_diff_carrier, D.sideL_disjoint_sideR, D.isConnected_sideL, D.isConnected_sideR⟩
+  exact ⟨D.nbhd, D.sideL, D.sideR, D.isOpen_nbhd, D.carrier_subset_nbhd, hDU,
+    D.isOpen_sideL, D.isOpen_sideR, D.nbhd_diff_carrier, D.sideL_disjoint_sideR,
+    D.isConnected_sideL, D.isConnected_sideR⟩
 
 end Schoenflies

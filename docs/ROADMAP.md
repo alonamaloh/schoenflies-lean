@@ -26,7 +26,6 @@ guarantee and an interface defect surfaces at the consumer rather than at the en
 | Assumed | Declared in | Blocks | Notes |
 |---|---|---|---|
 | `Schoenflies.SquaresTwoConnected` | `ArcComplement.lean` | `thm:arc-complement`, hence `lem:accessible-dense`, hence **`thm:jordan`** | a subdivided axis-parallel square boundary is 2-connected. The blueprint gets 2-connectivity of each block by iterating `lem:union-two-connected` over the squares, which presupposes it for one square. **This is the only thing between the library and the Jordan curve theorem.** |
-| `Schoenflies.IsPolyArcCarrier` | `ArcCollars.lean` | `Schoenflies.HasArcCollars`, hence `lem:crosscut-at-most-two`, hence `thm:general-crosscut` | every simple polygonal arc is the carrier of a `PolyArc`. The arc analogue of the realization theorem, which `Realization.lean` already does for closed curves |
 
 ### What the no-`sorry` rule caught
 
@@ -55,7 +54,7 @@ then, with everything written in the meantime resting on it. The counterexample 
 | `lem:nested-compact` | done | `Plane.lean` (`eq_singleton_iInter_of_diam_tendsto_zero`) |
 | `lem:clopen-component` | done | `Plane.lean` (`connectedComponentIn_eq_of_frontier_disjoint`), `Topology.lean` |
 | `lem:polygonal-collar` (a) | done | `Compose.lean` (`polygonal_collar`), `StripLocal.lean` (`exists_two_sided_collar`) |
-| `lem:polygonal-collar` (b) | done for a `PolyArc` | `ArcCollars.lean` |
+| `lem:polygonal-collar` (b) | done | `ArcCollars.lean` for a `PolyArc`, `PolyArcRealize.lean` for a set |
 | `lem:parity-subdivision` | done | `Parity.lean` (`parity_subdivide`) |
 | `lem:polygon-parity` | done | `Parity.lean` |
 | `lem:polygonal-overlay` | done | `Overlay.lean`, `OverlayGraph.lean` (`polygonal_overlay`) |
@@ -70,6 +69,7 @@ then, with everything written in the meantime resting on it. The counterexample 
 | `thm:polygonal-crosscut` | done | `PolygonalCrosscut.lean` (`polygonal_crosscut`) |
 | `cor:alternating-crosscuts` | done | `AlternatingCrosscuts.lean` |
 | realization theorem | done | `Realization.lean` — every set-level polygonal Jordan curve admits a `ClosedPolygon` presentation, with prescribed arcs. Not a blueprint statement; it is the bridge the blueprint takes for granted |
+| realization theorem, arc case | done | `PolyArcRealize.lean` — every set-level simple polygonal arc admits a `PolyArc` presentation (`isPolyArcCarrier_of_isPolygonal`). Same status: not a blueprint statement, but the bridge Lemma 1.8 (b) takes for granted |
 
 ### Graph theory
 
@@ -94,8 +94,8 @@ then, with everything written in the meantime resting on it. The counterexample 
 | `thm:arc-complement` | conditional (`SquaresTwoConnected`) | `ArcComplement.lean`, on `ArcComplementPrep.lean` |
 | `lem:accessible-dense` | conditional (via `thm:arc-complement`) | `Jordan.lean` |
 | `thm:jordan` | conditional (via `thm:arc-complement`) | `Jordan.lean` (`IsJordanCurve.isSeparating`) |
-| `lem:crosscut-at-most-two` | conditional (`HasArcCollars`, now reduced to `IsPolyArcCarrier`) | `CrosscutAtMostTwo.lean`, `ArcCollars.lean` |
-| `thm:general-crosscut` (H10) | conditional (`thm:jordan`, `HasArcCollars`) | `GeneralCrosscut.lean` |
+| `lem:crosscut-at-most-two` | **done** | `CrosscutAtMostTwo.lean`, `ArcCollars.lean`, closed in `PolyArcRealize.lean` (`crosscut_at_most_two_of_isPolygonal`) |
+| `thm:general-crosscut` (H10) | conditional (`thm:jordan` only) | `GeneralCrosscut.lean`, `PolyArcRealize.lean` (`general_crosscut'`, `IsCrosscut.hasArcCollars`) |
 | `lem:accessible-endpoints` | done | `AccessibleJoin.lean` |
 
 ## Part II — the Schönflies extension

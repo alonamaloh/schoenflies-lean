@@ -229,6 +229,43 @@ theorem IsTwoConnected.attach_cycles {K : Graph α β} {Γ : ℕ → Graph α β
     exact hih.union hcompat (hΓ m (by omega)) hab ((le_attachUnion K Γ m).vertexSet_mono haK)
       haΓ ((le_attachUnion K Γ m).vertexSet_mono hbK) hbΓ
 
+/-! ### A march along indices is a path
+
+The boundary walk of the grid is a march: vertices `p s, p (s+1), …` joined by edges
+`q s, q (s+1), …`. The freshness clause of `Graph.IsPath` is then exactly the injectivity of
+`p` on the index range, because an edge of the chain is incident with nothing but its own two
+ends (`Graph.Inc.eq_or_eq_of_isLink`). -/
+
+/-- **A chain of edges through pairwise distinct vertices is a path.** -/
+theorem isPath_range' {p : ℕ → α} {q : ℕ → β} :
+    ∀ (k s : ℕ), (∀ i, s ≤ i → i < s + k → G.IsLink (q i) (p i) (p (i + 1))) →
+      (∀ i j, s ≤ i → i ≤ s + k → s ≤ j → j ≤ s + k → p i = p j → i = j) →
+      p (s + k) ∈ V(G) → G.IsPath (p s) ((List.range' s k).map q) (p (s + k)) := by
+  intro k
+  induction k with
+  | zero => exact fun s _ _ hmem => IsPath.nil hmem
+  | succ k ih =>
+    intro s hlink hinj hmem
+    have hstep : G.IsLink (q s) (p s) (p (s + 1)) := hlink s le_rfl (by omega)
+    have htail : G.IsPath (p (s + 1)) ((List.range' (s + 1) k).map q) (p (s + 1 + k)) :=
+      ih (s + 1) (fun i h1 h2 => hlink i (by omega) (by omega))
+        (fun i j h1 h2 h3 h4 h => hinj i j (by omega) (by omega) (by omega) (by omega) h)
+        (by rw [show s + 1 + k = s + (k + 1) by omega]; exact hmem)
+    have hfresh : p s ∉ G.walkVertices (p (s + 1)) ((List.range' (s + 1) k).map q) := by
+      intro hmemw
+      rcases mem_walkVertices_iff.1 hmemw with h | hcov
+      · exact absurd (hinj s (s + 1) le_rfl (by omega) (by omega) (by omega) h) (by omega)
+      · obtain ⟨-, ⟨i, hi, rfl⟩, hinc⟩ :
+            ∃ e, (∃ i ∈ List.range' (s + 1) k, q i = e) ∧ G.Inc e (p s) := by
+          obtain ⟨e, he, hinc⟩ := hcov
+          exact ⟨e, List.mem_map.1 he, hinc⟩
+        rw [List.mem_range'_1] at hi
+        rcases hinc.eq_or_eq_of_isLink (hlink i (by omega) (by omega)) with h | h
+        · exact absurd (hinj s i le_rfl (by omega) (by omega) (by omega) h) (by omega)
+        · exact absurd (hinj s (i + 1) le_rfl (by omega) (by omega) (by omega) h) (by omega)
+    rw [List.range'_succ, List.map_cons, show s + (k + 1) = s + 1 + k by omega]
+    exact IsPath.cons hstep htail hfresh
+
 end Graph
 
 namespace Schoenflies
@@ -471,5 +508,194 @@ theorem gridGraph_isTwoConnected {xc yc : ℕ → ℝ} {m n : ℕ} (hm : 1 ≤ m
   obtain ⟨k, rfl⟩ : ∃ k, m = k + 1 := ⟨m - 1, by omega⟩
   obtain ⟨l, rfl⟩ : ∃ l, n = l + 1 := ⟨n - 1, by omega⟩
   exact gridGraph_isTwoConnected_aux (fun j hj => hy j (by omega)) k fun i hi => hx i (by omega)
+
+/-! ### Which grid edges exist
+
+Two membership lemmas, both by the same trick: a horizontal edge at height `n` is the *top*
+of a cell rather than the bottom of one, and a vertical edge on the line `i = m` is the *right*
+side of a cell rather than the left. -/
+
+theorem gridHEdge_mem_gridEdges {xc yc : ℕ → ℝ} {i j m n : ℕ} (hi : i < m) (hj : j ≤ n)
+    (hn : 1 ≤ n) : gridHEdge xc yc i j ∈ gridEdges xc yc m n := by
+  rcases lt_or_ge j n with h | h
+  · exact stripEdges_subset_gridEdges hi (cellEdges_subset_stripEdges h (by simp [cellEdges]))
+  · obtain rfl : j = n := le_antisymm hj h
+    obtain ⟨k, rfl⟩ : ∃ k, j = k + 1 := ⟨j - 1, by omega⟩
+    exact stripEdges_subset_gridEdges hi
+      (cellEdges_subset_stripEdges (Nat.lt_succ_self k) (by simp [cellEdges]))
+
+theorem gridVEdge_mem_gridEdges {xc yc : ℕ → ℝ} {i j m n : ℕ} (hi : i ≤ m) (hj : j < n)
+    (hm : 1 ≤ m) : gridVEdge xc yc i j ∈ gridEdges xc yc m n := by
+  rcases lt_or_ge i m with h | h
+  · exact stripEdges_subset_gridEdges h (cellEdges_subset_stripEdges hj (by simp [cellEdges]))
+  · obtain rfl : i = m := le_antisymm hi h
+    obtain ⟨k, rfl⟩ : ∃ k, i = k + 1 := ⟨i - 1, by omega⟩
+    exact stripEdges_subset_gridEdges (Nat.lt_succ_self k)
+      (cellEdges_subset_stripEdges hj (by simp [cellEdges]))
+
+/-! ### The outer cycle
+
+The boundary of the grid, walked once anticlockwise from the corner `(0,0)`: `m` steps right
+along the bottom, `n` up the right side, `m` back along the top, `n` down the left side. The
+walk is parametrised by an index `t < 2m + 2n`, and both the vertex and the edge at index `t`
+are given by a four-way `if`. Everything about the walk then reduces to arithmetic in `ℕ`,
+which `omega` decides; the geometry enters only in `edgesCover_gridBoundary` at the end. -/
+
+/-- The `x`-index of the `t`-th vertex of the boundary walk. -/
+def bIdx (m n t : ℕ) : ℕ :=
+  if t ≤ m then t else if t ≤ m + n then m else if t ≤ 2 * m + n then 2 * m + n - t else 0
+
+/-- The `y`-index of the `t`-th vertex of the boundary walk. -/
+def bIdy (m n t : ℕ) : ℕ :=
+  if t ≤ m then 0 else if t ≤ m + n then t - m
+    else if t ≤ 2 * m + n then n else 2 * m + 2 * n - t
+
+theorem bIdx_le (m n t : ℕ) : bIdx m n t ≤ m := by unfold bIdx; split_ifs <;> omega
+
+theorem bIdy_le {m n t : ℕ} (h : t ≤ 2 * m + 2 * n) : bIdy m n t ≤ n := by
+  unfold bIdy; split_ifs <;> omega
+
+theorem bIdx_bottom {m n t : ℕ} (h : t ≤ m) : bIdx m n t = t := by unfold bIdx; exact if_pos h
+
+theorem bIdy_bottom {m n t : ℕ} (h : t ≤ m) : bIdy m n t = 0 := by unfold bIdy; exact if_pos h
+
+theorem bIdx_right {m n t : ℕ} (h₁ : m ≤ t) (h₂ : t ≤ m + n) : bIdx m n t = m := by
+  unfold bIdx; split_ifs <;> omega
+
+theorem bIdy_right {m n t : ℕ} (h₁ : m ≤ t) (h₂ : t ≤ m + n) : bIdy m n t = t - m := by
+  unfold bIdy; split_ifs <;> omega
+
+theorem bIdx_top {m n t : ℕ} (h₁ : m + n ≤ t) (h₂ : t ≤ 2 * m + n) :
+    bIdx m n t = 2 * m + n - t := by unfold bIdx; split_ifs <;> omega
+
+theorem bIdy_top {m n t : ℕ} (h₁ : m + n ≤ t) (h₂ : t ≤ 2 * m + n) : bIdy m n t = n := by
+  unfold bIdy; split_ifs <;> omega
+
+theorem bIdx_left {m n t : ℕ} (h₁ : 2 * m + n ≤ t) (_h₂ : t ≤ 2 * m + 2 * n) :
+    bIdx m n t = 0 := by unfold bIdx; split_ifs <;> omega
+
+theorem bIdy_left {m n t : ℕ} (h₁ : 2 * m + n ≤ t) (h₂ : t ≤ 2 * m + 2 * n) :
+    bIdy m n t = 2 * m + 2 * n - t := by unfold bIdy; split_ifs <;> omega
+
+/-- **The index pair determines the position on the walk.** Pure arithmetic: the four sides
+overlap only at the corners, and there the two descriptions agree.
+
+`1 ≤ m` and `1 ≤ n` are needed and are not slack. With `n = 0` the walk goes out along the
+bottom and comes back along the *same* row, so index `t` and index `2m - t` name one point;
+this is the degenerate case in which the grid is a path rather than a cycle. -/
+theorem bIdx_bIdy_inj {m n t s : ℕ} (hm : 1 ≤ m) (hn : 1 ≤ n) (ht : t < 2 * m + 2 * n)
+    (hs : s < 2 * m + 2 * n) (h₁ : bIdx m n t = bIdx m n s) (h₂ : bIdy m n t = bIdy m n s) :
+    t = s := by
+  unfold bIdx at h₁
+  unfold bIdy at h₂
+  split_ifs at h₁ h₂ <;> omega
+
+/-- The `t`-th vertex of the boundary walk. -/
+def gridBoundaryPt (xc yc : ℕ → ℝ) (m n t : ℕ) : Plane :=
+  gridPt xc yc (bIdx m n t) (bIdy m n t)
+
+/-- The `t`-th edge of the boundary walk. -/
+def gridBoundaryEdge (xc yc : ℕ → ℝ) (m n t : ℕ) : Piece :=
+  if t < m then gridHEdge xc yc t 0
+  else if t < m + n then gridVEdge xc yc m (t - m)
+  else if t < 2 * m + n then gridHEdge xc yc (2 * m + n - 1 - t) n
+  else gridVEdge xc yc 0 (2 * m + 2 * n - 1 - t)
+
+/-- The walk closes up: index `2m + 2n` is the corner it started from. -/
+theorem gridBoundaryPt_wrap (xc yc : ℕ → ℝ) (m n : ℕ) :
+    gridBoundaryPt xc yc m n (2 * m + 2 * n) = gridBoundaryPt xc yc m n 0 := by
+  have e₁ : bIdx m n (2 * m + 2 * n) = 0 := bIdx_left (by omega) (by omega)
+  have e₂ : bIdy m n (2 * m + 2 * n) = 0 := by rw [bIdy_left (by omega) (by omega)]; omega
+  have e₃ : bIdx m n 0 = 0 := bIdx_bottom (Nat.zero_le m)
+  have e₄ : bIdy m n 0 = 0 := bIdy_bottom (Nat.zero_le m)
+  rw [gridBoundaryPt, gridBoundaryPt, e₁, e₂, e₃, e₄]
+
+/-- The vertices of the boundary walk are pairwise distinct. -/
+theorem gridBoundaryPt_inj {xc yc : ℕ → ℝ} {m n : ℕ} (hm : 1 ≤ m) (hn : 1 ≤ n)
+    (hx : Set.InjOn xc (Set.Iic m)) (hy : Set.InjOn yc (Set.Iic n)) {t s : ℕ}
+    (ht : t < 2 * m + 2 * n) (hs : s < 2 * m + 2 * n)
+    (h : gridBoundaryPt xc yc m n t = gridBoundaryPt xc yc m n s) : t = s := by
+  have h0 := congrArg (fun p : Plane => p 0) h
+  have h1 := congrArg (fun p : Plane => p 1) h
+  simp only [gridBoundaryPt, gridPt, Plane.mk_zero, Plane.mk_one] at h0 h1
+  exact bIdx_bIdy_inj hm hn ht hs (hx (bIdx_le m n t) (bIdx_le m n s) h0)
+    (hy (bIdy_le (by omega)) (bIdy_le (by omega)) h1)
+
+/-- **Each step of the boundary walk is an edge of the grid**, joining the two vertices it
+should. -/
+theorem gridBoundary_isLink {xc yc : ℕ → ℝ} {m n t : ℕ} (hm : 1 ≤ m) (hn : 1 ≤ n)
+    (ht : t < 2 * m + 2 * n) :
+    (gridGraph xc yc m n).IsLink (gridBoundaryEdge xc yc m n t)
+      (gridBoundaryPt xc yc m n t) (gridBoundaryPt xc yc m n (t + 1)) := by
+  unfold gridBoundaryEdge gridBoundaryPt gridGraph
+  rcases lt_or_ge t m with h₁ | h₁
+  · -- along the bottom
+    rw [if_pos h₁, bIdx_bottom (by omega), bIdy_bottom (by omega), bIdx_bottom (by omega),
+      bIdy_bottom (by omega)]
+    exact segGraph_isLink_self (gridHEdge_mem_gridEdges h₁ (Nat.zero_le n) hn)
+  rcases lt_or_ge t (m + n) with h₂ | h₂
+  · -- up the right side
+    rw [if_neg (by omega), if_pos h₂, bIdx_right (by omega) (by omega),
+      bIdy_right (by omega) (by omega), bIdx_right (by omega) (by omega),
+      bIdy_right (by omega) (by omega), show t + 1 - m = (t - m) + 1 by omega]
+    exact segGraph_isLink_self (gridVEdge_mem_gridEdges le_rfl (by omega) hm)
+  rcases lt_or_ge t (2 * m + n) with h₃ | h₃
+  · -- back along the top, so the walk runs against the edge's own orientation
+    rw [if_neg (by omega), if_neg (by omega), if_pos h₃, bIdx_top (by omega) (by omega),
+      bIdy_top (by omega) (by omega), bIdx_top (by omega) (by omega),
+      bIdy_top (by omega) (by omega), show 2 * m + n - (t + 1) = 2 * m + n - 1 - t by omega,
+      show 2 * m + n - t = 2 * m + n - 1 - t + 1 by omega]
+    exact (segGraph_isLink_self (gridHEdge_mem_gridEdges
+      (show 2 * m + n - 1 - t < m by omega) le_rfl hn)).symm
+  · -- down the left side, again against the edge's orientation
+    rw [if_neg (by omega), if_neg (by omega), if_neg (by omega), bIdx_left (by omega) (by omega),
+      bIdy_left (by omega) (by omega), bIdx_left (by omega) (by omega),
+      bIdy_left (by omega) (by omega),
+      show 2 * m + 2 * n - (t + 1) = 2 * m + 2 * n - 1 - t by omega,
+      show 2 * m + 2 * n - t = 2 * m + 2 * n - 1 - t + 1 by omega]
+    exact (segGraph_isLink_self (gridVEdge_mem_gridEdges (Nat.zero_le m)
+      (show 2 * m + 2 * n - 1 - t < n by omega) hm)).symm
+
+/-- The detour: all the boundary edges but the last. -/
+def gridBoundaryDetour (xc yc : ℕ → ℝ) (m n : ℕ) : List Piece :=
+  (List.range' 0 (2 * m + 2 * n - 1)).map (gridBoundaryEdge xc yc m n)
+
+/-- The last boundary edge, which closes the cycle. -/
+def gridBoundaryLast (xc yc : ℕ → ℝ) (m n : ℕ) : Piece :=
+  gridBoundaryEdge xc yc m n (2 * m + 2 * n - 1)
+
+/-- **`prop:anchored-square-mesh`, clause 3, as a cycle.** The boundary of the grid is a cycle
+of the grid graph — not merely a point set. -/
+theorem gridGraph_isCycleThrough_boundary {xc yc : ℕ → ℝ} {m n : ℕ} (hm : 1 ≤ m) (hn : 1 ≤ n)
+    (hx : Set.InjOn xc (Set.Iic m)) (hy : Set.InjOn yc (Set.Iic n)) :
+    (gridGraph xc yc m n).IsCycleThrough (gridBoundaryLast xc yc m n)
+      (gridBoundaryPt xc yc m n 0) (gridBoundaryPt xc yc m n (2 * m + 2 * n - 1))
+      (gridBoundaryDetour xc yc m n) := by
+  have hL : 4 ≤ 2 * m + 2 * n := by omega
+  have hlast := gridBoundary_isLink (xc := xc) (yc := yc) hm hn
+    (show 2 * m + 2 * n - 1 < 2 * m + 2 * n by omega)
+  rw [show 2 * m + 2 * n - 1 + 1 = 2 * m + 2 * n by omega, gridBoundaryPt_wrap] at hlast
+  refine ⟨hlast.symm, ?_, ?_⟩
+  · -- the detour is a path: `Graph.isPath_range'` with the vertices of the walk
+    have := Graph.isPath_range' (G := gridGraph xc yc m n) (p := gridBoundaryPt xc yc m n)
+      (q := gridBoundaryEdge xc yc m n) (2 * m + 2 * n - 1) 0
+      (fun i _ h => gridBoundary_isLink hm hn (by omega))
+      (fun i j _ hi _ hj h => gridBoundaryPt_inj hm hn hx hy (by omega) (by omega) h)
+      (by rw [Nat.zero_add]; exact hlast.left_mem)
+    rwa [Nat.zero_add] at this
+  · -- the closing edge is not one of the others
+    intro hmem
+    obtain ⟨i, hi, heq⟩ := List.mem_map.1 hmem
+    rw [List.mem_range'_1] at hi
+    have hli := gridBoundary_isLink (xc := xc) (yc := yc) hm hn
+      (show i < 2 * m + 2 * n by omega)
+    rw [heq] at hli
+    -- the two links carry the same edge name, so they have the same pair of ends
+    rcases hli.left_eq_or_eq hlast with h | h
+    · exact absurd (gridBoundaryPt_inj hm hn hx hy (by omega) (by omega) h) (by omega)
+    · -- `i` is the start, and then its successor must be the last vertex, forcing `2m+2n = 2`
+      obtain rfl : i = 0 := gridBoundaryPt_inj hm hn hx hy (by omega) (by omega) h
+      have hnext := hli.right_unique (h ▸ hlast.symm)
+      exact absurd (gridBoundaryPt_inj hm hn hx hy (by omega) (by omega) hnext) (by omega)
 
 end Schoenflies

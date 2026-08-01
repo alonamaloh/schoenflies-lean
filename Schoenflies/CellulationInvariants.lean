@@ -353,8 +353,8 @@ closed form is right. -/
 
 /-- **The orientation-blind boundary update**: replace every occurrence of the subdivided edge
 by `[newEdge₁, newEdge₂]`, whichever way the walk crosses it. This is what
-`CellStructure.subdivideEdge` used before the corrected walks became data; it is kept for
-`not_isWalk_flatBoundary_of_head`, which is why they had to. -/
+`CellStructure.subdivideEdge` used before the corrected walks became data, kept because
+`not_isWalk_flatBoundary_of_head` is the reason they had to. -/
 noncomputable def flatBoundary (d : S.SubdivData) (F : γ) : List γ :=
   open scoped Classical in
   (S.boundary F).flatMap fun f => if f = d.edge then [d.newEdge₁, d.newEdge₂] else [f]

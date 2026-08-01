@@ -4,28 +4,78 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Álvaro Begué
 -/
 import Schoenflies.SimpleArc
-import Schoenflies.PolygonBridge
+import Schoenflies.PolygonalCrosscut
 import Schoenflies.TwoArcs
 
 /-!
 # Realizing a polygonal Jordan curve as a `ClosedPolygon`
 
-The blueprint's "simple closed polygonal curve" is set-theoretic: a `IsJordanCurve` that is
+The blueprint's "simple closed polygonal curve" is set-theoretic: an `IsJordanCurve` that is
 also `IsPolygonal`, with no condition on vertices at all. The development works instead with
 `Schoenflies.ClosedPolygon`, a cyclic vertex list carrying a `corner` field — no three
-consecutive vertices collinear. That field is a *presentation* condition, strictly stronger
-than the blueprint's notion, and until now nothing said that a set-level polygonal Jordan
-curve admits such a presentation. This module proves it.
+consecutive vertices collinear. That field is a *presentation* condition, strictly stronger than
+the blueprint's notion, and until now nothing said that a set-level polygonal Jordan curve
+admits such a presentation. This module proves it.
+
+## How the vertex list is found
+
+The curve is *not* read off the vertex list `IsPolygonal` hands over: that list may retrace
+itself, cross itself, and repeat segments, and it carries no order along the curve. Two
+structures are laid over the point set instead and then matched.
+
+* **From the plane side**, the overlay of `Schoenflies/OverlayGraph.lean`, with the graph
+  discarded: `Schoenflies.IsClean` is a finite list of nondegenerate segments occupying the
+  curve, with pairwise disjoint interiors and no end interior to any of them. Around an interior
+  point of a piece the curve *is* that piece (`IsClean.exists_ball_subset_seg`), so the piece
+  interiors are separated by honest open sets of the plane (`Schoenflies.nearPiece`) and a
+  connected subset of the curve away from the ends lies inside a single piece.
+* **From the curve side**, the loop's parameters at which it reaches an end of a piece. They
+  form a finite subset of `[0, 1)` containing `0` — `0` because the loop's start is put on the
+  cut list, so that the last gap is the one that closes the curve — and, listed in increasing
+  order, they cut `[0, 1)` into gaps.
+
+The two match: a gap image is connected and misses the ends, so it lies in one piece interior;
+and the interior is connected and covered by the *closed* gap images, so it lies in that one
+gap. Gaps and pieces therefore correspond one to one, the ends of a gap are the ends of its
+piece, and the ends listed in the loop's order are a cyclic vertex list whose edges are the
+pieces. That list satisfies `vertex_inj` and `edges_meet` but not `corner`, which is what
+`Schoenflies.PrePolygon` is for; `corner` is then arranged by deleting redundant vertices.
 
 ## Blueprint
 
 * `Schoenflies.PrePolygon` — a `ClosedPolygon` less the `corner` field: the blueprint's simple
   closed polygonal curve *presented by a vertex list*, redundant vertices allowed.
-* `Schoenflies.PrePolygon.deleteLast`, `Schoenflies.exists_closedPolygon_of_prePolygon` — the
-  blueprint's opening move in Lemma 1.8, "delete redundant vertices at which two consecutive
-  edges are collinear", as an operation rather than an invariant.
-* `Schoenflies.exists_closedPolygon` — §1: every simple closed polygonal curve, in the
-  blueprint's set-level sense, is the carrier of a `ClosedPolygon`.
+* `Schoenflies.PrePolygon.deleteLast`, `Schoenflies.PrePolygon.exists_closedPolygon_of_prePolygon`
+  — the blueprint's opening move in Lemma 1.8, "delete redundant vertices at which two
+  consecutive edges are collinear", as an operation rather than an invariant.
+* `Schoenflies.IsClean`, `Schoenflies.exists_isClean` — Lemma 3.7 (polygonal overlay) with the
+  combinatorics dropped: what the overlay says about the point set alone.
+* `Schoenflies.par`, `Schoenflies.parNext`, `Schoenflies.exists_mem_gap` — the parameters in
+  increasing order, and that their gaps tile `[0, 1)`.
+* `Schoenflies.exists_prePolygon_of_isJordanCurve`, `Schoenflies.exists_closedPolygon` — §1:
+  every simple closed polygonal curve, in the blueprint's set-level sense, is the carrier of a
+  `ClosedPolygon`.
+* `Schoenflies.IsStraightAt`, `Schoenflies.IsCornerAt`,
+  `Schoenflies.ClosedPolygon.exists_vertex_eq_of_isCornerAt`,
+  `Schoenflies.ClosedPolygon.isCornerAt_vertex` — the vertex set of a realization is *exactly*
+  the set of points at which the curve does not run straight. So a named point can be required
+  to be a vertex precisely when it is a corner, and no realization has any choice about it.
+* `Schoenflies.ClosedPolygon.rotate`, `…isArcBetween_arc`, `…arc_inter` — the two arcs of a
+  splitting, as arcs between the two cut vertices meeting exactly there.
+* `Schoenflies.two_arcs_unique` — two points cut a Jordan curve into two arcs in only one way.
+* `Schoenflies.exists_closedPolygon_corners`, `Schoenflies.exists_closedPolygon_split`,
+  `Schoenflies.exists_closedPolygon_arcs` — the realization with named corners, with the
+  splitting indices, and with the two arcs identified. The last is the shape
+  `Graph.IsHexRealization` asks for.
+
+## The corner hypothesis is not an artefact
+
+`exists_closedPolygon_arcs` requires the two cut points to be corners.
+`ClosedPolygon.isCornerAt_vertex` shows that this cannot be dropped: every vertex of every
+realization is a corner, so a cut point at which the curve runs straight is a vertex of *no*
+realization, and no `ClosedPolygon` with that carrier has an arc ending there. A consumer that
+needs to cut at a straight point has to change the curve — bend it there — which is a different
+theorem, and is exactly the freedom `Graph.IsK33Config.not_isDrawing` reserves for itself.
 -/
 
 open Metric Set unitInterval
@@ -1272,5 +1322,269 @@ theorem exists_closedPolygon_split {C : Set Plane} (hJ : IsJordanCurve C) (hP : 
     · exact h0
   · have := ZMod.val_lt (b - a)
     omega
+
+/-! ## The two arcs of a splitting
+
+`ClosedPolygon.arc a k` and `ClosedPolygon.arc (a + k) (m + 3 - k)` are what a consumer tracking
+a decomposition of the curve has to be handed. This section says what they are: two arcs between
+the two cut vertices, covering the curve and meeting exactly there. -/
+
+namespace ClosedPolygon
+
+variable {m : ℕ}
+
+/-- The same closed polygon, read from vertex `a` onwards. -/
+def rotate (P : ClosedPolygon m) (a : ZMod (m + 3)) : ClosedPolygon m where
+  vertex j := P.vertex (a + j)
+  vertex_inj i j h := add_left_cancel (P.vertex_inj h)
+  edges_meet i j hij := by
+    have hi : a + (i + 1) = a + i + 1 := by ring
+    have hj : a + (j + 1) = a + j + 1 := by ring
+    simp only [hi, hj]
+    exact P.edges_meet _ _ fun h => hij (add_left_cancel h)
+  corner i := by
+    have h1 : a + (i - 1) = a + i - 1 := by ring
+    have h2 : a + (i + 1) = a + i + 1 := by ring
+    simp only [h1, h2]
+    exact P.corner (a + i)
+
+@[simp] theorem rotate_vertex (P : ClosedPolygon m) (a j : ZMod (m + 3)) :
+    (P.rotate a).vertex j = P.vertex (a + j) := rfl
+
+theorem rotate_edge (P : ClosedPolygon m) (a j : ZMod (m + 3)) :
+    (P.rotate a).edge j = P.edge (a + j) := by
+  rw [edge, edge, rotate_vertex, rotate_vertex, show a + (j + 1) = a + j + 1 by ring]
+
+variable {P : ClosedPolygon m} {a : ZMod (m + 3)} {k : ℕ} {z : Plane}
+
+/-- An arc is the union of the `k` edges leaving vertices `a, a + 1, …`. -/
+theorem mem_arc_iff : z ∈ P.arc a k ↔ ∃ t < k, z ∈ P.edge (a + (t : ZMod (m + 3))) := by
+  constructor
+  · intro hz
+    obtain ⟨R, hR, hzR⟩ := exists_of_mem_cover hz
+    obtain ⟨t, ht, rfl⟩ := List.mem_map.1 hR
+    exact ⟨t, List.mem_range.1 ht, hzR⟩
+  · rintro ⟨t, ht, hz⟩
+    exact mem_cover (List.mem_map.2 ⟨t, List.mem_range.2 ht, rfl⟩) hz
+
+/-- An arc of `P` is a chain of the polygon read from its first vertex. -/
+theorem arc_eq_chain (P : ClosedPolygon m) (a : ZMod (m + 3)) (hk : 1 ≤ k) :
+    P.arc a k = (P.rotate a).chain (k - 1) := by
+  ext z
+  rw [mem_arc_iff, mem_chain_iff]
+  constructor
+  · rintro ⟨t, ht, hz⟩
+    exact ⟨t, by omega, by rw [rotate_edge]; exact hz⟩
+  · rintro ⟨j, hj, hz⟩
+    rw [rotate_edge] at hz
+    exact ⟨j, by omega, hz⟩
+
+/-- **An arc of a splitting is an arc between the two cut vertices.** -/
+theorem isArcBetween_arc (P : ClosedPolygon m) (a : ZMod (m + 3)) (hk1 : 1 ≤ k)
+    (hk2 : k ≤ m + 2) : IsArcBetween (P.arc a k) (P.vertex a) (P.vertex (a + k)) := by
+  have h := (P.rotate a).isArcBetween_chain (k - 1) (by omega)
+  rw [← arc_eq_chain P a hk1, show ((k - 1 + 1 : ℕ) : ZMod (m + 3)) = (k : ZMod (m + 3)) by
+    congr 1; omega] at h
+  simpa using h
+
+/-- Distinct index numerals below the modulus name distinct vertices, after any shift. -/
+theorem natCast_shift_inj (P : ClosedPolygon m) (a : ZMod (m + 3)) {x y : ℕ} (hx : x < m + 3)
+    (hy : y < m + 3) (he : P.vertex (a + (x : ZMod (m + 3))) = P.vertex (a + (y : ZMod (m + 3)))) :
+    x = y :=
+  natCast_inj hx hy (add_left_cancel (P.vertex_inj he))
+
+/-- **The two arcs of a splitting meet exactly at the two cut vertices.** A point on both lies
+on an edge of each; `edges_meet`, read in both directions, puts it at a vertex shared by the two
+edges, and the only shared vertices are the two ends of the split. -/
+theorem arc_inter (P : ClosedPolygon m) (a : ZMod (m + 3)) (hk1 : 1 ≤ k) (hk2 : k ≤ m + 2) :
+    P.arc a k ∩ P.arc (a + k) (m + 3 - k) = {P.vertex a, P.vertex (a + k)} := by
+  refine Set.Subset.antisymm ?_ (Set.subset_inter (P.endpoints_subset_arc a hk1)
+    (P.endpoints_subset_arc' a hk2))
+  rintro z ⟨hz1, hz2⟩
+  obtain ⟨s, hs, hzs⟩ := mem_arc_iff.1 hz1
+  obtain ⟨t, ht, hzt⟩ := mem_arc_iff.1 hz2
+  have hkt : k + t < m + 3 := by omega
+  rw [show a + (k : ZMod (m + 3)) + (t : ZMod (m + 3)) = a + ((k + t : ℕ) : ZMod (m + 3)) by
+    push_cast; ring] at hzt
+  -- The two edges are different, so each traps `z` among its own two ends.
+  have hij : a + (s : ZMod (m + 3)) ≠ a + ((k + t : ℕ) : ZMod (m + 3)) := fun he =>
+    absurd (natCast_inj (by omega) hkt (add_left_cancel he)) (by omega)
+  have hsucc₁ : a + (s : ZMod (m + 3)) + 1 = a + ((s + 1 : ℕ) : ZMod (m + 3)) := by
+    push_cast; ring
+  have hsucc₂ : a + ((k + t : ℕ) : ZMod (m + 3)) + 1 = a + ((k + t + 1 : ℕ) : ZMod (m + 3)) := by
+    push_cast; ring
+  have hA := P.edges_meet _ _ hij (Set.mem_inter hzs hzt)
+  have hB := P.edges_meet _ _ (Ne.symm hij) (Set.mem_inter hzt hzs)
+  rw [hsucc₁] at hA
+  rw [hsucc₂] at hB
+  simp only [Set.mem_insert_iff, Set.mem_singleton_iff] at hA hB ⊢
+  -- The wrap-around: `k + t + 1` is either below the modulus or exactly it.
+  have hzero : k + t + 1 = m + 3 → ((k + t + 1 : ℕ) : ZMod (m + 3)) = ((0 : ℕ) : ZMod (m + 3)) := by
+    intro he
+    rw [he, Nat.cast_zero, ZMod.natCast_self]
+  rcases hA with hA | hA <;> rcases hB with hB | hB
+  · exact absurd (hA.symm.trans hB) fun he => hij (P.vertex_inj he)
+  · -- `s ≡ k + t + 1`: possible only by wrapping round, and then `s = 0`.
+    rcases Nat.lt_or_ge (k + t + 1) (m + 3) with hlt | hge
+    · exact absurd (P.natCast_shift_inj a (by omega) hlt (hA.symm.trans hB)) (by omega)
+    · have he : k + t + 1 = m + 3 := by omega
+      have hs0 : s = 0 := P.natCast_shift_inj a (by omega) (by omega)
+        ((hA.symm.trans hB).trans (by rw [hzero he]))
+      exact Or.inl (by rw [hA, hs0, Nat.cast_zero, add_zero])
+  · -- `s + 1 ≡ k + t`: forces `s + 1 = k` and `t = 0`.
+    have hst : s + 1 = k + t := P.natCast_shift_inj a (by omega) hkt (hA.symm.trans hB)
+    exact Or.inr (by rw [hA, show s + 1 = k by omega])
+  · exfalso
+    rcases Nat.lt_or_ge (k + t + 1) (m + 3) with hlt | hge
+    · exact absurd (P.natCast_shift_inj a (by omega) hlt (hA.symm.trans hB)) (by omega)
+    · have he : k + t + 1 = m + 3 := by omega
+      have := P.natCast_shift_inj a (show s + 1 < m + 3 by omega) (show 0 < m + 3 by omega)
+        ((hA.symm.trans hB).trans (by rw [hzero he]))
+      omega
+
+end ClosedPolygon
+
+/-! ## The two-arc decomposition is unique
+
+Two points cut a Jordan curve into two arcs, and *only* into those two: the interior of any arc
+of the curve between them is connected and misses both, so it lies on one side of any other such
+splitting. Without this a realization could name two arcs and still not be known to name the two
+arcs a consumer started from. -/
+
+/-- The interior of an arc — the arc less its two endpoints — is connected and nonempty. -/
+theorem IsArcBetween.preconnected_diff {A : Set Plane} {p q : Plane} (h : IsArcBetween A p q) :
+    IsPreconnected (A \ {p, q}) ∧ (A \ {p, q}).Nonempty := by
+  obtain ⟨f, hc, hinj, rfl, rfl, rfl⟩ := h
+  have hIoo : (f '' I) \ {f 0, f 1} = f '' Ioo 0 1 := by
+    ext z
+    constructor
+    · rintro ⟨⟨s, hs, rfl⟩, hz⟩
+      simp only [Set.mem_insert_iff, Set.mem_singleton_iff] at hz
+      push Not at hz
+      exact ⟨s, ⟨lt_of_le_of_ne hs.1 (Ne.symm fun he => hz.1 (by rw [he])),
+        lt_of_le_of_ne hs.2 fun he => hz.2 (by rw [he])⟩, rfl⟩
+    · rintro ⟨s, hs, rfl⟩
+      refine ⟨⟨s, ⟨hs.1.le, hs.2.le⟩, rfl⟩, ?_⟩
+      simp only [Set.mem_insert_iff, Set.mem_singleton_iff]
+      push Not
+      exact ⟨fun he => absurd (hinj ⟨hs.1.le, hs.2.le⟩ zero_mem_I he) (ne_of_gt hs.1),
+        fun he => absurd (hinj ⟨hs.1.le, hs.2.le⟩ one_mem_I he) (ne_of_lt hs.2)⟩
+  rw [hIoo]
+  exact ⟨isPreconnected_Ioo.image f (hc.mono fun s hs => ⟨hs.1.le, hs.2.le⟩),
+    ⟨f (1 / 2), 1 / 2, by norm_num, rfl⟩⟩
+
+/-- **The two arcs a pair of points cuts a curve into are determined.** -/
+theorem two_arcs_unique {C A₁ A₂ D₁ D₂ : Set Plane} {p q : Plane}
+    (hA : A₁ ∪ A₂ = C) (hAi : A₁ ∩ A₂ = {p, q})
+    (hD : D₁ ∪ D₂ = C) (hDi : D₁ ∩ D₂ = {p, q})
+    (hA1 : IsArcBetween A₁ p q) (hA2 : IsArcBetween A₂ p q)
+    (hD1 : IsArcBetween D₁ p q) (hD2 : IsArcBetween D₂ p q) :
+    (A₁ = D₁ ∧ A₂ = D₂) ∨ (A₁ = D₂ ∧ A₂ = D₁) := by
+  have hpA : p ∈ A₁ ∩ A₂ := by rw [hAi]; exact Or.inl rfl
+  have hqA : q ∈ A₁ ∩ A₂ := by rw [hAi]; exact Or.inr rfl
+  have hpD : p ∈ D₁ ∩ D₂ := by rw [hDi]; exact Or.inl rfl
+  have hqD : q ∈ D₁ ∩ D₂ := by rw [hDi]; exact Or.inr rfl
+  -- An arc between the two points lies on one side of the other splitting.
+  have key : ∀ A : Set Plane, IsArcBetween A p q → A ⊆ C → A ⊆ D₁ ∨ A ⊆ D₂ := by
+    intro A hAar hAC
+    obtain ⟨hconn, hne⟩ := hAar.preconnected_diff
+    have hsub : A \ {p, q} ⊆ D₁ᶜ ∪ D₂ᶜ := by
+      intro z hz
+      by_cases h1 : z ∈ D₁
+      · by_cases h2 : z ∈ D₂
+        · exact absurd (show z ∈ ({p, q} : Set Plane) by rw [← hDi]; exact ⟨h1, h2⟩) hz.2
+        · exact Or.inr h2
+      · exact Or.inl h1
+    have hnone : ¬ ((A \ {p, q}) ∩ (D₁ᶜ ∩ D₂ᶜ)).Nonempty := by
+      rintro ⟨z, hz, h1, h2⟩
+      have hzC : z ∈ C := hAC hz.1
+      rw [← hD] at hzC
+      exact hzC.elim h1 h2
+    -- Whichever side the interior meets, it stays there; the two endpoints are on both.
+    have hends : ∀ D : Set Plane, p ∈ D → q ∈ D → A \ {p, q} ⊆ D → A ⊆ D := by
+      intro D hpD' hqD' hsub' z hz
+      by_cases hzpq : z ∈ ({p, q} : Set Plane)
+      · rcases hzpq with rfl | rfl
+        exacts [hpD', hqD']
+      · exact hsub' ⟨hz, hzpq⟩
+    by_cases hcase : ((A \ {p, q}) ∩ D₁ᶜ).Nonempty
+    · refine Or.inr (hends D₂ hpD.2 hqD.2 fun z hz => ?_)
+      by_contra hzD2
+      exact hnone (hconn _ _ (hD1.isArc.isClosed).isOpen_compl (hD2.isArc.isClosed).isOpen_compl
+        hsub hcase ⟨z, hz, hzD2⟩)
+    · refine Or.inl (hends D₁ hpD.1 hqD.1 fun z hz => ?_)
+      by_contra hzD1
+      exact hcase ⟨z, hz, hzD1⟩
+  -- Both arcs cannot land on the same side: the other side would be just the two points.
+  have hthird : ∀ D : Set Plane, IsArcBetween D p q → ¬ D ⊆ ({p, q} : Set Plane) := by
+    intro D hDar hsub
+    obtain ⟨-, z, hz⟩ := hDar.preconnected_diff
+    exact hz.2 (hsub hz.1)
+  have hnotboth : ∀ D D' : Set Plane, D ∪ D' = C → D ∩ D' = {p, q} → IsArcBetween D' p q →
+      A₁ ⊆ D → A₂ ⊆ D → False := by
+    intro D D' hDD hDDi hD'ar h1 h2
+    refine hthird D' hD'ar ?_
+    rw [← hDDi]
+    intro z hz
+    have hzC : z ∈ C := by rw [← hDD]; exact Or.inr hz
+    rw [← hA] at hzC
+    exact hzC.elim (fun h => ⟨h1 h, hz⟩) fun h => ⟨h2 h, hz⟩
+  -- On opposite sides, the inclusions are equalities.
+  have heq : ∀ X Y X' Y' : Set Plane, X ∪ Y = C → X' ∪ Y' = C → X' ∩ Y' = {p, q} →
+      p ∈ X → q ∈ X → X ⊆ X' → Y ⊆ Y' → X = X' := by
+    intro X Y X' Y' hXY hX'Y' hX'Y'i hpX hqX hXX hYY
+    refine Set.Subset.antisymm hXX fun z hz => ?_
+    have hzC : z ∈ C := by rw [← hX'Y']; exact Or.inl hz
+    rw [← hXY] at hzC
+    rcases hzC with h | h
+    · exact h
+    · have hzpq : z ∈ ({p, q} : Set Plane) := by rw [← hX'Y'i]; exact ⟨hz, hYY h⟩
+      rcases hzpq with rfl | rfl
+      exacts [hpX, hqX]
+  have hAC₁ : A₁ ⊆ C := by rw [← hA]; exact Set.subset_union_left
+  have hAC₂ : A₂ ⊆ C := by rw [← hA]; exact Set.subset_union_right
+  rcases key A₁ hA1 hAC₁ with h1 | h1 <;> rcases key A₂ hA2 hAC₂ with h2 | h2
+  · exact absurd (hnotboth D₁ D₂ hD hDi hD2 h1 h2) (by simp)
+  · exact Or.inl ⟨heq A₁ A₂ D₁ D₂ hA hD hDi hpA.1 hqA.1 h1 h2,
+      heq A₂ A₁ D₂ D₁ (by rw [Set.union_comm]; exact hA) (by rw [Set.union_comm]; exact hD)
+        (by rw [Set.inter_comm]; exact hDi) hpA.2 hqA.2 h2 h1⟩
+  · exact Or.inr ⟨heq A₁ A₂ D₂ D₁ hA (by rw [Set.union_comm]; exact hD)
+      (by rw [Set.inter_comm]; exact hDi) hpA.1 hqA.1 h1 h2,
+      heq A₂ A₁ D₁ D₂ (by rw [Set.union_comm]; exact hA) hD hDi hpA.2 hqA.2 h2 h1⟩
+  · exact absurd (hnotboth D₂ D₁ (by rw [Set.union_comm]; exact hD)
+      (by rw [Set.inter_comm]; exact hDi) hD1 h1 h2) (by simp)
+
+/-- **The realization theorem, tracking a splitting.** A polygonal Jordan curve decomposed into
+two arcs meeting at two of its corners is the carrier of a `ClosedPolygon` whose two arcs at the
+corresponding vertices are those two arcs.
+
+This is the form the plane-graph layer wants — compare `Graph.IsHexRealization`. The corner
+hypothesis on the two cut points is not an artefact of the proof:
+`ClosedPolygon.isCornerAt_vertex` says every vertex of a realization is a corner, so a cut point
+that is *not* one cannot be a vertex of any realization at all. -/
+theorem exists_closedPolygon_arcs {C A₁ A₂ : Set Plane} (hJ : IsJordanCurve C)
+    (hP : IsPolygonal C) {p q : Plane} (hp : IsCornerAt C p) (hq : IsCornerAt C q) (hpq : p ≠ q)
+    (hA1 : IsArcBetween A₁ p q) (hA2 : IsArcBetween A₂ p q) (hunion : A₁ ∪ A₂ = C)
+    (hinter : A₁ ∩ A₂ = {p, q}) :
+    ∃ (m : ℕ) (P : ClosedPolygon m) (a : ZMod (m + 3)) (k : ℕ), P.carrier = C ∧
+      1 ≤ k ∧ k ≤ m + 2 ∧ P.vertex a = p ∧ P.vertex (a + (k : ZMod (m + 3))) = q ∧
+      ((P.arc a k = A₁ ∧ P.arc (a + (k : ZMod (m + 3))) (m + 3 - k) = A₂) ∨
+        (P.arc a k = A₂ ∧ P.arc (a + (k : ZMod (m + 3))) (m + 3 - k) = A₁)) := by
+  obtain ⟨m, P, a, k, hcar, hpa, hqa, hk1, hk2⟩ := exists_closedPolygon_split hJ hP hp hq hpq
+  refine ⟨m, P, a, k, hcar, hk1, hk2, hpa, hqa, ?_⟩
+  have hD1 : IsArcBetween (P.arc a k) p q := by
+    rw [← hpa, ← hqa]; exact P.isArcBetween_arc a hk1 hk2
+  have hD2 : IsArcBetween (P.arc (a + (k : ZMod (m + 3))) (m + 3 - k)) p q := by
+    have h := P.isArcBetween_arc (a + (k : ZMod (m + 3))) (k := m + 3 - k) (by omega) (by omega)
+    rw [zmod_add_sub_cancel (by omega) a] at h
+    rw [← hpa, ← hqa]
+    exact h.reverse
+  have hDunion : P.arc a k ∪ P.arc (a + (k : ZMod (m + 3))) (m + 3 - k) = C := by
+    rw [P.arc_union a (by omega), hcar]
+  have hDinter : P.arc a k ∩ P.arc (a + (k : ZMod (m + 3))) (m + 3 - k) = {p, q} := by
+    rw [P.arc_inter a hk1 hk2, hpa, hqa]
+  rcases two_arcs_unique hunion hinter hDunion hDinter hA1 hA2 hD1 hD2 with ⟨e1, e2⟩ | ⟨e1, e2⟩
+  · exact Or.inl ⟨e1.symm, e2.symm⟩
+  · exact Or.inr ⟨e2.symm, e1.symm⟩
 
 end Schoenflies

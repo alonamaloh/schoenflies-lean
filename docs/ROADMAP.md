@@ -65,8 +65,8 @@ endpoints*, together with `sub_face` (they carry exactly the cells below the 2-c
 `paths_meet` (they share nothing but their two ends).
 
 Producing them means knowing that **the cells below a 2-cell form a cycle**, and that two of its
-0-cells cut that cycle into two paths. Nothing states this, and `CellStructure.CombInvariants`
-does not carry it.
+0-cells cut that cycle into two paths. `CellStructure.CombInvariants` does not carry it;
+`BoundaryWalks.lean` now carries half of it (see the plan below).
 
 **`lem:face-cycles` is not the route, and this is the trap to avoid.** `Graph.face_cycles'`
 takes `hpoly : ∀ g ∈ E(G), IsPolygonal (edgeArc drawing g)` — *every* edge polygonal. A source
@@ -118,16 +118,50 @@ The payoff a consumer sees is `CellStructure.subdivideEdge_isWalk_boundary`: a b
 `SubdivData.not_isWalk_flatBoundary_of_head`. Done in the window nothing constructed a
 `SubdivData` — the same window that made the `SplitData.paths_meet` repair cheap.
 
-The invariant itself is next, and everything downstream is assembly on top of it:
+### The plan to finish, and where it stands
 
-1. face boundary cycles, hence `EarStep`; `CommonSubdivision` alongside it;
-2. `thm:finite-transfer` (a) unconditional, and (b) — whose one extra ingredient, accessibility
-   at a fresh anchor on the wild curve, is closed in `FreshAccess.lean`;
-3. the stage recursion, which is where `GridAttach.lean`, `SquareMeshClosed.lean` and
-   `Windows.lean` are spent, giving `lem:grid-star-estimate` and `prop:shrinking-stars`;
-4. `HasAnchorCrosscuts` and `HasSpokes` from the stages, and `thm:main` becomes unconditional.
+Four phases. Everything that *consumes* them is done, so each one is the whole of what is left
+at its level.
 
-Everything that *consumes* those is done.
+**Phase 1 — face boundary cycles, hence `EarStep`.** The one piece with real content.
+
+* **1a. The boundary-walk invariant — done.** `BoundaryWalks.lean`: for every 2-cell `F`,
+  `boundary F` is a closed walk of the skeleton based at `start F`, and the cells it runs
+  through are exactly the cells strictly below `F`. Both elementary operations preserve it
+  (`BoundaryWalks.subdivideEdge`, `.splitFace`) and `initialBoundaryWalks` is the base case,
+  packaging `isWalk_initBoundary_*` and `mem_faceCells_iff`. Two things fell out: **no 2-cell is
+  strictly below another** (`eq_of_sub_of_mem_faces`) — which the blueprint asserts of its
+  update lists and which is now a theorem — and `mem_boundary_iff_sub`.
+* **1b. Strengthen "closed walk" to "cycle".** `EarStep` needs `SplitData.paths_meet`: the two
+  boundary paths share *nothing but their two ends*. That does not follow from 1a — a closed
+  walk may repeat a vertex, and then the two pieces meet in more than two points. The invariant
+  therefore needs a third clause, that the boundary walk is vertex-simple. Present it the way
+  `Graph/Cycle.lean` presents every cycle, through an edge: `boundary F = e :: D` with
+  `IsCycleThrough e u v D`, so that `Graph.IsPath` does the ruling-out. Both preservation proofs
+  have to be redone for the new clause; neither looks hard (a subdivision inserts a fresh
+  vertex, and `SplitData.vertexSet_inter` says the ear meets the old skeleton exactly at its two
+  ends), but this is where the work is.
+* **1c. Cut a cycle at two of its 0-cells.** Given the cycle of 1b and two vertices on it, the
+  two arcs between them, with `pathCells` covering the cycle and meeting exactly at the two.
+  `Graph.IsPath.split` and `IsPath.nodup` are the tools; both are on `main`.
+* **1d. `EarStep`.** Assemble the `SplitData`: `path₁`, `path₂` and `paths_meet` from 1c,
+  `sub_face` from `BoundaryWalks.pathCells_eq`, every other field routine. `[Infinite γ]` is
+  already recorded as the fix for the fresh-name defect.
+* **1e. `CommonSubdivision`.** Independent of 1b–1d and pure assembly:
+  `exists_overlay_of_biUnion_finite` gives the overlay, `SubdivData.realizeHomeo` transports one
+  subdivision to the other realization, and the induction over the overlay's finitely many new
+  points is the whole of it.
+
+**Phase 2 — `thm:finite-transfer`.** (a) becomes unconditional the moment 1d and 1e land; (b)
+needs one further ingredient, accessibility at a fresh anchor on the wild curve, which
+`FreshAccess.lean` already closes.
+
+**Phase 3 — the stage recursion.** Where `GridAttach.lean`, `SquareMeshClosed.lean` and
+`Windows.lean` are spent, giving `lem:grid-star-estimate` and `prop:shrinking-stars`. This is
+the largest phase by far and the only one whose geometry is not yet assembled anywhere.
+
+**Phase 4 — `thm:main` unconditional.** `HasAnchorCrosscuts` and `HasSpokes` from the stages.
+The limit map and everything after it is already built and waiting.
 
 ### What the standing rules caught
 

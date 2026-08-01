@@ -106,3 +106,5 @@ import Schoenflies.SquareMeshClosed
 import Schoenflies.ArcMonotone
 import Schoenflies.RealizeSubdivHomeo
 import Schoenflies.MatchedSplit
+import Schoenflies.BoundaryWalks
+import Schoenflies.InitialBoundaryWalks

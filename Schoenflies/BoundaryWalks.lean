@@ -336,6 +336,153 @@ def BoundaryWalks.subdivideEdge (bw : S.BoundaryWalks) (d : S.SubdivData)
         d.crossedCells_of_notMem fun h => hedge ((bw.mem_boundary_iff_sub hF
           d.edge_mem_edgeSet).1 h), union_empty, sdiff_sdiff_comm]
 
+/-! ### Preservation by a 2-cell split -/
+
+namespace SplitData
+
+variable (c : S.SplitData)
+
+open scoped Classical in
+@[simp] theorem splitFace_boundary_face₁ :
+    (S.splitFace c).boundary c.face₁ = c.path₁ ++ c.earWalk.reverse := by
+  change (if c.face₁ = c.face₁ then _ else _) = _
+  rw [if_pos rfl]
+
+open scoped Classical in
+@[simp] theorem splitFace_boundary_face₂ :
+    (S.splitFace c).boundary c.face₂ = c.path₂ ++ c.earWalk.reverse := by
+  change (if c.face₂ = c.face₁ then _ else if c.face₂ = c.face₂ then _ else _) = _
+  rw [if_neg c.face_ne.symm, if_pos rfl]
+
+open scoped Classical in
+theorem splitFace_boundary_of_ne {F : γ} (h₁ : F ≠ c.face₁) (h₂ : F ≠ c.face₂) :
+    (S.splitFace c).boundary F = S.boundary F := by
+  change (if F = c.face₁ then _ else if F = c.face₂ then _ else _) = _
+  rw [if_neg h₁, if_neg h₂]
+
+/-- An old walk runs through the same cells after a split: the skeleton only grows, and it grows
+by edges the old walk does not take. -/
+theorem pathCells_splitFace {u v : γ} {W : List γ} (h : S.skel.IsWalk u W v) :
+    (S.splitFace c).pathCells u W = S.pathCells u W := by
+  have hcov : (S.splitFace c).skel.coveredVertices W = S.skel.coveredVertices W := by
+    ext z
+    constructor
+    · rintro ⟨f, hf, y, hy⟩
+      rcases Graph.union_isLink.1 hy with hl | ⟨hne, -⟩
+      · exact ⟨f, hf, y, hl⟩
+      · exact absurd (h.edge_mem hf) hne
+    · rintro ⟨f, hf, y, hy⟩
+      exact ⟨f, hf, y, Or.inl hy⟩
+  simp only [pathCells, Graph.walkVertices, hcov]
+
+/-- An edge of the ear is incident in the new skeleton to exactly what it was incident to in the
+ear: it is a fresh name, so the old skeleton has no say. -/
+theorem inc_iff_of_mem_ear_edgeSet {f z : γ} (hf : f ∈ E(c.ear)) :
+    (S.splitFace c).skel.Inc f z ↔ c.ear.Inc f z := by
+  have hfS : f ∉ E(S.skel) := fun h => c.edge_fresh hf (S.mem_cells_of_mem_edgeSet h)
+  constructor
+  · rintro ⟨y, hy⟩
+    exact ⟨y, (Graph.union_isLink.1 hy).elim (fun h => absurd h.edge_mem hfS) fun h => h.2⟩
+  · rintro ⟨y, hy⟩
+    exact ⟨y, Or.inr ⟨hfS, hy⟩⟩
+
+/-- **The ear contributes exactly its own cells.** Its edge list is its edge set and the
+vertices it visits are its vertex set, both by `Graph.IsPathGraph`. -/
+theorem pathCells_earWalk_reverse :
+    (S.splitFace c).pathCells c.source c.earWalk.reverse = c.earCells := by
+  have hcov : (S.splitFace c).skel.coveredVertices c.earWalk =
+      c.ear.coveredVertices c.earWalk := by
+    ext z
+    constructor
+    · rintro ⟨f, hf, hz⟩
+      exact ⟨f, hf, (c.inc_iff_of_mem_ear_edgeSet (c.isPathGraph.mem_edgeSet hf)).1 hz⟩
+    · rintro ⟨f, hf, hz⟩
+      exact ⟨f, hf, (c.inc_iff_of_mem_ear_edgeSet (c.isPathGraph.mem_edgeSet hf)).2 hz⟩
+  ext z
+  simp only [pathCells, Graph.walkVertices, Graph.coveredVertices_reverse, hcov, earCells,
+    mem_union, mem_setOf_eq, List.mem_reverse, mem_insert_iff, c.isPathGraph.edgeSet_eq,
+    c.isPathGraph.vertexSet_eq, Graph.walkVertices]
+  tauto
+
+theorem face₁_notMem_cells₁ : c.face₁ ∉ c.cells₁ := fun h => c.face₁_notMem (c.cells₁_subset h)
+
+theorem face₂_notMem_cells₂ : c.face₂ ∉ c.cells₂ := fun h => c.face₂_notMem (c.cells₂_subset h)
+
+theorem face₁_notMem_earCells : c.face₁ ∉ c.earCells := c.face₁_notMem_ear
+
+theorem face₂_notMem_earCells : c.face₂ ∉ c.earCells := c.face₂_notMem_ear
+
+/-- The subcells of an old 2-cell are untouched by a split. Needs the invariant, and only for
+this: the split 2-cell `face` is not below any other 2-cell, which is `eq_of_sub_of_mem_faces`.
+-/
+theorem subcells_splitFace_of_ne (bw : S.BoundaryWalks) {F : γ} (hF : F ∈ S.faces)
+    (hne : F ≠ c.face) : (S.splitFace c).subcells F = S.subcells F := by
+  have hFn : F ∉ c.newCells := notMem_newCells_of_mem_cells (S.mem_cells_of_mem_faces hF)
+  have hear : F ∉ E(c.ear) := fun h => c.edge_fresh h (S.mem_cells_of_mem_faces hF)
+  ext σ
+  rw [mem_subcells_iff, mem_subcells_iff, splitFace_sub]
+  constructor
+  · rintro ⟨hcell, h⟩
+    rw [splitFace_cells] at hcell
+    rcases h with ⟨h₁, -, h₃, -, h₅⟩ | ⟨rfl, h⟩ | h | ⟨rfl, -⟩ | ⟨rfl, -⟩
+    · exact ⟨(hcell.resolve_right h₁).1, h₅⟩
+    · exact absurd h hFn
+    · exact absurd h.edge_mem hear
+    · exact absurd (Or.inr (Or.inl rfl)) hFn
+    · exact absurd (Or.inr (Or.inr rfl)) hFn
+  · rintro ⟨hcell, hsub⟩
+    have hσf : σ ≠ c.face := fun h =>
+      hne (bw.eq_of_sub_of_mem_faces c.face_mem hF (h ▸ hsub)).symm
+    exact ⟨c.mem_splitFace_cells_of_old hcell hσf,
+      Or.inl ⟨notMem_newCells_of_mem_cells hcell, hFn, hσf, hne, hsub⟩⟩
+
+end SplitData
+
+open scoped Classical in
+/-- **The invariant survives a 2-cell split.** The two new 2-cells get the boundary path they
+were split along, closed up by the ear; every other 2-cell keeps its walk, and a split adds no
+cell below an old 2-cell. -/
+noncomputable def BoundaryWalks.splitFace (bw : S.BoundaryWalks) (c : S.SplitData) :
+    (S.splitFace c).BoundaryWalks where
+  start F := if F = c.face₁ ∨ F = c.face₂ then c.source else bw.start F
+  isWalk F hF := by
+    rcases hF with rfl | rfl | ⟨hF, hne⟩
+    · rw [if_pos (Or.inl rfl), c.splitFace_boundary_face₁]
+      exact (c.isPath₁.isWalk.mono c.le_skeleton).append
+        (c.isPathGraph.isWalk.reverse.mono c.ear_le_skeleton)
+    · rw [if_pos (Or.inr rfl), c.splitFace_boundary_face₂]
+      exact (c.isPath₂.isWalk.mono c.le_skeleton).append
+        (c.isPathGraph.isWalk.reverse.mono c.ear_le_skeleton)
+    · have h₁ : F ≠ c.face₁ := fun h => c.face₁_notMem (h ▸ S.mem_cells_of_mem_faces hF)
+      have h₂ : F ≠ c.face₂ := fun h => c.face₂_notMem (h ▸ S.mem_cells_of_mem_faces hF)
+      rw [if_neg (by rintro (h | h); exacts [h₁ h, h₂ h]), c.splitFace_boundary_of_ne h₁ h₂]
+      exact (bw.isWalk hF).mono c.le_skeleton
+  pathCells_eq F hF := by
+    rcases hF with rfl | rfl | ⟨hF, hne⟩
+    · have hL : (S.splitFace c).pathCells c.source ((S.splitFace c).boundary c.face₁)
+          = c.cells₁ ∪ c.earCells := by
+        rw [c.splitFace_boundary_face₁, pathCells_append, c.pathCells_splitFace c.isPath₁.isWalk,
+          c.pathCells_earWalk_reverse]
+        rfl
+      rw [if_pos (Or.inl rfl), hL, c.subcells_face₁, union_sdiff_distrib, union_sdiff_distrib,
+        Set.sdiff_self, empty_union, sdiff_singleton_eq_self c.face₁_notMem_earCells,
+        sdiff_singleton_eq_self c.face₁_notMem_cells₁]
+      exact union_comm _ _
+    · have hL : (S.splitFace c).pathCells c.source ((S.splitFace c).boundary c.face₂)
+          = c.cells₂ ∪ c.earCells := by
+        rw [c.splitFace_boundary_face₂, pathCells_append, c.pathCells_splitFace c.isPath₂.isWalk,
+          c.pathCells_earWalk_reverse]
+        rfl
+      rw [if_pos (Or.inr rfl), hL, c.subcells_face₂, union_sdiff_distrib, union_sdiff_distrib,
+        Set.sdiff_self, empty_union, sdiff_singleton_eq_self c.face₂_notMem_earCells,
+        sdiff_singleton_eq_self c.face₂_notMem_cells₂]
+      exact union_comm _ _
+    · have h₁ : F ≠ c.face₁ := fun h => c.face₁_notMem (h ▸ S.mem_cells_of_mem_faces hF)
+      have h₂ : F ≠ c.face₂ := fun h => c.face₂_notMem (h ▸ S.mem_cells_of_mem_faces hF)
+      rw [if_neg (by rintro (h | h); exacts [h₁ h, h₂ h]), c.splitFace_boundary_of_ne h₁ h₂,
+        c.pathCells_splitFace (bw.isWalk hF), c.subcells_splitFace_of_ne bw hF hne,
+        bw.pathCells_eq hF]
+
 end CellStructure
 
 end Schoenflies

@@ -217,6 +217,24 @@ under-assuming, or doing more work than needed. None is an error in the mathemat
     `IsDrawing.ne_of_isLink` rules loops out. The design never says what a loop's core is; it
     does not have to.
 
+16. **"Locally polygonally connected", stated the obvious way, is vacuous.** Both first
+    attempts at the property — "every point has a neighbourhood `U` such that any two points of
+    `U ∩ S` are joined by a polygonal path **in `S`**" — are satisfied by taking `U = univ`
+    whenever `S` is polygonally connected at all. So they carry no local information. That is
+    harmless for brick B6, whose clopen argument only needs *some* path, and fatal for B7,
+    which needs the property to survive intersecting with an open set. The comb space
+    (`{0}×[0,1] ∪ ⋃ₙ {1/n}×[0,1] ∪ [0,1]×{0}`) is polygonally connected, hence "locally"
+    so everywhere under the weak reading, while its intersection with a thin strip about
+    `y = 1` is not locally polygonally connected at `(0,1)`.
+
+    Repairing it needs **two** changes, not one: the path must lie in `U ∩ S`, *and* `U` must
+    range over a neighbourhood basis at `p`. The first alone still leaves you stuck with one
+    fixed `U` that sticks out of the open set you are intersecting with. Brick B5's proof
+    supports both without alteration — its paths already run through convex pieces of a small
+    square about `p`, and the radius is downward-closed — so the strengthening was free, and the
+    finitely-many-squares case got *shorter*, since it can now be derived from the one-square
+    case rather than rerunning the star argument.
+
 ## Frictions
 
 - **A duplicate theorem can compile.** `supDist_triangle` was proved independently in two

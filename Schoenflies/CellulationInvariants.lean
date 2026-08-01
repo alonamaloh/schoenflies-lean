@@ -255,6 +255,12 @@ theorem isBounded (hJ : R.IsFaceJordan) (hF : F ∈ S.faces) : IsBounded (R.cell
 theorem nonempty (hJ : R.IsFaceJordan) (hF : F ∈ S.faces) : (R.cell F).Nonempty :=
   (hJ.isConnected hF).nonempty
 
+/-- A closed 2-cell is compact. `lem:star-face-mesh` measures diameters of closed 2-cells, and
+this is what makes those diameters finite without a hypothesis on the domain. -/
+theorem isCompact_closure (hJ : R.IsFaceJordan) (hF : F ∈ S.faces) :
+    IsCompact (closure (R.cell F)) :=
+  Metric.isCompact_of_isClosed_isBounded isClosed_closure (hJ.isBounded hF).closure
+
 /-- **Assertion (vii) in the blueprint's own words**: the union of the open cells strictly below
 a 2-cell is a Jordan curve, and the open 2-cell is its bounded complementary region. -/
 theorem faceBoundary_eq (hJ : R.IsFaceJordan) (h : R.IsCellDecomposition D) (hF : F ∈ S.faces) :
@@ -317,6 +323,16 @@ theorem IsRefinement.isFaceJordan (href : d.IsRefinement R R') (hJ : R.IsFaceJor
     rw [subdivideEdge_faces] at hF
     rw [href.cell_face_eq hF]
     exact hJ.cell_eq_inside hF
+
+/-- **The induction step over the first constructor**, in the shape a consumer building a
+sequence of stages wants: one edge subdivision carries (i), (vii) and `Realization.Refines`
+forward together. The mirror of `SplitData.IsCrosscutSplit.isCellDecomposition_and_isFaceJordan`.
+-/
+theorem IsRefinement.isCellDecomposition_and_isFaceJordan (hS : S.CombInvariants)
+    (href : d.IsRefinement R R') {D : Set Plane} (h : R.IsCellDecomposition D)
+    (hJ : R.IsFaceJordan) :
+    R'.IsCellDecomposition D ∧ R'.IsFaceJordan ∧ R'.Refines R d.parent :=
+  ⟨href.isCellDecomposition hS h, href.isFaceJordan hJ, href.refines hS⟩
 
 /-! ### The orientation of the boundary-walk update
 

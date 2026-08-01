@@ -522,6 +522,244 @@ theorem posLeft_notMem_edgeArc_newEdge₂ :
   have : s = d.leftParam R := d.injOn_drawing_edge R hsI (d.leftParam_mem_I R) hseq
   exact left_notMem_uIcc_right (d.mem_uIcc_params R ht) (d.leftParam_ne R ht) (this ▸ hs)
 
+/-- The new point lies on no old edge but the subdivided one. -/
+theorem newPos_notMem_edgeArc_of_ne {f : γ} (hf : f ∈ E(S.skel)) (hfe : f ≠ d.edge) :
+    R.drawing d.edge t ∉ edgeArc R.drawing f := fun hva =>
+  d.newPos_notMem_vertexSet R ht
+    (R.isDrawing.arcs_meet_at_vertex (d.edge_mem_edgeSet_graph R)
+      (by rw [edgeSet_map]; exact hf) (Ne.symm hfe)
+      ⟨t, Ioo_subset_Icc_self ht, rfl⟩ hva)
+
+/-! ### The subdivided drawn skeleton -/
+
+omit ht in
+theorem realizeGraph_edgeSet : E(d.realizeGraph R t) = E(d.skeleton) := edgeSet_map _ _
+
+omit ht in
+theorem realizePos_image_vertexSet : d.realizePos R t '' V(S.skel) = R.pos '' V(S.skel) :=
+  image_congr fun _ hv => realizePos_of_mem_vertexSet hv
+
+omit ht in
+theorem realizeGraph_vertexSet :
+    V(d.realizeGraph R t) = insert (R.drawing d.edge t) V(R.graph) := by
+  rw [realizeGraph, vertexSet_map, d.skeleton_vertexSet, image_insert_eq, realizePos_newVertex,
+    realizePos_image_vertexSet, Realization.vertexSet_graph]
+
+omit ht in
+theorem mem_realizeGraph_vertexSet_of_mem {p : Plane} (hp : p ∈ V(R.graph)) :
+    p ∈ V(d.realizeGraph R t) := by
+  rw [realizeGraph_vertexSet]; exact mem_insert_of_mem _ hp
+
+omit ht in
+/-- An edge of the subdivided drawn skeleton that is neither new is an old edge, and not the
+subdivided one. -/
+theorem mem_edgeSet_skel_of_ne {f : γ} (hf : f ∈ E(d.realizeGraph R t))
+    (h₁ : f ≠ d.newEdge₁) (h₂ : f ≠ d.newEdge₂) : f ∈ E(S.skel) ∧ f ≠ d.edge := by
+  rw [realizeGraph_edgeSet, d.skeleton_edgeSet] at hf
+  simp only [mem_insert_iff, mem_sdiff, mem_singleton_iff] at hf
+  rcases hf with rfl | rfl | h
+  exacts [absurd rfl h₁, absurd rfl h₂, h]
+
+omit ht in
+/-- For an old edge the two drawn skeleta have the same links. -/
+theorem realizeGraph_isLink_old {f : γ} {x y : Plane} (hf : f ∈ E(S.skel)) (hfe : f ≠ d.edge) :
+    (d.realizeGraph R t).IsLink f x y ↔ R.graph.IsLink f x y := by
+  constructor
+  · rintro ⟨p, q, hpq, rfl, rfl⟩
+    rw [d.skeleton_isLink_old_iff hf hfe] at hpq
+    rw [realizePos_of_mem_vertexSet hpq.left_mem, realizePos_of_mem_vertexSet hpq.right_mem]
+    exact hpq.map R.pos
+  · rintro ⟨p, q, hpq, rfl, rfl⟩
+    exact ⟨p, q, d.skeleton_isLink_of_old hfe hpq,
+      realizePos_of_mem_vertexSet hpq.left_mem, realizePos_of_mem_vertexSet hpq.right_mem⟩
+
+omit ht in
+theorem realizeGraph_inc_old {f : γ} {p : Plane} (hf : f ∈ E(S.skel)) (hfe : f ≠ d.edge) :
+    (d.realizeGraph R t).Inc f p ↔ R.graph.Inc f p :=
+  exists_congr fun _ => realizeGraph_isLink_old hf hfe
+
+omit ht in
+theorem realizeGraph_isLink_newEdge₁ :
+    (d.realizeGraph R t).IsLink d.newEdge₁ (R.pos d.left) (R.drawing d.edge t) := by
+  have h := d.isLink_newEdge₁.map (d.realizePos R t)
+  rwa [realizePos_of_mem_vertexSet d.isLink.left_mem, realizePos_newVertex] at h
+
+omit ht in
+theorem realizeGraph_isLink_newEdge₂ :
+    (d.realizeGraph R t).IsLink d.newEdge₂ (R.drawing d.edge t) (R.pos d.right) := by
+  have h := d.isLink_newEdge₂.map (d.realizePos R t)
+  rwa [realizePos_of_mem_vertexSet d.isLink.right_mem, realizePos_newVertex] at h
+
+/-- A vertex on the first new arc is one of its two ends. -/
+theorem mem_edgeArc_newEdge₁_vertex {p : Plane} (hp : p ∈ V(d.realizeGraph R t))
+    (hpa : p ∈ edgeArc (d.realizeDrawing R t) d.newEdge₁) :
+    p = R.pos d.left ∨ p = R.drawing d.edge t := by
+  rw [realizeGraph_vertexSet, mem_insert_iff] at hp
+  rcases hp with rfl | hp
+  · exact Or.inr rfl
+  · rcases R.isDrawing.vertex_mem_edgeArc (d.isLink_drawn_edge R) hp
+      (edgeArc_newEdge₁_subset ht hpa) with h | h
+    · exact Or.inl h
+    · exact absurd (h ▸ hpa) (posRight_notMem_edgeArc_newEdge₁ ht)
+
+/-- A vertex on the second new arc is one of its two ends. -/
+theorem mem_edgeArc_newEdge₂_vertex {p : Plane} (hp : p ∈ V(d.realizeGraph R t))
+    (hpa : p ∈ edgeArc (d.realizeDrawing R t) d.newEdge₂) :
+    p = R.drawing d.edge t ∨ p = R.pos d.right := by
+  rw [realizeGraph_vertexSet, mem_insert_iff] at hp
+  rcases hp with rfl | hp
+  · exact Or.inl rfl
+  · rcases R.isDrawing.vertex_mem_edgeArc (d.isLink_drawn_edge R) hp
+      (edgeArc_newEdge₂_subset ht hpa) with h | h
+    · exact absurd (h ▸ hpa) (posLeft_notMem_edgeArc_newEdge₂ ht)
+    · exact Or.inr h
+
+/-! ### Where two edges of the subdivided drawing meet -/
+
+/-- The two new edges meet exactly at the new vertex. -/
+theorem edge_inter_new_new {p : Plane}
+    (hp₁ : p ∈ edgeArc (d.realizeDrawing R t) d.newEdge₁)
+    (hp₂ : p ∈ edgeArc (d.realizeDrawing R t) d.newEdge₂) :
+    p ∈ V(d.realizeGraph R t) ∧ (d.realizeGraph R t).Inc d.newEdge₁ p ∧
+      (d.realizeGraph R t).Inc d.newEdge₂ p := by
+  have hmem : p ∈ ({R.drawing d.edge t} : Set Plane) := by
+    rw [← edgeArc_new_inter ht]; exact ⟨hp₁, hp₂⟩
+  rw [mem_singleton_iff] at hmem
+  subst hmem
+  exact ⟨by rw [realizeGraph_vertexSet]; exact mem_insert _ _,
+    (realizeGraph_isLink_newEdge₁).inc_right, (realizeGraph_isLink_newEdge₂).inc_left⟩
+
+/-- The first new edge meets an old edge only at the position of `d.left`. -/
+theorem edge_inter_newEdge₁_old {g : γ} (hg : g ∈ E(S.skel)) (hge : g ≠ d.edge) {p : Plane}
+    (hp₁ : p ∈ edgeArc (d.realizeDrawing R t) d.newEdge₁)
+    (hpg : p ∈ edgeArc (d.realizeDrawing R t) g) :
+    p ∈ V(d.realizeGraph R t) ∧ (d.realizeGraph R t).Inc d.newEdge₁ p ∧
+      (d.realizeGraph R t).Inc g p := by
+  have hgc := S.mem_cells_of_mem_edgeSet hg
+  rw [edgeArc_of_ne (d.ne_newEdge₁_of_mem_cells hgc) (d.ne_newEdge₂_of_mem_cells hgc)] at hpg
+  obtain ⟨hpV, -, hpgInc⟩ := R.isDrawing.edge_inter (d.edge_mem_edgeSet_graph R)
+    (by rw [edgeSet_map]; exact hg) (Ne.symm hge)
+    (edgeArc_newEdge₁_subset ht hp₁) hpg
+  rcases mem_edgeArc_newEdge₁_vertex ht (mem_realizeGraph_vertexSet_of_mem hpV) hp₁ with
+    h | h
+  · subst h
+    exact ⟨mem_realizeGraph_vertexSet_of_mem hpV, (realizeGraph_isLink_newEdge₁).inc_left,
+      (realizeGraph_inc_old hg hge).2 hpgInc⟩
+  · exact absurd (h ▸ hpV) (d.newPos_notMem_vertexSet R ht)
+
+/-- The second new edge meets an old edge only at the position of `d.right`. -/
+theorem edge_inter_newEdge₂_old {g : γ} (hg : g ∈ E(S.skel)) (hge : g ≠ d.edge) {p : Plane}
+    (hp₂ : p ∈ edgeArc (d.realizeDrawing R t) d.newEdge₂)
+    (hpg : p ∈ edgeArc (d.realizeDrawing R t) g) :
+    p ∈ V(d.realizeGraph R t) ∧ (d.realizeGraph R t).Inc d.newEdge₂ p ∧
+      (d.realizeGraph R t).Inc g p := by
+  have hgc := S.mem_cells_of_mem_edgeSet hg
+  rw [edgeArc_of_ne (d.ne_newEdge₁_of_mem_cells hgc) (d.ne_newEdge₂_of_mem_cells hgc)] at hpg
+  obtain ⟨hpV, -, hpgInc⟩ := R.isDrawing.edge_inter (d.edge_mem_edgeSet_graph R)
+    (by rw [edgeSet_map]; exact hg) (Ne.symm hge)
+    (edgeArc_newEdge₂_subset ht hp₂) hpg
+  rcases mem_edgeArc_newEdge₂_vertex ht (mem_realizeGraph_vertexSet_of_mem hpV) hp₂ with
+    h | h
+  · exact absurd (h ▸ hpV) (d.newPos_notMem_vertexSet R ht)
+  · subst h
+    exact ⟨mem_realizeGraph_vertexSet_of_mem hpV,
+      (realizeGraph_isLink_newEdge₂).inc_right, (realizeGraph_inc_old hg hge).2 hpgInc⟩
+
+omit ht in
+/-- Two old edges meet where they met before. -/
+theorem edge_inter_old_old {f g : γ} (hf : f ∈ E(S.skel)) (hfe : f ≠ d.edge)
+    (hg : g ∈ E(S.skel)) (hge : g ≠ d.edge) (hfg : f ≠ g) {p : Plane}
+    (hpf : p ∈ edgeArc (d.realizeDrawing R t) f) (hpg : p ∈ edgeArc (d.realizeDrawing R t) g) :
+    p ∈ V(d.realizeGraph R t) ∧ (d.realizeGraph R t).Inc f p ∧ (d.realizeGraph R t).Inc g p := by
+  have hfc := S.mem_cells_of_mem_edgeSet hf
+  have hgc := S.mem_cells_of_mem_edgeSet hg
+  rw [edgeArc_of_ne (d.ne_newEdge₁_of_mem_cells hfc) (d.ne_newEdge₂_of_mem_cells hfc)] at hpf
+  rw [edgeArc_of_ne (d.ne_newEdge₁_of_mem_cells hgc) (d.ne_newEdge₂_of_mem_cells hgc)] at hpg
+  obtain ⟨hpV, h₁, h₂⟩ := R.isDrawing.edge_inter (by rw [edgeSet_map]; exact hf)
+    (by rw [edgeSet_map]; exact hg) hfg hpf hpg
+  exact ⟨mem_realizeGraph_vertexSet_of_mem hpV, (realizeGraph_inc_old hf hfe).2 h₁,
+    (realizeGraph_inc_old hg hge).2 h₂⟩
+
+/-! ### The subdivided drawing -/
+
+/-- **The subdivided data really is a drawing.** -/
+theorem isDrawing_realize : IsDrawing (d.realizeGraph R t) (d.realizeDrawing R t) where
+  edge_param := by
+    intro f hf
+    rw [realizeGraph_edgeSet, d.skeleton_edgeSet] at hf
+    simp only [mem_insert_iff, mem_sdiff, mem_singleton_iff] at hf
+    rcases hf with rfl | rfl | ⟨hfS, hfe⟩
+    · rw [realizeDrawing_newEdge₁]
+      refine ⟨continuousOn_subarc (d.continuousOn_drawing_edge R) (d.leftParam_mem_I R)
+          (Ioo_subset_Icc_self ht),
+        injOn_subarc ((d.injOn_drawing_edge R).mono
+          (uIcc_subset_I (d.leftParam_mem_I R) (Ioo_subset_Icc_self ht))) (d.leftParam_ne R ht),
+        ?_⟩
+      rw [subarc_zero, subarc_one, d.drawing_leftParam R]
+      exact realizeGraph_isLink_newEdge₁
+    · rw [realizeDrawing_newEdge₂]
+      refine ⟨continuousOn_subarc (d.continuousOn_drawing_edge R) (Ioo_subset_Icc_self ht)
+          (d.rightParam_mem_I R),
+        injOn_subarc ((d.injOn_drawing_edge R).mono
+          (uIcc_subset_I (Ioo_subset_Icc_self ht) (d.rightParam_mem_I R)))
+          (Ne.symm (d.rightParam_ne R ht)), ?_⟩
+      rw [subarc_zero, subarc_one, d.drawing_rightParam R]
+      exact realizeGraph_isLink_newEdge₂
+    · have hfc := S.mem_cells_of_mem_edgeSet hfS
+      rw [realizeDrawing_of_mem_cells hfc]
+      have hd := R.isDrawing.edge_param
+        (show f ∈ E(R.graph) by rw [Realization.edgeSet_graph]; exact hfS)
+      exact ⟨hd.1, hd.2.1, (realizeGraph_isLink_old hfS hfe).2 hd.2.2⟩
+  vertex_mem_edgeArc := by
+    intro f x y v hl hv hva
+    by_cases hf₁ : f = d.newEdge₁
+    · subst hf₁
+      rcases hl.eq_and_eq_or_eq_and_eq (realizeGraph_isLink_newEdge₁) with
+        ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
+      · exact mem_edgeArc_newEdge₁_vertex ht hv hva
+      · exact (mem_edgeArc_newEdge₁_vertex ht hv hva).symm
+    · by_cases hf₂ : f = d.newEdge₂
+      · subst hf₂
+        rcases hl.eq_and_eq_or_eq_and_eq (realizeGraph_isLink_newEdge₂) with
+          ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
+        · exact mem_edgeArc_newEdge₂_vertex ht hv hva
+        · exact (mem_edgeArc_newEdge₂_vertex ht hv hva).symm
+      · obtain ⟨hfS, hfe⟩ := mem_edgeSet_skel_of_ne hl.edge_mem hf₁ hf₂
+        rw [edgeArc_of_ne hf₁ hf₂] at hva
+        rw [realizeGraph_isLink_old hfS hfe] at hl
+        rw [realizeGraph_vertexSet, mem_insert_iff] at hv
+        rcases hv with rfl | hv
+        · exact absurd hva (newPos_notMem_edgeArc_of_ne ht hfS hfe)
+        · exact R.isDrawing.vertex_mem_edgeArc hl hv hva
+  edge_inter := by
+    intro f g hf hg hfg p hpf hpg
+    by_cases hf₁ : f = d.newEdge₁
+    · subst hf₁
+      by_cases hg₂ : g = d.newEdge₂
+      · subst hg₂
+        exact edge_inter_new_new ht hpf hpg
+      · obtain ⟨hgS, hge⟩ := mem_edgeSet_skel_of_ne hg (Ne.symm hfg) hg₂
+        exact edge_inter_newEdge₁_old ht hgS hge hpf hpg
+    · by_cases hf₂ : f = d.newEdge₂
+      · subst hf₂
+        by_cases hg₁ : g = d.newEdge₁
+        · subst hg₁
+          obtain ⟨h₁, h₂, h₃⟩ := edge_inter_new_new ht hpg hpf
+          exact ⟨h₁, h₃, h₂⟩
+        · obtain ⟨hgS, hge⟩ := mem_edgeSet_skel_of_ne hg hg₁ (Ne.symm hfg)
+          exact edge_inter_newEdge₂_old ht hgS hge hpf hpg
+      · obtain ⟨hfS, hfe⟩ := mem_edgeSet_skel_of_ne hf hf₁ hf₂
+        by_cases hg₁ : g = d.newEdge₁
+        · subst hg₁
+          obtain ⟨h₁, h₂, h₃⟩ := edge_inter_newEdge₁_old ht hfS hfe hpg hpf
+          exact ⟨h₁, h₃, h₂⟩
+        · by_cases hg₂ : g = d.newEdge₂
+          · subst hg₂
+            obtain ⟨h₁, h₂, h₃⟩ := edge_inter_newEdge₂_old ht hfS hfe hpg hpf
+            exact ⟨h₁, h₃, h₂⟩
+          · obtain ⟨hgS, hge⟩ := mem_edgeSet_skel_of_ne hg hg₁ hg₂
+            exact edge_inter_old_old hfS hfe hgS hge hfg hpf hpg
+
 end SubdivData
 
 end CellStructure

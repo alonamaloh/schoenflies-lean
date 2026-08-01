@@ -7,9 +7,81 @@ import Schoenflies.FaceCycles
 import Schoenflies.Realization
 
 /-!
-# Face cycles, continued
+# Face cycles: the proof
 
-Work in progress.
+`lem:face-cycles` — *every face of a finite 2-connected polygonal plane graph has a cycle as its
+boundary and is one of the two complementary regions of that cycle*. `Schoenflies/FaceCycles.lean`
+built the base cycle, its 2-connectivity, and the topology of adding an ear; this module runs
+the induction of the blueprint's proof on top of them.
+
+## READ THIS FIRST: what is assumed
+
+`Graph.face_cycles` **carries a hypothesis, `Schoenflies.CrosscutSplitsRegion`, which nothing
+proves.** It is the exhaustion clause of `thm:polygonal-crosscut` — "the crosscut replaces `F`
+by exactly two regions" — stated for a crosscut whose two endpoints are *arbitrary points of
+the curve*. Everything else in the blueprint's proof is discharged here without hypotheses, and
+each of those pieces is a standalone theorem below.
+
+`main`'s Theorem 2.8 does **not** discharge it, and the obstruction is not a missing bridge.
+`Schoenflies.IsPolygonalCrosscut` states its two splitting hypotheses against
+`ClosedPolygon.arcPieces C a k`, which cuts the polygon's edge list at two of *its vertices*;
+and `Schoenflies.ClosedPolygon.isCornerAt_vertex` says every vertex of every realization of a
+curve is a corner of it. In the induction below the two cut points are the ear's endpoints —
+graph vertices at which the two cycle edges may leave along opposite rays, so that the boundary
+curve runs *straight* through the cut point. Such a point is a vertex of no `ClosedPolygon`
+with that carrier, and `Schoenflies.exists_closedPolygon_split` (whose `IsCornerAt` hypotheses
+are therefore not an artefact) cannot be applied. Closing the gap means restating Theorem 2.8
+for an edge-list split made at arbitrary points of the curve, which needs the parity theory of
+`Schoenflies/Parity.lean` for presentations carrying redundant vertices —
+`Schoenflies.PrePolygon` — and not only for `ClosedPolygon`. That is a separate module.
+
+## What is proved unconditionally
+
+* **The realisation of a cycle is a separating curve** (`Graph.IsDrawing.cycle_isSeparating`),
+  which is what the base case needed and what `main` could not say. It composes
+  `Graph.IsDrawing.cycle_isJordanCurve` with `Schoenflies.exists_closedPolygon` and
+  `Schoenflies.ClosedPolygon.isSeparating_carrier`. The polygonality half needed a bridge that
+  `main` did not have: `Schoenflies.IsPolygonal` is the carrier of *one* vertex list, so a union
+  of edge arcs is polygonal only once each arc is known to be a polyline running from one of its
+  ends to the other (`Schoenflies.IsArcBetween.exists_poly_eq`, which rests on the arc
+  uniqueness `Schoenflies.IsArcBetween.eq_of_subset`).
+* **The base case** (`Graph.IsDrawing.hasFaceCycles_cycleGraph`): the cycle subgraph occupies
+  exactly the cycle's realisation, so its faces are the two regions of that curve.
+* **Cutting a cycle at two of its vertices** (`Graph.IsCycleThrough.split_at`) and **splicing an
+  ear onto an arc** (`Graph.exists_spliced_cycle`) — the combinatorics of "both bounded by
+  cycles" — together with the geometric reading of the split
+  (`Graph.IsDrawing.arcs_of_split`).
+* **The step's topology**: the enlarged exterior is the old one minus the ear
+  (`Graph.IsDrawing.pointSet_pathGraphOf`), a face the ear misses survives with its cycle
+  (`Graph.IsFaceCycle.mono`), and the face the ear cuts is cut only inside itself
+  (`Schoenflies.connectedComponentIn_diff`).
+
+## For the integrator
+
+`Graph.IsPath.append`, `Graph.IsPath.split_meet`, `Graph.IsWalk.walkVertices_eq_covered`,
+`Graph.IsWalk.walkVertices_reverse_eq`, `Graph.coveredVertices_congr_of_le`,
+`Graph.walkVertices_congr_of_le` and `Graph.edgesCover_append` / `…_perm` / `…_reverse` are
+general and belong in `Schoenflies/Graph/Walk.lean` and `Schoenflies/Graph/CycleJordan.lean`.
+`Schoenflies.IsArcBetween.eq_of_subset` belongs in `Schoenflies/Subarc.lean` and
+`Schoenflies.poly_append` in `Schoenflies/PolyPath.lean`.
+
+## Blueprint
+
+* `Schoenflies.IsArcBetween.eq_of_subset`, `Schoenflies.IsArcBetween.exists_poly_eq`,
+  `Graph.IsDrawing.exists_poly_eq_edgesCover`, `Graph.IsDrawing.isPolygonal_edgesCover` — §1,
+  the polygonality of what a walk draws.
+* `Graph.IsDrawing.cycle_isSeparating` — `thm:polygonal-jordan` for the realisation of a cycle:
+  "This is true for the initial cycle by Theorem `thm:polygonal-jordan`."
+* `Graph.IsFaceCycle`, `Graph.HasFaceCycles` — the conclusion of `lem:face-cycles`, at one face
+  and at all of them.
+* `Graph.IsDrawing.hasFaceCycles_cycleGraph` — the base case.
+* `Graph.IsCycleThrough.split_at`, `Graph.IsDrawing.arcs_of_split`,
+  `Graph.exists_spliced_cycle` — "Theorem `thm:polygonal-crosscut` replaces `F` by exactly two
+  regions, both bounded by cycles", combinatorially.
+* `Schoenflies.CrosscutSplitsRegion` — **the assumed** exhaustion clause of
+  `thm:polygonal-crosscut` at arbitrary cut points.
+* `Graph.IsDrawing.hasFaceCycles_union` — one ear.
+* `Graph.face_cycles` — `lem:face-cycles`, modulo `Schoenflies.CrosscutSplitsRegion`.
 -/
 
 open Metric Set unitInterval
@@ -119,7 +191,7 @@ theorem connectedComponentIn_diff (S P : Set Plane) (z : Plane) :
   by_cases hz : z ∈ S \ P
   · have hcomp : connectedComponentIn (S \ P) z ⊆ connectedComponentIn S z :=
       isPreconnected_connectedComponentIn.subset_connectedComponentIn
-        (mem_connectedComponentIn hz) ((connectedComponentIn_subset _ _).trans diff_subset)
+        (mem_connectedComponentIn hz) ((connectedComponentIn_subset _ _).trans Set.sdiff_subset)
     have hzR : z ∈ connectedComponentIn (connectedComponentIn S z \ P) z :=
       mem_connectedComponentIn ⟨mem_connectedComponentIn hz.1, hz.2⟩
     refine Set.Subset.antisymm
@@ -617,5 +689,263 @@ theorem IsDrawing.hasFaceCycles_cycleGraph (h : IsDrawing G drawing)
   refine hsep.isRegionOf_connectedComponentIn ?_
   rw [exterior, h.pointSet_cycleGraph hc] at hz
   exact hz
+
+/-! ## The two arcs a cycle is cut into, as sets
+
+The combinatorial split of `Graph.IsCycleThrough.split_at` becomes the geometric one: the two
+arcs of the Jordan curve between the two cut vertices. The drawing condition is used once, to
+turn "the two edge lists are disjoint" into "the two arcs meet only at vertices". -/
+
+/-- A vertex of the graph lying on the realisation of a cycle is a vertex of that cycle. -/
+theorem IsDrawing.mem_walkVertices_of_mem_edgesCover (h : IsDrawing G drawing) {e : β}
+    {u v z : Plane} {D : List β} (hc : G.IsCycleThrough e u v D) (hzV : z ∈ V(G))
+    (hz : z ∈ edgesCover drawing (e :: D)) : z ∈ G.walkVertices u D := by
+  obtain ⟨g, hg, hzg⟩ := mem_edgesCover_iff.1 hz
+  rcases List.mem_cons.1 hg with rfl | hg'
+  · rcases h.vertex_mem_edgeArc hc.isLink hzV hzg with rfl | rfl
+    · exact mem_walkVertices_self
+    · exact hc.isPath.target_mem_walkVertices
+  · obtain ⟨x, y, hxy⟩ := exists_isLink_of_mem_edgeSet (hc.isPath.edge_mem hg')
+    rcases h.vertex_mem_edgeArc hxy hzV hzg with rfl | rfl
+    · exact mem_walkVertices_of_mem_covered ⟨g, hg', hxy.inc_left⟩
+    · exact mem_walkVertices_of_mem_covered ⟨g, hg', hxy.inc_right⟩
+
+/-- **The realisation of a cycle, cut at two of its vertices, is two arcs meeting exactly
+there.** The hypotheses are the output of `Graph.IsCycleThrough.split_at`, read in the plane. -/
+theorem IsDrawing.arcs_of_split (h : IsDrawing G drawing) {a b : Plane} {D₁ D₂ : List β}
+    (h₁ : G.IsPath a D₁ b) (h₂ : G.IsPath b D₂ a) (hab : a ≠ b)
+    (hdisj : ∀ g ∈ D₁, g ∉ D₂)
+    (hmeet : ∀ y ∈ G.walkVertices a D₁, y ∈ G.walkVertices b D₂ → y = a ∨ y = b) :
+    IsArcBetween (edgesCover drawing D₁) a b ∧ IsArcBetween (edgesCover drawing D₂) b a ∧
+      edgesCover drawing D₁ ∩ edgesCover drawing D₂ = {a, b} := by
+  have harc₁ : IsArcBetween (edgesCover drawing D₁) a b :=
+    h.path_isArcBetween h₁ (h₁.ne_nil hab)
+  have harc₂ : IsArcBetween (edgesCover drawing D₂) b a :=
+    h.path_isArcBetween h₂ (h₂.ne_nil (Ne.symm hab))
+  refine ⟨harc₁, harc₂, Set.Subset.antisymm (fun z ⟨hz₁, hz₂⟩ => ?_) ?_⟩
+  · -- A common point lies on an edge of each, and the two edges are distinct.
+    obtain ⟨g₁, hg₁, hzg₁⟩ := mem_edgesCover_iff.1 hz₁
+    obtain ⟨g₂, hg₂, hzg₂⟩ := mem_edgesCover_iff.1 hz₂
+    have hne : g₁ ≠ g₂ := fun hh => hdisj g₁ hg₁ (hh ▸ hg₂)
+    obtain ⟨-, hinc₁, hinc₂⟩ :=
+      h.edge_inter (h₁.edge_mem hg₁) (h₂.edge_mem hg₂) hne hzg₁ hzg₂
+    exact hmeet z (mem_walkVertices_of_mem_covered ⟨g₁, hg₁, hinc₁⟩)
+      (mem_walkVertices_of_mem_covered ⟨g₂, hg₂, hinc₂⟩)
+  · rintro z (rfl | rfl)
+    exacts [⟨harc₁.left_mem, harc₂.right_mem⟩, ⟨harc₁.right_mem, harc₂.left_mem⟩]
+
+end Graph
+
+namespace Schoenflies
+
+/-! ## The obligation this module does not discharge
+
+**Read this before using `Graph.face_cycles`.** Everything below the base case is proved
+*modulo* one hypothesis, `Schoenflies.CrosscutSplitsRegion`, and the final theorem carries it
+as an argument. It is the exhaustion clause of `thm:polygonal-crosscut` — Theorem 2.8, in the
+shape `Schoenflies.IsPolygonalCrosscut.region_eq` and
+`Schoenflies.IsPolygonalCrosscut.cell_isComponent₁` already have it — at a crosscut whose two
+endpoints are **arbitrary points of the curve**.
+
+`main`'s Theorem 2.8 cannot be applied here, and the reason is not a missing bridge. Its
+hypotheses `edges₁`/`edges₂` are stated against `ClosedPolygon.arcPieces C a k`, which splits
+the polygon's edge list **at two of its vertices**; and by
+`Schoenflies.ClosedPolygon.isCornerAt_vertex` every vertex of every realization of a curve is a
+*corner* of it. In the induction below the two cut points are the ear's endpoints, which are
+graph vertices at which the two cycle edges may perfectly well leave along opposite rays — the
+curve then runs straight through the cut point, which is therefore a vertex of no
+`ClosedPolygon` with that carrier, and no realization theorem can supply one. Discharging this
+hypothesis needs Theorem 2.8 restated for an edge-list split made at arbitrary points, which in
+turn needs the parity theory for polygon presentations carrying redundant vertices
+(`Schoenflies.PrePolygon`) rather than only for `ClosedPolygon`. That is a separate module. -/
+
+/-- **The exhaustion clause of the polygonal crosscut theorem, at arbitrary cut points.**
+`J` is a separating polygonal curve cut by the points `p, q` into the arcs `A₁, A₂`; `P` is a
+polygonal crosscut from `p` to `q` meeting `J` only there and running inside the region `Ω`.
+The claim is that every component of `Ω ∖ P` is a region of `A₁ ∪ P` or of `A₂ ∪ P` — the
+blueprint's "Theorem 2.8 replaces `F` by exactly two regions, both bounded by cycles".
+
+This is **assumed**, not proved; see the section docstring for why `main`'s Theorem 2.8 does
+not apply. -/
+def CrosscutSplitsRegion : Prop :=
+  ∀ (J A₁ A₂ P Ω : Set Plane) (p q : Plane),
+    IsSeparating J → IsPolygonal J → IsPolygonal P →
+    IsArcBetween A₁ p q → IsArcBetween A₂ p q → A₁ ∪ A₂ = J → A₁ ∩ A₂ = {p, q} →
+    IsArcBetween P p q → P ∩ J = {p, q} → IsRegionOf J Ω → P \ {p, q} ⊆ Ω →
+    ∀ z ∈ Ω \ P, IsRegionOf (A₁ ∪ P) (connectedComponentIn (Ω \ P) z) ∨
+      IsRegionOf (A₂ ∪ P) (connectedComponentIn (Ω \ P) z)
+
+end Schoenflies
+
+namespace Graph
+
+open Schoenflies
+
+variable {β : Type*} {G B : Graph Plane β} {drawing : β → ℝ → Plane}
+variable {e f : β} {u v w z a b : Plane} {W D : List β}
+
+/-! ## What a list of edges draws depends only on which edges are on it -/
+
+theorem edgesCover_append (drawing : β → ℝ → Plane) (W₁ W₂ : List β) :
+    edgesCover drawing (W₁ ++ W₂) = edgesCover drawing W₁ ∪ edgesCover drawing W₂ := by
+  refine Set.Subset.antisymm (fun z hz => ?_)
+    (Set.union_subset (edgesCover_mono (List.subset_append_left _ _))
+      (edgesCover_mono (List.subset_append_right _ _)))
+  obtain ⟨g, hg, hzg⟩ := mem_edgesCover_iff.1 hz
+  exact (List.mem_append.1 hg).imp (fun h => mem_edgesCover h hzg) fun h => mem_edgesCover h hzg
+
+theorem edgesCover_perm {W₁ W₂ : List β} (hp : W₁.Perm W₂) :
+    edgesCover drawing W₁ = edgesCover drawing W₂ :=
+  Set.Subset.antisymm (edgesCover_mono fun _ hg => hp.mem_iff.1 hg)
+    (edgesCover_mono fun _ hg => hp.mem_iff.2 hg)
+
+theorem edgesCover_reverse (drawing : β → ℝ → Plane) (W : List β) :
+    edgesCover drawing W.reverse = edgesCover drawing W := edgesCover_perm (List.reverse_perm W)
+
+/-! ## The induction step: one ear
+
+"Suppose it holds for the current graph and add the next geometric ear. Its interior is
+connected and disjoint from the current graph, so it lies in one current face `F` … the ear is
+therefore a crosscut of that side, and Theorem `thm:polygonal-crosscut` replaces `F` by exactly
+two regions, both bounded by cycles; all other faces are unchanged."
+
+Everything here is proved, except that the appeal to Theorem 2.8 is to the hypothesis
+`Schoenflies.CrosscutSplitsRegion` instead. -/
+
+/-- **One ear.** Given `lem:face-cycles` for the current subgraph, it holds for the subgraph
+enlarged by an ear — modulo `Schoenflies.CrosscutSplitsRegion`. -/
+theorem IsDrawing.hasFaceCycles_union [G.Finite] (h : IsDrawing G drawing)
+    (hobl : CrosscutSplitsRegion) (hpoly : ∀ g ∈ E(G), IsPolygonal (edgeArc drawing g))
+    (hBG : B ≤ G) (hmot : HasFaceCycles B drawing) {D' : List β}
+    (hpath : G.IsPath a D' b) (hab : a ≠ b) (ha : a ∈ V(B)) (hb : b ∈ V(B))
+    (hint : ∀ y ∈ G.walkVertices a D', y ≠ a → y ≠ b → y ∉ V(B))
+    (hnew : ∀ g ∈ D', g ∉ E(B)) :
+    HasFaceCycles (B.union (G.pathGraphOf a D')) drawing := by
+  haveI : B.Finite := Finite.of_le hBG
+  have hB : IsDrawing B drawing := h.mono hBG
+  have hne : D' ≠ [] := hpath.ne_nil hab
+  have hPG : G.pathGraphOf a D' ≤ G := pathGraphOf_le hpath.isWalk
+  have hB'G : B.union (G.pathGraphOf a D') ≤ G := union_le hBG hPG
+  have hBB' : B ≤ B.union (G.pathGraphOf a D') := left_le_union _ _
+  have hB' : IsDrawing (B.union (G.pathGraphOf a D')) drawing := h.mono hB'G
+  have hpoly' : ∀ g ∈ E(B.union (G.pathGraphOf a D')), IsPolygonal (edgeArc drawing g) :=
+    fun g hg => hpoly g (hB'G.edgeSet_mono hg)
+  have hQarc : IsArcBetween (edgesCover drawing D') a b := h.path_isArcBetween hpath hne
+  have hQpoly : IsPolygonal (edgesCover drawing D') :=
+    h.isPolygonal_edgesCover hpoly hpath.isWalk hne
+  have hext : exterior (B.union (G.pathGraphOf a D')) drawing =
+      exterior B drawing \ edgesCover drawing D' := by
+    rw [exterior_union, h.pointSet_pathGraphOf hpath.isWalk hne]
+  -- The ear lies in one face of the old subgraph.
+  obtain ⟨z₀, hz₀, hsub₀⟩ := h.exists_face_of_ear hBG hpath hab hint hnew
+  have hQinter : ∀ w ∈ edgesCover drawing D', w ∈ exterior B drawing →
+      w ∈ face B drawing z₀ := by
+    intro w hw hwe
+    refine hsub₀ ⟨hw, fun hcon => hwe ?_⟩
+    rcases hcon with rfl | rfl
+    exacts [vertexSet_subset_pointSet ha, vertexSet_subset_pointSet hb]
+  intro z hz
+  rw [hext] at hz
+  obtain ⟨hzB, hzQ⟩ := hz
+  obtain ⟨e, u, v, D, hface⟩ := hmot z hzB
+  by_cases hsame : face B drawing z = face B drawing z₀
+  · -- The face the ear cuts.
+    have hopenF : IsOpen (face B drawing z₀) := hB.isOpen_face z₀
+    obtain ⟨haF, hbF⟩ := h.ends_mem_frontier_face hopenF hpath hab ha hb hsub₀
+    have hfr : frontier (face B drawing z₀) = edgesCover drawing (e :: D) := by
+      rw [← hsame]; exact hface.frontier_eq
+    have haW : a ∈ B.walkVertices u D :=
+      hB.mem_walkVertices_of_mem_edgesCover hface.isCycle ha (hfr ▸ haF)
+    have hbW : b ∈ B.walkVertices u D :=
+      hB.mem_walkVertices_of_mem_edgesCover hface.isCycle hb (hfr ▸ hbF)
+    obtain ⟨D₁, D₂, hD1, hD2, hperm, hmeet⟩ := hface.isCycle.split_at haW hbW hab
+    -- The two arcs use disjoint edge lists, because the cycle's own list repeats nothing.
+    have hnodup : (e :: D).Nodup := List.nodup_cons.2 ⟨hface.isCycle.notMem,
+      hface.isCycle.isPath.nodup⟩
+    have hdisj : ∀ g ∈ D₁, g ∉ D₂ := fun g hg hg₂ =>
+      (List.nodup_append.1 (hperm.nodup_iff.2 hnodup)).2.2 g hg g hg₂ rfl
+    obtain ⟨harc₁, harc₂, hinter⟩ := hB.arcs_of_split hD1 hD2 hab hdisj hmeet
+    have hunion : edgesCover drawing D₁ ∪ edgesCover drawing D₂ = edgesCover drawing (e :: D) := by
+      rw [← edgesCover_append, edgesCover_perm hperm]
+    -- The ear meets the cycle exactly in its own two ends.
+    have hJsub : edgesCover drawing (e :: D) ⊆ pointSet B drawing :=
+      edgesCover_subset_pointSet fun g hg => by
+        rcases List.mem_cons.1 hg with rfl | hg'
+        exacts [hface.isCycle.isLink.edge_mem, hface.isCycle.isPath.edge_mem hg']
+    have hmeetJ : edgesCover drawing D' ∩ edgesCover drawing (e :: D) = {a, b} := by
+      refine Set.Subset.antisymm (fun w hw =>
+        h.edgesCover_inter_pointSet hBG hpath hint hnew ⟨hw.1, hJsub hw.2⟩) ?_
+      rintro w (rfl | rfl)
+      exacts [⟨hQarc.left_mem, hfr ▸ haF⟩, ⟨hQarc.right_mem, hfr ▸ hbF⟩]
+    -- The crosscut hypothesis.
+    have hzF : z ∈ face B drawing z \ edgesCover drawing D' := ⟨mem_face hzB, hzQ⟩
+    have hfaceEq : face (B.union (G.pathGraphOf a D')) drawing z =
+        connectedComponentIn (face B drawing z \ edgesCover drawing D') z := by
+      have hstep : face (B.union (G.pathGraphOf a D')) drawing z =
+          connectedComponentIn (exterior B drawing \ edgesCover drawing D') z := by
+        rw [face, hext]
+      rw [hstep, connectedComponentIn_diff]
+      rfl
+    have hcross := hobl (edgesCover drawing (e :: D)) (edgesCover drawing D₁)
+      (edgesCover drawing D₂) (edgesCover drawing D') (face B drawing z) a b
+      hface.isSeparating
+      (h.isPolygonal_edgesCover hpoly (hface.isCycle.isWalk_cons.mono hBG)
+        (List.cons_ne_nil _ _))
+      hQpoly harc₁ harc₂.reverse hunion hinter hQarc hmeetJ hface.isRegionOf
+      (by rw [hsame]; exact hsub₀) z hzF
+    -- Either way, the new face is a region of the arc closed up by the ear.
+    rcases hcross with hreg | hreg
+    · obtain ⟨f, x, y, T, hcyc, hpermT⟩ := exists_spliced_cycle hBG hD1 hpath hab hnew hint
+      have hcov : edgesCover drawing (f :: T) =
+          edgesCover drawing D₁ ∪ edgesCover drawing D' := by
+        rw [edgesCover_perm hpermT, edgesCover_append]
+      exact ⟨f, x, y, T, hcyc, hB'.cycle_isSeparating hpoly' hcyc,
+        by rw [hcov, hfaceEq]; exact hreg⟩
+    · obtain ⟨f, x, y, T, hcyc, hpermT⟩ :=
+        exists_spliced_cycle hBG hD2.reverse hpath hab hnew hint
+      have hcov : edgesCover drawing (f :: T) =
+          edgesCover drawing D₂ ∪ edgesCover drawing D' := by
+        rw [edgesCover_perm hpermT, edgesCover_append, edgesCover_reverse]
+      exact ⟨f, x, y, T, hcyc, hB'.cycle_isSeparating hpoly' hcyc,
+        by rw [hcov, hfaceEq]; exact hreg⟩
+  · -- The ear misses this face, which therefore survives unchanged.
+    have hdis : Disjoint (face B drawing z) (pointSet (G.pathGraphOf a D') drawing) := by
+      rw [h.pointSet_pathGraphOf hpath.isWalk hne, Set.disjoint_left]
+      intro w hw hwQ
+      refine absurd ?_ hsame
+      refine (face_eq_or_disjoint (G := B) (drawing := drawing) z z₀).resolve_right fun hd => ?_
+      exact Set.disjoint_left.1 hd hw (hQinter w hwQ (face_subset_exterior _ _ _ hw))
+    exact ⟨e, u, v, D, hface.mono hBB' (face_union_eq_of_disjoint hzB hdis)⟩
+
+/-! ## `lem:face-cycles`
+
+"The cycle `C` is 2-connected, so Lemma `lem:relative-ear` builds the graph from `C`. We prove
+by induction that every face is exactly one of the two regions bounded by its boundary cycle." -/
+
+/-- **`lem:face-cycles` (face cycles).** Every face of a finite 2-connected polygonal plane
+graph has a cycle as its boundary and is one of the two complementary regions of that cycle.
+
+**The statement carries the hypothesis `Schoenflies.CrosscutSplitsRegion`**, which is *not*
+proved anywhere: it is the exhaustion clause of `thm:polygonal-crosscut` at a crosscut whose
+endpoints need not be corners of the curve, and `main`'s Theorem 2.8 cannot supply it — see the
+docstring of `Schoenflies.CrosscutSplitsRegion`. Everything else in the blueprint's proof is
+discharged here: the base cycle and its 2-connectivity (`Schoenflies/FaceCycles.lean`), that
+its realisation separates the plane (`Graph.IsDrawing.cycle_isSeparating`), that the ear lies in
+one face and is a crosscut of it, that all other faces are unchanged, and that the two new
+faces are bounded by the two cycles the ear splices onto the two arcs of the old one. -/
+theorem face_cycles [G.Finite] (hobl : CrosscutSplitsRegion) (h : IsDrawing G drawing)
+    (hpoly : ∀ g ∈ E(G), IsPolygonal (edgeArc drawing g)) (hG : G.IsTwoConnected) :
+    HasFaceCycles G drawing := by
+  have hnl : ∀ ⦃g x⦄, ¬ G.IsLoopAt g x := fun g x => h.not_isLoopAt g x
+  obtain ⟨e, u, v, D, w, hcyc⟩ := hG.exists_long_cycle hnl
+  refine hG.ear_decomposition (motive := fun B => HasFaceCycles B drawing) hnl
+    hcyc.isTwoConnected hcyc.isCycle.cycleGraph_le
+    (h.hasFaceCycles_cycleGraph hpoly hcyc.isCycle) ?_
+  intro B a b D' _ _ hBG hmot hpathD hab haB hbB hintB
+  -- Either the ear is genuinely new, or it is an edge the subgraph already had and adding it
+  -- changes nothing.
+  rcases ear_edges_notMem_or_union_eq hBG hpathD hab haB hbB hintB with hnew | heq
+  · exact h.hasFaceCycles_union hobl hpoly hBG hmot hpathD hab haB hbB hintB hnew
+  · rw [heq]; exact hmot
 
 end Graph

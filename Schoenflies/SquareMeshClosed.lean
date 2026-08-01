@@ -38,18 +38,68 @@ with the cycle as data"*. That is done here: `outerCycleEdge`, `outerCycleStart`
 are separate lemmas about them. A consumer needing the outer cycle of the mesh takes these
 five names, not an `∃` it has to destructure at every use.
 
+## Clause 5, and the hypothesis that is actually true
+
+Clause 5 — *the skeleton of `T` is 2-connected* — was absent from every earlier module, and for
+a good reason: it is **false** for `Schoenflies.squareMesh δ fresh anchors` when `fresh` has
+fewer than two distinct points (`Schoenflies.not_isTwoConnected_meshGraph_of_fresh_subsingleton`),
+and `Schoenflies.FreshDense fresh δ` alone does not repair it
+(`Schoenflies.freshDense_not_isTwoConnected`). What repairs it is `FreshDense fresh δ` together
+with `δ < 4`, which forces two distinct fresh points
+(`Schoenflies.exists_two_distinct_fresh_of_freshDense`). The blueprint's caller uses
+`δ = ε_n = 2⁻ⁿ`, far below `4`, so the hypothesis is free at the only call site.
+
+The assembly is the blueprint's, with one correction. The blueprint says *"adding these finitely
+many cycles one at a time"*, but the **first** addition cannot be a cycle: distinct rings of the
+mesh are disjoint, so no two of them share the two vertices `lem:union-two-connected` needs. The
+first addition is an **ear** — down the spoke at `z`, round the inner ring, back up the spoke at
+`w` — and that is precisely where the two distinct fresh points are spent. After it, every
+further ring shares the crossing points `r • z ≠ r • w` with the spokes and goes in by
+`lem:union-two-connected`, and every further spoke is an ear between the outer and inner rings.
+`Graph.IsTwoConnected.of_le_of_vertexSet_subset` then transfers 2-connectivity from the assembly
+to the mesh, since every mesh vertex lies on a ring or on a spoke.
+
+## The proposition, clause by clause
+
+`prop:anchored-square-mesh` is exported as **data with its clauses as separate lemmas**: the
+object is the `def` `Schoenflies.squareMesh δ fresh anchors`, and nothing is `∃`-packaged.
+
+1. every 2-cell has diameter `< δ` — `Schoenflies.squareMesh_face_small`;
+2. every anchor on `S` is a boundary vertex — `Schoenflies.squareMesh_anchor_mem_vertexSet`;
+3. every new internal edge meeting `S` ends at a fresh point —
+   `Schoenflies.squareMesh_inner_edge_at_fresh`;
+4. exactly one such edge at each fresh point — `Schoenflies.squareMesh_unique_inner_edge`;
+5. the skeleton is 2-connected — **`Schoenflies.squareMesh_isTwoConnected`** (this module);
+6. `|T| ∖ S` is connected — `Schoenflies.squareMesh_isConnected_diff`.
+
+and the outer cycle, which `def:admissible-graph` and every downstream consumer need as a
+genuine cycle rather than a point set — `Schoenflies.squareMesh_isLongCycle_outerCycle`,
+`Schoenflies.squareMesh_outerCycle_edgesCover` (this module).
+
 ## Blueprint
 
 * `subdividesToPath_of_overlay`, `meshSubdividesToPath` — `lem:polygonal-overlay`: the
   subdivision of one source segment is a path of the overlay. This discharges
   `Schoenflies.SubdividesToPath`.
 * `meshGraph_outer_cycle_of_mem_modelCurve`, `squareMesh_outer_cycle_unconditional` —
-  `prop:anchored-square-mesh` clause 3 as a **cycle**, with no hypothesis beyond
-  `fresh ⊆ S`.
+  `prop:anchored-square-mesh` clause 3 as a **cycle**, with no hypothesis beyond `fresh ⊆ S`.
 * `outerCycleEdge`, `outerCycleStart`, `outerCycleEnd`, `outerCycleThird`, `outerCycleDetour`,
   `squareMesh_isLongCycle_outerCycle`, `squareMesh_outerCycle_subset_modelCurve`,
   `squareMesh_outerCycle_edgesCover` — the same cycle as data with its clauses as lemmas.
-* `squareMesh_outerCycleGraph_isTwoConnected_unconditional` — the first step of clause 5.
+* `rsideT`/`rsideL`/`rsideB`/`rsideR` and `meshGraph_ring_cycle` — the outer-cycle argument at
+  every radius: each ring of the mesh is a long cycle occupying exactly that ring.
+* `ringGraph`, `ringGraph_isTwoConnected`, `mem_vertexSet_ringGraph` — each ring as a named
+  2-connected subgraph, via `Schoenflies.squareGraph` at centre `0`.
+* `spokePiece_inter_ringSet`, `smul_mem_meshPoints`, `smul_mem_vertexSet_ringGraph` —
+  the crossing points `r • z` as vertices, from the `MeetsAreCut` clause of `meshPoints`.
+* `spokeWalk`, `spokeGraph` — each spoke as a path of the mesh.
+* `meshEar`, `meshEar_isPath`, `meshCore_isTwoConnected` — `lem:subdivision-ear-preserve` (b):
+  the ear that joins the outer ring to the inner one.
+* `attachRings`, `attachSpokes` and their 2-connectivity — `lem:union-two-connected` and
+  `lem:subdivision-ear-preserve` iterated, the blueprint's *"adding these finitely many cycles
+  one at a time"*.
+* `meshGraph_isTwoConnected`, `squareMesh_isTwoConnected` — `prop:anchored-square-mesh`
+  clause 5.
 -/
 
 open Metric Set

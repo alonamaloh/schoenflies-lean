@@ -22,7 +22,14 @@ the blueprint's own content, from the two-sided strip lemma on, is not started.
 | 1–3 — topology, compactness, connectedness | complete (Mathlib, plus three gap-fillers) |
 | 4 — arcs and Jordan curves | complete |
 | 5 — finite graphs | complete |
-| 6 — plane graphs | complete but for `polygonal_redrawing` (H6) |
+| 6 — plane graphs | complete, including `polygonal_redrawing` (H6) |
+
+**The foundation is finished.** What follows is the blueprint's own content, built on top of
+it. The milestones are H7 the polygonal Jordan curve theorem, H8 nonplanarity of `K₃,₃`,
+H9 the Jordan curve theorem, H10 the general crosscut theorem, H11 Jordan–Schönflies. Work is
+scheduled off Appendix A of the blueprint — its machine-generated citation index — rather than
+off the milestone list, because the index shows a good deal that does not lie on the critical
+path.
 
 ### Layer 0 — the plane
 
@@ -77,6 +84,21 @@ at all.
 | Lemma 3.6 subdivisions and ears preserve 2-connectivity | `Graph.IsTwoConnected.ear`, `replace_edge_by_path`, `Reaches.reroute` |
 | Lemma 3.5 ear decomposition | `Graph.IsTwoConnected.grows_by_ear`, `ear_exists` |
 | components and shortest paths | `Graph.component`, `induce_component_connected`, `exists_minLength_isPath` |
+
+### Blueprint content
+
+| Blueprint | Lean |
+|---|---|
+| Lemma 3.5 relative ear decomposition | `Graph.IsTwoConnected.relative_ear_exists`, `relative_grows_by_ear`, `ear_decomposition` |
+| Def 6.1 strong accessibility, Lemma 6.2–6.4 | `Accessible.lean` — nearest points are strongly accessible, the tangent-disk cone, a countable dense strong-access set |
+| Def 2.4 separating curve, Lemma 2.5 absorption, Lemma 2.6 crosscut cells | `CrosscutCells.lean` — `IsSeparating`, `inside`/`outside`, `IsRegionPair`, `absorption`, `crosscut_cells` |
+| Lemma 4.1 model-curve parametrization | `ModelCurve.lean` — the square boundary as a Jordan curve, its four sides, and the homeomorphism criterion |
+| Lemma 7.2 combinatorial invariance | `CombinatorialInvariance.lean` — `CellStructure`, `Realization`, `SkeletonHomeo`, `combinatorial_invariance` |
+
+The model curve is the **square** boundary, not the circle: the circle would need a traversal
+of it by an interval, which is exactly what a trigonometry-free development withholds. The
+four sides are segments, each an arc by `isArcBetween_segment`, glued by
+`IsArcBetween.concatenate` and `IsJordanCurve.of_two_arcs`.
 
 ### Layer 6 — plane graphs
 

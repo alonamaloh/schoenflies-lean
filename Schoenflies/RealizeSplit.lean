@@ -192,3 +192,100 @@ theorem IsDrawing.isArcBetween_pointSet (hD : IsDrawing H drw) {u v : Plane} {W 
 end Drawing
 
 end Graph
+
+namespace Schoenflies
+
+namespace CellStructure
+
+variable {γ : Type*} {S : CellStructure γ}
+
+/-! ## What a realization does to a walk
+
+Two facts about an existing realization, both of the shape "the realized cells of a piece of
+the skeleton occupy the point set that piece of the drawing occupies". They are what let the
+crosscut theorem, which speaks of point sets, be fed from the cell structure, which speaks of
+cells. -/
+
+namespace Realization
+
+variable (R : S.Realization)
+
+theorem walkVertices_graph (u : γ) (W : List γ) :
+    R.graph.walkVertices (R.pos u) W = R.pos '' S.skel.walkVertices u W :=
+  Graph.walkVertices_map _ _ _
+
+/-- **The realized cells of a path occupy the point set the drawn path occupies.** The two
+differ only in the endpoints an open 1-cell drops, and those are the points of the 0-cells the
+walk visits. -/
+theorem cellUnion_pathCells {u v : γ} {W : List γ} (h : S.skel.IsWalk u W v) :
+    R.cellUnion (S.pathCells u W) = Graph.walkPointSet R.graph R.drawing (R.pos u) W := by
+  have hsub : S.skel.walkVertices u W ⊆ V(S.skel) :=
+    Graph.walkVertices_subset_vertexSet h.left_mem
+  have hV : R.cellUnion (S.skel.walkVertices u W) = R.pos '' S.skel.walkVertices u W := by
+    refine Set.Subset.antisymm (cellUnion_subset fun z hz => ?_) ?_
+    · rw [R.cell_vertex (hsub hz)]
+      exact Set.singleton_subset_iff.2 ⟨z, hz, rfl⟩
+    · rintro _ ⟨z, hz, rfl⟩
+      exact cell_subset_cellUnion hz (by rw [R.cell_vertex (hsub hz)]; rfl)
+  rw [CellStructure.pathCells, cellUnion_union, hV, Graph.walkPointSet, R.walkVertices_graph]
+  refine Set.Subset.antisymm ?_ ?_
+  · refine Set.union_subset (cellUnion_subset fun f hf => ?_) Set.subset_union_left
+    obtain ⟨a, b, hl⟩ := Graph.exists_isLink_of_mem_edgeSet (h.edge_mem hf)
+    rw [R.cell_edge hl]
+    exact fun x hx => Or.inr (Set.mem_biUnion hf hx.1)
+  · refine Set.union_subset Set.subset_union_right (Set.iUnion₂_subset fun f hf x hx => ?_)
+    obtain ⟨a, b, hl⟩ := Graph.exists_isLink_of_mem_edgeSet (h.edge_mem hf)
+    by_cases hxab : x ∈ ({R.pos a, R.pos b} : Set Plane)
+    · simp only [Set.mem_insert_iff, Set.mem_singleton_iff] at hxab
+      rcases hxab with rfl | rfl
+      · exact Or.inr ⟨a, Graph.mem_walkVertices_of_mem_covered ⟨f, hf, hl.inc_left⟩, rfl⟩
+      · exact Or.inr ⟨b, Graph.mem_walkVertices_of_mem_covered ⟨f, hf, hl.inc_right⟩, rfl⟩
+    · exact Or.inl (cell_subset_cellUnion hf (by rw [R.cell_edge hl]; exact ⟨hx, hxab⟩))
+
+/-- The drawn skeleton is covered by the open cells of dimension 0 and 1. -/
+theorem skeletonSet_subset_cellUnion :
+    R.skeletonSet ⊆ R.cellUnion (V(S.skel) ∪ E(S.skel)) := by
+  intro x hx
+  rcases hx with hx | hx
+  · rw [Realization.vertexSet_graph] at hx
+    obtain ⟨z, hz, rfl⟩ := hx
+    refine cell_subset_cellUnion (Set.mem_union_left _ hz) ?_
+    rw [R.cell_vertex hz]
+    rfl
+  · obtain ⟨f, hf, hxf⟩ := Set.mem_iUnion₂.1 hx
+    rw [Realization.edgeSet_graph] at hf
+    obtain ⟨a, b, hl⟩ := Graph.exists_isLink_of_mem_edgeSet hf
+    by_cases hxab : x ∈ ({R.pos a, R.pos b} : Set Plane)
+    · simp only [Set.mem_insert_iff, Set.mem_singleton_iff] at hxab
+      rcases hxab with rfl | rfl
+      · refine cell_subset_cellUnion (Set.mem_union_left _ hl.left_mem) ?_
+        rw [R.cell_vertex hl.left_mem]
+        rfl
+      · refine cell_subset_cellUnion (Set.mem_union_left _ hl.right_mem) ?_
+        rw [R.cell_vertex hl.right_mem]
+        rfl
+    · refine cell_subset_cellUnion (Set.mem_union_right _ hf) ?_
+      rw [R.cell_edge hl]
+      exact ⟨hxf, hxab⟩
+
+/-- **An open 2-cell misses the drawn skeleton.** Immediate from the disjointness clause of
+assertion (i): the skeleton is covered by cells of lower dimension. -/
+theorem disjoint_cell_skeletonSet {D : Set Plane} (hcd : R.IsCellDecomposition D) {F : γ}
+    (hF : F ∈ S.faces) : Disjoint (R.cell F) R.skeletonSet := by
+  refine Set.disjoint_right.2 fun x hx hxF => ?_
+  obtain ⟨σ, hσ, hxσ⟩ := mem_cellUnion_iff.1 (R.skeletonSet_subset_cellUnion hx)
+  have hne : F ≠ σ := by
+    rintro rfl
+    rcases hσ with hσ | hσ
+    exacts [Set.disjoint_left.1 S.disjoint_faces_vertexSet hF hσ,
+      Set.disjoint_left.1 S.disjoint_faces_edgeSet hF hσ]
+  have hσc : σ ∈ S.cells := by
+    rcases hσ with hσ | hσ
+    exacts [S.mem_cells_of_mem_vertexSet hσ, S.mem_cells_of_mem_edgeSet hσ]
+  exact Set.disjoint_left.1 (hcd.disjoint (S.mem_cells_of_mem_faces hF) hσc hne) hxF hxσ
+
+end Realization
+
+end CellStructure
+
+end Schoenflies

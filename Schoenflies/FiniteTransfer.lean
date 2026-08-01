@@ -675,4 +675,25 @@ theorem exists_target_ear (h₁ : R₁.IsCellDecomposition D₁) (h₂ : R₂.Is
 
 end EndpointTransfer
 
+/-! ### The interface, exercised
+
+`thm:finite-transfer` exists to feed the recursion of the quantitative-refinement section, which
+consumes a transfer only through `Realization.Refines`. This anonymous example is a
+machine-checked statement that the conclusion of `finite_transfer_toward_square` delivers exactly
+what that recursion reads: the source carrier refines (`lem:refinement-compatibility`(a)), the
+same parent map serves both sides (part (c)), and the closed target star of a fixed source point
+shrinks (`T_{n+1}(x) \subseteq T_n(x)`).
+
+Nothing below mentions how the transfer was built. If a later change to `IsTransferOf` stopped
+serving that recursion, this would break. -/
+example [Nonempty γ] {S₀ : CellStructure γ} {srcOuter srcDom tgtOuter tgtDom : Set Plane}
+    (h₀ : S₀.CombInvariants) (P T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom)
+    {H : Graph Plane γ} {Hdraw : γ → ℝ → Plane} {par : γ → γ}
+    (hT : IsTransferOf T P H Hdraw par) {x : Plane} (hx : x ∈ srcDom) :
+    par (T.src.carrier x) = P.src.carrier x ∧
+      T.tgt.star (T.src.carrier x) ⊆ P.tgt.star (P.src.carrier x) :=
+  ⟨hT.refines_src.parent_carrier P.src_isCellDecomposition T.src_isCellDecomposition hx,
+    hT.refines_src.target_star_subset hT.refines_tgt (T.combInvariants h₀)
+      P.src_isCellDecomposition T.src_isCellDecomposition hx⟩
+
 end Schoenflies

@@ -291,9 +291,9 @@ structure LimitTower (γ : Type*) [Nonempty γ] where
   /-- `Q` is bounded, for the same reason. -/
   isBounded_dom' : IsBounded dom'
   /-- `D = Int(C)` is open. -/
-  isOpen_region : IsOpen (dom \ bdry)
+  isOpen_int : IsOpen (dom \ bdry)
   /-- `Q°` is open. -/
-  isOpen_region' : IsOpen (dom' \ bdry')
+  isOpen_int' : IsOpen (dom' \ bdry')
   /-- The realized source skeletons grow. -/
   skeletonSet_mono : ∀ n, (src n).skeletonSet ⊆ (src (n + 1)).skeletonSet
   /-- **The skeleton maps are nested**: "an edge subdivision leaves the skeleton map unchanged as
@@ -329,9 +329,29 @@ def srcStar (n : ℕ) (x : Plane) : Set Plane := (L.src n).star ((L.src n).carri
 
 variable {L}
 
+theorem mem_region_iff : x ∈ L.region ↔ x ∈ L.dom ∧ x ∉ L.bdry := Iff.rfl
+
+theorem mem_region'_iff : x ∈ L.region' ↔ x ∈ L.dom' ∧ x ∉ L.bdry' := Iff.rfl
+
 theorem region_subset_dom : L.region ⊆ L.dom := Set.sdiff_subset
 
 theorem region'_subset_dom' : L.region' ⊆ L.dom' := Set.sdiff_subset
+
+theorem isOpen_region (L : LimitTower γ) : IsOpen L.region := L.isOpen_int
+
+theorem isOpen_region' (L : LimitTower γ) : IsOpen L.region' := L.isOpen_int'
+
+theorem tgtStar_eq (n : ℕ) (x : Plane) :
+    L.tgtStar n x = (L.tgt n).star ((L.src n).carrier x) := rfl
+
+theorem srcStar_eq (n : ℕ) (x : Plane) :
+    L.srcStar n x = (L.src n).star ((L.src n).carrier x) := rfl
+
+/-- A null real sequence is eventually below any positive bound. Used with `eps` and with the
+pointwise source-star diameters. -/
+theorem exists_lt_of_tendsto_zero {f : ℕ → ℝ} (h : Tendsto f atTop (nhds 0)) {r : ℝ}
+    (hr : 0 < r) : ∃ n, f n < r :=
+  (h.eventually (Iio_mem_nhds hr)).exists
 
 /-! #### Stars of the tower -/
 
@@ -347,8 +367,18 @@ theorem isBounded_tgt_star (n : ℕ) (σ : γ) : IsBounded ((L.tgt n).star σ) :
 theorem isBounded_src_star (n : ℕ) (σ : γ) : IsBounded ((L.src n).star σ) :=
   (L.srcDecomp n).isBounded_star (L.comb n) L.isBounded_dom
 
+theorem isBounded_srcStar (n : ℕ) (x : Plane) : IsBounded (L.srcStar n x) :=
+  isBounded_src_star n _
+
+theorem isBounded_tgtStar (n : ℕ) (x : Plane) : IsBounded (L.tgtStar n x) :=
+  isBounded_tgt_star n _
+
 theorem mem_srcStar_self (hx : x ∈ L.dom) (n : ℕ) : x ∈ L.srcStar n x :=
   (L.srcDecomp n).mem_star_carrier hx
+
+theorem tendsto_diam_srcStar_point (hx : x ∈ L.region) :
+    Tendsto (fun n => diam (L.srcStar n x)) atTop (nhds 0) :=
+  L.tendsto_diam_srcStar hx
 
 /-- **`lem:refinement-compatibility`(b)** at a point: `T_{n+1}(x) ⊆ T_n(x)`. -/
 theorem tgtStar_succ_subset (hx : x ∈ L.dom) (n : ℕ) : L.tgtStar (n + 1) x ⊆ L.tgtStar n x :=
@@ -409,6 +439,130 @@ theorem dist_F_le_of_mem_tgtStar (hx : x ∈ L.dom) (hz : z ∈ L.tgtStar n x) :
     dist (L.F x) z ≤ L.eps n :=
   le_trans (dist_le_diam_of_mem (isBounded_tgt_star n _) (L.F_mem_tgtStar hx n) hz)
     (L.diam_tgtStar hx n)
+
+/-! #### Agreement with the finite skeleton maps
+
+The skeleton maps are nested, so `g_n = g_N` on `G_N` for every `n ≥ N`; at each such stage the
+skeleton map carries the carrier of `x` onto the corresponding target cell, which sits inside
+`T_n(x)`. The intersection of the `T_n(x)` is the single point `F x`. -/
+
+theorem skeletonSet_mono_le (hmn : m ≤ n) : (L.src m).skeletonSet ⊆ (L.src n).skeletonSet := by
+  induction n, hmn using Nat.le_induction with
+  | base => exact subset_rfl
+  | succ n _ ih => exact ih.trans (L.skeletonSet_mono n)
+
+/-- **The skeleton maps are nested**: `g_n = g_m` on `G_m` whenever `m ≤ n`. -/
+theorem skelHomeo_eqOn (hmn : m ≤ n) :
+    Set.EqOn (L.skelHomeo n).toFun (L.skelHomeo m).toFun (L.src m).skeletonSet := by
+  induction n, hmn using Nat.le_induction with
+  | base => exact fun _ _ => rfl
+  | succ n hmn ih =>
+    intro w hw
+    rw [L.skelHomeo_succ n (skeletonSet_mono_le hmn hw), ih hw]
+
+/-- At a stage-`n` skeleton point the skeleton map lands in the stage-`n` target star: the
+carrier of `x` is a 0- or 1-cell, and `g_n` carries its open cell onto the target open cell of
+the same abstract name. -/
+theorem skelHomeo_mem_tgtStar (hx : x ∈ (L.src n).skeletonSet) :
+    (L.skelHomeo n).toFun x ∈ L.tgtStar n x := by
+  rw [(L.src n).skeletonSet_eq_iUnion_cell] at hx
+  obtain ⟨κ, hκ, hxκ⟩ := Set.mem_iUnion₂.1 hx
+  have hcells : κ ∈ (L.str n).cells := by
+    rcases hκ with hv | he
+    exacts [(L.str n).mem_cells_of_mem_vertexSet hv, (L.str n).mem_cells_of_mem_edgeSet he]
+  have hgx : (L.skelHomeo n).toFun x ∈ (L.tgt n).cell κ := by
+    rw [← (L.skelHomeo n).image_cell hκ]
+    exact Set.mem_image_of_mem _ hxκ
+  rw [tgtStar_eq, (L.srcDecomp n).carrier_eq hcells hxκ]
+  exact Realization.closure_cell_subset_star ((L.tgtDecomp n).sub_refl hcells)
+    (_root_.subset_closure hgx)
+
+/-- **`prop:skeleton-agreement`**: `F` agrees with the stage-`N` skeleton map on `G_N ∩ (C ∪ D)`.
+Since the skeleton maps are nested, this is the blueprint's `F = g_∞` on `⋃ₙ Gₙ ∩ D` as well. -/
+theorem F_eq_skelHomeo (hx : x ∈ (L.src n).skeletonSet) (hxD : x ∈ L.dom) :
+    L.F x = (L.skelHomeo n).toFun x := by
+  refine (eq_F_of_mem_iInter hxD fun m => ?_).symm
+  rcases le_or_gt n m with hnm | hmn
+  · rw [← skelHomeo_eqOn hnm hx]
+    exact skelHomeo_mem_tgtStar (skeletonSet_mono_le hnm hx)
+  · exact tgtStar_antitone hxD hmn.le (skelHomeo_mem_tgtStar hx)
+
+/-! #### Continuity -/
+
+/-- The cross-realization form of `lem:cell-neighborhood` the limit map needs: for `z` in the
+stage-`n` source cell neighbourhood of `x`, `T_n(z) ⊆ T_n(x)`. The subcell relation is read in
+the source realization and used in the target one; it is a relation of the common abstract
+structure, so nothing is transported. -/
+theorem tgtStar_subset_of_mem_cellNbhd (hx : x ∈ L.dom) (hzD : z ∈ L.dom)
+    (hz : z ∈ (L.src n).cellNbhd x) : L.tgtStar n z ⊆ L.tgtStar n x :=
+  (L.tgtDecomp n).star_anti_of_sub (L.comb n) ((L.srcDecomp n).mem_cells_carrier hx)
+    ((L.srcDecomp n).mem_cells_carrier hzD)
+    ((L.srcDecomp n).sub_carrier_of_mem_cellNbhd hx hz hzD)
+
+/-- **`prop:F-continuous`**, on the whole *closed* domain. Only the uniform half of
+`prop:shrinking-stars` enters, so nothing here restricts `x` to the open region. -/
+theorem continuousOn_F (L : LimitTower γ) : ContinuousOn L.F L.dom := by
+  rw [Metric.continuousOn_iff]
+  intro x hx η hη
+  obtain ⟨n, hn⟩ := exists_lt_of_tendsto_zero L.tendsto_eps hη
+  obtain ⟨δ, hδ, hball⟩ :=
+    Metric.isOpen_iff.1 ((L.src n).isOpen_cellNbhd x) x ((L.src n).mem_cellNbhd_self x)
+  refine ⟨δ, hδ, fun a ha hadist => ?_⟩
+  rw [dist_comm]
+  exact lt_of_le_of_lt (dist_F_le_of_mem_tgtStar hx
+    (tgtStar_subset_of_mem_cellNbhd hx ha (hball (Metric.mem_ball.2 hadist))
+      (L.F_mem_tgtStar ha n))) hn
+
+/-! #### The image lies in the interior -/
+
+/-- **`lem:outer-incidence`, matched form**: a stage-`n` source star meets `C` exactly when the
+target star of the *same abstract cell* meets `S`. Both sides reduce to the middle condition of
+the blueprint's statement, which mentions only the abstract structure and its outer cycle. -/
+theorem star_meets_bdry_iff (L : LimitTower γ) (n : ℕ) (σ : γ) :
+    ((L.src n).star σ ∩ L.bdry).Nonempty ↔ ((L.tgt n).star σ ∩ L.bdry').Nonempty := by
+  rw [← L.srcOuterSet n, ← L.tgtOuterSet n, (L.srcDecomp n).star_meets_outer_iff (L.comb n) σ,
+    (L.tgtDecomp n).star_meets_outer_iff (L.comb n) σ]
+
+/-- At a point of the open region the source star is eventually contained in the region: the
+point lies in its own star, and the star diameters tend to zero. -/
+theorem exists_srcStar_subset_region (hx : x ∈ L.region) : ∃ n, L.srcStar n x ⊆ L.region := by
+  obtain ⟨r, hr, hball⟩ := Metric.isOpen_iff.1 L.isOpen_region x hx
+  obtain ⟨n, hn⟩ := exists_lt_of_tendsto_zero (L.tendsto_diam_srcStar hx) hr
+  refine ⟨n, fun w hw => hball (Metric.mem_ball.2 (lt_of_le_of_lt ?_ hn))⟩
+  exact dist_le_diam_of_mem (isBounded_srcStar n x) hw
+    (mem_srcStar_self (region_subset_dom hx) n)
+
+/-- **`prop:image-interior`**: `F(D) ⊆ Q°`. -/
+theorem F_mem_region' (hx : x ∈ L.region) : L.F x ∈ L.region' := by
+  obtain ⟨n, hn⟩ := exists_srcStar_subset_region hx
+  refine ⟨F_mem_dom' (region_subset_dom hx), fun hcon => ?_⟩
+  obtain ⟨w, hw, hwb⟩ := (L.star_meets_bdry_iff n ((L.src n).carrier x)).2
+    ⟨L.F x, L.F_mem_tgtStar (region_subset_dom hx) n, hcon⟩
+  exact (hn hw).2 hwb
+
+/-! #### Injectivity -/
+
+/-- **`prop:F-injective`**. This is where the pointwise half of `prop:shrinking-stars` is needed,
+and it is why injectivity is asserted on the open region rather than on the closed domain. -/
+theorem injOn_F (L : LimitTower γ) : Set.InjOn L.F L.region := by
+  intro x hx y hy hxy
+  -- the target stars meet at every stage, so `lem:star-intersection` makes the source stars meet
+  have hmeet : ∀ n, (L.srcStar n x ∩ L.srcStar n y).Nonempty := fun n =>
+    (Realization.star_inter_nonempty_congr (L.tgtDecomp n) (L.srcDecomp n) (L.comb n)).1
+      ⟨L.F x, L.F_mem_tgtStar (region_subset_dom hx) n,
+        hxy ▸ L.F_mem_tgtStar (region_subset_dom hy) n⟩
+  have hbound : ∀ n, dist x y ≤ diam (L.srcStar n x) + diam (L.srcStar n y) := by
+    intro n
+    obtain ⟨w, hwx, hwy⟩ := hmeet n
+    refine le_trans (dist_triangle x w y) (add_le_add ?_ ?_)
+    · exact dist_le_diam_of_mem (isBounded_srcStar n x)
+        (mem_srcStar_self (region_subset_dom hx) n) hwx
+    · exact dist_le_diam_of_mem (isBounded_srcStar n y) hwy
+        (mem_srcStar_self (region_subset_dom hy) n)
+  have hzero : dist x y ≤ 0 :=
+    le_of_tendsto_of_tendsto' tendsto_const_nhds
+      (by simpa using (tendsto_diam_srcStar_point hx).add (tendsto_diam_srcStar_point hy)) hbound
+  exact dist_le_zero.1 hzero
 
 end LimitTower
 

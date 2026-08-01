@@ -47,6 +47,20 @@ Being open, connected and with frontier disjoint from `(C^a)ᶜ`, `U` is a compo
 (`Schoenflies.Plane.connectedComponentIn_eq_of_frontier_disjoint`); being bounded, it is
 `Int(C^a)`.
 
+## The closed-exterior extension
+
+`prop:exterior-extension` is the short assembly that sits on top of it, and it is stated here
+**conditionally on `prop:pointed-extension`** — the one statement the blueprint's proof cites
+that is not yet available. `Schoenflies.PointedInteriorExtension` is that hypothesis, written
+out; it is the *bounded* theorem with a prescribed interior point, and the blueprint derives it
+from `thm:closed-interior-extension` (open) together with `lem:square-point-mover`
+(`Schoenflies.Plane.exists_squareMover`, on `main`) and `lem:jordan-circle`
+(`Schoenflies.IsJordanCurve.homeomorph`, on `main`).
+
+The assembly needs a name for "restricts to a homeomorphism onto", since it composes four of
+them; `Schoenflies.IsHomeoOn` is that, in the unbundled `Schoenflies.Plane.IsSquareMover`
+style. It is a general notion sitting in the wrong module — see the section comment there.
+
 ## Density of strongly accessible points
 
 `lem:tangent-dense` is three lines on top of `thm:jordan` and `lem:nearest-strong`: a point of
@@ -74,6 +88,10 @@ abstract `IsSeparating` curve, do not need it.
   `Schoenflies.inversion_sides` — `lem:inversion-sides`.
 * `Schoenflies.exists_stronglyAccessible_dist_lt`, `Schoenflies.tangent_dense`,
   `Schoenflies.tangent_dense_inside` — `lem:tangent-dense`.
+* `Schoenflies.PointedInteriorExtension` — `prop:pointed-extension`, assumed.
+* `Schoenflies.exterior_extension` — `prop:exterior-extension`, conditional on the above.
+* `Schoenflies.IsHomeoOn` — no blueprint statement; the language "restricts to a homeomorphism
+  of `S` onto `T`" that `prop:exterior-extension` is phrased in.
 -/
 
 open Bornology Metric Set
@@ -421,6 +439,184 @@ theorem inversion_sides (harc : ∀ A : Set Plane, IsArc A → IsConnected Aᶜ)
     simp only [mem_compl_iff, mem_singleton_iff]
     rintro rfl
     exact hz.2 rfl
+
+/-- The centre of the inversion is interior to the inverted curve. -/
+theorem mem_inside_invert_image (harc : ∀ A : Set Plane, IsArc A → IsConnected Aᶜ)
+    (hC : IsJordanCurve C) (ha : a ∈ inside C) : a ∈ inside (invert a '' C) := by
+  rw [← invert_image_outside_union_singleton harc hC ha]
+  exact Or.inr rfl
+
+/-! ### Homeomorphisms between subsets of the plane
+
+`prop:exterior-extension` is a composition of four restricted homeomorphisms, so it needs a
+name for "`f` restricts to a homeomorphism of `S` onto `T`". `Schoenflies.IsHomeoOn` is that
+name, written the way `Schoenflies.Plane.IsSquareMover` writes the same thing: unbundled, with
+the inverse named, so that composing two of them composes two honest functions `Plane → Plane`
+instead of producing a subtype-valued `Homeomorph` that must be unwrapped at every use.
+
+**This notion is general and belongs in a lower module.** It is here because
+`prop:exterior-extension` is the first statement that needs it; the integrator should hoist it
+(and check that no concurrent branch introduced a twin). -/
+
+/-- `IsHomeoOn f g S T`: the maps `f` and `g` restrict to mutually inverse continuous
+bijections between `S` and `T`. -/
+structure IsHomeoOn (f g : Plane → Plane) (S T : Set Plane) : Prop where
+  /-- `f` carries `S` into `T` -/
+  mapsTo : MapsTo f S T
+  /-- `g` carries `T` into `S` -/
+  mapsTo_inv : MapsTo g T S
+  /-- `f` is continuous on `S` -/
+  continuousOn : ContinuousOn f S
+  /-- `g` is continuous on `T` -/
+  continuousOn_inv : ContinuousOn g T
+  /-- the two are mutually inverse there -/
+  invOn : InvOn g f S T
+
+namespace IsHomeoOn
+
+variable {f g f' g' : Plane → Plane} {S T U S' T' : Set Plane}
+
+theorem symm (h : IsHomeoOn f g S T) : IsHomeoOn g f T S where
+  mapsTo := h.mapsTo_inv
+  mapsTo_inv := h.mapsTo
+  continuousOn := h.continuousOn_inv
+  continuousOn_inv := h.continuousOn
+  invOn := h.invOn.symm
+
+theorem bijOn (h : IsHomeoOn f g S T) : BijOn f S T :=
+  h.invOn.bijOn h.mapsTo h.mapsTo_inv
+
+theorem injOn (h : IsHomeoOn f g S T) : InjOn f S := h.bijOn.injOn
+
+theorem image_eq (h : IsHomeoOn f g S T) : f '' S = T := h.bijOn.image_eq
+
+/-- Composing two restricted homeomorphisms. -/
+theorem comp (h : IsHomeoOn f g S T) (h' : IsHomeoOn f' g' T U) :
+    IsHomeoOn (f' ∘ f) (g ∘ g') S U where
+  mapsTo := h'.mapsTo.comp h.mapsTo
+  mapsTo_inv := h.mapsTo_inv.comp h'.mapsTo_inv
+  continuousOn := h'.continuousOn.comp h.continuousOn h.mapsTo
+  continuousOn_inv := h.continuousOn_inv.comp h'.continuousOn_inv h'.mapsTo_inv
+  invOn := h.invOn.comp h'.invOn h.mapsTo h'.mapsTo_inv
+
+/-- Restricting to a smaller pair of sets, once the two `MapsTo` clauses are known there. -/
+theorem mono (h : IsHomeoOn f g S T) (hS : S' ⊆ S) (hT : T' ⊆ T) (hf : MapsTo f S' T')
+    (hg : MapsTo g T' S') : IsHomeoOn f g S' T' where
+  mapsTo := hf
+  mapsTo_inv := hg
+  continuousOn := h.continuousOn.mono hS
+  continuousOn_inv := h.continuousOn_inv.mono hT
+  invOn := h.invOn.mono hS hT
+
+/-- Deleting a matched pair of points. This is the step "`Φ*` restricts to a homeomorphism
+after the two points `a, b` are removed" of `prop:exterior-extension`. -/
+theorem sdiff_singleton (h : IsHomeoOn f g S T) {u v : Plane} (hu : u ∈ S) (huv : f u = v) :
+    IsHomeoOn f g (S \ {u}) (T \ {v}) := by
+  refine h.mono Set.sdiff_subset Set.sdiff_subset (fun z hz => ⟨h.mapsTo hz.1, ?_⟩)
+    (fun w hw => ⟨h.mapsTo_inv hw.1, ?_⟩)
+  · -- `f z = v = f u` would force `z = u` by injectivity.
+    intro hmem
+    exact hz.2 (mem_singleton_iff.2
+      (h.injOn hz.1 hu ((mem_singleton_iff.1 hmem).trans huv.symm)))
+  · -- `g w = u` would force `w = f u = v`.
+    intro hmem
+    refine hw.2 (mem_singleton_iff.2 ?_)
+    rw [← huv, ← mem_singleton_iff.1 hmem, h.invOn.2 hw.1]
+
+end IsHomeoOn
+
+/-- Inversion restricts to a homeomorphism of any set missing the centre onto its image. -/
+theorem isHomeoOn_invert {S : Set Plane} (ha : a ∉ S) :
+    IsHomeoOn (invert a) (invert a) S (invert a '' S) where
+  mapsTo := Set.mapsTo_image _ _
+  mapsTo_inv := by
+    rintro z ⟨w, hw, rfl⟩
+    rwa [invert_invert]
+  continuousOn := (continuousOn_invert a).mono (Set.subset_compl_singleton_iff.2 ha)
+  continuousOn_inv := (continuousOn_invert a).mono
+    (Set.subset_compl_singleton_iff.2 (notMem_invert_image ha))
+  invOn := ⟨fun z _ => invert_invert a z, fun z _ => invert_invert a z⟩
+
+/-! ### The closed-exterior extension
+
+`prop:exterior-extension`, conditional on `prop:pointed-extension`. That is the blueprint's own
+citation, and it is the one statement of the endgame that is not yet available: it rests on
+`thm:closed-interior-extension` (open) together with `lem:square-point-mover`
+(`Schoenflies.Plane.exists_squareMover`, on `main`) and `lem:jordan-circle`
+(`Schoenflies.IsJordanCurve.homeomorph`, on `main`).
+
+Everything that inversion contributes is here; discharging
+`Schoenflies.PointedInteriorExtension` finishes the exterior half of `thm:main`. -/
+
+/-- **`prop:pointed-extension`**, as a hypothesis: a boundary homeomorphism between two Jordan
+curves extends to a homeomorphism of the closed interiors carrying one prescribed interior
+point to another.
+
+This is *not* a restatement of `prop:exterior-extension`: it is about the two **interiors**,
+which is the bounded theorem, and it is what the blueprint proves from
+`thm:closed-interior-extension` and `lem:square-point-mover`. -/
+def PointedInteriorExtension : Prop :=
+  ∀ (C C' : Set Plane) (f g : Plane → Plane) (a b : Plane),
+    IsJordanCurve C → IsJordanCurve C' → IsHomeoOn f g C C' → a ∈ inside C → b ∈ inside C' →
+      ∃ F G : Plane → Plane,
+        IsHomeoOn F G (C ∪ inside C) (C' ∪ inside C') ∧ EqOn F f C ∧ F a = b
+
+/-- **`prop:exterior-extension` (closed-exterior extension).** Every homeomorphism between two
+Jordan curves extends to a homeomorphism of their closed exteriors.
+
+Assumes `prop:pointed-extension` (`Schoenflies.PointedInteriorExtension`) and the standing
+hypothesis `harc` of `thm:jordan`. The proof is the blueprint's: choose `a ∈ Int(C)` and
+`b ∈ Int(C')`, invert about each, extend the conjugated boundary map `I_b ∘ f ∘ I_a` over the
+interior of `C^a` so that `a ↦ b`, delete the two centres, and conjugate back — the deleted
+punctured closed interiors being exactly the closed exteriors, by `lem:inversion-sides`. -/
+theorem exterior_extension (harc : ∀ A : Set Plane, IsArc A → IsConnected Aᶜ)
+    (hpt : PointedInteriorExtension) {C C' : Set Plane} {f g : Plane → Plane}
+    (hC : IsJordanCurve C) (hC' : IsJordanCurve C') (hfg : IsHomeoOn f g C C') :
+    ∃ F G : Plane → Plane, IsHomeoOn F G (C ∪ outside C) (C' ∪ outside C') ∧ EqOn F f C := by
+  -- Two interior points, from `thm:jordan`.
+  obtain ⟨a, ha⟩ := (hC.isSeparating harc).isConnected_inside.nonempty
+  obtain ⟨b, hb⟩ := (hC'.isSeparating harc).isConnected_inside.nonempty
+  have haC : a ∉ C := ha.1
+  have hbC' : b ∉ C' := hb.1
+  -- Inversion, on the curves alone …
+  have hIa : IsHomeoOn (invert a) (invert a) C (invert a '' C) := isHomeoOn_invert haC
+  have hIb : IsHomeoOn (invert b) (invert b) C' (invert b '' C') := isHomeoOn_invert hbC'
+  -- … and on the closed exteriors, which is `lem:inversion-sides`.
+  have haout : a ∉ C ∪ outside C := by
+    rintro (h | h)
+    · exact haC h
+    · exact Set.disjoint_left.1 disjoint_inside_outside ha h
+  have hbout : b ∉ C' ∪ outside C' := by
+    rintro (h | h)
+    · exact hbC' h
+    · exact Set.disjoint_left.1 disjoint_inside_outside hb h
+  have hEa : IsHomeoOn (invert a) (invert a) (C ∪ outside C)
+      ((invert a '' C ∪ inside (invert a '' C)) \ {a}) := by
+    rw [← invert_image_union_outside harc hC ha]
+    exact isHomeoOn_invert haout
+  have hEb : IsHomeoOn (invert b) (invert b) (C' ∪ outside C')
+      ((invert b '' C' ∪ inside (invert b '' C')) \ {b}) := by
+    rw [← invert_image_union_outside harc hC' hb]
+    exact isHomeoOn_invert hbout
+  -- The conjugated boundary homeomorphism `f* = I_b ∘ f ∘ I_a : C^a → (C')^b`.
+  have hstar : IsHomeoOn (invert b ∘ f ∘ invert a) (invert a ∘ g ∘ invert b)
+      (invert a '' C) (invert b '' C') := by
+    have := (hIa.symm.comp hfg).comp hIb
+    simpa [Function.comp_assoc] using this
+  -- Extend it over the interior of `C^a`, sending `a` to `b`.
+  obtain ⟨Φ, Ψ, hΦ, hΦeq, hΦa⟩ := hpt (invert a '' C) (invert b '' C') _ _ a b
+    (hC.invert_image haC) (hC'.invert_image hbC') hstar
+    (mem_inside_invert_image harc hC ha) (mem_inside_invert_image harc hC' hb)
+  -- Delete the two centres, then conjugate back.
+  have hΦ' := hΦ.sdiff_singleton
+    (Set.mem_union_right _ (mem_inside_invert_image harc hC ha)) hΦa
+  refine ⟨invert b ∘ Φ ∘ invert a, invert a ∘ Ψ ∘ invert b, ?_, ?_⟩
+  · have := (hEa.comp hΦ').comp hEb.symm
+    simpa [Function.comp_assoc] using this
+  · -- On `C` the conjugate is `f`, because `I_a` and `I_b` are involutions.
+    intro z hz
+    have h1 : invert a z ∈ invert a '' C := ⟨z, hz, rfl⟩
+    simp only [Function.comp_apply, hΦeq h1, invert_invert]
 
 /-! ### Density of strongly accessible points
 

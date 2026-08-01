@@ -318,6 +318,210 @@ theorem newPos_ne_pos (ht : t ∈ Ioo (0 : ℝ) 1) {v : γ} (hv : v ∈ V(S.skel
     R.drawing d.edge t ≠ R.pos v := fun h =>
   d.newPos_notMem_vertexSet R ht (by rw [h, Realization.vertexSet_graph]; exact ⟨v, hv, rfl⟩)
 
+/-! ### Freshness of the three new names, in the forms used below -/
+
+theorem newVertex_notMem_vertexSet : d.newVertex ∉ V(S.skel) := fun h =>
+  d.newVertex_notMem (S.mem_cells_of_mem_vertexSet h)
+
+theorem ne_newVertex_of_mem_cells {z : γ} (hz : z ∈ S.cells) : z ≠ d.newVertex := fun h =>
+  d.newVertex_notMem (h ▸ hz)
+
+theorem ne_newEdge₁_of_mem_cells {z : γ} (hz : z ∈ S.cells) : z ≠ d.newEdge₁ := fun h =>
+  d.newEdge₁_notMem (h ▸ hz)
+
+theorem ne_newEdge₂_of_mem_cells {z : γ} (hz : z ∈ S.cells) : z ≠ d.newEdge₂ := fun h =>
+  d.newEdge₂_notMem (h ▸ hz)
+
+theorem newEdge₁_ne_edge : d.newEdge₁ ≠ d.edge := fun h =>
+  d.newEdge₁_notMem (h ▸ d.edge_mem_cells)
+
+theorem newEdge₂_ne_edge : d.newEdge₂ ≠ d.edge := fun h =>
+  d.newEdge₂_notMem (h ▸ d.edge_mem_cells)
+
+/-! ### The links of the subdivided skeleton -/
+
+theorem isLink_newEdge₁ : d.skeleton.IsLink d.newEdge₁ d.left d.newVertex :=
+  d.skeleton_isLink.2 (Or.inr (Or.inl ⟨rfl, rfl⟩))
+
+theorem isLink_newEdge₂ : d.skeleton.IsLink d.newEdge₂ d.newVertex d.right :=
+  d.skeleton_isLink.2 (Or.inr (Or.inr ⟨rfl, rfl⟩))
+
+/-- An old edge other than the subdivided one keeps its ends. -/
+theorem skeleton_isLink_of_old {f x y : γ} (hfe : f ≠ d.edge) (h : S.skel.IsLink f x y) :
+    d.skeleton.IsLink f x y :=
+  d.skeleton_isLink.2 (Or.inl ⟨h, hfe,
+    fun hc => d.newEdge₁_notMem_edgeSet (hc ▸ h.edge_mem),
+    fun hc => d.newEdge₂_notMem_edgeSet (hc ▸ h.edge_mem)⟩)
+
+/-- …and gains none: for an old edge the two skeleta have the same links. -/
+theorem skeleton_isLink_old_iff {f x y : γ} (hf : f ∈ E(S.skel)) (hfe : f ≠ d.edge) :
+    d.skeleton.IsLink f x y ↔ S.skel.IsLink f x y := by
+  refine ⟨fun h => ?_, d.skeleton_isLink_of_old hfe⟩
+  rcases d.skeleton_isLink.1 h with ⟨h, -⟩ | ⟨rfl, -⟩ | ⟨rfl, -⟩
+  · exact h
+  · exact absurd hf d.newEdge₁_notMem_edgeSet
+  · exact absurd hf d.newEdge₂_notMem_edgeSet
+
+/-! ### The realization of the subdivided structure -/
+
+open scoped Classical in
+/-- The positions after the subdivision: the new 0-cell goes to the point of the drawn edge at
+parameter `t`, and every old 0-cell stays where it was. -/
+noncomputable def realizePos (d : S.SubdivData) (R : S.Realization) (t : ℝ) : γ → Plane :=
+  fun z => if z = d.newVertex then R.drawing d.edge t else R.pos z
+
+open scoped Classical in
+/-- The parametrizations after the subdivision: the two new 1-cells are drawn by the two halves
+of the old parametrization, cut at `t` and rescaled to `[0, 1]`; every old 1-cell keeps its own.
+
+`d.newEdge₁` runs from `d.left`, so the half that draws it starts at `d.leftParam R`, which is
+`0` or `1` according to the orientation of the old parametrization. -/
+noncomputable def realizeDrawing (d : S.SubdivData) (R : S.Realization) (t : ℝ) : γ → ℝ → Plane :=
+  fun f =>
+    if f = d.newEdge₁ then subarc (R.drawing d.edge) (d.leftParam R) t
+    else if f = d.newEdge₂ then subarc (R.drawing d.edge) t (d.rightParam R)
+    else R.drawing f
+
+open scoped Classical in
+/-- The open cells after the subdivision: the new 0-cell is the new point, each new open 1-cell
+is its half arc without its two endpoints, and every surviving cell is unchanged. -/
+noncomputable def realizeCell (d : S.SubdivData) (R : S.Realization) (t : ℝ) : γ → Set Plane :=
+  fun c =>
+    if c = d.newVertex then {R.drawing d.edge t}
+    else if c = d.newEdge₁ then
+      R.drawing d.edge '' uIcc (d.leftParam R) t \ {R.pos d.left, R.drawing d.edge t}
+    else if c = d.newEdge₂ then
+      R.drawing d.edge '' uIcc t (d.rightParam R) \ {R.drawing d.edge t, R.pos d.right}
+    else R.cell c
+
+/-- The drawn skeleton after the subdivision. -/
+noncomputable def realizeGraph (d : S.SubdivData) (R : S.Realization) (t : ℝ) : Graph Plane γ :=
+  d.skeleton.map (d.realizePos R t)
+
+variable {d R}
+
+@[simp] theorem realizePos_newVertex : d.realizePos R t d.newVertex = R.drawing d.edge t :=
+  if_pos rfl
+
+theorem realizePos_of_ne {z : γ} (h : z ≠ d.newVertex) : d.realizePos R t z = R.pos z := if_neg h
+
+theorem realizePos_of_mem_cells {z : γ} (h : z ∈ S.cells) : d.realizePos R t z = R.pos z :=
+  realizePos_of_ne (d.ne_newVertex_of_mem_cells h)
+
+theorem realizePos_of_mem_vertexSet {z : γ} (h : z ∈ V(S.skel)) : d.realizePos R t z = R.pos z :=
+  realizePos_of_mem_cells (S.mem_cells_of_mem_vertexSet h)
+
+@[simp] theorem realizeDrawing_newEdge₁ :
+    d.realizeDrawing R t d.newEdge₁ = subarc (R.drawing d.edge) (d.leftParam R) t := if_pos rfl
+
+@[simp] theorem realizeDrawing_newEdge₂ :
+    d.realizeDrawing R t d.newEdge₂ = subarc (R.drawing d.edge) t (d.rightParam R) := by
+  rw [realizeDrawing, if_neg d.newEdge_ne.symm, if_pos rfl]
+
+theorem realizeDrawing_of_ne {f : γ} (h₁ : f ≠ d.newEdge₁) (h₂ : f ≠ d.newEdge₂) :
+    d.realizeDrawing R t f = R.drawing f := by rw [realizeDrawing, if_neg h₁, if_neg h₂]
+
+theorem realizeDrawing_of_mem_cells {f : γ} (h : f ∈ S.cells) :
+    d.realizeDrawing R t f = R.drawing f :=
+  realizeDrawing_of_ne (d.ne_newEdge₁_of_mem_cells h) (d.ne_newEdge₂_of_mem_cells h)
+
+@[simp] theorem realizeCell_newVertex : d.realizeCell R t d.newVertex = {R.drawing d.edge t} :=
+  if_pos rfl
+
+@[simp] theorem realizeCell_newEdge₁ : d.realizeCell R t d.newEdge₁ =
+    R.drawing d.edge '' uIcc (d.leftParam R) t \ {R.pos d.left, R.drawing d.edge t} := by
+  rw [realizeCell, if_neg d.newVertex_ne₁.symm, if_pos rfl]
+
+@[simp] theorem realizeCell_newEdge₂ : d.realizeCell R t d.newEdge₂ =
+    R.drawing d.edge '' uIcc t (d.rightParam R) \ {R.drawing d.edge t, R.pos d.right} := by
+  rw [realizeCell, if_neg d.newVertex_ne₂.symm, if_neg d.newEdge_ne.symm, if_pos rfl]
+
+theorem realizeCell_of_mem_cells {c : γ} (h : c ∈ S.cells) : d.realizeCell R t c = R.cell c := by
+  rw [realizeCell, if_neg (d.ne_newVertex_of_mem_cells h), if_neg (d.ne_newEdge₁_of_mem_cells h),
+    if_neg (d.ne_newEdge₂_of_mem_cells h)]
+
+/-! ### The two half arcs -/
+
+theorem edgeArc_newEdge₁ : edgeArc (d.realizeDrawing R t) d.newEdge₁ =
+    R.drawing d.edge '' uIcc (d.leftParam R) t := by
+  rw [edgeArc, realizeDrawing_newEdge₁, subarc_image]
+
+theorem edgeArc_newEdge₂ : edgeArc (d.realizeDrawing R t) d.newEdge₂ =
+    R.drawing d.edge '' uIcc t (d.rightParam R) := by
+  rw [edgeArc, realizeDrawing_newEdge₂, subarc_image]
+
+theorem edgeArc_of_ne {f : γ} (h₁ : f ≠ d.newEdge₁) (h₂ : f ≠ d.newEdge₂) :
+    edgeArc (d.realizeDrawing R t) f = edgeArc R.drawing f := by
+  rw [edgeArc, edgeArc, realizeDrawing_of_ne h₁ h₂]
+
+variable (ht : t ∈ Ioo (0 : ℝ) 1)
+include ht
+
+theorem edgeArc_newEdge₁_subset :
+    edgeArc (d.realizeDrawing R t) d.newEdge₁ ⊆ edgeArc R.drawing d.edge := by
+  rw [edgeArc_newEdge₁, edgeArc]
+  exact image_mono ((uIcc_left_subset (d.mem_uIcc_params R ht)).trans (d.uIcc_params R).subset)
+
+theorem edgeArc_newEdge₂_subset :
+    edgeArc (d.realizeDrawing R t) d.newEdge₂ ⊆ edgeArc R.drawing d.edge := by
+  rw [edgeArc_newEdge₂, edgeArc]
+  exact image_mono ((uIcc_right_subset (d.mem_uIcc_params R ht)).trans (d.uIcc_params R).subset)
+
+/-- **The two new arcs cover the old one.** -/
+theorem edgeArc_new_union : edgeArc (d.realizeDrawing R t) d.newEdge₁ ∪
+    edgeArc (d.realizeDrawing R t) d.newEdge₂ = edgeArc R.drawing d.edge := by
+  rw [edgeArc_newEdge₁, edgeArc_newEdge₂, ← image_union,
+    uIcc_union_uIcc (d.mem_uIcc_params R ht), d.uIcc_params R, edgeArc]
+
+/-- **The two new arcs meet exactly at the new point.** -/
+theorem edgeArc_new_inter : edgeArc (d.realizeDrawing R t) d.newEdge₁ ∩
+    edgeArc (d.realizeDrawing R t) d.newEdge₂ = {R.drawing d.edge t} := by
+  rw [edgeArc_newEdge₁, edgeArc_newEdge₂,
+    ← (d.injOn_drawing_edge R).mono (d.uIcc_params R).subset |>.image_inter
+      (uIcc_left_subset (d.mem_uIcc_params R ht)) (uIcc_right_subset (d.mem_uIcc_params R ht)),
+    uIcc_inter_uIcc (d.mem_uIcc_params R ht), image_singleton]
+
+omit ht in
+theorem posLeft_mem_edgeArc_newEdge₁ :
+    R.pos d.left ∈ edgeArc (d.realizeDrawing R t) d.newEdge₁ := by
+  rw [edgeArc_newEdge₁, ← d.drawing_leftParam R]
+  exact ⟨_, left_mem_uIcc, rfl⟩
+
+omit ht in
+theorem posRight_mem_edgeArc_newEdge₂ :
+    R.pos d.right ∈ edgeArc (d.realizeDrawing R t) d.newEdge₂ := by
+  rw [edgeArc_newEdge₂, ← d.drawing_rightParam R]
+  exact ⟨_, right_mem_uIcc, rfl⟩
+
+omit ht in
+theorem newPos_mem_edgeArc_newEdge₁ :
+    R.drawing d.edge t ∈ edgeArc (d.realizeDrawing R t) d.newEdge₁ := by
+  rw [edgeArc_newEdge₁]; exact ⟨t, right_mem_uIcc, rfl⟩
+
+omit ht in
+theorem newPos_mem_edgeArc_newEdge₂ :
+    R.drawing d.edge t ∈ edgeArc (d.realizeDrawing R t) d.newEdge₂ := by
+  rw [edgeArc_newEdge₂]; exact ⟨t, left_mem_uIcc, rfl⟩
+
+/-- The far endpoint of the old edge misses the near half. -/
+theorem posRight_notMem_edgeArc_newEdge₁ :
+    R.pos d.right ∉ edgeArc (d.realizeDrawing R t) d.newEdge₁ := by
+  rw [edgeArc_newEdge₁, ← d.drawing_rightParam R]
+  rintro ⟨s, hs, hseq⟩
+  have hsI : s ∈ I :=
+    ((uIcc_left_subset (d.mem_uIcc_params R ht)).trans (d.uIcc_params R).subset) hs
+  have : s = d.rightParam R := d.injOn_drawing_edge R hsI (d.rightParam_mem_I R) hseq
+  exact right_notMem_uIcc_left (d.mem_uIcc_params R ht) (d.rightParam_ne R ht) (this ▸ hs)
+
+theorem posLeft_notMem_edgeArc_newEdge₂ :
+    R.pos d.left ∉ edgeArc (d.realizeDrawing R t) d.newEdge₂ := by
+  rw [edgeArc_newEdge₂, ← d.drawing_leftParam R]
+  rintro ⟨s, hs, hseq⟩
+  have hsI : s ∈ I :=
+    ((uIcc_right_subset (d.mem_uIcc_params R ht)).trans (d.uIcc_params R).subset) hs
+  have : s = d.leftParam R := d.injOn_drawing_edge R hsI (d.leftParam_mem_I R) hseq
+  exact left_notMem_uIcc_right (d.mem_uIcc_params R ht) (d.leftParam_ne R ht) (this ▸ hs)
+
 end SubdivData
 
 end CellStructure

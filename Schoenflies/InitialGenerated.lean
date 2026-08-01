@@ -68,6 +68,10 @@ holding the anchored form.
   clause, for either realization.
 * `Schoenflies.InitialData.generatedPair`, `Schoenflies.AnchoredInitialData.generatedPair` —
   `def:generated-structure` at stage 0: `prop:initial-pair` is a generated matched cellulation.
+* `Schoenflies.HexData.isOpen_cellSet_face`,
+  `Schoenflies.InitialData.isOpen_sourceRealization_cell_face`,
+  `.isOpen_targetRealization_cell_face` — openness of the two 2-cells: the hypothesis
+  `lem:cellulation-invariants`(viii) takes and `IsCellDecomposition` does not record.
 * `Schoenflies.modelCurve_union_inside` — `S ∪ Int(S) = Q`, the closed target domain.
 * `Schoenflies.InitialData.generatedPair_src_isAdmissible`, `.generatedPair_tgt_isAdmissible` —
   the *strong* form of
@@ -562,6 +566,20 @@ theorem isCellDecomposition (H : HexData)
       rw [H.biUnion_faceCells k]
       exact hfaceCl k
 
+/-- **The two 2-cells are open.** `IsCellDecomposition` does not record this, but
+`IsCellDecomposition.face_eq` — assertion (viii) — takes it as a hypothesis, and
+`thm:general-crosscut` hands it to the producer for free. Exported here so that no consumer has
+to rederive it at stage 0. -/
+theorem isOpen_cellSet_face (H : HexData)
+    (hcross : IsCrosscut H.outerArcs H.chordSet (H.pos 1) (H.pos 4))
+    (hcut : IsCutPair H.outerArcs (H.pos 1) (H.pos 4) (H.arcOf false) (H.arcOf true))
+    (hcollars : HasArcCollars (inside H.outerArcs) H.chordSet) (k : Bool) :
+    IsOpen (H.cellSet (.face k)) := by
+  obtain ⟨-, -, -, -, hopen1, hopen2, -⟩ :=
+    crosscut_cell_partition forall_isSeparating_of_isJordanCurve hcross hcut hcollars
+  cases k
+  exacts [hopen1, hopen2]
+
 /-- **`def:admissible-graph` minus the connectedness clause, for a realization of the initial
 structure.** The 2-connectivity is `HexData.isTwoConnected_graph`; the outer cycle is the union
 of the six outer arcs by construction; the one nonboundary edge is the crosscut, which is
@@ -661,6 +679,19 @@ theorem tgt_isWeaklyAdmissible :
     d.targetRealization.IsWeaklyAdmissible modelCurve (Plane.closedSquare 0 1) := by
   have h := d.tgt.isWeaklyAdmissible d.isCrosscut_tgt
   rwa [d.tgt_outerArcs, modelCurve_union_inside] at h
+
+/-- **The two source 2-cells are open** — the hypothesis
+`IsCellDecomposition.face_eq` takes and `IsCellDecomposition` does not record. -/
+theorem isOpen_sourceRealization_cell_face (k : Bool) :
+    IsOpen (d.sourceRealization.cell (.face k)) :=
+  d.src.isOpen_cellSet_face d.isCrosscut_src (by rw [d.src_outerArcs]; exact d.isCutPair)
+    (by rw [d.src_outerArcs]; exact d.hasArcCollarsSource) k
+
+/-- **The two target 2-cells are open.** -/
+theorem isOpen_targetRealization_cell_face (k : Bool) :
+    IsOpen (d.targetRealization.cell (.face k)) :=
+  d.tgt.isOpen_cellSet_face d.isCrosscut_tgt (by rw [d.tgt_outerArcs]; exact d.isCutPairTarget)
+    (by rw [d.tgt_outerArcs]; exact d.hasArcCollarsTarget) k
 
 /-- **Stage 0 of the Schönflies recursion.** The initial matched pair of `prop:initial-pair` is a
 generated matched cellulation: it is generated from `Schoenflies.initialStructure` by the empty

@@ -257,6 +257,30 @@ under-assuming, or doing more work than needed. None is an error in the mathemat
     finitely-many-squares case got *shorter*, since it can now be derived from the one-square
     case rather than rerunning the star argument.
 
+17. **Existential packaging repeatedly loses what the consumer needs.** This happened four
+    times, always the same way: a theorem bundles its conclusion into `∃ x, P x`, the bundle
+    typechecks, and the consumer then cannot get at something it needs about `x`.
+
+    * `polygonal_overlay` hid the graph, so no `[G.Finite]` instance could be recovered and the
+      face machinery was inapplicable.
+    * `polygonal_collar` omitted `IsOpen N` and `carrier ⊆ N`, so it never asserted that `N` was
+      a *neighbourhood* — which is exactly what the Jordan argument needs.
+    * Even after that fix, `polygonal_collar` is still unusable by its main consumer: it hides
+      the `StripData` behind an existential, and the "at least two regions" half of the
+      polygonal Jordan curve theorem needs `StripData.local_two_sided`, which the packaged form
+      does not expose. `PolygonalJordan.lean` therefore consumes `exists_stripData` and the
+      unbundled facts directly, and `polygonal_collar` survives only as a statement of record.
+    * Brick B5's `IsLocallyPolyConn` bundled the neighbourhood existentially without letting it
+      shrink, which is finding 16.
+
+    The lesson is not "avoid existentials" but: **when a theorem is the interface to a
+    construction, export the construction, not a bundle**. `exists_stripData` returning a
+    `StripData` — from which every consumer takes what it needs — is the shape that works;
+    `polygonal_collar` returning a tuple of the properties one imagined a consumer wanting is
+    the shape that keeps failing. A composition check (`Compose.lean`) catches the first three
+    kinds of failure but not the fourth, because the bundle does compose — it just composes
+    into something too weak.
+
 ## Frictions
 
 - **A duplicate theorem can compile.** `supDist_triangle` was proved independently in two

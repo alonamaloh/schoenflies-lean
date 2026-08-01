@@ -51,11 +51,11 @@ zero over the list". `edgesOf` builds a closed chain from a cyclic vertex list, 
 * `crossings`, `parity` — the count `π_C` of the section "The polygonal Jordan and crosscut
   theorems".
 * `exists_direction_hgt_ne` — the setup of that section: a ray direction level for no edge.
-* `crossings_subdivide`, `parity_subdivide` — Lemma 4.3 (subdivision invariance). Proved for
+* `crossings_subdivide`, `parity_subdivide` — Lemma 2.1 (subdivision invariance). Proved for
   the *count*, not only its parity, and for the whole `subdivide` operation of
   `Schoenflies.Subdivide`, not only for a single cut.
 * `parity_eq_of_mem_ball`, `parity_eq_of_isPreconnected`,
-  `parity_eq_of_mem_connectedComponentIn` — the first half of Lemma 4.4 (crossing parity):
+  `parity_eq_of_mem_connectedComponentIn` — the first half of Lemma 2.2 (crossing parity):
   `π_C` is locally constant off the polygon, hence constant on each component of the
   complement.
 * `parity_flip` — the second half of Lemma 4.4: the two local sides of an edge have opposite
@@ -427,7 +427,7 @@ theorem crossings_splitAllAt (hL : ∀ P ∈ L, hgt u P.1 ≠ hgt u P.2) (c q : 
     rw [splitAllAt, List.flatMap_cons, crossings_append, ← splitAllAt, ih hL',
       crossings_splitAt hP c q, crossings_cons, crossings_cons, crossings_nil, add_zero]
 
-/-- **Subdivision invariance** (Lemma 4.3). Subdividing changes no crossing count — not even
+/-- **Subdivision invariance** (Lemma 2.1). Subdividing changes no crossing count — not even
 its parity is needed here; the count itself is unchanged. -/
 theorem crossings_subdivide (hL : ∀ P ∈ L, hgt u P.1 ≠ hgt u P.2) (points : List Plane)
     (q : Plane) : crossings u (subdivide L points) q = crossings u L q := by
@@ -839,7 +839,7 @@ theorem parity_eq_of_mem_ball (hL : ∀ P ∈ L, hgt u P.1 ≠ hgt u P.2) (hC : 
       (fun y hy => hmiss y ((convex_ball q ε).segment_subset hwball hq' hy))
   rw [h2, h1]
 
-/-- **Crossing parity** (Lemma 4.4). `π_C` is constant on every preconnected subset of the
+/-- **Crossing parity** (Lemma 2.2). `π_C` is constant on every preconnected subset of the
 complement of the polygon — in particular on every component. -/
 theorem parity_eq_of_isPreconnected (hL : ∀ P ∈ L, hgt u P.1 ≠ hgt u P.2)
     (hC : IsClosedChain L) {S : Set Plane} (hS : IsPreconnected S)
@@ -891,7 +891,7 @@ section Flip
 variable (hu : Plane.IsDirection u)
 include hu
 
-/-- **Opposite sides of an edge** (Lemma 4.4, second half). At an interior point `p` of one
+/-- **Opposite sides of an edge** (Lemma 2.2, second half). At an interior point `p` of one
 edge of the list which no other edge of the list passes through, the two points just before
 and just after `p` in the ray direction lie off the polygon and have opposite parity: the
 count changes by one as the base point sweeps across the edge. -/

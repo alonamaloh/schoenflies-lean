@@ -378,6 +378,219 @@ theorem biUnion_faceCells (H : HexData) (k : Bool) :
       rcases hc with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl <;> decide
     all_goals (simp only [faceCells, Set.mem_insert_iff, Set.mem_singleton_iff]; decide)
 
+/-! ### Assertion (i) and `def:admissible-graph`, for either realization
+
+Both realizations of `prop:initial-pair` are a `HexData` whose six outer arcs form a Jordan curve
+and whose chord is a crosscut of it. Everything that distinguishes assertion (i) from bookkeeping
+is `thm:general-crosscut`, in the packaged form `Schoenflies.crosscut_cell_partition`: the two
+2-cells are open, nonempty, disjoint from each other and from the open crosscut, they exhaust
+`D ∖ P` together with it, and the closure of each is itself together with its own boundary
+curve. -/
+
+/-- **`lem:cellulation-invariants`(i) for a realization of the initial structure.** The open cells
+are nonempty and pairwise disjoint, they cover `C ∪ D`, and every closed cell is the union of its
+open subcells for the base value of `≼_abs` the blueprint fixes.
+
+The three hypotheses are exactly `thm:general-crosscut`'s: the chord is a crosscut of the outer
+cycle, the two boundary arcs are the two arcs it cuts the outer cycle into, and the crosscut has
+collars. On the source side they are `InitialData.isCrosscut`, `.isCutPair` and
+`.hasArcCollarsSource`; on the target side `.isCrosscutTarget`, `.isCutPairTarget` and
+`.hasArcCollarsTarget`. -/
+theorem isCellDecomposition (H : HexData)
+    (hcross : IsCrosscut H.outerArcs H.chordSet (H.pos 1) (H.pos 4))
+    (hcut : IsCutPair H.outerArcs (H.pos 1) (H.pos 4) (H.arcOf false) (H.arcOf true))
+    (hcollars : HasArcCollars (inside H.outerArcs) H.chordSet) :
+    H.realization.IsCellDecomposition (H.outerArcs ∪ inside H.outerArcs) := by
+  obtain ⟨hsplit, hdisj12, hdisj1P, hdisj2P, -, -, hne1, hne2, hcl1, hcl2⟩ :=
+    crosscut_cell_partition forall_isSeparating_of_isJordanCurve hcross hcut hcollars
+  -- the four facts about the two 2-cells, indexed by the label
+  have hface : ∀ k : Bool, H.cellSet (.face k) ⊆ inside H.outerArcs := by
+    intro k z hz
+    rw [hsplit]
+    cases k
+    exacts [Or.inl (Or.inl hz), Or.inl (Or.inr hz)]
+  have hfaceOuter : ∀ k : Bool, Disjoint (H.cellSet (.face k)) H.outerArcs := by
+    intro k
+    rw [Set.disjoint_left]
+    exact fun z hz hzo => (hface k hz).1 hzo
+  have hfaceChord : ∀ k : Bool, Disjoint (H.cellSet (.face k)) (H.cellSet .chord) := by
+    intro k; cases k; exacts [hdisj1P, hdisj2P]
+  have hfaceNe : ∀ k : Bool, (H.cellSet (.face k)).Nonempty := by
+    intro k; cases k; exacts [hne1, hne2]
+  have hfaceCl : ∀ k : Bool,
+      closure (H.cellSet (.face k)) = H.cellSet (.face k) ∪ (H.arcOf k ∪ H.chordSet) := by
+    intro k; cases k; exacts [hcl1, hcl2]
+  -- the mixed-dimension disjointness facts, stated once
+  have hvertEdge : ∀ k i : Fin 6, Disjoint (H.cellSet (.vert k)) (H.cellSet (.edge i)) := by
+    intro k i
+    rw [Set.disjoint_left]
+    rintro z rfl h
+    exact H.pos_notMem_cellSet_edge k i h
+  have hvertChord : ∀ k : Fin 6, Disjoint (H.cellSet (.vert k)) (H.cellSet .chord) := by
+    intro k
+    rw [Set.disjoint_left]
+    rintro z rfl h
+    exact H.pos_notMem_cellSet_chord k h
+  have hvertFace : ∀ (k : Fin 6) (l : Bool),
+      Disjoint (H.cellSet (.vert k)) (H.cellSet (.face l)) := by
+    intro k l
+    rw [Set.disjoint_left]
+    rintro z rfl h
+    exact (hface l h).1 (H.pos_mem_outerArcs k)
+  have hedgeFace : ∀ (i : Fin 6) (l : Bool),
+      Disjoint (H.cellSet (.edge i)) (H.cellSet (.face l)) :=
+    fun i l => (hfaceOuter l).symm.mono_left (H.cellSet_edge_subset_outerArcs i)
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · -- every open cell is nonempty
+    rintro c -
+    cases c with
+    | vert i => exact ⟨H.pos i, rfl⟩
+    | edge i => exact H.nonempty_cellSet_edge i
+    | chord => exact H.nonempty_cellSet_chord
+    | face k => exact hfaceNe k
+  · -- distinct open cells are disjoint
+    rintro c d - - hcd
+    cases c with
+    | vert k =>
+      cases d with
+      | vert m =>
+        rw [Set.disjoint_left]
+        rintro z rfl h
+        exact hcd (congrArg InitialCell.vert (H.injective_pos h))
+      | edge i => exact hvertEdge k i
+      | chord => exact hvertChord k
+      | face l => exact hvertFace k l
+    | edge i =>
+      cases d with
+      | vert m => exact (hvertEdge m i).symm
+      | edge j => exact H.disjoint_cellSet_edge fun h => hcd (congrArg InitialCell.edge h)
+      | chord => exact H.disjoint_cellSet_edge_chord i
+      | face l => exact hedgeFace i l
+    | chord =>
+      cases d with
+      | vert m => exact (hvertChord m).symm
+      | edge j => exact (H.disjoint_cellSet_edge_chord j).symm
+      | chord => exact absurd rfl hcd
+      | face l => exact (hfaceChord l).symm
+    | face k =>
+      cases d with
+      | vert m => exact (hvertFace m k).symm
+      | edge j => exact (hedgeFace j k).symm
+      | chord => exact hfaceChord k
+      | face l =>
+        cases k <;> cases l
+        exacts [absurd rfl hcd, hdisj12, hdisj12.symm, absurd rfl hcd]
+  · -- the open cells cover `C ∪ D`
+    have hall : (⋃ c ∈ initialStructure.cells, H.realization.cell c)
+        = ⋃ c : InitialCell, H.cellSet c := by
+      rw [initialStructure_cells, Set.biUnion_univ]
+      rfl
+    rw [hall, H.iUnion_cellSet]
+    refine Subset.antisymm (Set.union_subset (Set.union_subset Set.subset_union_left ?_) ?_) ?_
+    · intro z hz
+      rcases H.mem_cellSet_chord_or hz with h | rfl | rfl
+      · exact Or.inr (by rw [hsplit]; exact Or.inr h)
+      · exact Or.inl (H.pos_mem_outerArcs 1)
+      · exact Or.inl (H.pos_mem_outerArcs 4)
+    · rintro z (hz | hz)
+      exacts [Or.inr (hface false hz), Or.inr (hface true hz)]
+    · rintro z (hz | hz)
+      · exact Or.inl (Or.inl hz)
+      · rw [hsplit] at hz
+        rcases hz with (hz | hz) | hz
+        exacts [Or.inr (Or.inl hz), Or.inr (Or.inr hz),
+          Or.inl (Or.inr (H.cellSet_chord_subset hz))]
+  · -- every closed cell is the union of its open subcells
+    rintro τ -
+    have hidx : {c | c ∈ initialStructure.cells ∧ initialStructure.sub c τ}
+        = {c | initSub c τ} := by
+      ext c
+      exact and_iff_right (mem_cells_initialStructure c)
+    rw [hidx]
+    cases τ with
+    | vert i =>
+      have hset : {c | initSub c (.vert i)} = ({InitialCell.vert i} : Set InitialCell) := by
+        ext c; exact initSub_iff_vert
+      rw [hset, Set.biUnion_singleton]
+      exact closure_singleton
+    | edge i =>
+      have hset : {c | initSub c (.edge i)}
+          = ({InitialCell.edge i, .vert i, .vert (i + 1)} : Set InitialCell) := by
+        ext c; exact initSub_iff_edge
+      rw [hset]
+      change closure (H.cellSet (.edge i)) = _
+      rw [H.closure_cellSet_edge i]
+      refine Subset.antisymm (fun z hz => ?_) ?_
+      · rcases H.mem_cellSet_edge_or hz with h | rfl | rfl
+        exacts [Set.mem_iUnion₂.2 ⟨_, Or.inl rfl, h⟩,
+          Set.mem_iUnion₂.2 ⟨_, Or.inr (Or.inl rfl), rfl⟩,
+          Set.mem_iUnion₂.2 ⟨_, Or.inr (Or.inr rfl), rfl⟩]
+      · refine Set.iUnion₂_subset fun c hc => ?_
+        rcases hc with rfl | rfl | rfl
+        · exact H.cellSet_edge_subset i
+        · rintro z rfl; exact H.pos_mem_outer i
+        · rintro z rfl; exact H.pos_succ_mem_outer i
+    | chord =>
+      have hset : {c | initSub c .chord}
+          = ({InitialCell.chord, .vert 1, .vert 4} : Set InitialCell) := by
+        ext c; exact initSub_iff_chord
+      rw [hset]
+      change closure (H.cellSet .chord) = _
+      rw [H.closure_cellSet_chord]
+      refine Subset.antisymm (fun z hz => ?_) ?_
+      · rcases H.mem_cellSet_chord_or hz with h | rfl | rfl
+        exacts [Set.mem_iUnion₂.2 ⟨_, Or.inl rfl, h⟩,
+          Set.mem_iUnion₂.2 ⟨_, Or.inr (Or.inl rfl), rfl⟩,
+          Set.mem_iUnion₂.2 ⟨_, Or.inr (Or.inr rfl), rfl⟩]
+      · refine Set.iUnion₂_subset fun c hc => ?_
+        rcases hc with rfl | rfl | rfl
+        · exact H.cellSet_chord_subset
+        · rintro z rfl
+          exact ⟨0, zero_mem_I, H.chord_zero⟩
+        · rintro z rfl
+          exact ⟨1, one_mem_I, H.chord_one⟩
+    | face k =>
+      have hset : {c | initSub c (.face k)} = insert (InitialCell.face k) (faceCells k) := by
+        ext c; exact initSub_iff_face
+      rw [hset, Set.biUnion_insert]
+      change closure (H.cellSet (.face k))
+        = H.cellSet (.face k) ∪ ⋃ x ∈ faceCells k, H.cellSet x
+      rw [H.biUnion_faceCells k]
+      exact hfaceCl k
+
+/-- **`def:admissible-graph` minus the connectedness clause, for a realization of the initial
+structure.** The 2-connectivity is `HexData.isTwoConnected_graph`; the outer cycle is the union
+of the six outer arcs by construction; the one nonboundary edge is the crosscut, which is
+polygonal and has its interior in the open domain because it is a crosscut.
+
+`rem:intermediate-disconnection` waives connectedness of the open nonboundary part at
+intermediate stages only. The initial pair does satisfy it — `HexData.isConnected_nonboundary` —
+and `InitialData.generatedPair_isAdmissible` records the strong form. -/
+theorem isWeaklyAdmissible (H : HexData)
+    (hcross : IsCrosscut H.outerArcs H.chordSet (H.pos 1) (H.pos 4)) :
+    H.realization.IsWeaklyAdmissible H.outerArcs (H.outerArcs ∪ inside H.outerArcs) where
+  isTwoConnected := H.isTwoConnected_graph
+  outerSet_eq := H.outerSet_realization
+  isPolygonal := by
+    rintro e he hne
+    -- the only nonboundary 1-cell is the crosscut
+    rcases (he : e ∈ InitialCell.edges) with ⟨i, rfl⟩ | rfl
+    · exact absurd (Set.mem_range_self i) hne
+    · exact hcross.polygonal
+  cell_subset := by
+    rintro e he hne
+    rcases (he : e ∈ InitialCell.edges) with ⟨i, rfl⟩ | rfl
+    · exact absurd (Set.mem_range_self i) hne
+    · intro z hz
+      exact ⟨Or.inr (hcross.sdiff_subset hz), (hcross.sdiff_subset hz).1⟩
+  skeletonSet_subset := by
+    rw [H.skeletonSet_realization]
+    refine Set.union_subset Set.subset_union_left fun z hz => ?_
+    rcases H.mem_cellSet_chord_or hz with h | rfl | rfl
+    · exact Or.inr (hcross.sdiff_subset h)
+    · exact Or.inl (H.pos_mem_outerArcs 1)
+    · exact Or.inl (H.pos_mem_outerArcs 4)
+
 end HexData
 
 end Schoenflies

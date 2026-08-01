@@ -414,4 +414,190 @@ theorem dist_foot (hu : IsDirection u) (a x : Plane) :
 
 end Plane
 
+/-! ## Simple closed polygons
+
+A polygon is presented by its cyclic vertex list. Indexing by `ZMod (m + 3)` builds in both the
+cyclic successor and the requirement that there are at least three vertices, and it makes
+`NeZero` available without a side hypothesis. -/
+
+open Plane
+
+variable {m : ℕ}
+
+/-- A simple closed polygonal curve, presented by its cyclic vertex list. -/
+structure ClosedPolygon (m : ℕ) where
+  /-- The vertices, in cyclic order. -/
+  vertex : ZMod (m + 3) → Plane
+  /-- The vertices are distinct. -/
+  vertex_inj : Function.Injective vertex
+  /-- Simplicity: an edge meets any other edge only at one of its own endpoints. -/
+  edges_meet : ∀ i j : ZMod (m + 3), i ≠ j →
+    segment ℝ (vertex i) (vertex (i + 1)) ∩ segment ℝ (vertex j) (vertex (j + 1)) ⊆
+      {vertex i, vertex (i + 1)}
+  /-- No redundant vertex: the two edges at a vertex are not collinear. The blueprint deletes
+  such vertices before starting, and the vertex matching needs `det ≠ 0` there. -/
+  corner : ∀ i : ZMod (m + 3), det (vertex (i - 1) - vertex i) (vertex (i + 1) - vertex i) ≠ 0
+
+namespace ClosedPolygon
+
+variable (P : ClosedPolygon m) (i j : ZMod (m + 3)) (c t s : ℝ)
+
+theorem one_ne_zero' : (1 : ZMod (m + 3)) ≠ 0 := by
+  intro h
+  rw [show (1 : ZMod (m + 3)) = ((1 : ℕ) : ZMod (m + 3)) by norm_num,
+    ZMod.natCast_eq_zero_iff] at h
+  have := Nat.le_of_dvd one_pos h
+  omega
+
+theorem succ_ne_self : i + 1 ≠ i := fun h => one_ne_zero' (m := m) (by linear_combination h)
+
+theorem vertex_ne : P.vertex i ≠ P.vertex (i + 1) := fun h =>
+  succ_ne_self i (P.vertex_inj h).symm
+
+/-! ### Edges, in their own frame -/
+
+/-- The length of the edge leaving vertex `i`. -/
+noncomputable def len : ℝ := ‖P.vertex (i + 1) - P.vertex i‖
+
+/-- The unit tangent of the edge leaving vertex `i`, which is also the outgoing ray at `i`. -/
+noncomputable def tang : Plane := dir (P.vertex (i + 1) - P.vertex i)
+
+/-- The incoming ray at vertex `i`: the direction back along the edge that arrives there. -/
+noncomputable def rayIn : Plane := dir (P.vertex (i - 1) - P.vertex i)
+
+/-- The point of the plane at progress `t` and signed offset `s` in the frame of edge `i`. -/
+noncomputable def off : Plane := P.vertex i + t • P.tang i + s • perp (P.tang i)
+
+/-- The point of edge `i` at distance `c` from its initial vertex. -/
+noncomputable def pt : Plane := P.off i c 0
+
+/-- The edge leaving vertex `i`. -/
+def edge : Set Plane := segment ℝ (P.vertex i) (P.vertex (i + 1))
+
+/-- The carrier of the polygon: the union of its edges. -/
+def carrier : Set Plane := ⋃ i, P.edge i
+
+variable {P i j c t s}
+
+theorem sub_ne_zero_of_edge : P.vertex (i + 1) - P.vertex i ≠ 0 :=
+  sub_ne_zero.2 (P.vertex_ne i).symm
+
+theorem len_pos : 0 < P.len i := norm_pos_iff.2 sub_ne_zero_of_edge
+
+theorem isDirection_tang : IsDirection (P.tang i) := isDirection_dir sub_ne_zero_of_edge
+
+theorem len_smul_tang : (P.len i) • P.tang i = P.vertex (i + 1) - P.vertex i := by
+  rw [tang, dir, smul_smul, len, mul_inv_cancel₀ (norm_ne_zero_iff.2 sub_ne_zero_of_edge),
+    one_smul]
+
+theorem off_zero_zero : P.off i 0 0 = P.vertex i := by rw [off]; module
+
+theorem pt_zero : P.pt i 0 = P.vertex i := off_zero_zero
+
+theorem pt_len : P.pt i (P.len i) = P.vertex (i + 1) := by
+  rw [pt, off, zero_smul, add_zero, len_smul_tang]
+  module
+
+theorem off_sub_vertex : P.off i t s - P.vertex i = t • P.tang i + s • perp (P.tang i) := by
+  rw [off]; module
+
+theorem pt_sub_vertex : P.pt i c - P.vertex i = c • P.tang i := by
+  rw [pt, off_sub_vertex, zero_smul, add_zero]
+
+theorem dist_pt_vertex : dist (P.pt i c) (P.vertex i) = |c| := by
+  rw [dist_eq_norm, pt_sub_vertex, norm_smul, Real.norm_eq_abs, isDirection_tang.norm, mul_one]
+
+theorem dist_off_vertex_le : dist (P.off i t s) (P.vertex i) ≤ |t| + |s| := by
+  rw [dist_eq_norm, off_sub_vertex]
+  calc ‖t • P.tang i + s • perp (P.tang i)‖ ≤ ‖t • P.tang i‖ + ‖s • perp (P.tang i)‖ :=
+        norm_add_le _ _
+    _ = |t| + |s| := by
+        rw [norm_smul, norm_smul, Real.norm_eq_abs, Real.norm_eq_abs, norm_perp,
+          isDirection_tang.norm, mul_one, mul_one]
+
+@[simp] theorem coordAlong_off : coordAlong (P.vertex i) (P.tang i) (P.off i t s) = t :=
+  coordAlong_param isDirection_tang _ _ _
+
+@[simp] theorem coordAcross_off : coordAcross (P.vertex i) (P.tang i) (P.off i t s) = s :=
+  coordAcross_param isDirection_tang _ _ _
+
+/-- Every point is the point of some frame position, so the two coordinates identify it. -/
+theorem off_coord (P : ClosedPolygon m) (i : ZMod (m + 3)) (x : Plane) :
+    x = P.off i (coordAlong (P.vertex i) (P.tang i) x) (coordAcross (P.vertex i) (P.tang i) x) :=
+  frame_decomp isDirection_tang _ _
+
+theorem off_injective (h : P.off i t s = P.off i t' s') : t = t' ∧ s = s' := by
+  constructor
+  · have := congrArg (coordAlong (P.vertex i) (P.tang i)) h
+    simpa using this
+  · have := congrArg (coordAcross (P.vertex i) (P.tang i)) h
+    simpa using this
+
+theorem mem_edge_iff {x : Plane} : x ∈ P.edge i ↔ ∃ c ∈ Set.Icc (0 : ℝ) (P.len i), x = P.pt i c := by
+  rw [edge, segment_eq_image' ℝ]
+  constructor
+  · rintro ⟨θ, ⟨hθ0, hθ1⟩, rfl⟩
+    refine ⟨θ * P.len i, ⟨mul_nonneg hθ0 len_pos.le, ?_⟩, ?_⟩
+    · nlinarith [len_pos (P := P) (i := i)]
+    · rw [pt, off, zero_smul, add_zero, ← len_smul_tang]
+      simp [smul_smul]
+  · rintro ⟨c, ⟨hc0, hc1⟩, rfl⟩
+    refine ⟨c / P.len i, ⟨div_nonneg hc0 len_pos.le, ?_⟩, ?_⟩
+    · rw [div_le_one len_pos]; exact hc1
+    · rw [pt, off, zero_smul, add_zero, ← len_smul_tang]
+      simp [smul_smul, div_mul_cancel₀ _ (len_pos (P := P) (i := i)).ne']
+
+theorem pt_mem_edge (hc : c ∈ Set.Icc (0 : ℝ) (P.len i)) : P.pt i c ∈ P.edge i :=
+  mem_edge_iff.2 ⟨c, hc, rfl⟩
+
+theorem vertex_mem_edge : P.vertex i ∈ P.edge i := by
+  rw [← pt_zero]; exact pt_mem_edge ⟨le_refl _, len_pos.le⟩
+
+theorem vertex_mem_carrier : P.vertex i ∈ P.carrier := Set.mem_iUnion.2 ⟨i, vertex_mem_edge⟩
+
+theorem edge_subset_carrier : P.edge i ⊆ P.carrier := Set.subset_iUnion _ i
+
+/-- The incoming ray at `i + 1` is the reverse of the tangent of edge `i`. This is the identity
+that lets the two germs at a shared vertex be compared. -/
+theorem rayIn_succ : P.rayIn (i + 1) = -P.tang i := by
+  rw [rayIn, tang, add_sub_cancel_right, dir, dir, norm_sub_rev]
+  module
+
+theorem vertex_pred_ne : P.vertex (i - 1) - P.vertex i ≠ 0 := by
+  have h := P.vertex_ne (i - 1)
+  rw [sub_add_cancel] at h
+  exact sub_ne_zero.2 h
+
+theorem det_rays_ne_zero : det (P.rayIn i) (P.tang i) ≠ 0 := by
+  obtain ⟨c₁, hc₁, h₁⟩ := dir_eq_smul (vertex_pred_ne (P := P) (i := i))
+  obtain ⟨c₂, hc₂, h₂⟩ := dir_eq_smul (sub_ne_zero_of_edge (P := P) (i := i))
+  rw [rayIn, tang, h₁, h₂, det_smul_left, det_smul_right]
+  exact mul_ne_zero hc₁.ne' (mul_ne_zero hc₂.ne' (P.corner i))
+
+/-- A point of the edge arriving at `i` is a nonnegative multiple of the incoming ray away from
+the vertex; a point of the edge leaving `i` is a nonnegative multiple of the outgoing one. This
+is what keeps the two incident edges out of both sectors at `i`. -/
+theorem mem_edge_pred_sub {x : Plane} (hx : x ∈ P.edge (i - 1)) :
+    ∃ c : ℝ, 0 ≤ c ∧ x - P.vertex i = c • P.rayIn i := by
+  rw [mem_edge_iff] at hx
+  obtain ⟨c, ⟨hc0, hc1⟩, rfl⟩ := hx
+  refine ⟨P.len (i - 1) - c, by linarith, ?_⟩
+  have hsucc : i - 1 + 1 = i := sub_add_cancel i 1
+  have hr : P.rayIn i = -P.tang (i - 1) := by
+    have := rayIn_succ (P := P) (i := i - 1)
+    rwa [hsucc] at this
+  have hv : P.vertex i = P.vertex (i - 1 + 1) := by rw [hsucc]
+  have hlen : P.vertex (i - 1 + 1) = P.vertex (i - 1) + (P.len (i - 1)) • P.tang (i - 1) := by
+    rw [len_smul_tang]; module
+  rw [pt, off, zero_smul, add_zero, hr, hv, hlen]
+  module
+
+theorem mem_edge_sub {x : Plane} (hx : x ∈ P.edge i) :
+    ∃ c : ℝ, 0 ≤ c ∧ x - P.vertex i = c • P.tang i := by
+  rw [mem_edge_iff] at hx
+  obtain ⟨c, ⟨hc0, _⟩, rfl⟩ := hx
+  exact ⟨c, hc0, pt_sub_vertex⟩
+
+end ClosedPolygon
+
 end Schoenflies

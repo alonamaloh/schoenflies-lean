@@ -94,3 +94,6 @@ import Schoenflies.Endgame
 import Schoenflies.CellulationInvariants
 import Schoenflies.LimitMap
 import Schoenflies.BoundaryContinuity2
+import Schoenflies.FiniteTransfer
+import Schoenflies.FreshAccess
+import Schoenflies.GridAttach

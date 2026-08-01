@@ -49,17 +49,29 @@ Both minimisations are carried out here, as strong inductions, together with
   consecutive pair `H` containing that union …";
 * the two minimality consequences "`C` contains an edge of `Γ j` outside `Γ (j-1)`" and "`C`
   contains an edge of the earlier chain outside `Γ (j-1)`", each proved by pushing the cycle
-  down into a shorter block with `Graph.IsCycleThrough.anti`.
+  down into a shorter block with `Graph.IsCycleThrough.anti`;
+* the splicing of a crosscut onto each of the two arcs (`Graph.exists_spliced_cycles`, from
+  `Graph.exists_spliced_cycle`) and the edge count that makes the splice a strict improvement
+  (`Graph.edgesOutside_splice_lt`, `Graph.exists_cycle_edgesOutside_lt`).
 
 **Assumed**: `Graph.Descent`, the middle paragraph of the blueprint's proof — from a cycle `C`
 of `Γ i ∪ ⋯ ∪ Γ j` enclosing `x` and having an edge of `Γ j` and an edge of `Γ i ∪ ⋯ ∪ Γ (j-2)`
 outside `Γ (j-1)`, produce a cycle of the same block enclosing `x` with strictly fewer edges
-outside `Γ (j-1)`. That is the crosscut construction: the two arcs of `C` between two points of
-`C ∩ Γ (j-1)` on different maximal subpaths, a minimum-length path `R` in `Γ (j-1)` joining
-them, and `thm:polygonal-crosscut` deciding which of `R ∪ C₁`, `R ∪ C₂` still encloses `x`. It
-is a statement about **one** step, not about the chain's outer face, and it is exactly the
-hypothesis a later module discharges with `Schoenflies.crosscutSplitsRegion`,
-`Graph.IsCycleThrough.split_at` and `Graph.exists_spliced_cycle`.
+outside `Γ (j-1)`. It is a statement about **one** step, not about the chain's outer face.
+
+`Graph.descent_of_crosscut` splits it in two, and a discharger should aim at those instead:
+
+* `Graph.CrosscutExists` — combinatorial: build the crosscut. The two arcs of `C` between two
+  points of `C ∩ Γ (j-1)` lying on different maximal subpaths, and a minimum-length path `R` in
+  `Γ (j-1)` joining them, bundled as `Graph.IsCycleCrosscut`. Nothing geometric enters beyond
+  `Graph.IsPlaneChain.disjoint_block_far` — "`Γ j` meets the earlier chain only through
+  `Γ (j-1)`".
+* `Graph.CrosscutEncloses` — geometric: "the path `R` lies on one side of `C` and is a crosscut
+  there; by `thm:polygonal-crosscut`, exactly one of the two cycles `R ∪ C₁`, `R ∪ C₂` encloses
+  `x`", weakened to *at least* one. It mentions one plane graph, one cycle and one crosscut, and
+  no chain. `Schoenflies.crosscutSplitsRegion` settles the case where `R` runs inside `C`;
+  the case where it runs outside is `Schoenflies.IsPolygonalCrosscut.inside_exactly_one`, whose
+  set-level form is the remaining work.
 
 ## Blueprint
 
@@ -71,10 +83,19 @@ hypothesis a later module discharges with `Schoenflies.crosscutSplitsRegion`,
 * `Graph.encloses_of_isBounded_face`, `Graph.isBounded_face_of_encloses` — the two directions
   of that reduction; the second is the blueprint's "the face of `H` containing `x` … lies in the
   bounded set `Int(C)` and therefore is not the outer face of `H`".
-* `Graph.IsPlaneChain` — the hypotheses of `lem:outer-chain`.
-* `Graph.Descent` — **assumed**: the crosscut paragraph of the proof.
+* `Graph.IsPlaneChain` — the hypotheses of `lem:outer-chain`; `Graph.OuterOnPairs` — its
+  hypothesis on consecutive pairs.
+* `Graph.IsCycleCrosscut` — the crosscut `R` of the cycle `C`, with the two arcs it cuts.
+* `Graph.exists_spliced_cycles` — the two cycles `R ∪ C₁`, `R ∪ C₂`.
+* `Graph.edgesOutside`, `Graph.edgesOutside_splice_lt`,
+  `Graph.exists_cycle_edgesOutside_lt` — "it has fewer edges outside `Γ (j-1)` than `C`, since
+  one nonempty outside portion of `C` has been replaced by `R ⊆ Γ (j-1)`".
+* `Graph.Descent` — **assumed**: the crosscut paragraph of the proof; split by
+  `Graph.IsPlaneChain.descent_of_crosscut` into `Graph.CrosscutExists` and
+  `Graph.CrosscutEncloses`.
 * `Graph.IsPlaneChain.not_encloses` — the double minimisation.
-* `Graph.IsPlaneChain.outer_chain` — **`lem:outer-chain`**.
+* `Graph.IsPlaneChain.outer_chain`, `Graph.IsPlaneChain.outer_chain_of_crosscut` —
+  **`lem:outer-chain`**.
 -/
 
 open Set Schoenflies
@@ -228,6 +249,93 @@ theorem IsCycleThrough.anti {e : β} {u v : α} {D : List β} (h : G.IsCycleThro
   exact ⟨hl, h.isPath.anti hKG hl.left_mem fun g hg => hE g (List.mem_cons_of_mem _ hg),
     h.notMem⟩
 
+/-- A cycle of a subgraph is a cycle of the graph. -/
+theorem IsCycleThrough.mono {e : β} {u v : α} {D : List β} (h : K.IsCycleThrough e u v D)
+    (hKG : K ≤ G) : G.IsCycleThrough e u v D :=
+  ⟨h.isLink.mono hKG, h.isPath.mono hKG, h.notMem⟩
+
+/-! ### A crosscut of a cycle, with the two arcs it cuts
+
+This is the combinatorial output of the blueprint's crosscut paragraph, bundled: the path `R` in
+`F = Γ (j-1)`, its two endpoints `a, b` on the cycle, and the two arcs `D₁, D₂` the endpoints cut
+the cycle into. Both arcs are required to carry an edge that `F` does not have — the blueprint's
+"each arc contains an edge outside `Γ (j-1)`, because its endpoints belong to different maximal
+subpaths of the intersection" — which is what makes the splice a strict improvement on **both**
+sides, so that it does not matter which of the two spliced cycles turns out to enclose `x`. -/
+
+/-- **A crosscut of a cycle.** `R` is a path of `H` between two vertices `a ≠ b` of the cycle
+`e :: D`, lying in `F`, using no edge of the cycle and no vertex of it internally; `D₁, D₂` are
+the two arcs the cycle splits into, each carrying an edge outside `F`. -/
+structure IsCycleCrosscut (H F : Graph α β) (e : β) (u v : α) (D : List β) (a b : α)
+    (R D₁ D₂ : List β) : Prop where
+  /-- The two cut points are distinct. -/
+  ne : a ≠ b
+  /-- The first arc runs from `a` to `b`. -/
+  arc₁ : H.IsPath a D₁ b
+  /-- The second arc runs back. -/
+  arc₂ : H.IsPath b D₂ a
+  /-- Together the arcs use every edge of the cycle exactly once. -/
+  split : (D₁ ++ D₂).Perm (e :: D)
+  /-- The crosscut is a path between the two cut points. -/
+  isPath : H.IsPath a R b
+  /-- The first cut point is on the cycle. -/
+  mem_left : a ∈ H.walkVertices u D
+  /-- So is the second. -/
+  mem_right : b ∈ H.walkVertices u D
+  /-- The crosscut lies in `F`. -/
+  edges_mem : ∀ g ∈ R, g ∈ E(F)
+  /-- **"No edge of `R` is an edge of `C`."** -/
+  edges_new : ∀ g ∈ R, g ∉ D ++ [e]
+  /-- **"Its internal vertices do not lie on `C`."** -/
+  interior : ∀ y ∈ H.walkVertices a R, y ≠ a → y ≠ b → y ∉ H.walkVertices u D
+  /-- **"Each arc contains an edge outside `Γ (j-1)`."** -/
+  outside₁ : ∃ g ∈ D₁, g ∉ E(F)
+  /-- The same for the other arc. -/
+  outside₂ : ∃ g ∈ D₂, g ∉ E(F)
+
+/-- **The two cycles a crosscut splices**, `R ∪ C₁` and `R ∪ C₂`, as cycles of the ambient graph
+with their edge lists named. Both are produced by `Graph.exists_spliced_cycle`, applied to the
+cycle's own subgraph and to each arc in turn. -/
+theorem exists_spliced_cycles {H F : Graph α β} {e : β} {u v a b : α} {D R D₁ D₂ : List β}
+    (hcyc : H.IsCycleThrough e u v D) (hcc : IsCycleCrosscut H F e u v D a b R D₁ D₂) :
+    ∃ (e₁ e₂ : β) (u₁ v₁ u₂ v₂ : α) (T₁ T₂ : List β),
+      H.IsCycleThrough e₁ u₁ v₁ T₁ ∧ H.IsCycleThrough e₂ u₂ v₂ T₂ ∧
+        (e₁ :: T₁).Perm (D₁ ++ R) ∧ (e₂ :: T₂).Perm (D₂ ++ R) := by
+  have hBle : H.cycleGraph u e D ≤ H := hcyc.cycleGraph_le
+  have haB : a ∈ V(H.cycleGraph u e D) := by
+    rw [hcyc.cycleGraph_vertexSet]; exact hcc.mem_left
+  -- Both arcs consist of edges of the cycle, hence of the cycle's own subgraph.
+  have harc : ∀ {W : List β}, (∀ g ∈ W, g ∈ D₁ ++ D₂) →
+      ∀ g ∈ W, g ∈ E(H.cycleGraph u e D) := by
+    intro W hW g hg
+    rw [hcyc.cycleGraph_edgeSet, Set.mem_setOf_eq, List.mem_append]
+    rcases List.mem_cons.1 (hcc.split.mem_iff.1 (hW g hg)) with rfl | h
+    · exact Or.inr (List.mem_singleton_self _)
+    · exact Or.inl h
+  have hnew : ∀ g ∈ R, g ∉ E(H.cycleGraph u e D) := by
+    intro g hg hmem
+    rw [hcyc.cycleGraph_edgeSet, Set.mem_setOf_eq] at hmem
+    exact hcc.edges_new g hg hmem
+  have hint : ∀ y ∈ H.walkVertices a R, y ≠ a → y ≠ b → y ∉ V(H.cycleGraph u e D) := by
+    intro y hy hya hyb
+    rw [hcyc.cycleGraph_vertexSet]
+    exact hcc.interior y hy hya hyb
+  have hHle : (H.cycleGraph u e D).union (H.pathGraphOf a R) ≤ H :=
+    union_le hBle (pathGraphOf_le hcc.isPath.isWalk)
+  -- Splice the crosscut onto the first arc …
+  obtain ⟨f₁, x₁, y₁, T₁, hc₁, hp₁⟩ :=
+    exists_spliced_cycle hBle
+      (hcc.arc₁.anti hBle haB (harc fun g hg => List.mem_append_left _ hg))
+      hcc.isPath hcc.ne hnew hint
+  -- … and onto the second, run backwards so that it too starts at `a`.
+  obtain ⟨f₂, x₂, y₂, T₂, hc₂, hp₂⟩ :=
+    exists_spliced_cycle hBle
+      (hcc.arc₂.reverse.anti hBle haB
+        (harc fun g hg => List.mem_append_right _ (List.mem_reverse.1 hg)))
+      hcc.isPath hcc.ne hnew hint
+  exact ⟨f₁, f₂, x₁, y₁, x₂, y₂, T₁, T₂, hc₁.mono hHle, hc₂.mono hHle, hp₁,
+    hp₂.trans ((List.reverse_perm D₂).append_right R)⟩
+
 /-- The edges of a walk that the graph `H` does not have. The second measure of the blueprint's
 minimal-counterexample argument is the size of this set for `H = Γ (j-1)`. -/
 def edgesOutside (H : Graph α β) (W : List β) : Set β := {g | g ∈ W ∧ g ∉ E(H)}
@@ -324,6 +432,35 @@ theorem encloses_of_isBounded_face [H.Finite] (hd : IsDrawing H drawing)
     Encloses H drawing x := by
   obtain ⟨e, u, v, D, hfc⟩ := face_cycles' hd hpoly h2 x hx
   exact ⟨e, u, v, D, hfc.isCycle, hfc.eq_inside_of_isBounded' hb ▸ mem_face hx⟩
+
+/-- **The last mile of the descent step.** Suppose the cycle `C = e :: D` of `H` splits at two
+of its vertices into arcs carrying `D₁` and `D₂`, each with an edge that the graph `F` does not
+have; suppose `R` is a list of edges of `F`; and suppose `Z₁, Z₂` are cycles of `H` carrying
+`D₁ ++ R` and `D₂ ++ R`. If `x` is inside one of `Z₁, Z₂`, then some cycle of `H` encloses `x`
+with strictly fewer edges outside `F` than `C` has.
+
+This is everything in the blueprint's crosscut paragraph after "exactly one of the two cycles
+`R ∪ C₁`, `R ∪ C₂` encloses `x`", so a discharger of `Graph.Descent` has only to produce the
+crosscut and decide which side. The splitting of the cycle is `Graph.IsCycleThrough.split_at`
+and the two spliced cycles are `Graph.exists_spliced_cycle`; both hand back exactly the
+permutation statements assumed here. -/
+theorem exists_cycle_edgesOutside_lt {H F : Graph Plane β} {e : β} {u v : Plane} {D : List β}
+    (hcyc : H.IsCycleThrough e u v D) {D₁ D₂ R : List β} (hperm : (e :: D).Perm (D₁ ++ D₂))
+    (hR : ∀ g ∈ R, g ∈ E(F)) (h₁ : ∃ g ∈ D₁, g ∉ E(F)) (h₂ : ∃ g ∈ D₂, g ∉ E(F))
+    {e₁ e₂ : β} {u₁ v₁ u₂ v₂ : Plane} {T₁ T₂ : List β}
+    (hZ₁ : H.IsCycleThrough e₁ u₁ v₁ T₁) (hZ₂ : H.IsCycleThrough e₂ u₂ v₂ T₂)
+    (hp₁ : (e₁ :: T₁).Perm (D₁ ++ R)) (hp₂ : (e₂ :: T₂).Perm (D₂ ++ R))
+    (hone : x ∈ inside (edgesCover drawing (e₁ :: T₁)) ∨
+      x ∈ inside (edgesCover drawing (e₂ :: T₂))) :
+    ∃ (e' : β) (u' v' : Plane) (D' : List β), H.IsCycleThrough e' u' v' D' ∧
+      x ∈ inside (edgesCover drawing (e' :: D')) ∧
+      (edgesOutside F (e' :: D')).ncard < (edgesOutside F (e :: D)).ncard := by
+  -- A cycle's edge list repeats no edge: the detour is a path and the named edge is not on it.
+  have hnodup : (e :: D).Nodup := List.nodup_cons.2 ⟨hcyc.notMem, hcyc.isPath.nodup⟩
+  rcases hone with hx | hx
+  · exact ⟨e₁, u₁, v₁, T₁, hZ₁, hx, edgesOutside_splice_lt hnodup hperm hp₁ hR h₂⟩
+  · exact ⟨e₂, u₂, v₂, T₂, hZ₂, hx,
+      edgesOutside_splice_lt hnodup (hperm.trans List.perm_append_comm) hp₂ hR h₁⟩
 
 end Plane
 
@@ -465,15 +602,76 @@ def Descent (Γ : ℕ → Graph Plane β) (drawing : β → ℝ → Plane) (n : 
           (edgesOutside (Γ (i + m + 1)) (e' :: D')).ncard <
             (edgesOutside (Γ (i + m + 1)) (e :: D)).ncard
 
+/-! ### `Descent`, split into a combinatorial and a geometric half
+
+`Graph.Descent` is what the main theorem consumes, and `Graph.descent_of_crosscut` derives it
+from the two halves below, doing the splicing and the edge count in between. A module wishing to
+discharge `Descent` may therefore prove these two instead, which is the natural division of
+labour: `CrosscutExists` is a statement about walks in graphs with no geometry in it beyond the
+disjointness of nonconsecutive members, and `CrosscutEncloses` is a statement about **one**
+plane graph, **one** cycle and **one** crosscut, with no chain in it at all. -/
+
+/-- **The combinatorial half of the descent step.** The blueprint's "choose points `a, b` in the
+relative interiors of these two edges … each of those two arcs must meet `Γ (j-1)` … choose such
+a path `R` of minimum length": from a cycle of the block enclosing `x` with an edge of the last
+member and an edge of the earlier chain outside `Γ (j-1)`, build a crosscut of that cycle inside
+`Γ (j-1)`.
+
+The hypothesis that `x` is enclosed is carried along because it costs nothing and a discharger
+may want it; the construction in the blueprint does not use it. -/
+def CrosscutExists (Γ : ℕ → Graph Plane β) (drawing : β → ℝ → Plane) (n : ℕ) (x : Plane) :
+    Prop :=
+  ∀ (i m : ℕ), i + (m + 2) ≤ n →
+    ∀ (e : β) (u v : Plane) (D : List β),
+      (chainUnion Γ i (m + 2)).IsCycleThrough e u v D →
+      x ∈ inside (edgesCover drawing (e :: D)) →
+      (∃ g ∈ e :: D, g ∈ E(Γ (i + m + 2)) ∧ g ∉ E(Γ (i + m + 1))) →
+      (∃ g ∈ e :: D, g ∈ E(chainUnion Γ i m) ∧ g ∉ E(Γ (i + m + 1))) →
+      ∃ (a b : Plane) (R D₁ D₂ : List β),
+        IsCycleCrosscut (chainUnion Γ i (m + 2)) (Γ (i + m + 1)) e u v D a b R D₁ D₂
+
+/-- **The geometric half of the descent step.** The blueprint's "the path `R` lies on one side of
+`C` and is a crosscut there; by `thm:polygonal-crosscut`, exactly one of the two cycles
+`R ∪ C₁`, `R ∪ C₂` encloses `x`" — weakened to *at least* one, which is all the descent uses.
+
+Nothing here mentions the chain: it is a statement about a finite polygonal plane graph, a cycle
+of it that encloses `x`, a crosscut of that cycle, and the two cycles the crosscut splices. -/
+def CrosscutEncloses (drawing : β → ℝ → Plane) (x : Plane) : Prop :=
+  ∀ (H F : Graph Plane β), H.Finite → IsDrawing H drawing →
+    (∀ g ∈ E(H), IsPolygonal (edgeArc drawing g)) →
+    ∀ (e : β) (u v a b : Plane) (D R D₁ D₂ : List β),
+      H.IsCycleThrough e u v D → IsCycleCrosscut H F e u v D a b R D₁ D₂ →
+      x ∈ inside (edgesCover drawing (e :: D)) →
+      ∀ (e₁ e₂ : β) (u₁ v₁ u₂ v₂ : Plane) (T₁ T₂ : List β),
+        H.IsCycleThrough e₁ u₁ v₁ T₁ → H.IsCycleThrough e₂ u₂ v₂ T₂ →
+        (e₁ :: T₁).Perm (D₁ ++ R) → (e₂ :: T₂).Perm (D₂ ++ R) →
+        x ∈ inside (edgesCover drawing (e₁ :: T₁)) ∨
+          x ∈ inside (edgesCover drawing (e₂ :: T₂))
+
+/-- The hypothesis of `lem:outer-chain` on consecutive pairs: `x` is in the outer face of every
+`Γ p ∪ Γ (p+1)` — off its drawing, with an unbounded face through it. A consumer proves the
+second clause with `Graph.beyondSquare_subset_face`, and `Graph.unbounded_face_unique` is what
+makes "an unbounded face" *the* outer face. -/
+def OuterOnPairs (Γ : ℕ → Graph Plane β) (drawing : β → ℝ → Plane) (n : ℕ) (x : Plane) : Prop :=
+  ∀ p, p + 1 ≤ n → x ∈ exterior (chainUnion Γ p 1) drawing ∧
+    ¬ Bornology.IsBounded (face (chainUnion Γ p 1) drawing x)
+
 namespace IsPlaneChain
 
 variable {i m p : ℕ}
 
-/-- The hypothesis of `lem:outer-chain` on consecutive pairs: `x` is in the outer face of every
-`Γ p ∪ Γ (p+1)`. -/
-def OuterOnPairs (Γ : ℕ → Graph Plane β) (drawing : β → ℝ → Plane) (n : ℕ) (x : Plane) : Prop :=
-  ∀ p, p + 1 ≤ n → x ∈ exterior (chainUnion Γ p 1) drawing ∧
-    ¬ Bornology.IsBounded (face (chainUnion Γ p 1) drawing x)
+/-- **The descent step from its two halves.** Splicing the crosscut onto each arc and counting
+the edges left outside `Γ (j-1)` is done here; what is left to assume is the construction of the
+crosscut and the decision of which side keeps `x`. -/
+theorem descent_of_crosscut (h : IsPlaneChain Γ drawing G n) (hce : CrosscutExists Γ drawing n x)
+    (hcen : CrosscutEncloses drawing x) : Descent Γ drawing n x := by
+  intro i m him e u v D hcyc hin hA hB
+  obtain ⟨a, b, R, D₁, D₂, hcc⟩ := hce i m him e u v D hcyc hin hA hB
+  obtain ⟨e₁, e₂, u₁, v₁, u₂, v₂, T₁, T₂, hc₁, hc₂, hp₁, hp₂⟩ := exists_spliced_cycles hcyc hcc
+  exact exists_cycle_edgesOutside_lt hcyc hcc.split.symm hcc.edges_mem hcc.outside₁ hcc.outside₂
+    hc₁ hc₂ hp₁ hp₂
+    (hcen _ _ (h.block_finite him) (h.block_isDrawing him) (h.block_polygonal him)
+      e u v a b D R D₁ D₂ hcyc hcc hin e₁ e₂ u₁ v₁ u₂ v₂ T₁ T₂ hc₁ hc₂ hp₁ hp₂)
 
 /-- **The base case, `j = i + 1`.** No cycle of a consecutive pair encloses a point of that
 pair's outer face. -/
@@ -599,6 +797,15 @@ theorem outer_chain (h : IsPlaneChain Γ drawing G n) (hout : OuterOnPairs Γ dr
   exact h.not_encloses hout hdesc n 0 (by omega)
     (encloses_of_isBounded_face (h.block_isDrawing (by omega)) (h.block_polygonal (by omega))
       (h.block_isTwoConnected (by omega)) hext hb)
+
+/-- **`lem:outer-chain`, from the two halves of the descent step.** The form a discharger of
+`Graph.CrosscutExists` and `Graph.CrosscutEncloses` produces. -/
+theorem outer_chain_of_crosscut (h : IsPlaneChain Γ drawing G n)
+    (hout : OuterOnPairs Γ drawing n x) (hce : CrosscutExists Γ drawing n x)
+    (hcen : CrosscutEncloses drawing x) :
+    x ∈ exterior (chainUnion Γ 0 n) drawing ∧
+      ¬ Bornology.IsBounded (face (chainUnion Γ 0 n) drawing x) :=
+  h.outer_chain hout (h.descent_of_crosscut hce hcen)
 
 end IsPlaneChain
 

@@ -41,3 +41,6 @@ import Schoenflies.ModelCurve
 import Schoenflies.CombinatorialInvariance
 import Schoenflies.Strip
 import Schoenflies.SquareMover
+import Schoenflies.StripConstants
+import Schoenflies.StripConnected
+import Schoenflies.Parity

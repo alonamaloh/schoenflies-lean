@@ -57,22 +57,23 @@ a half-width `rho`. They should be chosen in this order (this is the recipe the 
 * `Schoenflies.StripData.sideL`, `.sideR`, `.nbhd`, `.sideL_disjoint_sideR` — the two labelled
   sides of the collar, and that they are disjoint.
 
-## Status — what is NOT here
+## Where the rest of Lemma 1.8 lives
 
-Lemma 1.8 (a) is **not yet proved**. This module builds its apparatus and the hard half of its
-content, and two obligations remain:
+This module builds the apparatus and proves the hard half: the germ matching at a corner and
+the disjointness of the two labelled sides. The other two obligations are discharged next door,
+and were split out only because they were built concurrently:
 
-1. **`exists_stripData` is not proved.** Every result below is stated for a given
-   `D : StripData P`, and nothing yet produces one. Until it does, the module is conditional:
-   the constants are described and constrained, but never shown to exist. Discharging it means
-   choosing `R`, then `lam := R / 5`, then `rho`, in the order the section above sets out; all
-   but the last are separations of compact sets, and the last is the germ threshold.
-2. **Each side is not yet shown connected**, and `nbhd \ carrier = sideL ∪ sideR` is not
-   stated. Disjointness is proved (`sideL_disjoint_sideR`); connectedness is the blueprint's
-   "consecutive edge and vertex blocks overlap in a nonempty labelled half-strip, so the union
-   of all left pieces is connected", which is a chaining argument around the cyclic vertex list.
+* `Schoenflies/StripConstants.lean` — `exists_stripData` and `exists_stripData_subset`, which
+  produce the constants, the latter with the collar inside a prescribed open set.
+* `Schoenflies/StripConnected.lean` — that each side is connected, and
+  `nbhd \ carrier = sideL ∪ sideR`.
 
-`ClosedPolygon.collar` below is a *definition*, not the theorem.
+`Schoenflies.polygonal_collar` in `Schoenflies/Compose.lean` is the three composed into the
+blueprint's Lemma 1.8 (a). `ClosedPolygon.collar` below is a *definition*, not the theorem.
+
+What is still missing from Lemma 1.8 as a whole: the **local two-sidedness** clause (every
+sufficiently small disk about a point of the curve meets the complement in exactly two
+components, one in each side), and part **(b)**, the arc case.
 -/
 
 open Metric Set

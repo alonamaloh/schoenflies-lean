@@ -7,6 +7,8 @@ import Schoenflies.OverlayGraph
 import Schoenflies.Graph.OuterFace
 import Schoenflies.Graph.CycleJordan
 import Schoenflies.TwoArcs
+import Schoenflies.StripConstants
+import Schoenflies.StripConnected
 
 /-!
 # Composition checks
@@ -27,6 +29,7 @@ to the face machinery at all, even though both halves compiled. The overlay now 
 
 * `overlay_has_outer_face` — Layer 6's overlay composes with Layer 6's outer face.
 * `two_arcs_roundtrip` — Layer 4's cutting theorem composes with its gluing theorem.
+* `polygonal_collar` — Lemma 1.8 (a), the three strip modules composed.
 -/
 
 open Set
@@ -53,5 +56,21 @@ theorem two_arcs_roundtrip {C : Set Plane} (hC : IsJordanCurve C) {p q : Plane}
     ∃ A B, A ∪ B = C ∧ IsJordanCurve (A ∪ B) := by
   obtain ⟨A, B, hA, hB, hcov, hmeet⟩ := hC.two_arcs hp hq hpq
   exact ⟨A, B, hcov, IsJordanCurve.two_arcs_of_two_arcs hA hB hmeet⟩
+
+/-- **Lemma 1.8 (a) (two-sided polygonal strips).** A simple closed polygonal curve has an open
+neighbourhood, inside any prescribed open set containing it, whose complement in the curve is
+the disjoint union of two connected open sets.
+
+This is `Strip.lean` (the apparatus, the germ argument and the disjointness),
+`StripConstants.lean` (the constants exist) and `StripConnected.lean` (each side is connected,
+and the collar minus the curve is exactly the two sides) composed. It is stated here rather
+than in any one of them because no one of them can state it. -/
+theorem polygonal_collar {m : ℕ} (P : ClosedPolygon m) {U : Set Plane} (hU : IsOpen U)
+    (hPU : P.carrier ⊆ U) :
+    ∃ N L R : Set Plane, N ⊆ U ∧ IsOpen L ∧ IsOpen R ∧
+      N \ P.carrier = L ∪ R ∧ Disjoint L R ∧ IsConnected L ∧ IsConnected R := by
+  obtain ⟨D, hDU⟩ := exists_stripData_subset P hU hPU
+  exact ⟨D.nbhd, D.sideL, D.sideR, hDU, D.isOpen_sideL, D.isOpen_sideR,
+    D.nbhd_diff_carrier, D.sideL_disjoint_sideR, D.isConnected_sideL, D.isConnected_sideR⟩
 
 end Schoenflies

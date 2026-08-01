@@ -28,9 +28,11 @@ horizontal steps `gridHEdge` and the `(m+1)n` vertical steps `gridVEdge`. Everyt
 `def` — an existentially quantified grid could not be refined against a second one, which is
 what Part II does.
 
-The only hypothesis the combinatorics needs is that the coordinates are **distinct**
-(`Set.InjOn xc (Set.Iic m)`); monotonicity is needed only for the geometric statements about
-what the outer cycle occupies.
+The hypotheses on the coordinates are exactly as strong as each statement needs, and no
+stronger: 2-connectivity needs only that **consecutive** coordinates differ, the outer cycle
+needs the coordinates **distinct** (`Set.InjOn xc (Set.Iic m)`), and only the drawing — the
+clause that makes the grid a plane graph — needs them **increasing**
+(`StrictMonoOn xc (Set.Iic m)`).
 
 The graph is `segGraph (gridEdges xc yc m n)`, where `segGraph` is the general "a list of
 straight segments, read as a graph" constructor: an edge is a `Piece`, and it links exactly its
@@ -89,6 +91,16 @@ a theorem no module on `main` has. The honest statement of the missing collar st
 2-connected pieces each meeting `K` in two distinct vertices, and concludes for the union.
 Instantiating it at `squareMesh` needs the collar rectangles of the mesh as cycles, which is
 exactly the enumeration that is missing.
+
+**A degenerate case that would have to be excluded.** `squareMesh δ fresh anchors` is *not*
+2-connected when `fresh` has fewer than two distinct points, so the missing theorem cannot be
+stated without a hypothesis. With `fresh = []` the mesh is `meshCount δ` pairwise disjoint
+concentric ring frames and is not even connected. With one fresh point `z` the spoke at `z` is
+the only thing joining the rings, so every vertex of that spoke is a cut vertex: deleting the
+one at radius `k/N` separates the rings inside it from the rings outside. Two fresh points are
+what make the rings and the two spokes a chain of quadrilaterals, which is the same picture the
+grid presents here. The corresponding hypothesis for the grid is `1 ≤ m` and `1 ≤ n`, and it is
+carried explicitly by every theorem below that needs it.
 
 ## Blueprint
 
@@ -331,7 +343,11 @@ theorem segGraph_inc {l : List Piece} {P : Piece} {v : Plane} (hP : P ∈ l)
   · exact ⟨P.2, hP, Or.inl ⟨rfl, rfl⟩⟩
   · exact ⟨P.1, hP, Or.inr ⟨rfl, rfl⟩⟩
 
-/-- Two plane points with the same coordinates are equal. -/
+/-- Two plane points with the same coordinates are equal.
+
+`Schoenflies.Plane.coord_ext` in `Schoenflies/JordanSeparates.lean` is the same fact in a more
+general form; that module is not on this one's import path, and the integrator should collapse
+the two if it ever is. -/
 theorem plane_eq_of_coords {z w : Plane} (h0 : z 0 = w 0) (h1 : z 1 = w 1) : z = w := by
   ext k
   fin_cases k

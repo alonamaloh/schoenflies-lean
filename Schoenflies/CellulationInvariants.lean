@@ -43,8 +43,9 @@ The blueprint phrases (vii) as "every 2-cell boundary **walk** is realized by a 
 `CellStructure.boundary : γ → List γ` is a raw datum on which `CellStructure` imposes *no*
 axiom whatever: nothing says `S.boundary F` is a closed walk, nothing ties it to `S.sub`, and
 nothing ties it to `F`. A version of (vii) phrased against it would therefore have to assume
-that tie as an extra hypothesis, and — see the orientation section below — that hypothesis is
-*not* preserved by `CellStructure.subdivideEdge` as it currently stands.
+that tie as an extra hypothesis — an assumption a consumer can now carry, since
+`CellStructure.subdivideEdge_isWalk_boundary` preserves it, but one that says nothing about
+`F` on its own.
 
 So (vii) is stated against the cells: `Realization.faceBoundary F` is the union of the open
 cells strictly below `F`, and `IsCellDecomposition.faceBoundary_eq_frontier` identifies it with
@@ -54,9 +55,9 @@ uses — (viii) needs only openness of the 2-cell, `lem:star-face-mesh` needs on
 2-cells, and the limit map needs `R.cell F = inside (…)`. Nothing downstream reads the cyclic
 order of the walk.
 
-## The orientation defect of `subdivideEdge`
+## The orientation defect that made the boundary update data
 
-`CellStructure.subdivideEdge` updates the boundary walks by
+`CellStructure.subdivideEdge` once updated the boundary walks by
 
 ```
 boundary F := (S.boundary F).flatMap fun f => if f = d.edge then [d.newEdge₁, d.newEdge₂] else [f]
@@ -67,15 +68,15 @@ direction, and `d.newEdge₁` runs `left → newVertex` while `d.newEdge₂` run
 A walk that crosses `d.edge` from `d.right` to `d.left` must be repaired with
 `[d.newEdge₂, d.newEdge₁]`, not `[d.newEdge₁, d.newEdge₂]`, and both directions really occur:
 an interior edge lies on the boundary of two 2-cells, whose boundary walks cross it once in each
-direction. `SubdivData.not_isWalk_boundary_of_head` is the failure, machine-checked;
-`SubdivData.SubstWalk` is the repair, with `SubdivData.SubstWalk.isWalk` the property the
-current update lacks and `SubdivData.SubstWalk.eq_of_notMem` the agreement where the current
-update is right. The repair is a *relation*, not a function of the list: which of the two orders
-is correct is determined by the walk, which the list alone does not record.
+direction. The repair had to be a *relation*, not a function of the list — which of the two
+orders is correct is determined by the walk, which the list alone does not record — so it could
+not be another closed form, and the corrected walks now arrive as data: `SubdivData.newBoundary`
+and `SubdivData.boundaryStart`, with `Schoenflies.IsSubstWalk` the constraint that ties them to
+the old walks and `CellStructure.subdivideEdge_isWalk_boundary` the payoff.
 
-Nothing in this module, and nothing on `main`, reads `CellStructure.boundary` — whose docstring
-already disclaims the orientation — so the repair is recorded here rather than forced into
-`GeneratedStructure.lean`.
+What is left here is the record of the defect: `SubdivData.flatBoundary` is the old closed form
+and `SubdivData.not_isWalk_flatBoundary_of_head` is its failure, machine-checked, which is the
+justification for the three fields.
 
 ## Blueprint
 
@@ -101,11 +102,11 @@ already disclaims the orientation — so the repair is recorded here rather than
   "Theorem `thm:general-crosscut` decomposes the old open 2-cell into the disjoint union of the
   two new open 2-cells and the open cells of the ear, and gives
   `closure Rᵢ = Rᵢ ∪ P ∪ Bᵢ`".
-* `Schoenflies.CellStructure.SubdivData.SubstWalk`,
-  `Schoenflies.CellStructure.SubdivData.SubstWalk.isWalk`,
-  `Schoenflies.CellStructure.SubdivData.not_isWalk_boundary_of_head` — the orientation defect of
-  the boundary-walk update, and its repair. Not a blueprint statement: the blueprint's
-  operation 1 does not spell the update out, and this is what it has to be.
+* `Schoenflies.CellStructure.SubdivData.flatBoundary`,
+  `Schoenflies.CellStructure.SubdivData.not_isWalk_flatBoundary_of_head` — the orientation
+  defect of the closed-form boundary-walk update, machine-checked. Not a blueprint statement:
+  the blueprint's operation 1 does not spell the update out. The repair lives in
+  `GeneratedStructure.lean` (`Schoenflies.IsSubstWalk`, `SubdivData.newBoundary`).
 -/
 
 open Set Bornology
@@ -334,107 +335,57 @@ theorem IsRefinement.isCellDecomposition_and_isFaceJordan (hS : S.CombInvariants
     R'.IsCellDecomposition D ∧ R'.IsFaceJordan ∧ R'.Refines R d.parent :=
   ⟨href.isCellDecomposition hS h, href.isFaceJordan hJ, href.refines hS⟩
 
-/-! ### The orientation of the boundary-walk update
+/-! ### Why the boundary-walk update is data
 
-`CellStructure.subdivideEdge` repairs a boundary walk by replacing every occurrence of the
-subdivided edge with the fixed list `[newEdge₁, newEdge₂]`. That is right only for a walk that
-crosses the edge from `d.left` to `d.right`. An interior edge lies on the boundary of *two*
-2-cells and a coherently oriented pair of boundary walks crosses it once in each direction, so
-no fixed replacement list can serve both; `not_isWalk_boundary_of_head` is the failure, checked.
+`CellStructure.subdivideEdge` takes the corrected boundary walks from its `SubdivData`
+(`SubdivData.newBoundary`, constrained to be an `IsSubstWalk`-image of the old ones), and
+`CellStructure.subdivideEdge_isWalk_boundary` is what that buys. The obvious closed form —
+replace every occurrence of the subdivided edge by the fixed list `[newEdge₁, newEdge₂]` — is
+what stood there instead, and it is wrong. It is right only for a walk that crosses the edge
+from `d.left` to `d.right`, and an interior edge lies on the boundary of *two* 2-cells whose
+coherently oriented walks cross it once in each direction, so no fixed list can serve both.
 
-`SubstWalk` is the corrected replacement — a relation rather than a function, because the
-direction of a crossing is determined by the walk and not by the list — and `SubstWalk.isWalk`
-is the property the current update lacks. Nothing on `main` reads `CellStructure.boundary`, so
-this is recorded rather than forced into `GeneratedStructure.lean`. -/
+That closed form is kept here as `SubdivData.flatBoundary`, with
+`SubdivData.not_isWalk_flatBoundary_of_head` the failure, machine-checked. It is not dead
+weight: it is the reason three fields of `SubdivData` exist, and
+`SubdivData.flatBoundary_eq_newBoundary_of_notMem` records that the two agree exactly where the
+closed form is right. -/
 
-/-- **The orientation-aware replacement of the subdivided edge in a walk.** `d.SubstWalk u W W'`
-says that `W'` is `W` with every traversal of `d.edge` replaced by the two subedges *in the
-order the walk crosses them*: `[newEdge₁, newEdge₂]` when the walk reaches the edge at `d.left`,
-`[newEdge₂, newEdge₁]` when it reaches it at `d.right`. The extra argument `u` — the vertex the
-walk departs from — is exactly what the current `flatMap` update cannot see. -/
-inductive SubstWalk (d : S.SubdivData) : γ → List γ → List γ → Prop
-  /-- The empty walk is unchanged. -/
-  | nil (u : γ) : SubstWalk d u [] []
-  /-- Crossing the subdivided edge from `left` to `right`. -/
-  | forward {W W' : List γ} (h : SubstWalk d d.right W W') :
-      SubstWalk d d.left (d.edge :: W) (d.newEdge₁ :: d.newEdge₂ :: W')
-  /-- Crossing it from `right` to `left`; this is the case the current update gets wrong. -/
-  | backward {W W' : List γ} (h : SubstWalk d d.left W W') :
-      SubstWalk d d.right (d.edge :: W) (d.newEdge₂ :: d.newEdge₁ :: W')
-  /-- Any other edge is kept. -/
-  | other {u w f : γ} {W W' : List γ} (hl : S.skel.IsLink f u w) (hf : f ≠ d.edge)
-      (h : SubstWalk d w W W') : SubstWalk d u (f :: W) (f :: W')
-
-/-- Every walk of the old skeleton has an orientation-aware replacement. -/
-theorem exists_substWalk (d : S.SubdivData) {u v : γ} {W : List γ} (h : S.skel.IsWalk u W v) :
-    ∃ W', d.SubstWalk u W W' := by
-  induction h with
-  | nil hx => exact ⟨[], .nil _⟩
-  | @cons a w b f W hl _ ih =>
-    obtain ⟨W', hW'⟩ := ih
-    by_cases hf : f = d.edge
-    · subst hf
-      rcases d.isLink.eq_and_eq_or_eq_and_eq hl with ⟨h₁, h₂⟩ | ⟨h₁, h₂⟩
-      · subst h₁; subst h₂; exact ⟨_, .forward hW'⟩
-      · subst h₁; subst h₂; exact ⟨_, .backward hW'⟩
-    · exact ⟨_, .other hl hf hW'⟩
-
-theorem newVertex_mem_skeleton_vertexSet (d : S.SubdivData) :
-    d.newVertex ∈ V(d.skeleton) := by
-  rw [d.skeleton_vertexSet]; exact Set.mem_insert _ _
-
-/-- **The corrected replacement really is a walk of the subdivided skeleton.** This is the
-property the current, orientation-blind update of `CellStructure.subdivideEdge` lacks. -/
-theorem SubstWalk.isWalk {d : S.SubdivData} {u v : γ} {W W' : List γ}
-    (hsub : d.SubstWalk u W W') (h : S.skel.IsWalk u W v) : d.skeleton.IsWalk u W' v := by
-  induction hsub generalizing v with
-  | nil u =>
-    cases h with
-    | nil hx =>
-      exact .nil (by rw [d.skeleton_vertexSet]; exact Set.mem_insert_of_mem _ hx)
-  | forward hs ih =>
-    cases h with
-    | cons hl hW =>
-      have hlink₁ : d.skeleton.IsLink d.newEdge₁ d.left d.newVertex :=
-        d.skeleton_isLink.2 (Or.inr (Or.inl ⟨rfl, rfl⟩))
-      have hlink₂ : d.skeleton.IsLink d.newEdge₂ d.newVertex d.right :=
-        d.skeleton_isLink.2 (Or.inr (Or.inr ⟨rfl, rfl⟩))
-      exact .cons hlink₁ (.cons hlink₂ (ih (d.isLink.right_unique hl ▸ hW)))
-  | backward hs ih =>
-    cases h with
-    | cons hl hW =>
-      have hlink₂ : d.skeleton.IsLink d.newEdge₂ d.right d.newVertex :=
-        d.skeleton_isLink.2 (Or.inr (Or.inr ⟨rfl, Sym2.eq_swap⟩))
-      have hlink₁ : d.skeleton.IsLink d.newEdge₁ d.newVertex d.left :=
-        d.skeleton_isLink.2 (Or.inr (Or.inl ⟨rfl, Sym2.eq_swap⟩))
-      exact .cons hlink₂ (.cons hlink₁ (ih (d.isLink.symm.right_unique hl ▸ hW)))
-  | other hl hf hs ih =>
-    cases h with
-    | cons hl' hW =>
-      have hlink : d.skeleton.IsLink _ _ _ :=
-        d.skeleton_isLink.2 (Or.inl ⟨hl, hf,
-          fun hh => d.newEdge₁_notMem_edgeSet (hh ▸ hl.edge_mem),
-          fun hh => d.newEdge₂_notMem_edgeSet (hh ▸ hl.edge_mem)⟩)
-      exact .cons hlink (ih (hl.right_unique hl' ▸ hW))
-
-/-- Where the current update is right, the corrected one agrees with it: on a stretch that never
-crosses the subdivided edge both leave the list alone. At a crossing in the direction
-`left → right` the corrected one inserts `[newEdge₁, newEdge₂]`, which is what
-`CellStructure.subdivideEdge` inserts unconditionally — that is the `forward` constructor. -/
-theorem SubstWalk.eq_of_notMem {d : S.SubdivData} {u : γ} {W W' : List γ}
-    (hsub : d.SubstWalk u W W') (h : d.edge ∉ W) : W' = W := by
-  induction hsub with
-  | nil u => rfl
-  | forward hs ih => exact absurd (List.mem_cons_self ..) h
-  | backward hs ih => exact absurd (List.mem_cons_self ..) h
-  | other hl hf hs ih => rw [ih fun hh => h (List.mem_cons_of_mem _ hh)]
+/-- **The orientation-blind boundary update**: replace every occurrence of the subdivided edge
+by `[newEdge₁, newEdge₂]`, whichever way the walk crosses it. This is what
+`CellStructure.subdivideEdge` used before the corrected walks became data; it is kept for
+`not_isWalk_flatBoundary_of_head`, which is why they had to. -/
+noncomputable def flatBoundary (d : S.SubdivData) (F : γ) : List γ :=
+  open scoped Classical in
+  (S.boundary F).flatMap fun f => if f = d.edge then [d.newEdge₁, d.newEdge₂] else [f]
 
 open scoped Classical in
-/-- The repaired boundary walk of a 2-cell whose walk starts by crossing the subdivided edge
-begins with `newEdge₁` — whichever direction the crossing had. -/
-theorem exists_boundary_cons (d : S.SubdivData) {F : γ} {W : List γ}
+/-- A list the subdivided edge does not occur in is left alone by the closed form. -/
+theorem flatBoundary_eq_of_notMem (d : S.SubdivData) {F : γ} (h : d.edge ∉ S.boundary F) :
+    d.flatBoundary F = S.boundary F := by
+  change (S.boundary F).flatMap _ = _
+  generalize S.boundary F = L at h ⊢
+  induction L with
+  | nil => rfl
+  | cons f L ih =>
+    rw [List.mem_cons] at h
+    push Not at h
+    rw [List.flatMap_cons, if_neg fun hh => h.1 hh.symm, ih h.2]
+    rfl
+
+/-- Where the subdivided edge is not crossed at all, the closed form is right, and the corrected
+walk agrees with it. -/
+theorem flatBoundary_eq_newBoundary_of_notMem (d : S.SubdivData) {F v : γ}
+    (hw : S.skel.IsWalk (d.boundaryStart F) (S.boundary F) v) (h : d.edge ∉ S.boundary F) :
+    d.flatBoundary F = d.newBoundary F := by
+  rw [(d.newBoundary_isSubstWalk F v hw).eq_of_notMem h, d.flatBoundary_eq_of_notMem h]
+
+open scoped Classical in
+/-- The closed form of a boundary walk that starts by crossing the subdivided edge begins with
+`newEdge₁` — whichever direction the crossing had. -/
+theorem exists_flatBoundary_cons (d : S.SubdivData) {F : γ} {W : List γ}
     (hb : S.boundary F = d.edge :: W) :
-    ∃ L, (S.subdivideEdge d).boundary F = d.newEdge₁ :: d.newEdge₂ :: L := by
+    ∃ L, d.flatBoundary F = d.newEdge₁ :: d.newEdge₂ :: L := by
   refine ⟨W.flatMap fun f => if f = d.edge then [d.newEdge₁, d.newEdge₂] else [f], ?_⟩
   change (S.boundary F).flatMap _ = _
   rw [hb, List.flatMap_cons, if_pos rfl]
@@ -454,17 +405,21 @@ theorem not_isWalk_newEdge₁_of_right (d : S.SubdivData) (hne : d.left ≠ d.ri
       · exact d.newVertex_notMem (h₁ ▸ d.right_mem_cells)
     · exact d.newEdge_ne hf
 
-/-- **The boundary-walk update of `CellStructure.subdivideEdge` is orientation-blind, and
-wrong.** If the boundary walk of a 2-cell begins by crossing the subdivided edge from `d.right`,
-the repaired list is not a walk of the subdivided skeleton at all.
+/-- **The closed-form boundary update is orientation-blind, and wrong.** If the boundary walk of
+a 2-cell begins by crossing the subdivided edge from `d.right`, the list it produces is not a
+walk of the subdivided skeleton at all — so a `CellStructure.subdivideEdge` defined by it would
+not preserve "the boundary of every 2-cell is a closed walk", the invariant the ear construction
+runs on.
 
 Both directions occur: an interior edge lies on two 2-cell boundaries, which traverse it in
-opposite directions. `SubstWalk` is the repair. -/
-theorem not_isWalk_boundary_of_head (d : S.SubdivData) (hne : d.left ≠ d.right) {F v : γ}
+opposite directions. `Schoenflies.IsSubstWalk` and `SubdivData.newBoundary` are the repair, and
+`Schoenflies.eq_of_isSubstWalk_singleton` is why the repair needs `d.boundaryStart` rather than
+a quantifier. -/
+theorem not_isWalk_flatBoundary_of_head (d : S.SubdivData) (hne : d.left ≠ d.right) {F v : γ}
     {W : List γ} (hb : S.boundary F = d.edge :: W) :
-    ¬ d.skeleton.IsWalk d.right ((S.subdivideEdge d).boundary F) v := by
+    ¬ d.skeleton.IsWalk d.right (d.flatBoundary F) v := by
   intro h
-  obtain ⟨L, hL⟩ := d.exists_boundary_cons hb
+  obtain ⟨L, hL⟩ := d.exists_flatBoundary_cons hb
   rw [hL] at h
   exact d.not_isWalk_newEdge₁_of_right hne h
 

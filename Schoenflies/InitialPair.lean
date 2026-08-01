@@ -211,6 +211,14 @@ inductive InitialCell
   | chord : InitialCell
   /-- One of the two 2-cells: `face false` is `R₁`, `face true` is `R₂`. -/
   | face : Bool → InitialCell
+  /-- A spare name, belonging to no cell of the initial structure.
+
+  The initial structure uses fifteen names; this constructor adds countably many more that it
+  never uses. It is here for one reason: `thm:finite-transfer` needs `[Infinite γ]`, because an
+  ear insertion consumes fresh cell names and on a finite name type the step is false. Without a
+  spare supply the base case could not feed the recursion at all. Nothing below ever produces an
+  `aux`, and no cell of `initialStructure` is one. -/
+  | aux : ℕ → InitialCell
   deriving DecidableEq
 
 namespace InitialCell
@@ -329,14 +337,32 @@ def initBoundary : InitialCell → List InitialCell
   | .face true => [.edge 4, .edge 5, .edge 0, .chord]
   | _ => []
 
+/-- The names that `initialStructure` declares to be cells: the six 0-cells, the seven 1-cells
+and the two 2-cells. This is `initialStructure.cells` unfolded, written out here because
+`initSub` is a field of `initialStructure` and cannot refer to it. -/
+def cellNames : Set InitialCell :=
+  InitialCell.vertices ∪ InitialCell.edges ∪ InitialCell.faces
+
+theorem aux_notMem_cellNames (n : ℕ) : InitialCell.aux n ∉ cellNames := by
+  rintro ((⟨i, hi⟩ | ⟨i, hi⟩ | hi) | ⟨k, hk⟩)
+  · exact InitialCell.noConfusion hi
+  · exact InitialCell.noConfusion hi
+  · exact InitialCell.noConfusion hi
+  · exact InitialCell.noConfusion hk
+
 /-- **The base value of `≼_abs`** (tex 1590–1602): the reflexive pairs, the incidence of each
 vertex with the edges it bounds, and, for `i = 1, 2`, the incidence of every vertex and edge of
-`Bᵢ ∪ P` with `Rᵢ`. Nothing else. -/
+`Bᵢ ∪ P` with `Rᵢ`. Nothing else.
+
+The reflexive clause is restricted to `cellNames`. `≼_abs` must relate cells to cells —
+`CellStructure.CombInvariants.sub_mem_left` and `.sub_mem_right` say so — and `InitialCell`
+carries a spare supply of names beyond the fifteen cells, so unrestricted reflexivity would
+relate a spare name to itself and make both false. -/
 def initSub (c d : InitialCell) : Prop :=
-  c = d ∨ (d ∈ InitialCell.edges ∧ (c = d.ends.1 ∨ c = d.ends.2)) ∨
+  (c = d ∧ d ∈ cellNames) ∨ (d ∈ InitialCell.edges ∧ (c = d.ends.1 ∨ c = d.ends.2)) ∨
     (∃ k, d = .face k ∧ c ∈ faceCells k)
 
-theorem initSub_refl (c : InitialCell) : initSub c c := Or.inl rfl
+theorem initSub_refl {c : InitialCell} (hc : c ∈ cellNames) : initSub c c := Or.inl ⟨rfl, hc⟩
 
 theorem initSub_ends {e : InitialCell} (he : e ∈ InitialCell.edges) :
     initSub e.ends.1 e ∧ initSub e.ends.2 e :=
@@ -478,6 +504,7 @@ def cellSet : InitialCell → Set Plane
   | .edge i => H.outer i '' I \ {H.pos i, H.pos (i + 1)}
   | .chord => H.chordParam '' I \ {H.pos 1, H.pos 4}
   | .face k => inside (H.arcOf k ∪ H.chordSet)
+  | .aux _ => ∅
 
 @[simp] theorem point_vert (i : Fin 6) : H.point (.vert i) = H.pos i := rfl
 

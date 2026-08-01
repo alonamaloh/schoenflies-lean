@@ -72,9 +72,8 @@ holding the anchored form.
   `Schoenflies.InitialData.isOpen_sourceRealization_cell_face`,
   `.isOpen_targetRealization_cell_face` — openness of the two 2-cells: the hypothesis
   `lem:cellulation-invariants`(viii) takes and `IsCellDecomposition` does not record.
-* `Schoenflies.not_infinite_initialCell` — the one place where the base case and the recursion
-  do not yet meet: `thm:finite-transfer` needs `[Infinite γ]` and `InitialCell` is finite, so a
-  `CellStructure` relabelling along `InitialCell ↪ γ` is still missing on `main`.
+* `Schoenflies.infinite_initialCell` — the base case meets the recursion: `thm:finite-transfer`
+  needs `[Infinite γ]`, and `InitialCell` supplies it through its spare constructor `aux`.
 * `Schoenflies.modelCurve_union_inside` — `S ∪ Int(S) = Q`, the closed target domain.
 * `Schoenflies.InitialData.generatedPair_src_isAdmissible`, `.generatedPair_tgt_isAdmissible` —
   the *strong* form of
@@ -110,19 +109,63 @@ theorem IsArcBetween.closure_diff {A : Set Plane} {p q : Plane} (h : IsArcBetwee
 
 /-! ### The cells of the initial structure, and `≼_abs`
 
-`InitialCell` has exactly four constructors and `initialStructure` declares every one of them a
-cell, so `cells` is the whole type. That is worth recording once: it removes the membership side
-condition from every clause of assertion (i) below. -/
+`initialStructure` declares every one of `InitialCell`'s four *named* constructors a cell. The
+fifth, `InitialCell.aux`, is the spare supply of fresh names that `def:generated-structure`
+needs and that `thm:finite-transfer` asks for as `[Infinite γ]`; no `aux` name is a cell.
 
-theorem mem_cells_initialStructure (c : InitialCell) : c ∈ initialStructure.cells := by
-  cases c with
-  | vert i => exact Or.inl (Or.inl ⟨i, rfl⟩)
-  | edge i => exact Or.inl (Or.inr (Or.inl ⟨i, rfl⟩))
-  | chord => exact Or.inl (Or.inr (Or.inr rfl))
-  | face k => exact Or.inr ⟨k, rfl⟩
+`recOnCells` is the shape every clause of assertion (i) below uses: case analysis on a *cell*,
+with the spare names ruled out by the membership hypothesis the clause already carries. -/
 
-theorem initialStructure_cells : initialStructure.cells = Set.univ :=
-  Set.eq_univ_of_forall mem_cells_initialStructure
+/-- The spare names are not cells: `cells` is `vertices ∪ edges ∪ faces`, and each of those is a
+range of one of the four named constructors. -/
+theorem aux_notMem_cells (n : ℕ) : (InitialCell.aux n) ∉ initialStructure.cells :=
+  aux_notMem_cellNames n
+
+theorem mem_cells_initialStructure_of_vert (i : Fin 6) :
+    (InitialCell.vert i) ∈ initialStructure.cells := Or.inl (Or.inl ⟨i, rfl⟩)
+
+theorem mem_cells_initialStructure_of_edge (i : Fin 6) :
+    (InitialCell.edge i) ∈ initialStructure.cells := Or.inl (Or.inr (Or.inl ⟨i, rfl⟩))
+
+theorem mem_cells_initialStructure_of_chord :
+    InitialCell.chord ∈ initialStructure.cells := Or.inl (Or.inr (Or.inr rfl))
+
+theorem mem_cells_initialStructure_of_face (k : Bool) :
+    (InitialCell.face k) ∈ initialStructure.cells := Or.inr ⟨k, rfl⟩
+
+/-- The four named constructors are cell names. -/
+theorem mem_cellNames_of_vert (i : Fin 6) : (InitialCell.vert i) ∈ cellNames :=
+  Or.inl (Or.inl ⟨i, rfl⟩)
+
+theorem mem_cellNames_of_edge (i : Fin 6) : (InitialCell.edge i) ∈ cellNames :=
+  Or.inl (Or.inr (Or.inl ⟨i, rfl⟩))
+
+theorem mem_cellNames_chord : InitialCell.chord ∈ cellNames := Or.inl (Or.inr (Or.inr rfl))
+
+theorem mem_cellNames_of_face (k : Bool) : (InitialCell.face k) ∈ cellNames := Or.inr ⟨k, rfl⟩
+
+/-- Every cell of a 2-cell's boundary walk is a cell. -/
+theorem mem_cells_of_mem_faceCells {k : Bool} {c : InitialCell} (h : c ∈ faceCells k) :
+    c ∈ initialStructure.cells := by
+  cases k <;>
+    · rcases h with rfl | rfl | rfl | rfl | rfl | rfl | rfl | rfl
+      all_goals
+        first
+          | exact mem_cells_initialStructure_of_vert _
+          | exact mem_cells_initialStructure_of_edge _
+          | exact mem_cells_initialStructure_of_chord
+
+/-- **Case analysis on a cell of the initial structure.** The four named constructors exhaust
+the cells; the spare `aux` names are excluded by the membership hypothesis. -/
+def recOnCells {motive : InitialCell → Sort*} {c : InitialCell}
+    (hc : c ∈ initialStructure.cells) (hv : ∀ i, motive (.vert i)) (he : ∀ i, motive (.edge i))
+    (hch : motive .chord) (hf : ∀ k, motive (.face k)) : motive c := by
+  match c with
+  | .vert i => exact hv i
+  | .edge i => exact he i
+  | .chord => exact hch
+  | .face k => exact hf k
+  | .aux n => exact absurd hc (aux_notMem_cells n)
 
 /-- A `face` name is never a 0-cell or a 1-cell. -/
 theorem face_notMem_faceCells {k l : Bool} : InitialCell.face k ∉ faceCells l := by
@@ -131,8 +174,8 @@ theorem face_notMem_faceCells {k l : Bool} : InitialCell.face k ∉ faceCells l 
 /-- The subcells of a 0-cell are itself alone. -/
 theorem initSub_iff_vert {i : Fin 6} {c : InitialCell} :
     initSub c (.vert i) ↔ c = .vert i := by
-  refine ⟨fun h => ?_, fun h => h ▸ initSub_refl _⟩
-  rcases h with h | ⟨h, -⟩ | ⟨k, hk, -⟩
+  refine ⟨fun h => ?_, fun h => by subst h; exact initSub_refl (mem_cellNames_of_vert i)⟩
+  rcases h with ⟨h, -⟩ | ⟨h, -⟩ | ⟨k, hk, -⟩
   · exact h
   · exact absurd h (by simp [InitialCell.edges])
   · exact absurd hk (by simp)
@@ -141,13 +184,13 @@ theorem initSub_iff_vert {i : Fin 6} {c : InitialCell} :
 theorem initSub_iff_edge {i : Fin 6} {c : InitialCell} :
     initSub c (.edge i) ↔ c = .edge i ∨ c = .vert i ∨ c = .vert (i + 1) := by
   constructor
-  · rintro (h | ⟨-, h | h⟩ | ⟨k, hk, -⟩)
+  · rintro (⟨h, -⟩ | ⟨-, h | h⟩ | ⟨k, hk, -⟩)
     · exact Or.inl h
     · exact Or.inr (Or.inl h)
     · exact Or.inr (Or.inr h)
     · exact absurd hk (by simp)
   · rintro (rfl | rfl | rfl)
-    · exact initSub_refl _
+    · exact initSub_refl (mem_cellNames_of_edge i)
     · exact (initSub_ends (InitialCell.edge_mem_edges i)).1
     · exact (initSub_ends (InitialCell.edge_mem_edges i)).2
 
@@ -155,13 +198,13 @@ theorem initSub_iff_edge {i : Fin 6} {c : InitialCell} :
 theorem initSub_iff_chord {c : InitialCell} :
     initSub c .chord ↔ c = .chord ∨ c = .vert 1 ∨ c = .vert 4 := by
   constructor
-  · rintro (h | ⟨-, h | h⟩ | ⟨k, hk, -⟩)
+  · rintro (⟨h, -⟩ | ⟨-, h | h⟩ | ⟨k, hk, -⟩)
     · exact Or.inl h
     · exact Or.inr (Or.inl h)
     · exact Or.inr (Or.inr h)
     · exact absurd hk (by simp)
   · rintro (rfl | rfl | rfl)
-    · exact initSub_refl _
+    · exact initSub_refl mem_cellNames_chord
     · exact (initSub_ends InitialCell.chord_mem_edges).1
     · exact (initSub_ends InitialCell.chord_mem_edges).2
 
@@ -169,12 +212,12 @@ theorem initSub_iff_chord {c : InitialCell} :
 theorem initSub_iff_face {k : Bool} {c : InitialCell} :
     initSub c (.face k) ↔ c = .face k ∨ c ∈ faceCells k := by
   constructor
-  · rintro (h | ⟨h, -⟩ | ⟨l, hl, hmem⟩)
+  · rintro (⟨h, -⟩ | ⟨h, -⟩ | ⟨l, hl, hmem⟩)
     · exact Or.inl h
     · exact absurd h (by simp [InitialCell.edges])
     · cases hl; exact Or.inr hmem
   · rintro (rfl | h)
-    · exact initSub_refl _
+    · exact initSub_refl (mem_cellNames_of_face k)
     · exact initSub_face h
 
 /-! ### The combinatorial invariants at the base
@@ -187,15 +230,24 @@ the base case. Assertion (vi) is `Schoenflies.outerEdgeUniqueFace_initialStructu
 /-- **The combinatorial invariants hold for the initial structure.** The base case of
 `Schoenflies.GeneratedStructure.combInvariants`, hence of `GeneratedPair.combInvariants`. -/
 theorem combInvariants_initialStructure : initialStructure.CombInvariants where
-  sub_mem_left := fun {c _} _ => mem_cells_initialStructure c
-  sub_mem_right := fun {_ τ} _ => mem_cells_initialStructure τ
-  sub_refl := fun {c} _ => initSub_refl c
+  sub_mem_left := by
+    rintro c d (⟨rfl, hc⟩ | ⟨hd, rfl | rfl⟩ | ⟨k, rfl, hmem⟩)
+    · exact hc
+    · exact Or.inl (Or.inl (InitialCell.ends_mem_vertices hd).1)
+    · exact Or.inl (Or.inl (InitialCell.ends_mem_vertices hd).2)
+    · exact mem_cells_of_mem_faceCells hmem
+  sub_mem_right := by
+    rintro c d (⟨-, hd⟩ | ⟨hd, -⟩ | ⟨k, rfl, -⟩)
+    · exact hd
+    · exact Or.inl (Or.inr hd)
+    · exact mem_cells_initialStructure_of_face k
+  sub_refl := fun {_} hc => initSub_refl hc
   sub_isLink := by
     rintro f a b ⟨hf, ⟨rfl, -⟩ | ⟨rfl, -⟩⟩
     exacts [(initSub_ends hf).1, (initSub_ends hf).2]
   face_maximal := by
     rintro F τ ⟨k, rfl⟩ h
-    rcases h with h | ⟨he, hends⟩ | ⟨l, rfl, hmem⟩
+    rcases h with ⟨h, -⟩ | ⟨he, hends⟩ | ⟨l, rfl, hmem⟩
     · exact h.symm
     · -- both ends of a 1-cell are 0-cells, and a 2-cell name is neither
       rcases he with ⟨j, rfl⟩ | rfl <;> simp [InitialCell.ends] at hends
@@ -205,9 +257,10 @@ theorem combInvariants_initialStructure : initialStructure.CombInvariants where
     refine ⟨.chord, InitialCell.chord_mem_edges, by simp [InitialCell.outerEdges], ?_⟩
     exact initSub_face (by cases k <;> simp [faceCells])
   mem_face := by
-    rintro c -
+    rintro c hc
     -- every cell appears among the subcells of one of the two 2-cells
     cases c with
+    | aux n => exact absurd hc (aux_notMem_cells n)
     | vert i =>
       refine ⟨.face (![true, false, false, false, true, true] i), ⟨_, rfl⟩, initSub_face ?_⟩
       fin_cases i <;> simp [faceCells]
@@ -215,7 +268,7 @@ theorem combInvariants_initialStructure : initialStructure.CombInvariants where
       refine ⟨.face (![true, false, false, false, true, true] i), ⟨_, rfl⟩, initSub_face ?_⟩
       fin_cases i <;> simp [faceCells]
     | chord => exact ⟨.face false, ⟨_, rfl⟩, initSub_face (by simp [faceCells])⟩
-    | face k => exact ⟨.face k, ⟨k, rfl⟩, initSub_refl _⟩
+    | face k => exact ⟨.face k, ⟨k, rfl⟩, initSub_refl (mem_cellNames_of_face k)⟩
   outerEdge_unique := outerEdgeUniqueFace_initialStructure
 
 /-! ### The open cells of a `HexData`
@@ -317,6 +370,7 @@ theorem iUnion_cellSet (H : HexData) :
       exact Or.inl (Or.inl (H.pos_mem_outerArcs i))
     | edge i => exact fun z hz => Or.inl (Or.inl (H.cellSet_edge_subset_outerArcs i hz))
     | chord => exact fun z hz => Or.inl (Or.inr (H.cellSet_chord_subset hz))
+    | aux n => exact Set.empty_subset _
     | face k =>
       cases k
       exacts [fun z hz => Or.inr (Or.inl hz), fun z hz => Or.inr (Or.inr hz)]
@@ -453,17 +507,20 @@ theorem isCellDecomposition (H : HexData)
     fun i l => (hfaceOuter l).symm.mono_left (H.cellSet_edge_subset_outerArcs i)
   refine ⟨?_, ?_, ?_, ?_⟩
   · -- every open cell is nonempty
-    rintro c -
+    rintro c hc
     cases c with
+    | aux n => exact absurd hc (aux_notMem_cells n)
     | vert i => exact ⟨H.pos i, rfl⟩
     | edge i => exact H.nonempty_cellSet_edge i
     | chord => exact H.nonempty_cellSet_chord
     | face k => exact hfaceNe k
   · -- distinct open cells are disjoint
-    rintro c d - - hcd
+    rintro c d hc hd hcd
     cases c with
+    | aux n => exact absurd hc (aux_notMem_cells n)
     | vert k =>
       cases d with
+      | aux n => exact absurd hd (aux_notMem_cells n)
       | vert m =>
         rw [Set.disjoint_left]
         rintro z rfl h
@@ -473,18 +530,21 @@ theorem isCellDecomposition (H : HexData)
       | face l => exact hvertFace k l
     | edge i =>
       cases d with
+      | aux n => exact absurd hd (aux_notMem_cells n)
       | vert m => exact (hvertEdge m i).symm
       | edge j => exact H.disjoint_cellSet_edge fun h => hcd (congrArg InitialCell.edge h)
       | chord => exact H.disjoint_cellSet_edge_chord i
       | face l => exact hedgeFace i l
     | chord =>
       cases d with
+      | aux n => exact absurd hd (aux_notMem_cells n)
       | vert m => exact (hvertChord m).symm
       | edge j => exact (H.disjoint_cellSet_edge_chord j).symm
       | chord => exact absurd rfl hcd
       | face l => exact (hfaceChord l).symm
     | face k =>
       cases d with
+      | aux n => exact absurd hd (aux_notMem_cells n)
       | vert m => exact (hvertFace m k).symm
       | edge j => exact (hedgeFace j k).symm
       | chord => exact hfaceChord k
@@ -494,8 +554,14 @@ theorem isCellDecomposition (H : HexData)
   · -- the open cells cover `C ∪ D`
     have hall : (⋃ c ∈ initialStructure.cells, H.realization.cell c)
         = ⋃ c : InitialCell, H.cellSet c := by
-      rw [initialStructure_cells, Set.biUnion_univ]
-      rfl
+      refine Subset.antisymm (Set.iUnion₂_subset fun c _ => Set.subset_iUnion _ c)
+        (Set.iUnion_subset fun c => ?_)
+      match c with
+      | .vert i => exact Set.subset_biUnion_of_mem (mem_cells_initialStructure_of_vert i)
+      | .edge i => exact Set.subset_biUnion_of_mem (mem_cells_initialStructure_of_edge i)
+      | .chord => exact Set.subset_biUnion_of_mem mem_cells_initialStructure_of_chord
+      | .face k => exact Set.subset_biUnion_of_mem (mem_cells_initialStructure_of_face k)
+      | .aux n => exact Set.empty_subset _
     rw [hall, H.iUnion_cellSet]
     refine Subset.antisymm (Set.union_subset (Set.union_subset Set.subset_union_left ?_) ?_) ?_
     · intro z hz
@@ -512,13 +578,14 @@ theorem isCellDecomposition (H : HexData)
         exacts [Or.inr (Or.inl hz), Or.inr (Or.inr hz),
           Or.inl (Or.inr (H.cellSet_chord_subset hz))]
   · -- every closed cell is the union of its open subcells
-    rintro τ -
+    rintro τ hτ
     have hidx : {c | c ∈ initialStructure.cells ∧ initialStructure.sub c τ}
         = {c | initSub c τ} := by
       ext c
-      exact and_iff_right (mem_cells_initialStructure c)
+      exact ⟨fun h => h.2, fun h => ⟨combInvariants_initialStructure.sub_mem_left h, h⟩⟩
     rw [hidx]
     cases τ with
+    | aux n => exact absurd hτ (aux_notMem_cells n)
     | vert i =>
       have hset : {c | initSub c (.vert i)} = ({InitialCell.vert i} : Set InitialCell) := by
         ext c; exact initSub_iff_vert
@@ -752,36 +819,33 @@ noncomputable def AnchoredInitialData.generatedPair {C : Set Plane} {A : AnchorS
     GeneratedPair initialStructure C (C ∪ inside C) modelCurve (Plane.closedSquare 0 1) :=
   D.toInitialData.generatedPair
 
-/-! ### `InitialCell` is finite, and `thm:finite-transfer` is not applicable to stage 0
+/-! ### The base case meets the recursion
 
 `Schoenflies.finite_transfer_toward_square` and `Schoenflies.EarStep` carry `[Infinite γ]`, and
-`FiniteTransfer.lean` argues at length that without it `EarStep` is *false*: an ear insertion
-consumes fresh cell names. The cell type of the initial structure is `InitialCell`, which has
-fifteen elements. So the pair built above cannot be handed to `thm:finite-transfer` as it stands.
+`FiniteTransfer.lean` argues that without it `EarStep` is *false*: an ear insertion consumes
+fresh cell names for the ear's interior vertices, its edges and the two 2-cells the split
+creates, so a naming type that the current stage has exhausted refutes it.
 
-That is recorded here as a theorem rather than as a remark, because it is the one place where the
-base case and the recursion do not yet meet: what is missing on `main` is a relabelling of a
-`CellStructure` (and of its realizations) along an injection `InitialCell ↪ γ` into an infinite
-naming type. `Graph.map` and the transport lemmas of `Schoenflies/CombinatorialInvariance.lean`
-(`connected_map_iff`, `isTwoConnected_map_iff`) are the ingredients; the `CellStructure`-level
-relabelling itself does not exist. -/
+The initial structure names fifteen cells. `InitialCell` therefore carries a fifth constructor,
+`InitialCell.aux : ℕ → InitialCell`, which is the spare supply and nothing else: no `aux` name is
+a cell, every `aux` name has empty open cell, and `initSub` relates none of them — the reflexive
+clause of `≼_abs` is restricted to `Schoenflies.cellNames` precisely so that
+`CombInvariants.sub_mem_left` and `.sub_mem_right`, which say that `≼_abs` relates cells to
+cells, stay true.
 
-private def initialCellIdx : InitialCell → Fin 6 ⊕ Fin 6 ⊕ Unit ⊕ Bool
-  | .vert i => Sum.inl i
-  | .edge i => Sum.inr (Sum.inl i)
-  | .chord => Sum.inr (Sum.inr (Sum.inl ()))
-  | .face k => Sum.inr (Sum.inr (Sum.inr k))
+The alternative was a relabelling of a `CellStructure` and both of its realizations along an
+injection `InitialCell ↪ γ` into an infinite naming type. That is several hundred lines and buys
+nothing the spare constructor does not, since the base of `GeneratedStructure` is a parameter and
+stage 0 uses only the `base` constructor — no inductive derivation has to be transported. -/
 
-private theorem initialCellIdx_injective : Function.Injective initialCellIdx := by
-  rintro (i | i | - | k) (j | j | - | l) h <;> simp [initialCellIdx] at h <;> simp [h]
+instance : Infinite InitialCell :=
+  Infinite.of_injective InitialCell.aux fun _ _ h => by injection h
 
-instance : Finite InitialCell := Finite.of_injective _ initialCellIdx_injective
-
-/-- **The naming type of the initial structure is finite.** Hence `[Infinite InitialCell]` is
-unsatisfiable and `Schoenflies.finite_transfer_toward_square` does not apply to
-`InitialData.generatedPair` over its own cell type. -/
-theorem not_infinite_initialCell : ¬ Infinite InitialCell :=
-  Finite.not_infinite inferInstance
+/-- **The naming type of the initial structure is infinite**, so the base case really can be fed
+to `thm:finite-transfer`, whose `[Infinite γ]` is not decoration: an ear insertion consumes fresh
+cell names, and on a finite naming type `Schoenflies.EarStep` is false. The supply is
+`InitialCell.aux`, and no `aux` name is a cell of `initialStructure`. -/
+theorem infinite_initialCell : Infinite InitialCell := inferInstance
 
 /-! ### The interface, exercised
 

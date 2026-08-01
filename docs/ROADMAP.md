@@ -95,6 +95,25 @@ one field of `CellStructure` on which no axiom is imposed. The route is therefor
 
 So `SubstWalk` was built for precisely this, and this is the first consumer that needs it.
 
+**The design point, worked out but not yet written in Lean.** `SubstWalk` is a *relation*, not a
+function of the list — which of `[newEdge₁, newEdge₂]` and `[newEdge₂, newEdge₁]` is correct is
+determined by the walk, and the list alone does not record it. So the corrected boundary update
+cannot simply replace `subdivideEdge`'s current
+
+```
+boundary F := (S.boundary F).flatMap fun f => if f = d.edge then [e₁, e₂] else [f]
+```
+
+by another closed-form expression. The corrected walks have to *arrive as data*: either
+`SubdivData` gains a field `newBoundary : γ → List γ` together with the property that it is a
+`SubstWalk`-image of `S.boundary`, or `subdivideEdge` takes that function as an extra argument.
+The first is the better fit — `SubdivData` is already the bundle of everything one subdivision
+chooses, `exists_substWalk` shows the data always exists, and it keeps `subdivideEdge` a
+function of its data alone. Either way it is a change to `GeneratedStructure.lean` that ripples
+into `CellulationInvariants.lean`, so it is worth doing before anything else is built on the
+current update. Nothing yet constructs a `SubdivData`, so it is still cheap — the same window
+that made the `SplitData.paths_meet` repair cheap, and it will close.
+
 That is the next thing to build, and everything downstream is assembly on top of it:
 
 1. face boundary cycles, hence `EarStep`; `CommonSubdivision` alongside it;

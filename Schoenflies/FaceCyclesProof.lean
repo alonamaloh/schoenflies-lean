@@ -30,10 +30,27 @@ curve is a corner of it. In the induction below the two cut points are the ear's
 graph vertices at which the two cycle edges may leave along opposite rays, so that the boundary
 curve runs *straight* through the cut point. Such a point is a vertex of no `ClosedPolygon`
 with that carrier, and `Schoenflies.exists_closedPolygon_split` (whose `IsCornerAt` hypotheses
-are therefore not an artefact) cannot be applied. Closing the gap means restating Theorem 2.8
-for an edge-list split made at arbitrary points of the curve, which needs the parity theory of
-`Schoenflies/Parity.lean` for presentations carrying redundant vertices —
-`Schoenflies.PrePolygon` — and not only for `ClosedPolygon`. That is a separate module.
+are therefore not an artefact) cannot be applied.
+
+There is a **second, independent** reason, and it bites even when both cut points *are*
+corners. `IsPolygonalCrosscut.edges₁` asks for `SameEdges J₁.pieces (C.arcPieces a k ++ K)`,
+a multiset equality of unoriented segments. The list on the right has two pieces ending at the
+cut point `q` — the arc's last and the crosscut's first. If those two are collinear, the curve
+`J₁ = A₁ ∪ P` runs straight through `q`, so `q` is a vertex of no `ClosedPolygon` with that
+carrier and *no* piece of `J₁.pieces` ends there: the multiset equality is unsatisfiable. Since
+the crosscut may perfectly well leave a cut vertex along the ray opposite the arriving arc edge,
+`edges₁` and `edges₂` are not dischargeable as stated. Deleting the redundant vertex —
+`Schoenflies.PrePolygon.deleteLast` — repairs the *realization* and breaks `SameEdges` in the
+same move.
+
+Closing the gap therefore means restating Theorem 2.8 with the edge lists related by *parity*
+rather than by `SameEdges`, for a split made at arbitrary points of the curve. The tools exist:
+`Schoenflies.parity_split` is already stated for arbitrary lists, and
+`Schoenflies.parity_subdivide` (Lemma 2.1) absorbs the difference between a merged piece and its
+two halves. What is missing is the parity theory of presentations carrying redundant vertices —
+`Schoenflies.parity_eq_one_iff` for `Schoenflies.PrePolygon` rather than only for
+`ClosedPolygon`, obtained by carrying the parity along the normalization induction of
+`Schoenflies.PrePolygon.exists_closedPolygon_of_prePolygon`. That is a separate module.
 
 ## What is proved unconditionally
 
@@ -648,6 +665,15 @@ theorem frontier_eq (h : IsFaceCycle G drawing z e u v D) :
 theorem eq_inside_or_outside (h : IsFaceCycle G drawing z e u v D) :
     face G drawing z = inside (edgesCover drawing (e :: D)) ∨
       face G drawing z = outside (edgesCover drawing (e :: D)) := h.isRegionOf
+
+/-- **"In particular, every bounded face is the interior of its boundary cycle."** The other
+region of a separating curve is the unbounded one. -/
+theorem eq_inside_of_isBounded (h : IsFaceCycle G drawing z e u v D)
+    (hbdd : Bornology.IsBounded (face G drawing z)) :
+    face G drawing z = inside (edgesCover drawing (e :: D)) := by
+  rcases h.isRegionOf with hin | hout
+  · exact hin
+  · exact absurd (hout ▸ hbdd) h.isSeparating.not_isBounded_outside
 
 /-- A face bounded by a cycle of a subgraph is bounded by the same cycle of the whole graph,
 *provided the face itself is unchanged* — which is the shape the induction step needs when it

@@ -68,3 +68,6 @@ import Schoenflies.SquareMesh
 import Schoenflies.ArcComplementPrep
 import Schoenflies.JordanSeparates
 import Schoenflies.OuterChain
+import Schoenflies.CrosscutExists
+import Schoenflies.CrosscutEncloses
+import Schoenflies.OuterChainClosed

@@ -70,6 +70,11 @@ corresponding target side, whose trace on `S` is `u(A₁)` — and `r ∉ A₁`.
 * `Schoenflies.IsCutPair.separates`, `Schoenflies.exists_separating_anchors` — the selection
   step of `prop:boundary-continuity`: two anchors putting two prescribed points of the curve on
   opposite arcs. Uses **`lem:anchor-density`** through the density hypothesis alone.
+* `Schoenflies.IsCrosscut.image_of_injOn`, `Schoenflies.image_sdiff_eq_of_eqOn` — the two
+  steps a consumer performs to discharge `Schoenflies.HasAnchorCrosscuts` from a finite skeleton
+  homeomorphism. No blueprint statement of their own; they are the second paragraph of the
+  proof of **`lem:skeleton-crosscuts`**, "the finite skeleton homeomorphism sends `P` to a
+  simple path `P'`".
 * `Schoenflies.crosscut_side_correspondence` — **`lem:crosscut-side-correspondence`**.
 * `Schoenflies.extendByBoundary`, `Schoenflies.tendsto_nhdsWithin_inside`,
   `Schoenflies.boundary_continuity` — **`prop:boundary-continuity`**.
@@ -285,6 +290,36 @@ homeomorphism sends `c` to `u c`. Nothing else about the spokes is used anywhere
 def HasSpokes (C 𝒜 : Set Plane) (u F : Plane → Plane) : Prop :=
   ∀ c ∈ 𝒜, ∀ ε > 0, ∃ J : Set Plane, J ⊆ inside C ∧ IsPreconnected J ∧ J ⊆ ball c ε ∧
     c ∈ closure J ∧ u c ∈ closure (F '' J)
+
+/-! ### Discharging `HasAnchorCrosscuts` from a skeleton homeomorphism
+
+The two steps a consumer has to perform, isolated so that they need not be reinvented: the
+image of a crosscut under the finite skeleton homeomorphism is again a crosscut, and the
+agreement clause follows from agreement of the limit map with that homeomorphism on the
+crosscut. Neither says anything about the square, so both apply to the source and the target
+side of any of the stages. -/
+
+/-- **The image of a crosscut is a crosscut.** All that is asked of the map is continuity and
+injectivity on a set containing the crosscut, plus the two clauses that are genuinely about the
+target configuration: the image is polygonal, and everything but its two endpoints lies in the
+target Jordan domain. -/
+theorem IsCrosscut.image_of_injOn {C' Sk : Set Plane} {g : Plane → Plane}
+    (hP : IsCrosscut C P a b) (hPSk : P ⊆ Sk) (hcont : ContinuousOn g Sk) (hinj : InjOn g Sk)
+    (hC' : IsJordanCurve C') (hpoly : IsPolygonal (g '' P)) (ha : g a ∈ C') (hb : g b ∈ C')
+    (hint : g '' (P \ {a, b}) ⊆ inside C') : IsCrosscut C' (g '' P) (g a) (g b) := by
+  refine ⟨hC', hP.arc.image_of_injOn hPSk hcont hinj, hpoly, ha, hb, ?_⟩
+  rintro z ⟨⟨w, hwP, rfl⟩, hz⟩
+  refine hint ⟨w, ⟨hwP, ?_⟩, rfl⟩
+  rintro (rfl | rfl)
+  · exact hz (Or.inl rfl)
+  · exact hz (Or.inr rfl)
+
+/-- **The agreement clause of `Schoenflies.HasAnchorCrosscuts`**, from agreement of the limit
+map with the skeleton homeomorphism on the part of the crosscut that lies in the domain. -/
+theorem image_sdiff_eq_of_eqOn {Sk : Set Plane} {g : Plane → Plane} (hPSk : P ⊆ Sk)
+    (hinj : InjOn g Sk) (ha : a ∈ P) (hb : b ∈ P) (hFg : EqOn F g (P \ {a, b})) :
+    F '' (P \ {a, b}) = g '' P \ {g a, g b} := by
+  rw [hFg.image_eq, (hinj.mono hPSk).image_sdiff_subset (pair_subset ha hb), image_pair]
 
 /-! ### `lem:crosscut-side-correspondence` -/
 

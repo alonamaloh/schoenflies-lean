@@ -62,8 +62,12 @@ survives verbatim is what the construction uses downstream — the occupied set,
   from `v*` to `w*`, which by `thm:general-crosscut` splits `F*` into exactly the two Jordan
   regions bounded by `P*` and the two boundary paths. That whole paragraph is closed,
   unconditionally.
-* **The last paragraph of the proof** — `Schoenflies.IsTransferOf.tgt_isAdmissible_of_src` and
-  `Schoenflies.isAdmissible_of_isWeaklyAdmissible`. Admissibility of the *final* object is
+* **The second sentence of step 2** — `Schoenflies.CellStructure.Realization`
+  `.exists_unique_face_subset_cell`: the interior of an ear lies in one current face, because it
+  is connected and disjoint from the current skeleton. On one named hypothesis,
+  `Schoenflies.CellsAbsorb`.
+* **The last paragraph of the proof** — `Schoenflies.GeneratedPair.src_isAdmissible` and
+  `Schoenflies.GeneratedPair.tgt_isAdmissible`. Admissibility of the *final* object is
   recovered from `lem:combinatorial-invariance`: the reproduced realization has the same
   2-connectivity and the same connectedness of the open nonboundary part as the given one.
   Unconditional.
@@ -104,9 +108,12 @@ survives verbatim is what the construction uses downstream — the occupied set,
   the fourth paragraph of the proof of `thm:finite-transfer`, direction (a):
   `lem:cellulation-invariants`(vii) + `lem:polygonal-side-accessibility` +
   `lem:accessible-endpoints` + `thm:general-crosscut`.
-* `Schoenflies.isAdmissible_of_isWeaklyAdmissible`,
-  `Schoenflies.IsTransferOf.tgt_isAdmissible_of_src` — the last paragraph of the proof, via
-  `lem:combinatorial-invariance`.
+* `Schoenflies.CellStructure.Realization.exists_unique_face_subset_cell` — "the interior of each
+  ear lies in one current face", with
+  `Schoenflies.CellStructure.Realization.cell_subset_skeletonSet` and
+  `Schoenflies.CellStructure.Realization.mem_faces_of_notMem_skeletonSet`.
+* `Schoenflies.GeneratedPair.src_isAdmissible`, `Schoenflies.GeneratedPair.tgt_isAdmissible` —
+  the last paragraph of the proof, via `lem:combinatorial-invariance`.
 * `Schoenflies.EarStep`, `Schoenflies.CommonSubdivision` — the two named hypotheses.
 * `Schoenflies.transfer_of_ears`, `Schoenflies.finite_transfer_toward_square` —
   `thm:finite-transfer`(a).
@@ -158,6 +165,53 @@ structure IsAdmissible (R : S.Realization) (outer dom : Set Plane) : Prop
     extends R.IsWeaklyAdmissible outer dom where
   /-- The open nonboundary part `|Γ| ∖ C` is connected. -/
   isConnected_nonboundary : IsConnected R.nonboundary
+
+/-! #### Where an ear can lie
+
+*The interior of each ear lies in one current face, because it is connected and disjoint from the
+current skeleton.* That is the second sentence of step 2, and it is proved here for an arbitrary
+connected subset of the closed domain missing the skeleton.
+
+The only input beyond assertion (i) is `Schoenflies.CellsAbsorb` — assertion (i) in the
+"a connected set disjoint from the skeleton that meets a 2-cell lies in it" reading, which
+`Schoenflies/SkeletonAccess.lean` also carries as its single hypothesis and which
+`Schoenflies.cellsAbsorb_of_isComponent_in` discharges on the target side. -/
+
+variable {R : S.Realization} {D N : Set Plane} {σ : γ} {z : Plane}
+
+/-- An open 0-cell or 1-cell is part of the realized skeleton. -/
+theorem cell_subset_skeletonSet (R : S.Realization) (hσ : σ ∈ V(S.skel) ∪ E(S.skel)) :
+    R.cell σ ⊆ R.skeletonSet := by
+  rcases hσ with hv | he
+  · rw [R.cell_vertex hv]
+    exact Set.singleton_subset_iff.2 (Graph.vertexSet_subset_pointSet
+      (by rw [Realization.vertexSet_graph]; exact ⟨σ, hv, rfl⟩))
+  · obtain ⟨a, b, hl⟩ := Graph.exists_isLink_of_mem_edgeSet he
+    rw [R.cell_edge hl]
+    exact Set.sdiff_subset.trans (Graph.edgeArc_subset_pointSet
+      (by rw [Realization.edgeSet_graph]; exact he))
+
+/-- A cell whose open part contains a point off the skeleton is a 2-cell. -/
+theorem mem_faces_of_notMem_skeletonSet (R : S.Realization) (hσ : σ ∈ S.cells)
+    (hz : z ∈ R.cell σ) (hznot : z ∉ R.skeletonSet) : σ ∈ S.faces := by
+  rcases hσ with hσ | hσ
+  · exact absurd (R.cell_subset_skeletonSet hσ hz) hznot
+  · exact hσ
+
+/-- **An ear lies in a single current face.** A nonempty connected subset of the closed domain
+disjoint from the realized skeleton lies inside one open 2-cell, and inside only that one. -/
+theorem exists_unique_face_subset_cell (h : R.IsCellDecomposition D)
+    (hcells : CellsAbsorb R.skeletonSet {A | ∃ F ∈ S.faces, A = R.cell F})
+    (hN : IsPreconnected N) (hNne : N.Nonempty) (hND : N ⊆ D)
+    (hNdisj : Disjoint N R.skeletonSet) :
+    ∃ F ∈ S.faces, N ⊆ R.cell F ∧ ∀ T ∈ S.faces, N ⊆ R.cell T → T = F := by
+  obtain ⟨z, hz⟩ := hNne
+  obtain ⟨F, hFc, hzF⟩ := h.exists_cell (hND hz)
+  have hznot : z ∉ R.skeletonSet := Set.disjoint_left.1 hNdisj hz
+  have hFf : F ∈ S.faces := R.mem_faces_of_notMem_skeletonSet hFc hzF hznot
+  refine ⟨F, hFf, hcells N hN hNdisj (R.cell F) ⟨F, hFf, rfl⟩ ⟨z, hz, hzF⟩, fun T hT hNT => ?_⟩
+  by_contra hne
+  exact Set.disjoint_left.1 (h.disjoint (S.mem_cells_of_mem_faces hT) hFc hne) (hNT hz) hzF
 
 end Realization
 

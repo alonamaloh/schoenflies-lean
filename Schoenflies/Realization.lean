@@ -64,9 +64,9 @@ pieces. That list satisfies `vertex_inj` and `edges_meet` but not `corner`, whic
   splitting, as arcs between the two cut vertices meeting exactly there.
 * `Schoenflies.two_arcs_unique` — two points cut a Jordan curve into two arcs in only one way.
 * `Schoenflies.exists_closedPolygon_corners`, `Schoenflies.exists_closedPolygon_split`,
-  `Schoenflies.exists_closedPolygon_arcs` — the realization with named corners, with the
-  splitting indices, and with the two arcs identified. The last is the shape
-  `Graph.IsHexRealization` asks for.
+  `Schoenflies.exists_closedPolygon_arcs`, `Schoenflies.exists_closedPolygon_arcs_ordered` — the
+  realization with named corners, with the splitting indices, and with the two arcs identified.
+  The last is the shape `Graph.IsHexRealization` asks for.
 
 ## The corner hypothesis is not an artefact
 
@@ -755,13 +755,13 @@ variable (hT : ∀ s ∈ T, s ∈ Ico (0 : ℝ) 1) (h0 : (0 : ℝ) ∈ T)
 include hcard hT h0
 
 omit hT in
-theorem card_pos : 0 < n := by
+theorem par_card_pos : 0 < n := by
   rw [← hcard]
   exact Finset.card_pos.2 ⟨0, h0⟩
 
 /-- The first parameter is `0`: the loop is at a vertex when it starts. -/
-theorem par_zero : par T hcard ⟨0, card_pos hcard h0⟩ = 0 := by
-  rw [par, Finset.orderEmbOfFin_zero hcard (card_pos hcard h0)]
+theorem par_zero : par T hcard ⟨0, par_card_pos hcard h0⟩ = 0 := by
+  rw [par, Finset.orderEmbOfFin_zero hcard (par_card_pos hcard h0)]
   exact le_antisymm (Finset.min'_le _ _ h0)
     (Finset.le_min' _ _ _ fun s hs => (hT s hs).1)
 
@@ -825,7 +825,7 @@ largest parameter below `s`. -/
 theorem exists_mem_gap {s : ℝ} (hs : s ∈ Ico (0 : ℝ) 1) (hsT : s ∉ T) :
     ∃ i : Fin n, s ∈ Ioo (par T hcard i) (parNext T hcard i) := by
   classical
-  have hn : 0 < n := card_pos hcard h0
+  have hn : 0 < n := par_card_pos hcard h0
   -- The gap containing `s` starts at the largest parameter below it.
   obtain ⟨i₀, hi₀le, hi₀max⟩ : ∃ i₀ : Fin n, par T hcard i₀ ≤ s ∧
       ∀ j : Fin n, par T hcard j ≤ s → j ≤ i₀ := by
@@ -1077,7 +1077,7 @@ theorem exists_prePolygon_of_isJordanCurve {C : Set Plane} (hJ : IsJordanCurve C
     · rw [h1, h2]; exact he
     · rw [h1, h2]; exact he.symm
   -- There are at least three parameters.
-  have hn0 : 0 < n := card_pos hcard h0TF
+  have hn0 : 0 < n := par_card_pos hcard h0TF
   have htp0 : tp ⟨0, hn0⟩ = 0 := par_zero hcard hTle h0TF
   have hn2 : 2 ≤ n := by
     rcases Nat.lt_or_ge n 2 with hlt2 | hge
@@ -1586,5 +1586,29 @@ theorem exists_closedPolygon_arcs {C A₁ A₂ : Set Plane} (hJ : IsJordanCurve 
   rcases two_arcs_unique hunion hinter hDunion hDinter hA1 hA2 hD1 hD2 with ⟨e1, e2⟩ | ⟨e1, e2⟩
   · exact Or.inl ⟨e1.symm, e2.symm⟩
   · exact Or.inr ⟨e2.symm, e1.symm⟩
+
+/-- **The realization theorem, with the two arcs in the order they were given.** The same as
+`Schoenflies.exists_closedPolygon_arcs` with the disjunction moved off the arcs and onto the two
+cut vertices: reading the polygon from the other cut point exchanges the two arcs, so exactly
+one of the two starting vertices makes `P.arc a k` the *first* arc. This is the shape
+`Graph.IsHexRealization` asks for. -/
+theorem exists_closedPolygon_arcs_ordered {C A₁ A₂ : Set Plane} (hJ : IsJordanCurve C)
+    (hP : IsPolygonal C) {p q : Plane} (hp : IsCornerAt C p) (hq : IsCornerAt C q) (hpq : p ≠ q)
+    (hA1 : IsArcBetween A₁ p q) (hA2 : IsArcBetween A₂ p q) (hunion : A₁ ∪ A₂ = C)
+    (hinter : A₁ ∩ A₂ = {p, q}) :
+    ∃ (m : ℕ) (P : ClosedPolygon m) (a : ZMod (m + 3)) (k : ℕ), P.carrier = C ∧
+      1 ≤ k ∧ k ≤ m + 2 ∧
+      P.arc a k = A₁ ∧ P.arc (a + (k : ZMod (m + 3))) (m + 3 - k) = A₂ ∧
+      ((P.vertex a = p ∧ P.vertex (a + (k : ZMod (m + 3))) = q) ∨
+        (P.vertex a = q ∧ P.vertex (a + (k : ZMod (m + 3))) = p)) := by
+  obtain ⟨m, P, a, k, hcar, hk1, hk2, hpa, hqa, hcase⟩ :=
+    exists_closedPolygon_arcs hJ hP hp hq hpq hA1 hA2 hunion hinter
+  rcases hcase with ⟨e1, e2⟩ | ⟨e1, e2⟩
+  · exact ⟨m, P, a, k, hcar, hk1, hk2, e1, e2, Or.inl ⟨hpa, hqa⟩⟩
+  · refine ⟨m, P, a + (k : ZMod (m + 3)), m + 3 - k, hcar, by omega, by omega, e2, ?_, ?_⟩
+    · rw [zmod_add_sub_cancel (by omega) a, show m + 3 - (m + 3 - k) = k by omega]
+      exact e1
+    · rw [zmod_add_sub_cancel (by omega) a]
+      exact Or.inr ⟨hqa, hpa⟩
 
 end Schoenflies

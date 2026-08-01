@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Álvaro Begué
 -/
 import Schoenflies.RefinementStars
+import Schoenflies.OverlayGraph
 import Schoenflies.SkeletonAccess
 import Schoenflies.Graph.RelativeEar
 import Schoenflies.Graph.CycleJordan
@@ -54,6 +55,11 @@ survives verbatim is what the construction uses downstream — the occupied set,
 
 ## What is proved here
 
+* **Step 1, the overlay** — `Schoenflies.exists_overlay_of_biUnion_finite`: the union of
+  finitely many nondegenerate polygonal sets is the point set of a finite plane graph drawn by
+  straight segments. That is `lem:polygonal-overlay` in the form step 1 needs, bridging
+  `Schoenflies.polygonal_overlay`, which is stated for a list of segments, to the finite family
+  of polygonal *arcs* a skeleton stage arrives as. Unconditional.
 * **Step 4, target side** — `Schoenflies.exists_target_crosscut` and
   `Schoenflies.exists_target_crosscut_split`. In direction (a) the target face `F*` is a
   polygonal Jordan region in the square by `lem:cellulation-invariants`(vii); every point of its
@@ -80,12 +86,12 @@ survives verbatim is what the construction uses downstream — the occupied set,
 
 ## What is **not** proved here, and is named rather than `sorry`-ed
 
-* **Step 1**, the common subdivision. `lem:polygonal-overlay` is on `main`
-  (`Schoenflies.polygonal_overlay`) but only as a statement about a *list of segments*; turning
-  it into "the old skeleton is literally a subgraph of the new one on both sides" needs the
-  transfer of each new subdivision point through the chosen edge parametrization, and the
-  parametrization-level API for that (an inverse for `drawing e` on `[0,1]`, and the induced
-  point on the other side) does not exist. The hypothesis
+* **The second half of step 1**, the common subdivision. The overlay itself is proved
+  (`Schoenflies.exists_overlay_of_biUnion_finite`, below); what is missing is that the *old
+  skeleton* is literally a subgraph of the overlay **on both sides**, which needs each new
+  subdivision point carried through the chosen edge parametrization to the other realization,
+  and the parametrization-level API for that (an inverse for `drawing e` on `[0,1]`, and the
+  induced point on the other side) does not exist on `main`. The hypothesis
   `Schoenflies.CommonSubdivision` is the interface: it says that the extension can be
   presented over a subdivided pair, and it is a strictly weaker statement than the theorem.
 * **Step 3's single ear**, `Schoenflies.EarStep`: one ear insertion produces a
@@ -119,6 +125,9 @@ survives verbatim is what the construction uses downstream — the occupied set,
   the other realization", and the whole fourth paragraph assembled from the source-side data.
 * `Schoenflies.GeneratedPair.src_isAdmissible`, `Schoenflies.GeneratedPair.tgt_isAdmissible` —
   the last paragraph of the proof, via `lem:combinatorial-invariance`.
+* `Schoenflies.exists_overlay_of_biUnion_finite` — `lem:polygonal-overlay` and
+  `rem:polygonal-overlay-convention`, for a finite family of polygonal sets: the first half of
+  step 1.
 * `Schoenflies.EarStep`, `Schoenflies.CommonSubdivision` — the two named hypotheses.
 * `Schoenflies.transfer_of_ears`, `Schoenflies.finite_transfer_toward_square` —
   `thm:finite-transfer`(a).
@@ -674,6 +683,66 @@ theorem exists_target_ear (h₁ : R₁.IsCellDecomposition D₁) (h₂ : R₂.Is
     (CellStructure.Realization.pos_mem_closure_cell_congr h₁ h₂ hb hF hbcl) hcut
 
 end EndpointTransfer
+
+/-! ### Step 1: the overlay
+
+*By `lem:polygonal-overlay`, using the convention of `rem:polygonal-overlay-convention`, first
+overlay the proposed polygonal nonboundary edges with the old polygonal nonboundary skeleton and
+subdivide at all intersections.*
+
+`Schoenflies.polygonal_overlay` does that for a **list of segments**. What step 1 has instead is
+a finite family of polygonal *arcs* — the old nonboundary edges and the proposed new ones — so
+the two have to be bridged. `Schoenflies.exists_overlay_of_biUnion_finite` is that bridge, and it
+is the half of step 1 that is proved here: the union of finitely many nondegenerate polygonal
+sets is the point set of a finite plane graph drawn by straight segments, whose vertices are the
+ends of the subdivided pieces and therefore include every intersection point.
+
+The nondegeneracy hypothesis is necessary, not cosmetic: a one-point set is polygonal
+(`poly [a] = {a}`) and is not the point set of any overlay graph, whose vertices are the ends of
+nondegenerate segments.
+
+What remains of step 1 — that the *old skeleton* is literally a subgraph of the overlay on both
+sides, which needs each new subdivision point carried through the chosen edge parametrization to
+the other realization — is `Schoenflies.CommonSubdivision`, assumed. -/
+
+/-- **`lem:polygonal-overlay` for a finite family of polygonal sets.** The union of finitely many
+nondegenerate polygonal sets is the point set of a finite plane graph whose edges are straight
+segments — the overlay, subdivided at every intersection.
+
+This is the first half of step 1 of the proof of `thm:finite-transfer`. -/
+theorem exists_overlay_of_biUnion_finite {ι : Type*} {s : Set ι} {A : ι → Set Plane}
+    (hs : s.Finite) (hA : ∀ i ∈ s, IsPolygonal (A i))
+    (hnd : ∀ i ∈ s, ∃ a ∈ A i, ∃ b ∈ A i, a ≠ b) :
+    ∃ G : Graph Plane Piece, Graph.Finite G ∧ IsDrawing G segmentDrawing ∧
+      pointSet G segmentDrawing = ⋃ i ∈ s, A i := by
+  classical
+  -- A vertex list for each member of the family, chosen once and for all.
+  have hex : ∀ i : ι, ∃ ws : List Plane, i ∈ s → A i = poly ws := by
+    intro i
+    by_cases hi : i ∈ s
+    · obtain ⟨ws, hws⟩ := hA i hi
+      exact ⟨ws, fun _ => hws⟩
+    · exact ⟨[], fun h => absurd h hi⟩
+  choose vsf hvsf using hex
+  -- Enumerate the index set; the enumeration only feeds the list-indexed overlay.
+  set l : List ι := hs.toFinset.toList with hl
+  have hlmem : ∀ i, i ∈ l ↔ i ∈ s := by
+    intro i; rw [hl, Finset.mem_toList, hs.mem_toFinset]
+  -- A nondegenerate polygonal set is exactly what its own segments occupy.
+  have hAcov : ∀ i ∈ s, cover (segsOf (vsf i)) = A i := by
+    intro i hi
+    obtain ⟨a, ha, b, hb, hab⟩ := hnd i hi
+    rw [hvsf i hi] at ha hb ⊢
+    exact cover_segsOf_eq ha hb hab
+  have hcov : cover (l.flatMap fun i => segsOf (vsf i)) = ⋃ i ∈ s, A i := by
+    rw [cover_flatMap_list]
+    exact Set.iUnion_congr fun i => Set.iUnion_congr_Prop (hlmem i) fun hi => hAcov i hi
+  have hnd' : ∀ P ∈ l.flatMap fun i => segsOf (vsf i), P.Nondeg := by
+    intro P hP
+    obtain ⟨i, -, hPi⟩ := List.mem_flatMap.1 hP
+    exact segsOf_nondeg _ P hPi
+  obtain ⟨G, hfin, hdraw, hpt⟩ := polygonal_overlay _ hnd'
+  exact ⟨G, hfin, hdraw, by rw [hpt, hcov]⟩
 
 /-! ### The interface, exercised
 

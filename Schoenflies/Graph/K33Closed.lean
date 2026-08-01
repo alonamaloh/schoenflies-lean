@@ -28,28 +28,37 @@ together.
   together into one crosscut.
 * `Schoenflies.exists_closedPolygon_arcs_oriented` — the realization of a splitting with the
   first arc's *direction* fixed as well, so that two realizations of one arc can be compared.
+* `Graph.IsK33Config.isPolygonal_hexSet`, `…chord_inter_arcA`, `…chord_inter_arcB` — the three
+  curves the crosscut is built from, as polygonal Jordan curves.
 * `Graph.IsHexGeneric` — the general-position hypothesis that survives: at each of the two cut
   points, the six-cycle and both spliced curves turn.
-* `Graph.IsK33Config.isHexRealization` — `Graph.IsHexRealization`, discharged from it.
-* `Graph.IsK33Config.false_of_hexGeneric`, `…not_isDrawing_of_bendable`,
-  `Graph.IsArcK33.false_of_bendable`, `Graph.IsK33Subdivision.false_of_bendable` — `lem:k33` and
-  `cor:k33-subdivision` with `IsHexRealization` replaced by `IsHexGeneric`.
+* `Graph.IsK33Config.isHexRealization` — `Graph.IsHexRealization`, discharged from it. **This is
+  the theorem this module exists for.**
+* `Graph.Bendable`, `Graph.IsK33Config.false_of_hexGeneric`, `…not_isDrawing_of_bendable`,
+  `Graph.IsArcK33.false_of_bendable`, `Graph.IsK33Subdivision.false_of_bendable`,
+  `Graph.k33Graph_not_isDrawing` — `lem:k33` and `cor:k33-subdivision` with `IsHexRealization`
+  replaced by `IsHexGeneric`.
 
-## What is still assumed, and why
+## What is still assumed, and why — READ THIS BEFORE USING THE THEOREMS BELOW
+
+**Milestone H8 is not closed here.** `Graph.IsHexRealization` is gone, but a strictly smaller
+hypothesis has taken its place, and it is not discharged.
 
 `Schoenflies.ClosedPolygon` forbids a vertex at which the curve runs straight through, and
 `Schoenflies.ClosedPolygon.isCornerAt_vertex` says that this is not a defect of the proofs:
 *every* vertex of *every* realization is a corner of the curve. A crosscut whose ends are cut
 points of `C` therefore forces those ends to be corners — of `C`, and of both curves the
-crosscut forms with the two arcs. `Graph.IsHexGeneric` says exactly that and nothing else.
+crosscut forms with the two arcs. `Graph.IsHexGeneric` says exactly that and nothing more, and
+by the two corner theorems it cannot be weakened while the crosscut is presented as a
+`Schoenflies.IsPolygonalCrosscut`.
 
 For a drawn `K(3,3)` it is the statement that at each of the six vertices the three edges leave
 along three pairwise non-collinear germs. A polygonal drawing need not have that: two of the
-three edges at a vertex may leave along opposite rays. The remaining gap is therefore a
-*bending* lemma — every polygonal drawing can be redrawn so that no two edges at a vertex are
-collinear there — and it is genuinely about changing the drawing, not about presentations. The
-theorems below take it as a hypothesis in the shape
-`Graph.IsK33Config.not_isDrawing_of_bendable` states it.
+three edges at a vertex may leave along exactly opposite rays, which is perfectly compatible
+with the drawing condition. The remaining gap is therefore a *bending* lemma — every polygonal
+drawing can be redrawn so that no two edges at a vertex are collinear there — and it is
+genuinely about changing the drawing, not about presentations. `Graph.Bendable` is that
+statement in the shape the theorems below consume; nothing here proves it.
 -/
 
 open Metric Set unitInterval
@@ -217,12 +226,12 @@ theorem reverse_edge (P : ClosedPolygon m) (j : ZMod (m + 3)) :
 
 /-- The `t`-th edge of the reversed arc is the `k - 1 - t`-th of the original: the same edges,
 listed backwards. -/
-theorem reverse_natCast (P : ClosedPolygon m) {a : ZMod (m + 3)} {k t : ℕ} (ht : t < k) :
-    ((k - t - 1 : ℕ) : ZMod (m + 3)) + (t : ZMod (m + 3)) + 1 = (k : ZMod (m + 3)) := by
+theorem reverse_natCast {n k t : ℕ} (ht : t < k) :
+    ((k - t - 1 : ℕ) : ZMod n) + (t : ZMod n) + 1 = (k : ZMod n) := by
   have h : (k - t - 1) + t + 1 = k := by omega
-  have := congrArg (fun n : ℕ => (n : ZMod (m + 3))) h
-  push_cast at this
-  linear_combination this
+  have hc := congrArg (fun j : ℕ => (j : ZMod n)) h
+  push_cast at hc
+  linear_combination hc
 
 /-- **Reversing does not move an arc**, it only starts it at the other end. -/
 theorem reverse_arc (P : ClosedPolygon m) (a : ZMod (m + 3)) (k : ℕ) :
@@ -235,12 +244,12 @@ theorem reverse_arc (P : ClosedPolygon m) (a : ZMod (m + 3)) (k : ℕ) :
     refine ⟨k - t - 1, by omega, ?_⟩
     rw [show a + ((k - t - 1 : ℕ) : ZMod (m + 3))
         = -(-a - (k : ZMod (m + 3)) + (t : ZMod (m + 3))) - 1 by
-      linear_combination P.reverse_natCast (a := a) ht]
+      linear_combination reverse_natCast (n := m + 3) ht]
     exact hz
   · rintro ⟨t, ht, hz⟩
     refine ⟨k - t - 1, by omega, ?_⟩
     rw [reverse_edge, show -(-a - (k : ZMod (m + 3)) + ((k - t - 1 : ℕ) : ZMod (m + 3))) - 1
-        = a + (t : ZMod (m + 3)) by linear_combination -P.reverse_natCast (a := a) ht]
+        = a + (t : ZMod (m + 3)) by linear_combination -reverse_natCast (n := m + 3) ht]
     exact hz
 
 /-- **Reversing does not change the edge list either**, up to the order and the naming of each
@@ -255,11 +264,12 @@ theorem sameEdges_reverse_arcPieces (P : ClosedPolygon m) (a : ZMod (m + 3)) (k 
     have htk : t < k := List.mem_range.1 ht
     have he : (0 + k - 1 - t : ℕ) = k - t - 1 := by omega
     simp only [Function.comp_apply, he, reverse_vertex]
-    rw [show -(-a - (k : ZMod (m + 3)) + (t : ZMod (m + 3))) = a + ((k - t - 1 : ℕ) : ZMod (m + 3)) + 1 by
-        linear_combination -P.reverse_natCast (a := a) htk,
+    rw [show -(-a - (k : ZMod (m + 3)) + (t : ZMod (m + 3)))
+          = a + ((k - t - 1 : ℕ) : ZMod (m + 3)) + 1 by
+        linear_combination -reverse_natCast (n := m + 3) htk,
       show -(-a - (k : ZMod (m + 3)) + (t : ZMod (m + 3)) + 1)
         = a + ((k - t - 1 : ℕ) : ZMod (m + 3)) by
-        linear_combination -P.reverse_natCast (a := a) htk]
+        linear_combination -reverse_natCast (n := m + 3) htk]
     exact orientPiece_swap (_, _)
   rw [SameEdges, key]
   exact List.reverse_perm _
@@ -613,6 +623,50 @@ theorem arcPieces_eq {m m' : ℕ} (P : ClosedPolygon m) (Q : ClosedPolygon m') (
 
 end ClosedPolygon
 
+/-- **The realization of a splitting, with the first arc's direction fixed too.** The two arcs of
+`Schoenflies.exists_closedPolygon_arcs_ordered` come out in the order they were given, but the
+polygon may traverse them either way; reading it backwards when it does is what pins the first
+arc to start at `p`. Two realizations of one arc can then be compared with
+`Schoenflies.ClosedPolygon.arcPieces_eq`. -/
+theorem exists_closedPolygon_arcs_oriented {C A₁ A₂ : Set Plane} (hJ : IsJordanCurve C)
+    (hP : IsPolygonal C) {p q : Plane} (hp : IsCornerAt C p) (hq : IsCornerAt C q) (hpq : p ≠ q)
+    (hA1 : IsArcBetween A₁ p q) (hA2 : IsArcBetween A₂ p q) (hunion : A₁ ∪ A₂ = C)
+    (hinter : A₁ ∩ A₂ = {p, q}) :
+    ∃ (m : ℕ) (P : ClosedPolygon m) (a : ZMod (m + 3)) (k : ℕ), P.carrier = C ∧
+      1 ≤ k ∧ k ≤ m + 2 ∧ P.vertex a = p ∧ P.vertex (a + (k : ZMod (m + 3))) = q ∧
+      P.arc a k = A₁ ∧ P.arc (a + (k : ZMod (m + 3))) (m + 3 - k) = A₂ := by
+  obtain ⟨m, P, a, k, hcar, hpa, hqa, hk1, hk2⟩ :=
+    exists_closedPolygon_split hJ hP hp hq hpq
+  have hD1 : IsArcBetween (P.arc a k) p q := by
+    rw [← hpa, ← hqa]; exact P.isArcBetween_arc a hk1 hk2
+  have hD2 : IsArcBetween (P.arc (a + (k : ZMod (m + 3))) (m + 3 - k)) p q := by
+    have h := P.isArcBetween_arc (a + (k : ZMod (m + 3))) (k := m + 3 - k) (by omega) (by omega)
+    rw [zmod_add_sub_cancel (by omega) a] at h
+    rw [← hpa, ← hqa]
+    exact h.reverse
+  have hDunion : P.arc a k ∪ P.arc (a + (k : ZMod (m + 3))) (m + 3 - k) = C := by
+    rw [P.arc_union a (by omega), hcar]
+  have hDinter : P.arc a k ∩ P.arc (a + (k : ZMod (m + 3))) (m + 3 - k) = {p, q} := by
+    rw [P.arc_inter a hk1 hk2, hpa, hqa]
+  rcases two_arcs_unique hunion hinter hDunion hDinter hA1 hA2 hD1 hD2 with ⟨e1, e2⟩ | ⟨e1, e2⟩
+  · exact ⟨m, P, a, k, hcar, hk1, hk2, hpa, hqa, e1.symm, e2.symm⟩
+  · -- The realization runs the two arcs the other way round: read it backwards.
+    have hneg : ((m + 3 - k : ℕ) : ZMod (m + 3)) = -(k : ZMod (m + 3)) := by
+      linear_combination zmod_add_sub_cancel (m := m) (k := k) (by omega) 0
+    refine ⟨m, P.reverse, -a, m + 3 - k, ?_, by omega, by omega, ?_, ?_, ?_, ?_⟩
+    · rw [ClosedPolygon.reverse_carrier]; exact hcar
+    · rw [ClosedPolygon.reverse_vertex, neg_neg]; exact hpa
+    · rw [ClosedPolygon.reverse_vertex, hneg,
+        show -(-a + -(k : ZMod (m + 3))) = a + (k : ZMod (m + 3)) by ring]
+      exact hqa
+    · have h := P.reverse_arc (a + (k : ZMod (m + 3))) (m + 3 - k)
+      rw [hneg, show -(a + (k : ZMod (m + 3))) - -(k : ZMod (m + 3)) = -a by ring] at h
+      rw [h]; exact e1.symm
+    · have h := P.reverse_arc a k
+      rw [show m + 3 - (m + 3 - k) = k by omega, hneg,
+        show -a + -(k : ZMod (m + 3)) = -a - (k : ZMod (m + 3)) by ring, h]
+      exact e2.symm
+
 end Schoenflies
 
 namespace Graph
@@ -644,5 +698,214 @@ theorem IsDrawing.isPolygonal_edgesCover (hd : IsDrawing G drawing)
     · rw [edgesCover_cons]
       exact ((hpoly f hl.edge_mem).union (ih hWne)
         ⟨w, (hd.edge_isArcBetween hl).right_mem, hW.left_mem_edgesCover hd hWne⟩)
+
+/-! ## What the realization needs from the drawing, and nothing else -/
+
+variable {x y : Fin 3 → Plane} {e : Fin 3 → Fin 3 → β} {s : Fin 3}
+
+/-- **General position at the two cut points of the crosscut indexed by `s`.** At each of the two
+ends `x s` and `y (s + 1)` of the remaining edge, the six-cycle turns, and so does each of the two
+closed curves the remaining edge forms with the two halves of the six-cycle.
+
+This is not a hypothesis chosen for convenience. `Schoenflies.ClosedPolygon.isCornerAt_vertex` and
+`Schoenflies.ClosedPolygon.exists_vertex_eq_of_isCornerAt` together say that the vertex set of a
+realization *is* the corner set of the curve; a crosscut cutting `C` at these two points forces
+them to be vertices of all three closed polygons, hence corners of all three curves. For a drawn
+`K(3,3)` it says that at each of the six vertices no two of the three edges leave along one
+line. -/
+def IsHexGeneric (drawing : β → ℝ → Plane) (e : Fin 3 → Fin 3 → β) (x y : Fin 3 → Plane)
+    (s : Fin 3) : Prop :=
+  ∀ p ∈ ({x s, y (s + 1)} : Set Plane),
+    IsCornerAt (hexSet drawing e) p ∧
+    IsCornerAt (edgesCover drawing (arcA e s) ∪ edgeArc drawing (e s (s + 1))) p ∧
+    IsCornerAt (edgesCover drawing (arcB e s) ∪ edgeArc drawing (e s (s + 1))) p
+
+namespace IsK33Config
+
+/-- The first half of the six-cycle is polygonal: it is drawn by a path. -/
+theorem isPolygonal_arcA (h : IsK33Config G x y e) (hd : IsDrawing G drawing)
+    (hpoly : ∀ f ∈ E(G), IsPolygonal (edgeArc drawing f)) (s : Fin 3) :
+    IsPolygonal (edgesCover drawing (arcA e s)) :=
+  hd.isPolygonal_edgesCover hpoly (h.arcA_isPath s).isWalk (by simp [arcA])
+
+/-- The second half of the six-cycle is polygonal. -/
+theorem isPolygonal_arcB (h : IsK33Config G x y e) (hd : IsDrawing G drawing)
+    (hpoly : ∀ f ∈ E(G), IsPolygonal (edgeArc drawing f)) (s : Fin 3) :
+    IsPolygonal (edgesCover drawing (arcB e s)) :=
+  hd.isPolygonal_edgesCover hpoly (h.arcB_isPath s).isWalk (by simp [arcB])
+
+/-- **The six-cycle of a polygonally drawn `K(3,3)` is polygonal**: it is the union of its two
+halves, which meet. -/
+theorem isPolygonal_hexSet (h : IsK33Config G x y e) (hd : IsDrawing G drawing)
+    (hpoly : ∀ f ∈ E(G), IsPolygonal (edgeArc drawing f)) :
+    IsPolygonal (hexSet drawing e) := by
+  rw [← arcs_union (drawing := drawing) (e := e) 0]
+  exact (h.isPolygonal_arcA hd hpoly 0).union (h.isPolygonal_arcB hd hpoly 0)
+    ⟨x 0, (h.arcA_isArcBetween hd 0).left_mem, (h.arcB_isArcBetween hd 0).left_mem⟩
+
+/-- A remaining edge meets the first half of the six-cycle exactly in its own two ends. -/
+theorem chord_inter_arcA (h : IsK33Config G x y e) (hd : IsDrawing G drawing) (s : Fin 3) :
+    edgesCover drawing (arcA e s) ∩ edgeArc drawing (e s (s + 1)) = {x s, y (s + 1)} := by
+  refine Set.Subset.antisymm (fun z hz => ?_) ?_
+  · have hzhex : z ∈ hexSet drawing e := by
+      rw [← arcs_union (drawing := drawing) (e := e) s]; exact Or.inl hz.1
+    rw [← h.chord_inter_hexSet hd s]
+    exact ⟨hz.2, hzhex⟩
+  · rintro z (rfl | rfl)
+    exacts [⟨(h.arcA_isArcBetween hd s).left_mem,
+      (hd.edge_isArcBetween (h.isLink s (s + 1))).left_mem⟩,
+      ⟨(h.arcA_isArcBetween hd s).right_mem,
+      (hd.edge_isArcBetween (h.isLink s (s + 1))).right_mem⟩]
+
+/-- A remaining edge meets the second half of the six-cycle exactly in its own two ends. -/
+theorem chord_inter_arcB (h : IsK33Config G x y e) (hd : IsDrawing G drawing) (s : Fin 3) :
+    edgesCover drawing (arcB e s) ∩ edgeArc drawing (e s (s + 1)) = {x s, y (s + 1)} := by
+  refine Set.Subset.antisymm (fun z hz => ?_) ?_
+  · have hzhex : z ∈ hexSet drawing e := by
+      rw [← arcs_union (drawing := drawing) (e := e) s]; exact Or.inr hz.1
+    rw [← h.chord_inter_hexSet hd s]
+    exact ⟨hz.2, hzhex⟩
+  · rintro z (rfl | rfl)
+    exacts [⟨(h.arcB_isArcBetween hd s).left_mem,
+      (hd.edge_isArcBetween (h.isLink s (s + 1))).left_mem⟩,
+      ⟨(h.arcB_isArcBetween hd s).right_mem,
+      (hd.edge_isArcBetween (h.isLink s (s + 1))).right_mem⟩]
+
+/-- **`Graph.IsHexRealization`, discharged.** The six-cycle and the two curves the remaining edge
+forms with its halves are three polygonal Jordan curves, so
+`Schoenflies.exists_closedPolygon_arcs_oriented` presents each of them as a closed polygon whose
+two arcs are the two given halves, both read from `x s` to `y (s+1)`.
+
+The three presentations are found independently, and what makes them fit together is
+`Schoenflies.ClosedPolygon.arcPieces_eq`: two closed polygons carrying one arc from one vertex cut
+it into the same edges. So the six-cycle's presentation and the first spliced curve's agree on the
+first half, the six-cycle's and the second spliced curve's agree on the second half, and the two
+spliced curves agree on the remaining edge — the last only after reversing one of them, since a
+crosscut is traversed one way in each of the two curves it bounds. -/
+theorem isHexRealization (h : IsK33Config G x y e) (hd : IsDrawing G drawing)
+    (hpoly : ∀ f ∈ E(G), IsPolygonal (edgeArc drawing f)) (hgen : IsHexGeneric drawing e x y s) :
+    IsHexRealization drawing e s := by
+  obtain ⟨hcp, hcp1, hcp2⟩ := hgen (x s) (by simp)
+  obtain ⟨hcq, hcq1, hcq2⟩ := hgen (y (s + 1)) (by simp)
+  have hpq : x s ≠ y (s + 1) := h.x_ne_y s (s + 1)
+  have hA1 := h.arcA_isArcBetween hd s
+  have hA2 := h.arcB_isArcBetween hd s
+  have hCh := hd.edge_isArcBetween (h.isLink s (s + 1))
+  have hinterA := h.chord_inter_arcA hd s
+  have hinterB := h.chord_inter_arcB hd s
+  have hPch : IsPolygonal (edgeArc drawing (e s (s + 1))) :=
+    hpoly _ (h.isLink s (s + 1)).edge_mem
+  have hP1 : IsPolygonal (edgesCover drawing (arcA e s) ∪ edgeArc drawing (e s (s + 1))) :=
+    (h.isPolygonal_arcA hd hpoly s).union hPch ⟨x s, hA1.left_mem, hCh.left_mem⟩
+  have hP2 : IsPolygonal (edgesCover drawing (arcB e s) ∪ edgeArc drawing (e s (s + 1))) :=
+    (h.isPolygonal_arcB hd hpoly s).union hPch ⟨x s, hA2.left_mem, hCh.left_mem⟩
+  have hJ1 : IsJordanCurve (edgesCover drawing (arcA e s) ∪ edgeArc drawing (e s (s + 1))) :=
+    IsJordanCurve.of_two_arcs hA1 hCh.reverse fun z hz1 hz2 => by
+      have hz : z ∈ ({x s, y (s + 1)} : Set Plane) := hinterA ▸ ⟨hz1, hz2⟩
+      simpa using hz
+  have hJ2 : IsJordanCurve (edgesCover drawing (arcB e s) ∪ edgeArc drawing (e s (s + 1))) :=
+    IsJordanCurve.of_two_arcs hA2 hCh.reverse fun z hz1 hz2 => by
+      have hz : z ∈ ({x s, y (s + 1)} : Set Plane) := hinterB ▸ ⟨hz1, hz2⟩
+      simpa using hz
+  obtain ⟨m, C, a, k, hCcar, hk1, hk2, hCa, hCak, hCarc1, hCarc2⟩ :=
+    exists_closedPolygon_arcs_oriented (h.hexagon_isJordanCurve hd)
+      (h.isPolygonal_hexSet hd hpoly) hcp hcq hpq hA1 hA2
+      (arcs_union (drawing := drawing) (e := e) s) (h.arcs_inter hd s)
+  obtain ⟨m₁, J₁, b, l, -, hl1, hl2, hJ1b, hJ1bl, hJ1a1, hJ1a2⟩ :=
+    exists_closedPolygon_arcs_oriented hJ1 hP1 hcp1 hcq1 hpq hA1 hCh rfl hinterA
+  obtain ⟨m₂, J₂, b₂, l₂, -, hl21, hl22, hJ2b, hJ2bl, hJ2a1, hJ2a2⟩ :=
+    exists_closedPolygon_arcs_oriented hJ2 hP2 hcq2 hcp2 hpq.symm hA2.reverse hCh.reverse rfl
+      (by rw [hinterB, Set.pair_comm])
+  refine ⟨m, m₁, m₂, C, J₁, J₂, J₁.arcPieces (b + (l : ZMod (m₁ + 3))) (m₁ + 3 - l), a, k,
+    by omega, hCcar, hCarc1, hCarc2, hJ1a2, ?_, ?_⟩
+  · -- The first curve: the first half of the six-cycle, then the remaining edge.
+    have hpieces : C.arcPieces a k = J₁.arcPieces b l :=
+      ClosedPolygon.arcPieces_eq C J₁ a b hk1 hk2 hl1 hl2 (hCarc1.trans hJ1a1.symm)
+        (hCa.trans hJ1b.symm)
+    rw [hpieces]
+    exact ClosedPolygon.sameEdges_arcPieces_split J₁ b (by omega)
+  · -- The second curve: the second half, then the remaining edge — traversed the other way.
+    have hpieces : C.arcPieces (a + (k : ZMod (m + 3))) (m + 3 - k) = J₂.arcPieces b₂ l₂ :=
+      ClosedPolygon.arcPieces_eq C J₂ _ b₂ (by omega) (by omega) hl21 hl22
+        (hCarc2.trans hJ2a1.symm) (hCak.trans hJ2b.symm)
+    have hrev := J₂.reverse_arc (b₂ + (l₂ : ZMod (m₂ + 3))) (m₂ + 3 - l₂)
+    have hstart2 : J₂.reverse.vertex (-(b₂ + (l₂ : ZMod (m₂ + 3)))
+        - ((m₂ + 3 - l₂ : ℕ) : ZMod (m₂ + 3))) = y (s + 1) := by
+      rw [ClosedPolygon.reverse_vertex,
+        show -(-(b₂ + (l₂ : ZMod (m₂ + 3))) - ((m₂ + 3 - l₂ : ℕ) : ZMod (m₂ + 3)))
+          = b₂ + (l₂ : ZMod (m₂ + 3)) + ((m₂ + 3 - l₂ : ℕ) : ZMod (m₂ + 3)) by ring,
+        zmod_add_sub_cancel (by omega) b₂]
+      exact hJ2b
+    have hKeq : J₂.reverse.arcPieces (-(b₂ + (l₂ : ZMod (m₂ + 3)))
+          - ((m₂ + 3 - l₂ : ℕ) : ZMod (m₂ + 3))) (m₂ + 3 - l₂)
+        = J₁.arcPieces (b + (l : ZMod (m₁ + 3))) (m₁ + 3 - l) :=
+      ClosedPolygon.arcPieces_eq J₂.reverse J₁ _ _ (by omega) (by omega) (by omega) (by omega)
+        (by rw [hrev, hJ2a2, hJ1a2]) (by rw [hstart2, hJ1bl])
+    have hKsame : SameEdges (J₂.arcPieces (b₂ + (l₂ : ZMod (m₂ + 3))) (m₂ + 3 - l₂))
+        (J₁.arcPieces (b + (l : ZMod (m₁ + 3))) (m₁ + 3 - l)) := by
+      rw [← hKeq]
+      exact (J₂.sameEdges_reverse_arcPieces (b₂ + (l₂ : ZMod (m₂ + 3))) (m₂ + 3 - l₂)).symm
+    refine (ClosedPolygon.sameEdges_arcPieces_split (k := l₂) J₂ b₂ (by omega)).trans ?_
+    rw [← hpieces]
+    exact SameEdges.append (SameEdges.refl _) hKsame
+
+/-! ### `lem:k33` and `cor:k33-subdivision`, with the realization gone
+
+What is left as a hypothesis is a *bending* step, and only that: every polygonal drawing can be
+redrawn so that no two edges at a vertex leave it along one line. -/
+
+/-- **`lem:k33` for a polygonal drawing in general position.** -/
+theorem false_of_hexGeneric (h : IsK33Config G x y e) (hd : IsDrawing G drawing)
+    (hpoly : ∀ f ∈ E(G), IsPolygonal (edgeArc drawing f))
+    (hgen : ∀ s : Fin 3, IsHexGeneric drawing e x y s) : False :=
+  h.false_of_hexRealizations hd fun s => h.isHexRealization hd hpoly (hgen s)
+
+/-- **Lemma 3.10 (nonplanarity of `K(3,3)`), with only the bending step assumed.** A graph
+carrying a copy of `K(3,3)` has no plane drawing, provided a polygonal drawing can be bent into
+general position at the six vertices. -/
+theorem not_isDrawing_of_bendable [G.Finite] (h : IsK33Config G x y e)
+    (hbend : ∀ dr : β → ℝ → Plane, IsDrawing G dr → (∀ f ∈ E(G), IsPolygonal (edgeArc dr f)) →
+      ∃ dr' : β → ℝ → Plane, IsDrawing G dr' ∧ (∀ f ∈ E(G), IsPolygonal (edgeArc dr' f)) ∧
+        ∀ s : Fin 3, IsHexGeneric dr' e x y s) :
+    ¬ ∃ dr : β → ℝ → Plane, IsDrawing G dr := by
+  rintro ⟨dr, hdr⟩
+  obtain ⟨dr', hdr', hpoly'⟩ := polygonal_redrawing G dr hdr
+  obtain ⟨dr'', hdr'', hpoly'', hgen⟩ := hbend dr' hdr' hpoly'
+  exact h.false_of_hexGeneric hdr'' hpoly'' hgen
+
+end IsK33Config
+
+/-- **The bending step**, for the abstract `K(3,3)` on six named points of the plane: every
+polygonal drawing of it can be redrawn, polygonally, so that at each of the six vertices no two
+of the three edges leave along one line. This is the one thing left unproved; see "What is still
+assumed" in the module docstring. -/
+abbrev Bendable (x y : Fin 3 → Plane) : Prop :=
+  ∀ dr : Fin 3 × Fin 3 → ℝ → Plane, IsDrawing (k33Graph x y) dr →
+    (∀ f ∈ E(k33Graph x y), IsPolygonal (edgeArc dr f)) →
+    ∃ dr' : Fin 3 × Fin 3 → ℝ → Plane, IsDrawing (k33Graph x y) dr' ∧
+      (∀ f ∈ E(k33Graph x y), IsPolygonal (edgeArc dr' f)) ∧
+      ∀ s : Fin 3, IsHexGeneric dr' (fun i j => (i, j)) x y s
+
+/-- **`lem:k33` for nine arcs**: no nine arcs in the plane meet only where a `K(3,3)` forces them
+to. Conditional on `Graph.Bendable`. -/
+theorem IsArcK33.false_of_bendable {P : Fin 3 → Fin 3 → Set Plane} (h : IsArcK33 x y P)
+    (hbend : Bendable x y) : False :=
+  h.isK33Config.not_isDrawing_of_bendable hbend ⟨h.arcDrawing, h.isDrawing⟩
+
+/-- **Corollary 3.11 (subdivisions of `K(3,3)`).** No subdivision of `K(3,3)` has a plane
+drawing. Conditional on `Graph.Bendable`, and only for the *contracted* graph `k33Graph x y`,
+whose nine edges are the branch paths. -/
+theorem IsK33Subdivision.false_of_bendable {H : Graph Plane β} {W : Fin 3 → Fin 3 → List β}
+    (hd : IsDrawing H drawing) (h : IsK33Subdivision H x y W) (hbend : Bendable x y) : False :=
+  (h.isArcK33 hd).false_of_bendable hbend
+
+/-- **The headline: `K(3,3)` has no plane drawing.** Stated for the concrete graph
+`Graph.k33Graph x y`, whose nine edges are the index pairs. Conditional on `Graph.Bendable`, the
+one hypothesis this module leaves standing. -/
+theorem k33Graph_not_isDrawing (x y : Fin 3 → Plane) (hx : Function.Injective x)
+    (hy : Function.Injective y) (hxy : ∀ i j, x i ≠ y j) (hbend : Bendable x y) :
+    ¬ ∃ dr : Fin 3 × Fin 3 → ℝ → Plane, IsDrawing (k33Graph x y) dr :=
+  IsK33Config.not_isDrawing_of_bendable
+    ⟨k33Graph_isLink x y, hx, hy, hxy⟩ hbend
 
 end Graph

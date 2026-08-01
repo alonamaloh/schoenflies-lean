@@ -115,7 +115,7 @@ while the Jordan curve theorem was still open.
 | `prop:anchored-square-mesh` | partial | `SquareMesh.lean` + `SquareMeshConnected.lean` — geometry and diameter bounds done, 2-connectivity not yet connected to the mesh itself |
 | `lem:skeleton-crosscuts` | partial | `AccessibleJoin.lean` — the final extraction paragraph only |
 | `lem:tangent-dense` | open | needs `thm:jordan` |
-| `prop:initial-pair` | open | needs `thm:general-crosscut` |
+| `prop:initial-pair` | conditional (`thm:arc-complement`, `HasArcCollars` for the crosscut) | `InitialPair.lean` — `initialStructure`, `HexData.realization`, `targetHex`, `sourceHex`, `InitialData` with `sourceRealization` / `targetRealization` / `skeletonHomeo`, `exists_initialData`, `initial_pair` |
 | `def:generated-structure`, `rem:intermediate-disconnection` | open | the inductive closure of the two elementary operations |
 | `lem:cellulation-invariants` | open | **the spine of Part II**: nine assertions by mutual induction over the two constructors, resting on `thm:general-crosscut` |
 | `lem:star-intersection`, `lem:refinement-compatibility`, `lem:star-face-mesh`, `rem:inductive-invariants` | open | all rest on `lem:cellulation-invariants` |

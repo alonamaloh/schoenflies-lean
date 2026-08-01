@@ -49,3 +49,8 @@ import Schoenflies.PolygonBridge
 import Schoenflies.Graph.K33
 import Schoenflies.PolygonalJordan
 import Schoenflies.SimpleArc
+import Schoenflies.ParitySplitting
+import Schoenflies.PolygonalCrosscut
+import Schoenflies.AlternatingCrosscuts
+import Schoenflies.FaceCycles
+import Schoenflies.Graph.K33Planar

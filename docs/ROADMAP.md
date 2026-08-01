@@ -65,10 +65,35 @@ endpoints*, together with `sub_face` (they carry exactly the cells below the 2-c
 `paths_meet` (they share nothing but their two ends).
 
 Producing them means knowing that **the cells below a 2-cell form a cycle**, and that two of its
-0-cells cut that cycle into two paths. Nothing states this. `CellStructure.CombInvariants` does
-not carry it; `lem:face-cycles` (`Graph.face_cycles'`) proves the geometric half for a drawn
-graph and `IsFaceJordan` says the frontier of a 2-cell is a Jordan curve, but the passage from
-there to a *combinatorial* cycle of `≼_abs`, which is what `SplitData` asks for, is not written.
+0-cells cut that cycle into two paths. Nothing states this, and `CellStructure.CombInvariants`
+does not carry it.
+
+**`lem:face-cycles` is not the route, and this is the trap to avoid.** `Graph.face_cycles'`
+takes `hpoly : ∀ g ∈ E(G), IsPolygonal (edgeArc drawing g)` — *every* edge polygonal. A source
+realization does not satisfy that and never will: its outer edges are subarcs of the wild curve
+`C`. (`def:admissible-graph` and `IsWeaklyAdmissible.isPolygonal` both restrict polygonality to
+the nonboundary edges, correctly. `IsStageOn.polygonal` had dropped the restriction and was
+unsatisfiable in consequence — see below.) So the geometric route gives face cycles on the
+*target* side only, and the blueprint never claims otherwise.
+
+The boundary cycle on the source side is **maintained as data, not derived**. That is what
+`CellStructure.boundary : γ → List γ` is for — "the cyclic boundary walk of each 2-cell", the
+one field of `CellStructure` on which no axiom is imposed. The route is therefore:
+
+* state the invariant: for every 2-cell `F`, `boundary F` is a closed walk of `skel` whose cells
+  are exactly the cells strictly below `F`;
+* the base case is already proved — `isWalk_initBoundary_false`, `isWalk_initBoundary_true` and
+  `mem_faceCells_iff` in `InitialPairFixed.lean`, which were written for exactly this;
+* preserve it under the two constructors. The split constructor is where the two paths come
+  from and where they go: `SplitData` already carries `path₁`, `path₂` as data, so the new
+  2-cells' walks are built from them and the ear. The subdivision constructor needs the repair
+  `CellulationInvariants.lean` already built and explains at length —
+  `SubdivData.SubstWalk`, because `subdivideEdge`'s current update replaces the subdivided edge
+  by the fixed list `[newEdge₁, newEdge₂]`, which is **orientation-blind and wrong**: an
+  interior edge lies on the boundary of two 2-cells whose walks cross it in opposite
+  directions, and `SubdivData.not_isWalk_boundary_of_head` is that failure, machine-checked.
+
+So `SubstWalk` was built for precisely this, and this is the first consumer that needs it.
 
 That is the next thing to build, and everything downstream is assembly on top of it:
 

@@ -71,9 +71,12 @@ subset of the plane supplies a `b` as close to `x` as asked, inside `D`.
   `.window_subset_inside` — the three displayed inequalities and `W_n(p) ⊆ D`.
 * `Schoenflies.mem_openWindow_of_supDist_lt` — the arithmetic of `prop:shrinking-stars`.
 * `Schoenflies.exists_mem_rat_supDist_lt` — the only property of `B = ℚ² ∩ D` used.
+* `Schoenflies.recur`, `.exists_le_recur_eq` — *"a sequence in which every point of `B` occurs
+  infinitely often"*, and the consequence `prop:shrinking-stars` uses.
+* `Schoenflies.tendsto_two_pow_neg`, `.two_pow_neg_pos` — `ε_n = 2^{-n}`.
 -/
 
-open Metric Set
+open Filter Metric Set
 
 namespace Schoenflies
 
@@ -256,10 +259,32 @@ theorem mem_openWindow_of_supDist_lt (hC : IsCompact C) (hCne : C.Nonempty)
   have hdpos : 0 < d := by linarith [Plane.supDist_nonneg b x]
   exact lt_trans hxb (by linarith)
 
+/-! ### The two sequences the recursion fixes
+
+*"Choose a sequence `b_1, b_2, …` in which every point of `B` occurs infinitely often, and put
+`ε_n = 2^{-n}`."* Both are here, each with the one property `prop:shrinking-stars` uses: every
+value of the enumeration recurs at arbitrarily large indices, and the mesh sequence is null. -/
+
+/-- **An enumeration in which every value of `f` occurs infinitely often.** Cantor pairing, read
+off the first component: the value `f k` reappears at `Nat.pair k m` for every `m`. -/
+def recur {α : Type*} (f : ℕ → α) (n : ℕ) : α := f (Nat.unpair n).1
+
+/-- **"The point `b` occurs at arbitrarily large indices."** This is the step of
+`prop:shrinking-stars` that lets the mesh parameter be taken as small as the point requires: the
+window centre is fixed first, and only then is a late enough stage chosen. -/
+theorem exists_le_recur_eq {α : Type*} (f : ℕ → α) (k N : ℕ) :
+    ∃ n, N ≤ n ∧ recur f n = f k :=
+  ⟨Nat.pair k N, Nat.right_le_pair k N, by rw [recur, Nat.unpair_pair]⟩
+
+/-- **`ε_n = 2^{-n}` is a null sequence.** -/
+theorem tendsto_two_pow_neg :
+    Tendsto (fun n : ℕ => ((2 : ℝ) ^ n)⁻¹) atTop (nhds 0) :=
+  tendsto_inv_atTop_zero.comp (tendsto_pow_atTop_atTop_of_one_lt (by norm_num : (1:ℝ) < 2))
+
+theorem two_pow_neg_pos (n : ℕ) : 0 < ((2 : ℝ) ^ n)⁻¹ := by positivity
+
 /-- The only property of `B = ℚ² ∩ D` that `prop:shrinking-stars` uses: an open set contains
-points of a dense subset of the plane as close to any of its points as asked. The recursion
-enumerates such a set with infinite repetition; that enumeration is its business, not this
-module's. -/
+points of a dense subset of the plane as close to any of its points as asked. -/
 theorem exists_mem_rat_supDist_lt {B : Set Plane} (hB : Dense B) (hU : IsOpen U)
     (hx : x ∈ U) (hδ : 0 < δ) : ∃ b ∈ B, b ∈ U ∧ Plane.supDist b x < δ := by
   obtain ⟨ρ, hρ, hball⟩ := Metric.isOpen_iff.1 hU x hx

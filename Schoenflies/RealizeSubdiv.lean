@@ -128,6 +128,34 @@ theorem subarc_image_inter (hi : InjOn f (uIcc a b)) (h : t ∈ uIcc a b) :
   rw [subarc_image, subarc_image, ← hi.image_inter (uIcc_left_subset h) (uIcc_right_subset h),
     uIcc_inter_uIcc h, image_singleton]
 
+/-- **The closure of an open arc is the closed arc.** General; `Schoenflies/Subarc.lean` has the
+two endpoint halves (`IsArcBetween.left_mem_closure_diff` and `…right_mem_closure_diff`) but not
+this consequence, and every "closure of a new open edge" computation is this lemma. It belongs
+next to those two if a second consumer appears. -/
+theorem IsArcBetween.closure_diff_eq {A : Set Plane} {p q : Plane} (h : IsArcBetween A p q) :
+    closure (A \ {p, q}) = A := by
+  refine subset_antisymm (h.isArc.isClosed.closure_subset_iff.2 sdiff_subset) fun z hz => ?_
+  by_cases hzp : z = p
+  · exact hzp ▸ h.left_mem_closure_diff
+  · by_cases hzq : z = q
+    · exact hzq ▸ h.right_mem_closure_diff
+    · exact subset_closure ⟨hz, by simp [hzp, hzq]⟩
+
+/-- The three pieces an open arc is cut into put the arc back together. -/
+theorem diff_pair_union_union {A : Set Plane} {p q : Plane} (hp : p ∈ A) (hq : q ∈ A) :
+    A \ {p, q} ∪ {q} ∪ {p} = A := by
+  ext z
+  simp only [mem_union, mem_sdiff, mem_insert_iff, mem_singleton_iff, not_or]
+  constructor
+  · rintro ((⟨h, -, -⟩ | rfl) | rfl)
+    exacts [h, hq, hp]
+  · intro h
+    by_cases h₁ : z = p
+    · exact Or.inr h₁
+    · by_cases h₂ : z = q
+      · exact Or.inl (Or.inr h₂)
+      · exact Or.inl (Or.inl ⟨h, h₁, h₂⟩)
+
 /-! ### The two halves of a drawn edge
 
 The special case `a = 0`, `b = 1` of the previous section, in the notation a consumer holding a
@@ -454,8 +482,54 @@ theorem edgeArc_of_ne {f : γ} (h₁ : f ≠ d.newEdge₁) (h₂ : f ≠ d.newEd
     edgeArc (d.realizeDrawing R t) f = edgeArc R.drawing f := by
   rw [edgeArc, edgeArc, realizeDrawing_of_ne h₁ h₂]
 
+/-! ### The two cell-shape fields of a realization -/
+
+/-- Every 0-cell of the subdivided structure is realized by its point. -/
+theorem cell_vertex_realize ⦃v : γ⦄ (hv : v ∈ V(d.skeleton)) :
+    d.realizeCell R t v = {d.realizePos R t v} := by
+  rw [d.skeleton_vertexSet, mem_insert_iff] at hv
+  rcases hv with rfl | hv
+  · rw [realizeCell_newVertex, realizePos_newVertex]
+  · rw [realizeCell_of_mem_cells (S.mem_cells_of_mem_vertexSet hv),
+      realizePos_of_mem_vertexSet hv, R.cell_vertex hv]
+
+/-- Every 1-cell of the subdivided structure is realized by its open arc. -/
+theorem cell_edge_realize ⦃g x y : γ⦄ (hl : d.skeleton.IsLink g x y) :
+    d.realizeCell R t g =
+      edgeArc (d.realizeDrawing R t) g \ {d.realizePos R t x, d.realizePos R t y} := by
+  rcases d.skeleton_isLink.1 hl with ⟨hlS, -, hg₁, hg₂⟩ | ⟨rfl, hs⟩ | ⟨rfl, hs⟩
+  · rw [realizeCell_of_mem_cells (S.mem_cells_of_mem_edgeSet hlS.edge_mem),
+      edgeArc_of_ne hg₁ hg₂, realizePos_of_mem_vertexSet hlS.left_mem,
+      realizePos_of_mem_vertexSet hlS.right_mem, R.cell_edge hlS]
+  · rw [realizeCell_newEdge₁, edgeArc_newEdge₁]
+    rcases Sym2.eq_iff.1 hs with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
+    · rw [realizePos_of_mem_vertexSet d.isLink.left_mem, realizePos_newVertex]
+    · rw [realizePos_of_mem_vertexSet d.isLink.left_mem, realizePos_newVertex, pair_comm]
+  · rw [realizeCell_newEdge₂, edgeArc_newEdge₂]
+    rcases Sym2.eq_iff.1 hs with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
+    · rw [realizePos_of_mem_vertexSet d.isLink.right_mem, realizePos_newVertex]
+    · rw [realizePos_of_mem_vertexSet d.isLink.right_mem, realizePos_newVertex, pair_comm]
+
+section
+
 variable (ht : t ∈ Ioo (0 : ℝ) 1)
 include ht
+
+/-- Distinct 0-cells of the subdivided structure sit at distinct points: the new one is an
+interior point of a drawn edge, so it is none of the old ones. -/
+theorem injOn_realizePos : InjOn (d.realizePos R t) V(d.skeleton) := by
+  intro p hp q hq hpq
+  rw [d.skeleton_vertexSet, mem_insert_iff] at hp hq
+  rcases hp with rfl | hp
+  · rcases hq with rfl | hq
+    · rfl
+    · rw [realizePos_newVertex, realizePos_of_mem_vertexSet hq] at hpq
+      exact absurd hpq (d.newPos_ne_pos R ht hq)
+  · rcases hq with rfl | hq
+    · rw [realizePos_of_mem_vertexSet hp, realizePos_newVertex] at hpq
+      exact absurd hpq.symm (d.newPos_ne_pos R ht hp)
+    · rw [realizePos_of_mem_vertexSet hp, realizePos_of_mem_vertexSet hq] at hpq
+      exact R.injOn_pos hp hq hpq
 
 theorem edgeArc_newEdge₁_subset :
     edgeArc (d.realizeDrawing R t) d.newEdge₁ ⊆ edgeArc R.drawing d.edge := by
@@ -759,6 +833,161 @@ theorem isDrawing_realize : IsDrawing (d.realizeGraph R t) (d.realizeDrawing R t
             exact ⟨h₁, h₃, h₂⟩
           · obtain ⟨hgS, hge⟩ := mem_edgeSet_skel_of_ne hg hg₁ hg₂
             exact edge_inter_old_old hfS hfe hgS hge hfg hpf hpg
+
+/-! ### The two new open edges, as arcs -/
+
+/-- The first new edge is drawn as an arc from the position of `d.left` to the new point. -/
+theorem isArcBetween_newEdge₁ : IsArcBetween (edgeArc (d.realizeDrawing R t) d.newEdge₁)
+    (R.pos d.left) (R.drawing d.edge t) := by
+  rw [edgeArc_newEdge₁, ← d.drawing_leftParam R]
+  exact isArcBetween_subarc_of_injOn_I (d.continuousOn_drawing_edge R) (d.injOn_drawing_edge R)
+    (d.leftParam_mem_I R) (Ioo_subset_Icc_self ht) (d.leftParam_ne R ht)
+
+/-- The second new edge is drawn as an arc from the new point to the position of `d.right`. -/
+theorem isArcBetween_newEdge₂ : IsArcBetween (edgeArc (d.realizeDrawing R t) d.newEdge₂)
+    (R.drawing d.edge t) (R.pos d.right) := by
+  rw [edgeArc_newEdge₂, ← d.drawing_rightParam R]
+  exact isArcBetween_subarc_of_injOn_I (d.continuousOn_drawing_edge R) (d.injOn_drawing_edge R)
+    (Ioo_subset_Icc_self ht) (d.rightParam_mem_I R) (Ne.symm (d.rightParam_ne R ht))
+
+end
+
+/-! ### The realization of the subdivided structure -/
+
+/-- **The realization of an edge subdivision.** The new 0-cell goes to the point of the drawn
+edge at parameter `t`, the two new 1-cells are drawn by the two halves of that parametrization,
+and every surviving cell is exactly where it was.
+
+There is no geometric side condition: everything the construction needs is already carried by
+`R`, and is extracted by the lemmas above rather than assumed. -/
+noncomputable def realize (d : S.SubdivData) (R : S.Realization) (t : ℝ)
+    (ht : t ∈ Ioo (0 : ℝ) 1) : (S.subdivideEdge d).Realization where
+  pos := d.realizePos R t
+  drawing := d.realizeDrawing R t
+  injOn_pos := injOn_realizePos ht
+  isDrawing := isDrawing_realize ht
+  cell := d.realizeCell R t
+  cell_vertex := cell_vertex_realize
+  cell_edge := cell_edge_realize
+
+variable (ht : t ∈ Ioo (0 : ℝ) 1)
+
+@[simp] theorem realize_pos : (d.realize R t ht).pos = d.realizePos R t := rfl
+
+@[simp] theorem realize_drawing : (d.realize R t ht).drawing = d.realizeDrawing R t := rfl
+
+@[simp] theorem realize_cell : (d.realize R t ht).cell = d.realizeCell R t := rfl
+
+include ht
+
+/-! ### The realization refines the old one -/
+
+theorem closure_realizeCell_newEdge₁ :
+    closure (d.realizeCell R t d.newEdge₁) = edgeArc (d.realizeDrawing R t) d.newEdge₁ := by
+  rw [realizeCell_newEdge₁, ← edgeArc_newEdge₁]
+  exact (isArcBetween_newEdge₁ ht).closure_diff_eq
+
+theorem closure_realizeCell_newEdge₂ :
+    closure (d.realizeCell R t d.newEdge₂) = edgeArc (d.realizeDrawing R t) d.newEdge₂ := by
+  rw [realizeCell_newEdge₂, ← edgeArc_newEdge₂]
+  exact (isArcBetween_newEdge₂ ht).closure_diff_eq
+
+/-- **The old open edge is cut into the two new open edges and the new 0-cell.** -/
+theorem realizeCell_edge_eq : R.cell d.edge = d.realizeCell R t d.newEdge₁ ∪
+    d.realizeCell R t d.newVertex ∪ d.realizeCell R t d.newEdge₂ := by
+  rw [R.cell_edge d.isLink, realizeCell_newEdge₁, realizeCell_newVertex, realizeCell_newEdge₂,
+    ← edgeArc_newEdge₁, ← edgeArc_newEdge₂, ← edgeArc_new_union ht]
+  ext p
+  simp only [mem_union, mem_sdiff, mem_insert_iff, mem_singleton_iff, not_or]
+  constructor
+  · rintro ⟨hp | hp, hL, hR⟩
+    · by_cases hM : p = R.drawing d.edge t
+      · exact Or.inl (Or.inr hM)
+      · exact Or.inl (Or.inl ⟨hp, hL, hM⟩)
+    · by_cases hM : p = R.drawing d.edge t
+      · exact Or.inl (Or.inr hM)
+      · exact Or.inr ⟨hp, hM, hR⟩
+  · rintro ((⟨hp, hL, hM⟩ | rfl) | ⟨hp, hM, hR⟩)
+    · exact ⟨Or.inl hp, hL, fun h => posRight_notMem_edgeArc_newEdge₁ ht (h ▸ hp)⟩
+    · exact ⟨Or.inl newPos_mem_edgeArc_newEdge₁, d.newPos_ne_pos R ht d.isLink.left_mem,
+        d.newPos_ne_pos R ht d.isLink.right_mem⟩
+    · exact ⟨Or.inr hp, fun h => posLeft_notMem_edgeArc_newEdge₂ ht (h ▸ hp), hR⟩
+
+theorem nonempty_realizeCell_newEdge₁ : (d.realizeCell R t d.newEdge₁).Nonempty := by
+  rw [realizeCell_newEdge₁, ← edgeArc_newEdge₁]
+  exact (isArcBetween_newEdge₁ ht).nonempty_diff
+
+theorem nonempty_realizeCell_newEdge₂ : (d.realizeCell R t d.newEdge₂).Nonempty := by
+  rw [realizeCell_newEdge₂, ← edgeArc_newEdge₂]
+  exact (isArcBetween_newEdge₂ ht).nonempty_diff
+
+omit ht in
+theorem disjoint_newEdge₁_newVertex :
+    Disjoint (d.realizeCell R t d.newEdge₁) (d.realizeCell R t d.newVertex) := by
+  rw [realizeCell_newEdge₁, realizeCell_newVertex]
+  exact disjoint_left.2 fun _ hp hq => hp.2 (Or.inr (mem_singleton_iff.1 hq))
+
+omit ht in
+theorem disjoint_newEdge₂_newVertex :
+    Disjoint (d.realizeCell R t d.newEdge₂) (d.realizeCell R t d.newVertex) := by
+  rw [realizeCell_newEdge₂, realizeCell_newVertex]
+  exact disjoint_left.2 fun _ hp hq => hp.2 (Or.inl (mem_singleton_iff.1 hq))
+
+theorem disjoint_newEdge₁_newEdge₂ :
+    Disjoint (d.realizeCell R t d.newEdge₁) (d.realizeCell R t d.newEdge₂) := by
+  refine disjoint_left.2 fun p hp hq => ?_
+  rw [realizeCell_newEdge₁, ← edgeArc_newEdge₁] at hp
+  rw [realizeCell_newEdge₂, ← edgeArc_newEdge₂] at hq
+  have : p ∈ ({R.drawing d.edge t} : Set Plane) := by
+    rw [← edgeArc_new_inter ht]; exact ⟨hp.1, hq.1⟩
+  exact hp.2 (Or.inr (mem_singleton_iff.1 this))
+
+/-- **The subdivided realization refines the given one** — every field of
+`SubdivData.IsRefinement`. With `IsRefinement.isCellDecomposition_and_isFaceJordan` this hands a
+consumer `IsCellDecomposition`, `IsFaceJordan` and `Refines` at the new stage. -/
+theorem isRefinement_realize : d.IsRefinement R (d.realize R t ht) where
+  cell_eq := fun _ hc _ => realizeCell_of_mem_cells hc
+  cell_edge := realizeCell_edge_eq ht
+  nonempty := by
+    rintro c (rfl | rfl | rfl)
+    · rw [realize_cell, realizeCell_newVertex]
+      exact ⟨R.drawing d.edge t, rfl⟩
+    · exact nonempty_realizeCell_newEdge₁ ht
+    · exact nonempty_realizeCell_newEdge₂ ht
+  disjoint := by
+    rintro c τ (rfl | rfl | rfl) (rfl | rfl | rfl) hne
+    · exact absurd rfl hne
+    · exact (disjoint_newEdge₁_newVertex (t := t)).symm
+    · exact (disjoint_newEdge₂_newVertex (t := t)).symm
+    · exact disjoint_newEdge₁_newVertex
+    · exact absurd rfl hne
+    · exact disjoint_newEdge₁_newEdge₂ ht
+    · exact disjoint_newEdge₂_newVertex
+    · exact (disjoint_newEdge₁_newEdge₂ ht).symm
+    · exact absurd rfl hne
+  closure_newVertex := by
+    simp only [realize_cell]
+    rw [realizeCell_newVertex, closure_singleton]
+  closure_newEdge₁ := by
+    simp only [realize_cell]
+    rw [closure_realizeCell_newEdge₁ ht, realizeCell_newVertex,
+      R.cell_vertex d.isLink.left_mem, realizeCell_newEdge₁, ← edgeArc_newEdge₁]
+    exact (diff_pair_union_union posLeft_mem_edgeArc_newEdge₁ newPos_mem_edgeArc_newEdge₁).symm
+  closure_newEdge₂ := by
+    simp only [realize_cell]
+    rw [closure_realizeCell_newEdge₂ ht, realizeCell_newVertex,
+      R.cell_vertex d.isLink.right_mem, realizeCell_newEdge₂, ← edgeArc_newEdge₂,
+      pair_comm (R.drawing d.edge t) (R.pos d.right)]
+    exact (diff_pair_union_union posRight_mem_edgeArc_newEdge₂ newPos_mem_edgeArc_newEdge₂).symm
+
+/-- **The whole induction step over the first constructor, constructed.** One edge subdivision of
+a realization satisfying (i) and (vii) produces a realization satisfying (i) and (vii) and
+refining it — no longer conditional on somebody supplying the refined realization. -/
+theorem realize_isCellDecomposition_and_isFaceJordan (hS : S.CombInvariants) {D : Set Plane}
+    (h : R.IsCellDecomposition D) (hJ : R.IsFaceJordan) :
+    (d.realize R t ht).IsCellDecomposition D ∧ (d.realize R t ht).IsFaceJordan ∧
+      (d.realize R t ht).Refines R d.parent :=
+  (isRefinement_realize ht).isCellDecomposition_and_isFaceJordan hS h hJ
 
 end SubdivData
 

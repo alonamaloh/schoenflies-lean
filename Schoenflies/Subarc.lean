@@ -201,6 +201,60 @@ theorem openArc_subarc (hab : a ≠ b) : openArc (subarc f a b) = f '' uIoo a b 
       · exact (div_lt_one (by linarith)).mpr (by linarith [hx.1])
   rw [openArc, show subarc f a b = f ∘ reparam a b from rfl, image_comp, h]
 
+/-! ### The interior of an arc, set-level
+
+`openArc` is stated for a parametrisation. Three separate modules needed the same facts stated
+for the *set* — `IsArcBetween A p q` gives `A ∖ {p, q}` connected, nonempty, and having both
+endpoints in its closure — and each proved them again from scratch, one of them twice under two
+names. Two of those copies were literally the same statement in modules that do not import each
+other, so the build never noticed: alpha-equivalent `Prop`s are defeq under proof irrelevance,
+and Lean's import checker accepts them. They live here now. -/
+
+/-- **The interior of an arc is the image of the open parameter interval.** The bridge from
+`IsArcBetween`, which is about the set, to `openArc`, which is about a parametrisation. -/
+theorem IsArcBetween.diff_eq_openArc {A : Set Plane} {p q : Plane} (h : IsArcBetween A p q) :
+    ∃ f : ℝ → Plane, ContinuousOn f I ∧ A \ {p, q} = f '' Ioo 0 1 := by
+  obtain ⟨f, hc, hi, himg, h0, h1⟩ := h
+  exact ⟨f, hc, by rw [← himg, ← h0, ← h1, ← openArc_eq_diff hi, openArc]⟩
+
+/-- **The interior of an arc is connected.** It is the continuous image of `Ioo 0 1`. -/
+theorem IsArcBetween.isPreconnected_diff {A : Set Plane} {p q : Plane} (h : IsArcBetween A p q) :
+    IsPreconnected (A \ {p, q}) := by
+  obtain ⟨f, hc, hEq⟩ := h.diff_eq_openArc
+  rw [hEq]
+  exact isPreconnected_Ioo.image _ (hc.mono Ioo_subset_I)
+
+/-- The interior of an arc is nonempty: `Ioo 0 1` is. -/
+theorem IsArcBetween.nonempty_diff {A : Set Plane} {p q : Plane} (h : IsArcBetween A p q) :
+    (A \ {p, q}).Nonempty := by
+  obtain ⟨f, -, hEq⟩ := h.diff_eq_openArc
+  rw [hEq]
+  exact ⟨f (1 / 2), 1 / 2, by norm_num, rfl⟩
+
+/-- The interior of an arc is connected in the nonempty sense. -/
+theorem IsArcBetween.isConnected_diff {A : Set Plane} {p q : Plane} (h : IsArcBetween A p q) :
+    IsConnected (A \ {p, q}) :=
+  ⟨h.nonempty_diff, h.isPreconnected_diff⟩
+
+/-- **An endpoint of an arc is a limit of its interior.** This is what turns "the closure of a
+cell meets the curve in one arc only" into a statement about the *endpoints* of a crosscut, and
+it is what says an ear's two ends lie on the boundary of the face its interior lies in. -/
+theorem IsArcBetween.left_mem_closure_diff {A : Set Plane} {p q : Plane}
+    (h : IsArcBetween A p q) : p ∈ closure (A \ {p, q}) := by
+  obtain ⟨f, hc, hi, himg, h0, h1⟩ := h
+  have hEq : A \ {p, q} = f '' Ioo 0 1 := by
+    rw [← himg, ← h0, ← h1, ← openArc_eq_diff hi, openArc]
+  -- The endpoint is the limit of the interior as the parameter tends to `0`.
+  rw [hEq, ← h0]
+  refine ((hc 0 zero_mem_I).mono Ioo_subset_I).mem_closure_image ?_
+  rw [closure_Ioo (by norm_num : (0 : ℝ) ≠ 1)]
+  exact zero_mem_I
+
+theorem IsArcBetween.right_mem_closure_diff {A : Set Plane} {p q : Plane}
+    (h : IsArcBetween A p q) : q ∈ closure (A \ {p, q}) := by
+  rw [Set.pair_comm]
+  exact h.reverse.left_mem_closure_diff
+
 /-! ### A parametrisation is an open map onto its arc -/
 
 /-- **The parametrisation is an open map onto its arc.** The image of a relatively open piece

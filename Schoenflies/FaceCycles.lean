@@ -542,16 +542,8 @@ theorem exists_face_of_isPreconnected (hS : IsPreconnected S) (hSne : S.Nonempty
 The blueprint's *"its interior is connected and disjoint from the current graph, so it lies in
 one current face `F`"*, in full. -/
 
-/-- **An arc without its two endpoints is connected.** General, and not in
-`Schoenflies/Subarc.lean`, which has the set `Schoenflies.openArc` but not its connectedness;
-the integrator may want to hoist it. -/
-theorem _root_.Schoenflies.IsArcBetween.isConnected_diff {A : Set Plane} {p q : Plane}
-    (h : IsArcBetween A p q) : IsConnected (A \ {p, q}) := by
-  obtain ⟨f, hc, hi, himg, hp, hq⟩ := h
-  have hrw : A \ {p, q} = openArc f := by
-    rw [openArc_eq_diff hi, himg, hp, hq]
-  rw [hrw, openArc]
-  exact (isConnected_Ioo (by norm_num)).image f (hc.mono Ioo_subset_I)
+/- "An arc without its two endpoints is connected" is
+`Schoenflies.IsArcBetween.isConnected_diff`, now in `Schoenflies/Subarc.lean`. -/
 
 /-- **The ear's realisation meets the drawing of the current subgraph only in the ear's two
 ends.** Two cases, and both come down to the ear's freshness clause: a point of the ear on a
@@ -624,23 +616,11 @@ theorem IsDrawing.mono (hG : IsDrawing G drawing) (hBG : B ≤ G) : IsDrawing B 
 
 /-! ### The ear's ends lie on the boundary of the face its interior lies in -/
 
-/-- **An endpoint of an arc is a limit of the arc's interior.** General, and not in
-`Schoenflies/Subarc.lean`; the integrator may want to hoist it alongside
-`Schoenflies.IsArcBetween.isConnected_diff`. -/
-theorem _root_.Schoenflies.IsArcBetween.left_mem_closure_diff {A : Set Plane} {p q : Plane}
-    (h : IsArcBetween A p q) : p ∈ closure (A \ {p, q}) := by
-  obtain ⟨f, hc, hi, himg, hp, hq⟩ := h
-  have hrw : A \ {p, q} = f '' Ioo 0 1 := by
-    rw [show A \ {p, q} = openArc f by rw [openArc_eq_diff hi, himg, hp, hq], openArc]
-  rw [hrw, ← hp]
-  refine ((hc 0 zero_mem_I).mono Ioo_subset_I).mem_closure_image ?_
-  rw [closure_Ioo (by norm_num : (0 : ℝ) ≠ 1)]
-  exact zero_mem_I
-
-theorem _root_.Schoenflies.IsArcBetween.right_mem_closure_diff {A : Set Plane} {p q : Plane}
-    (h : IsArcBetween A p q) : q ∈ closure (A \ {p, q}) := by
-  rw [Set.pair_comm]
-  exact h.reverse.left_mem_closure_diff
+/- "An endpoint of an arc is a limit of the arc's interior" is
+`Schoenflies.IsArcBetween.left_mem_closure_diff` / `…right_mem_closure_diff`, hoisted into
+`Schoenflies/Subarc.lean` alongside `…isConnected_diff`. This module had its own copy, with the
+same statement as the one in `Schoenflies/AlternatingCrosscuts.lean`; the two modules do not
+import each other, so the build accepted both. -/
 
 /-- **"The ear's two endpoints are limits of its interior, which lies in `F`, so they lie on
 `∂F`."** This is the hypothesis `thm:polygonal-crosscut` needs of a crosscut: its two ends are

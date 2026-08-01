@@ -1,34 +1,108 @@
 #!/usr/bin/env python3
 """Regenerate docs/INVENTORY.md, and report duplicate declaration names across modules.
 
-Run from the repository root.  The duplicate scan is the important half: Lean's import
-checker accepts two modules declaring the same name when the statements are
-alpha-equivalent Props, because proof irrelevance makes them defeq.  So a clean build is
-NOT a sufficient collision check.
+Run from the repository root:  python3 docs/regen-inventory.py
+
+The duplicate scan is the important half: Lean's import checker accepts two modules declaring
+the same name when the statements are alpha-equivalent Props, because proof irrelevance makes
+them defeq.  So a clean build is NOT a sufficient collision check.  Exit status is 1 when any
+duplicate is found, so this can gate a merge.
+
+Comment and docstring text is skipped.  Without that, a docstring line that happens to wrap
+onto the word "theorem" is read as a declaration, which is where the phantom entries
+`actually`, `is` and `of` in earlier inventories came from.
 """
 import re, glob, collections, sys
 
-def decls():
-    out = collections.defaultdict(list)
-    for f in sorted(glob.glob("Schoenflies/**/*.lean", recursive=True)):
-        ns = []
-        for line in open(f):
-            m = re.match(r'^namespace\s+([A-Za-z_0-9.]+)', line)
-            if m: ns.extend(m.group(1).split('.')); continue
-            m = re.match(r'^end\s+([A-Za-z_0-9.]+)\s*$', line)
-            if m:
-                p = m.group(1).split('.')
-                if ns[-len(p):] == p: ns = ns[:-len(p)]
-                continue
-            m = re.match(r'^\s*(?:@\[[^\]]*\]\s*)?(?:protected\s+|private\s+|noncomputable\s+)*'
-                         r'(theorem|lemma|def|abbrev|structure|inductive|class|instance)\s+'
-                         r"([A-Za-z_0-9.']+)", line)
-            if m and 'private' not in line:
-                out[".".join(ns + [m.group(2)])].append(f)
-    return out
+INVENTORY = "docs/INVENTORY.md"
 
-d = decls()
-dups = {k: sorted(set(v)) for k, v in d.items() if len(set(v)) > 1}
+DECL = re.compile(
+    r"^\s*(?:@\[[^\]]*\]\s*)?(?:protected\s+|private\s+|noncomputable\s+|scoped\s+|partial\s+)*"
+    r"(theorem|lemma|def|abbrev|structure|inductive|class|instance)\s+"
+    r"([A-Za-z_0-9.']+)")
+
+
+def strip_comments(text):
+    """Blank out `/- ... -/` blocks (docstrings included) and `--` line comments.
+
+    Newlines are preserved so that line-oriented scanning still sees the right structure.
+    Nesting is honoured, because Lean block comments nest.
+    """
+    out, i, depth, n = [], 0, 0, len(text)
+    while i < n:
+        if text.startswith("/-", i):
+            depth += 1
+            out.append("  ")
+            i += 2
+        elif depth and text.startswith("-/", i):
+            depth -= 1
+            out.append("  ")
+            i += 2
+        elif depth:
+            out.append("\n" if text[i] == "\n" else " ")
+            i += 1
+        elif text.startswith("--", i):
+            j = text.find("\n", i)
+            j = n if j < 0 else j
+            out.append(" " * (j - i))
+            i = j
+        else:
+            out.append(text[i])
+            i += 1
+    return "".join(out)
+
+
+def scan():
+    """Return {fully-qualified name: [files]} and {file: [names in source order]}."""
+    owners = collections.defaultdict(list)
+    per_file = collections.OrderedDict()
+    for f in sorted(glob.glob("Schoenflies/**/*.lean", recursive=True)):
+        source = strip_comments(open(f).read())
+        names, ns = [], []
+        for line in source.splitlines():
+            m = re.match(r"^namespace\s+([A-Za-z_0-9.]+)", line)
+            if m:
+                ns.extend(m.group(1).split("."))
+                continue
+            m = re.match(r"^end\s+([A-Za-z_0-9.]+)\s*$", line)
+            if m:
+                p = m.group(1).split(".")
+                if ns[-len(p):] == p:
+                    ns = ns[:-len(p)]
+                continue
+            m = DECL.match(line)
+            if not m:
+                continue
+            name = m.group(2)
+            # `_root_.Foo` escapes the enclosing namespaces entirely.
+            full = name[len("_root_."):] if name.startswith("_root_.") else ".".join(ns + [name])
+            names.append(full)
+            owners[full].append(f)
+        per_file[f] = names
+    return owners, per_file
+
+
+def line_count(path):
+    with open(path) as h:
+        return sum(1 for _ in h)
+
+
+owners, per_file = scan()
+
+with open(INVENTORY, "w") as out:
+    out.write("# Inventory of `main` — generated\n\n")
+    out.write("Regenerate with `python3 docs/regen-inventory.py`, from the repository root.\n")
+    out.write("GREP THIS BEFORE STATING ANY LEMMA: re-proving something already here is the\n")
+    out.write("commonest way parallel builds collide, and it has cost six rebuilds so far — one\n")
+    out.write("of which compiled silently, because two alpha-equivalent `Prop`s pass the import\n")
+    out.write("checker under proof irrelevance.\n")
+    for f, names in per_file.items():
+        out.write(f"\n## {f}  ({line_count(f)} lines)\n\n")
+        out.write((", ".join(f"`{n}`" for n in names) + "\n") if names else "_(no declarations)_\n")
+
+dups = {k: sorted(set(v)) for k, v in owners.items() if len(set(v)) > 1}
 for k, v in sorted(dups.items()):
     print("DUPLICATE", k, "->", v, file=sys.stderr)
-print(f"{len(d)} declarations, {len(dups)} duplicated", file=sys.stderr)
+print(f"{len(owners)} declarations in {len(per_file)} modules, {len(dups)} duplicated;"
+      f" wrote {INVENTORY}", file=sys.stderr)
+sys.exit(1 if dups else 0)

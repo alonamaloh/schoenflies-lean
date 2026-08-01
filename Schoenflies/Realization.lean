@@ -1451,27 +1451,13 @@ of the curve between them is connected and misses both, so it lies on one side o
 splitting. Without this a realization could name two arcs and still not be known to name the two
 arcs a consumer started from. -/
 
-/-- The interior of an arc — the arc less its two endpoints — is connected and nonempty. -/
+/-- The interior of an arc — the arc less its two endpoints — is connected and nonempty. The
+paired form the uniqueness argument below destructures; both halves are in
+`Schoenflies/Subarc.lean`, which is where the shared set identity `A ∖ {p, q} = f '' Ioo 0 1`
+lives. -/
 theorem IsArcBetween.preconnected_diff {A : Set Plane} {p q : Plane} (h : IsArcBetween A p q) :
-    IsPreconnected (A \ {p, q}) ∧ (A \ {p, q}).Nonempty := by
-  obtain ⟨f, hc, hinj, rfl, rfl, rfl⟩ := h
-  have hIoo : (f '' I) \ {f 0, f 1} = f '' Ioo 0 1 := by
-    ext z
-    constructor
-    · rintro ⟨⟨s, hs, rfl⟩, hz⟩
-      simp only [Set.mem_insert_iff, Set.mem_singleton_iff] at hz
-      push Not at hz
-      exact ⟨s, ⟨lt_of_le_of_ne hs.1 (Ne.symm fun he => hz.1 (by rw [he])),
-        lt_of_le_of_ne hs.2 fun he => hz.2 (by rw [he])⟩, rfl⟩
-    · rintro ⟨s, hs, rfl⟩
-      refine ⟨⟨s, ⟨hs.1.le, hs.2.le⟩, rfl⟩, ?_⟩
-      simp only [Set.mem_insert_iff, Set.mem_singleton_iff]
-      push Not
-      exact ⟨fun he => absurd (hinj ⟨hs.1.le, hs.2.le⟩ zero_mem_I he) (ne_of_gt hs.1),
-        fun he => absurd (hinj ⟨hs.1.le, hs.2.le⟩ one_mem_I he) (ne_of_lt hs.2)⟩
-  rw [hIoo]
-  exact ⟨isPreconnected_Ioo.image f (hc.mono fun s hs => ⟨hs.1.le, hs.2.le⟩),
-    ⟨f (1 / 2), 1 / 2, by norm_num, rfl⟩⟩
+    IsPreconnected (A \ {p, q}) ∧ (A \ {p, q}).Nonempty :=
+  ⟨h.isPreconnected_diff, h.nonempty_diff⟩
 
 /-- **The two arcs a pair of points cuts a curve into are determined.** -/
 theorem two_arcs_unique {C A₁ A₂ D₁ D₂ : Set Plane} {p q : Plane}

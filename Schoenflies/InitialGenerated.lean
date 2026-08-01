@@ -38,7 +38,7 @@ The four clauses go as follows.
   is inside the curve and off the crosscut; and the two 2-cells are the two sides of one
   crosscut.
 * `iUnion_eq` — the 0-cells and open 1-cells reassemble the skeleton `C ∪ P`
-  (`HexData.iUnion_skeleton_cellSet`), and the two 2-cells exhaust `D ∖ P`
+  (`HexData.iUnion_cellSet`), and the two 2-cells exhaust `D ∖ P`
   (`thm:general-crosscut`), so together they are `C ∪ D`.
 * `closure_eq` — a finite case check against `Schoenflies.initSub`, the base value of `≼_abs`
   that the blueprint fixes. The four `initSub_iff_*` lemmas below read it off, and then the only
@@ -62,14 +62,18 @@ holding the anchored form.
 * `Schoenflies.initSub_iff_vert`, `.._edge`, `.._chord`, `.._face` — the base value of `≼_abs`
   (tex 1590–1602) read as "the subcells of each cell are exactly these".
 * `Schoenflies.HexData.isCellDecomposition` — `lem:cellulation-invariants`(i) for either
-  realization of `prop:initial-pair`.
+  realization of `prop:initial-pair`, with `HexData.iUnion_cellSet`,
+  `HexData.biUnion_of_three_edges` and `HexData.biUnion_faceCells` as its two reassembly steps.
 * `Schoenflies.HexData.isWeaklyAdmissible` — `def:admissible-graph` minus the connectedness
   clause, for either realization.
 * `Schoenflies.InitialData.generatedPair`, `Schoenflies.AnchoredInitialData.generatedPair` —
   `def:generated-structure` at stage 0: `prop:initial-pair` is a generated matched cellulation.
-* `Schoenflies.InitialData.generatedPair_isAdmissible` — the *strong* form of
+* `Schoenflies.modelCurve_union_inside` — `S ∪ Int(S) = Q`, the closed target domain.
+* `Schoenflies.InitialData.generatedPair_src_isAdmissible`, `.generatedPair_tgt_isAdmissible` —
+  the *strong* form of
   `def:admissible-graph` on both sides, which the initial pair does satisfy
   (`rem:intermediate-disconnection` waives it only at intermediate stages).
+* `Schoenflies.IsArcBetween.closure_diff` — general; belongs in `Schoenflies/Subarc.lean`.
 -/
 
 open Metric Set Topology unitInterval

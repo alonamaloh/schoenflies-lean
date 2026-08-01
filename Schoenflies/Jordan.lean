@@ -360,4 +360,128 @@ theorem accessible_dense (harc : ∀ A : Set Plane, IsArc A → IsConnected Aᶜ
   rw [dist_comm]
   exact hball (image_mono hsub hpIoo)
 
+/-! ### The tripod at a component
+
+The blueprint builds the three internally disjoint branches from `x_i` to the three terminals
+by overlaying the three access arcs, taking a minimal connected spanning subgraph, and reading
+off its unique degree-three vertex (`lem:three-leaf-tree`). The construction below reaches the
+same object without a graph: join the first two terminals by a *crosscut* — a simple polygonal
+arc meeting the curve exactly at its two endpoints (`lem:accessible-endpoints` in crosscut
+form) — then run a chain from the third terminal into the region and on to a point of that
+crosscut, and take its **first meeting** with the crosscut. That meeting point is the branch
+vertex; cutting the crosscut there (`IsArcBetween.exists_split`) supplies the other two
+branches.
+
+The output is the same three internally disjoint arcs, with the same two properties every
+later step uses: each meets the curve only at its terminal, and two of them meet only at the
+branch vertex. -/
+
+/-- **Three internally disjoint arcs from one point of a region to three accessible points of
+its complementary set.** The blueprint's `T_i` with its three branches, for `Ω` the `i`-th
+component and the three points the terminals `p_{ij}`. -/
+theorem exists_tripod (hΩopen : IsOpen Ω) (hΩconn : IsPreconnected Ω) (hCclosed : IsClosed C)
+    (hdisj : Disjoint Ω C) {a b c : Plane} (haC : a ∈ C) (hbC : b ∈ C) (hcC : c ∈ C)
+    (hab : a ≠ b) (hac : a ≠ c) (hbc : b ≠ c)
+    (ha : PolyAccessible Ω a) (hb : PolyAccessible Ω b) (hc : PolyAccessible Ω c) :
+    ∃ x ∈ Ω, ∃ Ta Tb Tc : Set Plane,
+      IsArcBetween Ta x a ∧ IsArcBetween Tb x b ∧ IsArcBetween Tc x c ∧
+        Ta \ {a} ⊆ Ω ∧ Tb \ {b} ⊆ Ω ∧ Tc \ {c} ⊆ Ω ∧
+        Ta ∩ Tb ⊆ {x} ∧ Ta ∩ Tc ⊆ {x} ∧ Tb ∩ Tc ⊆ {x} := by
+  classical
+  -- The crosscut from `a` to `b`.
+  obtain ⟨ws, hws, hwhead, hwlast, hwΩ, hwarc, hwC⟩ :=
+    exists_crosscut_of_polyAccessible hΩopen hΩconn hdisj hab haC hbC ha hb
+  set A : Set Plane := poly ws with hA
+  have hAclosed : IsClosed A := (isCompact_poly ws).isClosed
+  have hcA : c ∉ A := fun hcon => by
+    rcases (hwC ▸ (⟨hcon, hcC⟩ : c ∈ A ∩ C) : c ∈ ({a, b} : Set Plane)) with h | h
+    exacts [hac h.symm, hbc h.symm]
+  -- The access chain from `c`, continued inside `Ω` to an interior point of the crosscut.
+  obtain ⟨cs, hcs, hchead, hclast, hcsub⟩ := hc
+  obtain ⟨w, hwmem⟩ := hwarc.nonempty_diff
+  have hwΩ' : w ∈ Ω := hwΩ hwmem
+  obtain ⟨ls, hls, hlsub, hlhead, hllast⟩ :=
+    exists_poly_of_isPreconnected hΩopen hΩconn hclast hwΩ'
+  have hcatlist : cs ++ ls = cs ++ cs.getLast hcs :: ls.tail := by
+    rw [← hlhead, List.cons_head_tail hls]
+  have hcat : poly (cs ++ ls) = poly cs ∪ poly ls := by
+    rw [hcatlist, poly_append hcs _ _ rfl, ← hlhead, List.cons_head_tail hls]
+  -- The full chain starts at `c`, runs in `Ω ∪ {c}`, and reaches the crosscut.
+  have hfullne : cs ++ ls ≠ [] := by simp [hcs]
+  have hfullhead : (cs ++ ls).head hfullne = c := by
+    rw [List.head_append_of_ne_nil hcs, hchead]
+  have hfulllist : c :: (cs ++ ls).tail = cs ++ ls := by
+    rw [← hfullhead]; exact List.cons_head_tail hfullne
+  set U : Set Plane := (Ω ∪ {c}) \ A with hU
+  have hUS : Disjoint U A := disjoint_sdiff_left
+  have hcU : c ∈ U := ⟨Or.inr rfl, hcA⟩
+  have hfullsub : poly (c :: (cs ++ ls).tail) ⊆ U ∪ A := by
+    rw [hfulllist, hcat]
+    rintro z hz
+    have hzΩ : z ∈ Ω ∪ {c} := by
+      rcases hz with hz | hz
+      · rcases eq_or_ne z c with rfl | hzc
+        · exact Or.inr rfl
+        · exact Or.inl (hcsub ⟨hz, hzc⟩)
+      · exact Or.inl (hlsub hz)
+    rcases em (z ∈ A) with h | h
+    · exact Or.inr h
+    · exact Or.inl ⟨hzΩ, h⟩
+  have hfullmeet : (poly (c :: (cs ++ ls).tail) ∩ A).Nonempty := by
+    rw [hfulllist, hcat]
+    exact ⟨w, Or.inr (hllast ▸ getLast_mem_poly hls), hwmem.1⟩
+  obtain ⟨x, hx, P, -, hParc, -, hPcomp⟩ :=
+    exists_arc_to_first_meeting hAclosed hUS hcU hfullsub hfullmeet
+  rw [hfulllist, hcat] at hx
+  -- The branch vertex is interior to the crosscut.
+  have hxU : ∀ z ∈ P, z ≠ x → z ∈ U := fun z hz hzx =>
+    connectedComponentIn_subset _ _ (hPcomp ⟨hz, hzx⟩)
+  have hxΩ : x ∈ Ω := by
+    rcases hx.1 with hz | hz
+    · rcases eq_or_ne x c with rfl | hxc
+      · exact absurd hx.2 hcA
+      · exact hcsub ⟨hz, hxc⟩
+    · exact hlsub hz
+  have hPC : P ∩ C = {c} := by
+    apply Subset.antisymm
+    · rintro z ⟨hzP, hzC⟩
+      rcases eq_or_ne z x with rfl | hzx
+      · exact absurd rfl (hdisj.ne_of_mem hxΩ hzC)
+      · rcases (hxU z hzP hzx).1 with h | h
+        · exact absurd rfl (hdisj.ne_of_mem h hzC)
+        · exact h
+    · rintro z rfl; exact ⟨hParc.right_mem, hcC⟩
+  have hPΩ : P \ {c} ⊆ Ω := by
+    rintro z ⟨hzP, hzc⟩
+    rcases eq_or_ne z x with rfl | hzx
+    · exact hxΩ
+    · exact ((hxU z hzP hzx).1).resolve_right hzc
+  have hPA : P ∩ A ⊆ {x} := by
+    rintro z ⟨hzP, hzA⟩
+    by_contra hzx
+    exact (hxU z hzP (fun h => hzx (by rw [h]; rfl))).2 hzA
+  -- Cut the crosscut at the branch vertex.
+  have hxa : x ≠ a := fun hcon => hdisj.ne_of_mem hxΩ (hcon ▸ haC) rfl
+  have hxb : x ≠ b := fun hcon => hdisj.ne_of_mem hxΩ (hcon ▸ hbC) rfl
+  obtain ⟨A₁, A₂, hA₁, hA₂, hAcov, hAmeet⟩ := hwarc.exists_split hx.2 hxa hxb
+  have hbA₁ : b ∉ A₁ := fun hcon => hxb (by
+    have : b ∈ A₁ ∩ A₂ := ⟨hcon, hA₂.right_mem⟩
+    rw [hAmeet] at this; exact this.symm)
+  have haA₂ : a ∉ A₂ := fun hcon => hxa (by
+    have : a ∈ A₁ ∩ A₂ := ⟨hA₁.left_mem, hcon⟩
+    rw [hAmeet] at this; exact this.symm)
+  have hAΩ : A \ {a, b} ⊆ Ω := hwΩ
+  refine ⟨x, hxΩ, A₁, A₂, P, hA₁.reverse, hA₂, hParc, ?_, ?_, hPΩ, ?_, ?_, ?_⟩
+  · rintro z ⟨hz, hza⟩
+    refine hAΩ ⟨hAcov ▸ mem_union_left _ hz, ?_⟩
+    rintro (rfl | rfl)
+    exacts [hza rfl, hbA₁ hz]
+  · rintro z ⟨hz, hzb⟩
+    refine hAΩ ⟨hAcov ▸ mem_union_right _ hz, ?_⟩
+    rintro (rfl | rfl)
+    exacts [haA₂ hz, hzb rfl]
+  · exact hAmeet.subset
+  · exact fun z hz => hPA ⟨hz.2, hAcov ▸ mem_union_left _ hz.1⟩
+  · exact fun z hz => hPA ⟨hz.2, hAcov ▸ mem_union_right _ hz.1⟩
+
 end Schoenflies

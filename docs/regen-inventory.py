@@ -11,15 +11,27 @@ duplicate is found, so this can gate a merge.
 Comment and docstring text is skipped.  Without that, a docstring line that happens to wrap
 onto the word "theorem" is read as a declaration, which is where the phantom entries
 `actually`, `is` and `of` in earlier inventories came from.
+
+The name pattern is a negated character class, not `[A-Za-z_0-9.']+`.  Lean identifiers here
+routinely carry subscripts — `carrier₁`, `cell_subset₂`, `J₁` — and an ASCII-only pattern
+truncates them, so `carrier₁` and `carrier₂` both register as `carrier`.  That both loses real
+names from the inventory and manufactures a phantom duplicate inside a single file.
+
+`private` declarations are skipped: they are invisible outside their module, so they cannot
+collide, and their real names are mangled.
 """
 import re, glob, collections, sys
 
 INVENTORY = "docs/INVENTORY.md"
 
+# Anything up to the first character that cannot occur in a Lean identifier.  Deliberately
+# permissive about Unicode: subscripts, primes and Greek letters are all in normal use here.
 DECL = re.compile(
-    r"^\s*(?:@\[[^\]]*\]\s*)?(?:protected\s+|private\s+|noncomputable\s+|scoped\s+|partial\s+)*"
+    r"^\s*(?:@\[[^\]]*\]\s*)?(?:protected\s+|noncomputable\s+|scoped\s+|partial\s+|unsafe\s+)*"
     r"(theorem|lemma|def|abbrev|structure|inductive|class|instance)\s+"
-    r"([A-Za-z_0-9.']+)")
+    r"([^\s(){}\[\]⟨⟩:=,←→↔|]+)")
+
+PRIVATE = re.compile(r"^\s*(?:@\[[^\]]*\]\s*)?private\b")
 
 
 def strip_comments(text):
@@ -69,6 +81,8 @@ def scan():
                 p = m.group(1).split(".")
                 if ns[-len(p):] == p:
                     ns = ns[:-len(p)]
+                continue
+            if PRIVATE.match(line):
                 continue
             m = DECL.match(line)
             if not m:

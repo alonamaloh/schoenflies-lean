@@ -103,6 +103,19 @@ These cost real time to discover. Do not rediscover them.
 > summary below is the historical wave-1 list and is no longer complete; treat it as a guide
 > to *which module holds what kind of thing*, not as an index.
 
+Two gates, both a couple of seconds, both to be run from the repository root after a build:
+
+```sh
+python3 docs/regen-inventory.py   # rewrites INVENTORY.md; exits 1 on a duplicate name
+python3 docs/audit-axioms.py      # #print axioms on every declaration; exits 1 on any other axiom
+```
+
+The duplicate gate is not redundant with the build: Lean's import checker accepts two modules
+declaring the same name when the statements are alpha-equivalent `Prop`s, because proof
+irrelevance makes them defeq. That has landed on `main` twice. The axiom gate is not redundant
+with grepping for `sorry`: a `sorry` reached through a chain of definitions shows up as
+`sorryAx` in the audit and nowhere else.
+
 Sixty-two modules, ~28k lines, all `sorry`-free, every theorem on
 `propext`/`Classical.choice`/`Quot.sound`. **Read the ones your module touches before
 writing anything** — reuse their lemmas rather than reproving them, and tell the integrator if

@@ -151,6 +151,197 @@ end Schoenflies
 
 namespace Graph
 
+/-! ## Cutting and joining paths
+
+Two general facts about paths that `Schoenflies/Graph/Walk.lean` does not have, and that the
+splitting of a cycle at two of its vertices runs on. **The integrator should hoist both into
+`Schoenflies/Graph/Walk.lean`**, next to `Graph.IsPath.split`, which is the weaker form of the
+second. -/
+
+section GeneralWalk
+
+variable {α β : Type*} {G : Graph α β} {u v w x y : α} {e : β} {W W₁ W₂ : List β}
+
+/-- **Two paths meeting only at the junction concatenate.** The freshness clause of the joined
+path is the freshness of the first together with the meeting condition: a vertex the second
+half visits and the first half departs from would be the junction, which the first half has
+already arrived at. -/
+theorem IsPath.append : ∀ {u w v : α} {W₁ W₂ : List β}, G.IsPath u W₁ w → G.IsPath w W₂ v →
+    (∀ y ∈ G.walkVertices u W₁, y ∈ G.walkVertices w W₂ → y = w) → G.IsPath u (W₁ ++ W₂) v := by
+  intro u w v W₁ W₂ h₁
+  induction h₁ with
+  | nil hx => intro h₂ _; simpa using h₂
+  | @cons u w₀ w e W hl hW hfresh ih =>
+    intro h₂ hmeet
+    refine List.cons_append .. ▸ IsPath.cons hl
+      (ih h₂ fun y hy hy₂ => hmeet y (mem_walkVertices_cons_of_mem hl hy) hy₂) fun hmem => ?_
+    -- The departure vertex is fresh: the only new vertices are those of the second half, and
+    -- one of those shared with the first half would be the junction, already visited.
+    rcases mem_walkVertices_iff.1 hmem with rfl | hcov
+    · exact hfresh mem_walkVertices_self
+    rw [coveredVertices_append] at hcov
+    rcases hcov with hcov | hcov
+    · exact hfresh (mem_walkVertices_of_mem_covered hcov)
+    · have := hmeet u mem_walkVertices_self (mem_walkVertices_of_mem_covered hcov)
+      exact hfresh (this ▸ hW.target_mem_walkVertices)
+
+/-- **A path splits at any vertex it visits, and the two halves meet only there.** This is
+`Graph.IsPath.split` with the meeting condition in place of its weaker last clause. -/
+theorem IsPath.split_meet (h : G.IsPath u W v) (hx : x ∈ G.walkVertices u W) :
+    ∃ W₁ W₂, W = W₁ ++ W₂ ∧ G.IsPath u W₁ x ∧ G.IsPath x W₂ v ∧
+      ∀ y ∈ G.walkVertices u W₁, y ∈ G.walkVertices x W₂ → y = x := by
+  induction h with
+  | nil hx' =>
+    rw [walkVertices_nil] at hx
+    obtain rfl := hx
+    exact ⟨[], [], rfl, .nil hx', .nil hx', fun y hy _ => by simpa using hy⟩
+  | @cons u w v e W hl hW hfresh ih =>
+    rcases mem_walkVertices_cons hl hx with rfl | hx'
+    · exact ⟨[], e :: W, rfl, .nil hl.left_mem, .cons hl hW hfresh,
+        fun y hy _ => by simpa using hy⟩
+    obtain ⟨W₁, W₂, rfl, h₁, h₂, hmeet⟩ := ih hx'
+    have hsub₁ : W₁ ⊆ W₁ ++ W₂ := List.subset_append_left _ _
+    have hsub₂ : W₂ ⊆ W₁ ++ W₂ := List.subset_append_right _ _
+    refine ⟨e :: W₁, W₂, rfl, .cons hl h₁ fun hmem => hfresh (walkVertices_mono hsub₁ hmem),
+      h₂, fun y hy hy₂ => ?_⟩
+    -- A vertex of the extended prefix is either the new source — which the far half never
+    -- visits, by freshness — or one the induction hypothesis already handles.
+    rcases mem_walkVertices_cons hl hy with rfl | hy'
+    · exfalso
+      rcases mem_walkVertices_iff.1 hy₂ with rfl | hcov
+      · exact hfresh (walkVertices_mono hsub₁ h₁.target_mem_walkVertices)
+      · exact hfresh (mem_walkVertices_of_mem_covered (coveredVertices_mono hsub₂ hcov))
+    · exact hmeet y hy' hy₂
+
+/-- The source of a nonempty walk is an end of its first edge, so a nonempty walk visits no
+vertex its edges do not cover. -/
+theorem IsWalk.walkVertices_eq_covered (h : G.IsWalk u W v) (hne : W ≠ []) :
+    G.walkVertices u W = G.coveredVertices W := by
+  refine Set.insert_eq_self.2 ?_
+  cases h with
+  | nil => exact absurd rfl hne
+  | cons hl _ => exact mem_coveredVertices List.mem_cons_self hl.inc_left
+
+/-- Running a nonempty walk backwards changes neither the edges nor the vertices it visits. -/
+theorem IsWalk.walkVertices_reverse_eq (h : G.IsWalk u W v) (hne : W ≠ []) :
+    G.walkVertices v W.reverse = G.walkVertices u W := by
+  rw [h.reverse.walkVertices_eq_covered (by simpa using hne), coveredVertices_reverse,
+    h.walkVertices_eq_covered hne]
+
+/-! ### Cutting a cycle at two of its vertices
+
+The cycle is `X ++ Y ++ Z` closed up by the edge `e`, cut at the two vertices `c` (between `X`
+and `Y`) and `d` (between `Y` and `Z`). One arc is `Y`; the other runs `Z`, then the closing
+edge, then `X`. Both cases of "which of the two named vertices comes first along the detour"
+feed this one lemma. -/
+
+/-- **The complementary arc of a cut cycle**, together with the two facts a geometric consumer
+needs: that the two arcs between them use every edge of the cycle exactly once, and that they
+visit no common vertex but the two cut points. -/
+theorem IsCycleThrough.split_aux {G : Graph α β} {e : β} {u v c d : α} {D X Y Z : List β}
+    (hc : G.IsCycleThrough e u v D) (hD : D = X ++ (Y ++ Z)) (hX : G.IsPath u X c)
+    (hY : G.IsPath c Y d) (hZ : G.IsPath d Z v) (hcd : c ≠ d)
+    (hM1 : ∀ y ∈ G.walkVertices u X, y ∈ G.walkVertices c (Y ++ Z) → y = c)
+    (hM2 : ∀ y ∈ G.walkVertices c Y, y ∈ G.walkVertices d Z → y = d) :
+    G.IsPath d (Z ++ e :: X) c ∧ (Y ++ (Z ++ e :: X)).Perm (e :: D) ∧
+      ∀ y ∈ G.walkVertices c Y, y ∈ G.walkVertices d (Z ++ e :: X) → y = c ∨ y = d := by
+  have hZsub : G.walkVertices d Z ⊆ G.walkVertices c (Y ++ Z) := by
+    intro y hy
+    rcases mem_walkVertices_iff.1 hy with rfl | hcov
+    · exact walkVertices_mono (List.subset_append_left _ _) hY.target_mem_walkVertices
+    · exact mem_walkVertices_of_mem_covered (coveredVertices_mono
+        (List.subset_append_right _ _) hcov)
+  -- A vertex of the first stretch that the last stretch also reaches would merge the two cuts.
+  have hclash : ∀ y ∈ G.walkVertices u X, y ∈ G.walkVertices d Z → False := by
+    intro y hy hyZ
+    obtain rfl : y = c := hM1 y hy (hZsub hyZ)
+    exact hcd (hM2 y mem_walkVertices_self hyZ)
+  have hvZ : v ∈ G.walkVertices d Z := hZ.target_mem_walkVertices
+  have hvX : v ∉ G.walkVertices u X := fun hh => hclash v hh hvZ
+  -- The closing edge, then the first stretch, is a path from the far end back to the first cut.
+  have hePath : G.IsPath v (e :: X) c := IsPath.cons hc.isLink.symm hX hvX
+  -- Its vertices, other than `v` itself, are those of the first stretch.
+  have hcons : ∀ y ∈ G.walkVertices v (e :: X), y = v ∨ y ∈ G.walkVertices u X := by
+    intro y hy
+    rcases mem_walkVertices_iff.1 hy with rfl | ⟨g, hg, hinc⟩
+    · exact Or.inl rfl
+    rcases List.mem_cons.1 hg with rfl | hg'
+    · rcases hinc.eq_or_eq_of_isLink hc.isLink with rfl | rfl
+      · exact Or.inr mem_walkVertices_self
+      · exact Or.inl rfl
+    · exact Or.inr (mem_walkVertices_of_mem_covered ⟨g, hg', hinc⟩)
+  refine ⟨hZ.append hePath fun y hy hy' => ?_, ?_, fun y hy hy' => ?_⟩
+  · rcases hcons y hy' with rfl | hyX
+    · rfl
+    · exact absurd hyX fun hh => hclash y hh hy
+  · subst hD
+    rw [show Y ++ (Z ++ e :: X) = (Y ++ Z) ++ (e :: X) by rw [List.append_assoc]]
+    exact List.perm_middle.trans (List.Perm.cons _ List.perm_append_comm)
+  · -- A vertex on both arcs is on the last stretch — hence the second cut — or on the first,
+    -- hence the first cut.
+    rcases mem_walkVertices_iff.1 hy' with rfl | hcov
+    · exact Or.inr rfl
+    rw [coveredVertices_append] at hcov
+    rcases hcov with hcovZ | hcovE
+    · exact Or.inr (hM2 y hy (mem_walkVertices_of_mem_covered hcovZ))
+    · rcases hcons y (mem_walkVertices_of_mem_covered hcovE) with rfl | hyX
+      · exact Or.inr (hM2 y hy hvZ)
+      · exact Or.inl (hM1 y hyX (walkVertices_mono (List.subset_append_left _ _) hy))
+
+/-- **A cycle cut at two of its vertices is two paths between them.** The two arcs use every
+edge of the cycle exactly once — that is what the permutation says — and they have no vertex in
+common but the two cut points. This is the combinatorial half of "the ear is a crosscut of the
+face": the geometric half reads the two arcs of the Jordan curve off it. -/
+theorem IsCycleThrough.split_at {G : Graph α β} {e : β} {u v a b : α} {D : List β}
+    (hc : G.IsCycleThrough e u v D) (ha : a ∈ G.walkVertices u D) (hb : b ∈ G.walkVertices u D)
+    (hab : a ≠ b) :
+    ∃ D₁ D₂ : List β, G.IsPath a D₁ b ∧ G.IsPath b D₂ a ∧ (D₁ ++ D₂).Perm (e :: D) ∧
+      ∀ y ∈ G.walkVertices a D₁, y ∈ G.walkVertices b D₂ → y = a ∨ y = b := by
+  obtain ⟨P, Q, hPQ, hP, hQ, hM1⟩ := hc.isPath.split_meet ha
+  -- The second cut point lies on one of the two stretches the first one made.
+  have hcases : b ∈ G.walkVertices a Q ∨ b ∈ G.walkVertices u P := by
+    rw [hPQ] at hb
+    rcases mem_walkVertices_iff.1 hb with rfl | hcov
+    · exact Or.inr mem_walkVertices_self
+    rw [coveredVertices_append] at hcov
+    rcases hcov with h | h
+    · exact Or.inr (mem_walkVertices_of_mem_covered h)
+    · exact Or.inl (mem_walkVertices_of_mem_covered h)
+  rcases hcases with hbQ | hbP
+  · -- `b` comes after `a`: cut the far stretch at `b`.
+    obtain ⟨Q₁, Q₂, hQ12, hQ1, hQ2, hM2⟩ := hQ.split_meet hbQ
+    obtain ⟨hpath, hperm, hmeet⟩ := hc.split_aux (X := P) (Y := Q₁) (Z := Q₂)
+      (by rw [hPQ, hQ12]) hP hQ1 hQ2 hab (by rw [← hQ12]; exact hM1) hM2
+    exact ⟨Q₁, Q₂ ++ e :: P, hQ1, hpath, hperm, hmeet⟩
+  · -- `b` comes before `a`: cut the near stretch at `b`, and the two roles are exchanged.
+    obtain ⟨P₁, P₂, hP12, hP1, hP2, hM2⟩ := hP.split_meet hbP
+    have hP1sub : G.walkVertices u P₁ ⊆ G.walkVertices u P :=
+      walkVertices_mono (by rw [hP12]; exact List.subset_append_left _ _)
+    have hP2sub : G.walkVertices b P₂ ⊆ G.walkVertices u P := by
+      intro y hy
+      rcases mem_walkVertices_iff.1 hy with rfl | hcov
+      · exact hbP
+      · exact mem_walkVertices_of_mem_covered
+          (coveredVertices_mono (by rw [hP12]; exact List.subset_append_right _ _) hcov)
+    have hM1' : ∀ y ∈ G.walkVertices u P₁, y ∈ G.walkVertices b (P₂ ++ Q) → y = b := by
+      intro y hy hy'
+      rcases mem_walkVertices_iff.1 hy' with rfl | hcov
+      · rfl
+      rw [coveredVertices_append] at hcov
+      rcases hcov with h | h
+      · exact hM2 y hy (mem_walkVertices_of_mem_covered h)
+      · -- A vertex both stretches of the near half and the far half reach merges the two cuts.
+        exfalso
+        obtain rfl : y = a := hM1 y (hP1sub hy) (mem_walkVertices_of_mem_covered h)
+        exact hab (hM2 y hy hP2.target_mem_walkVertices)
+    obtain ⟨hpath, hperm, hmeet⟩ := hc.split_aux (X := P₁) (Y := P₂) (Z := Q)
+      (by rw [hPQ, hP12, List.append_assoc]) hP1 hP2 hQ (Ne.symm hab) hM1'
+      fun y hy hy' => hM1 y (hP2sub hy) hy'
+    refine ⟨Q ++ e :: P₁, P₂, hpath, hP2, List.perm_append_comm.trans hperm, fun y hy hy' => ?_⟩
+    exact (hmeet y hy' hy).symm
+
+end GeneralWalk
+
 open Schoenflies
 
 variable {β : Type*} {G B : Graph Plane β} {drawing : β → ℝ → Plane}

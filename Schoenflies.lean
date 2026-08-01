@@ -58,5 +58,6 @@ import Schoenflies.Realization
 import Schoenflies.Graph.K33Closed
 import Schoenflies.FaceCyclesProof
 import Schoenflies.PrePolygonSep
+import Schoenflies.PrePolygonArc
 import Schoenflies.FaceCyclesLand
 import Schoenflies.Graph.K33Land

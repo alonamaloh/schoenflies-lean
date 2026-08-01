@@ -6,13 +6,19 @@
 # The worktree is a real branch (wt/<name>) off main, so work is committed there and
 # integrated by merging. Only .lake/packages is symlinked at the main repo — Mathlib is
 # built and never changes — so provisioning is instant and `lake build` is a few seconds.
+#
+# Worktrees are parked in $SCHOENFLIES_WT_ROOT, defaulting to a fixed directory that does
+# NOT depend on which agent session provisions them. An earlier version pointed at one
+# session's scratchpad; when that session ended the path went stale and `git worktree list`
+# was left full of unreachable entries.
 set -e
 NAME="$1"
 [ -z "$NAME" ] && { echo "usage: new-worker.sh <name>" >&2; exit 1; }
-SCRATCH=/tmp/claude-1000/-home-alvaro-claude-schoenflies/cd0a4752-0d99-41c7-a3ad-b4ee811d9c2d/scratchpad
+SCRATCH="${SCHOENFLIES_WT_ROOT:-/tmp/claude-1000/schoenflies-worktrees}"
 MAIN=/home/alvaro/claude/schoenflies-lean
 DIR="$SCRATCH/wt-$NAME"
 
+mkdir -p "$SCRATCH"
 exec 9>"$SCRATCH/.worktree.lock"
 flock 9
 

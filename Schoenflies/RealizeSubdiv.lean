@@ -45,9 +45,13 @@ needs — that `d.edge` is drawn, injectively and continuously, between the posi
 and `d.right`, and that an interior point of a drawn edge is not a vertex — is already carried by
 `CellStructure.Realization`, and is extracted here rather than assumed.
 
-## What is *not* here: the transported skeleton homeomorphism
+## The transported skeleton homeomorphism is not here, but it exists
 
-`SkeletonHomeo.realize` is absent. Six of its eight fields are immediate — `skeletonSet_realize`
+**Closed, in `Schoenflies/RealizeSubdivHomeo.lean`** (`SubdivData.realizeHomeo`), on top of
+`Schoenflies/ArcMonotone.lean`, which supplies the missing fact named at the end of this
+section. What follows is the record of why it could not be done here.
+
+`SkeletonHomeo.realize` is absent from *this* module. Six of its eight fields are immediate — `skeletonSet_realize`
 below says the realized 1-skeleton is *literally the same set* after a subdivision, so the map,
 its inverse, both continuity clauses and both inverse clauses transport verbatim, and
 `pos_apply` at the new 0-cell is the statement `g.toFun (R₁.drawing d.edge t₁) =
@@ -57,10 +61,11 @@ What is missing is `edgeArc_image` at the two new edges: that `g` carries the *h
 `R₁.pos d.left` to the new source point onto the half arc from `R₂.pos d.left` to the new target
 point. This is true but is not implied by the `SkeletonHomeo` data pointwise: it needs the fact
 that a homeomorphism between two arcs matching their endpoints is monotone, hence carries
-initial subarcs to initial subarcs. That fact is not on `main`, and assuming the two clauses
-would be assuming the conclusion, so nothing is stated here. A module proving
-"a continuous injection of an arc onto an arc fixing the ends preserves the order of its points"
-closes the gap; everything else it needs is below.
+initial subarcs to initial subarcs. That fact was not on `main` when this module was written, and assuming the two clauses would
+have been assuming the conclusion, so nothing was stated here. `Schoenflies/ArcMonotone.lean`
+now proves it — `ArcMatch`, `transferParam`, `image_image_uIcc` — and
+`Schoenflies/RealizeSubdivHomeo.lean` builds the transported homeomorphism from it, orientation
+of the two realizations handled rather than assumed.
 
 ## Blueprint
 

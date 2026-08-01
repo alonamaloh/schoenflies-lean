@@ -203,4 +203,193 @@ theorem overlayGraph_isTwoConnected_of_cleanCut {pieces : List Piece} {points : 
     (overlayGraph pieces points).IsTwoConnected :=
   overlayGraph_isTwoConnected (pieceListGraph_subdivide_isTwoConnected points pieces hnd hclean h)
 
+/-! ## Subdividing an append
+
+The blueprint's `Γ ∪ K` is, at the level of segment lists, a list append, and
+`pieceListGraph_union` turns the graph union into that append. Subdivision has to commute with
+it, which it does because a subdivision is a `flatMap`. -/
+
+theorem splitAllAt_append (q : Plane) (l l' : List Piece) :
+    splitAllAt q (l ++ l') = splitAllAt q l ++ splitAllAt q l' := by
+  simp [splitAllAt, List.flatMap_append]
+
+theorem subdivide_append (points : List Plane) : ∀ l l' : List Piece,
+    subdivide (l ++ l') points = subdivide l points ++ subdivide l' points := by
+  induction points with
+  | nil => intro l l'; rfl
+  | cons q qs ih => intro l l'; rw [subdivide_cons, splitAllAt_append, ih, subdivide_cons,
+      subdivide_cons]
+
+theorem endSet_subset_append_left {l l' : List Piece} : endSet l ⊆ endSet (l ++ l') := by
+  rintro v ⟨P, hP, hv⟩
+  exact ⟨P, List.mem_append_left _ hP, hv⟩
+
+/-! ### A cut point on the drawing is a vertex
+
+`Schoenflies/SimpleArc.lean` proves this for `overlayGraph`; the union argument runs on the raw
+subdivision, where the same two facts — `subdivide_cover` and `subdivide_avoids` — give it. -/
+
+/-- **A cut point lying on the pieces is an end of some subpiece.** -/
+theorem mem_endSet_subdivide_of_mem_cover {pieces : List Piece} {points : List Plane}
+    (hnd : ∀ P ∈ pieces, P.Nondeg) {x : Plane} (hxp : x ∈ points) (hx : x ∈ cover pieces) :
+    x ∈ endSet (subdivide pieces points) := by
+  rw [← subdivide_cover pieces points] at hx
+  obtain ⟨P, hP, hxP⟩ := mem_cover_iff.1 hx
+  refine ⟨P, hP, ?_⟩
+  by_contra hcon
+  push Not at hcon
+  exact subdivide_avoids points hnd x hxp P hP
+    (mem_openSegment_of_ne_left_right (Ne.symm hcon.1) (Ne.symm hcon.2) hxP)
+
+/-! ## The union: the case "at least two common vertices"
+
+`lem:union-two-connected`, in the form `prop:local-grid-attachment` uses it. The two families of
+segments are overlaid together — one list append, one list of cut points — and the two distinct
+common points are supplied as points that lie on *both* families and are cut. -/
+
+/-- **`prop:local-grid-attachment`, the main case.** Two families of segments, each of which is
+2-connected after subdivision, overlay to a 2-connected graph as soon as two distinct cut points
+lie on both families.
+
+This is `lem:union-two-connected` composed with `lem:subdivision-ear-preserve` and with the
+orient-and-dedup bridge: the conclusion is about `overlayGraph`, which is what the plane layer
+(drawing, faces, outer face) is stated for. -/
+theorem overlayGraph_append_isTwoConnected {l l' : List Piece} {points : List Plane}
+    (hnd : ∀ P ∈ l, P.Nondeg) (hnd' : ∀ P ∈ l', P.Nondeg)
+    (hl : (pieceListGraph (subdivide l points)).IsTwoConnected)
+    (hl' : (pieceListGraph (subdivide l' points)).IsTwoConnected)
+    {a b : Plane} (hab : a ≠ b) (ha : a ∈ points) (hb : b ∈ points)
+    (hal : a ∈ cover l) (hbl : b ∈ cover l) (hal' : a ∈ cover l') (hbl' : b ∈ cover l') :
+    (overlayGraph (l ++ l') points).IsTwoConnected := by
+  refine overlayGraph_isTwoConnected ?_
+  rw [subdivide_append, ← pieceListGraph_union]
+  exact hl.union (pieceListGraph_compatible _ _) hl' hab
+    (mem_endSet_subdivide_of_mem_cover hnd ha hal)
+    (mem_endSet_subdivide_of_mem_cover hnd' ha hal')
+    (mem_endSet_subdivide_of_mem_cover hnd hb hbl)
+    (mem_endSet_subdivide_of_mem_cover hnd' hb hbl')
+
+/-! ## The crosscut of a face
+
+The two degenerate cases of `prop:local-grid-attachment` — no common vertex, and exactly one —
+both build an auxiliary crosscut `E` of a face `F` of `Γ`: *"the component of `ℓ ∩ F` containing
+the relative interior of `J` is a bounded open interval in `ℓ`; its closure `E` is a line segment
+with two distinct endpoints on `∂F` and interior in `F`. Hence `E` is an ear for `Γ`."*
+
+`Schoenflies.Plane.exists_openSegment_eq_connectedComponentIn` is exactly that component, with
+its two endpoints already placed on `frontier F`. What is added here is the clause the blueprint
+needs next — *"since `E` contains `J`"* — in the form that makes it usable: **every** connected
+piece of `ℓ ∩ F` through the chosen point is swallowed by the crosscut, because a connected
+subset of a set lies inside one component of it. -/
+
+variable {F : Set Plane} {a b y : Plane}
+
+/-- **The crosscut of a face along a line.** A face `F` (open, bounded) met by a line `ℓ` at `y`
+supplies a segment `[q₀, q₁]` with distinct ends on `∂F`, open part inside `F`, containing `y` —
+and containing every connected subset of `ℓ ∩ F` through `y`, which is how the blueprint's chosen
+grid edge `J` ends up inside the crosscut. -/
+theorem exists_crosscut (hab : a ≠ b) (hFopen : IsOpen F) (hFbdd : Bornology.IsBounded F)
+    (hy : y ∈ Plane.line a b ∩ F) :
+    ∃ q₀ q₁ : Plane, q₀ ≠ q₁ ∧ q₀ ∈ frontier F ∧ q₁ ∈ frontier F ∧
+      openSegment ℝ q₀ q₁ ⊆ F ∧ y ∈ openSegment ℝ q₀ q₁ ∧
+      ∀ S : Set Plane, IsPreconnected S → S ⊆ Plane.line a b ∩ F → y ∈ S →
+        S ⊆ openSegment ℝ q₀ q₁ := by
+  obtain ⟨q₀, q₁, hne, -, -, hcomp, -, h0, h1⟩ :=
+    Plane.exists_openSegment_eq_connectedComponentIn hab hFopen hFbdd hy
+  refine ⟨q₀, q₁, hne, h0, h1, ?_, ?_, ?_⟩
+  · rw [← hcomp]
+    exact fun z hz => (connectedComponentIn_subset _ _ hz).2
+  · rw [← hcomp]
+    exact mem_connectedComponentIn hy
+  · intro S hS hSsub hyS
+    rw [← hcomp]
+    exact hS.subset_connectedComponentIn hyS hSsub
+
+/-- The frontier of a face lies on the graph — which is what makes the crosscut's two endpoints
+points of `Γ`, and hence (after subdivision) vertices of it. -/
+theorem frontier_face_subset_pointSet {β : Type*} {G : Graph Plane β} [G.Finite]
+    {drawing : β → ℝ → Plane} (h : Graph.IsDrawing G drawing) (base : Plane) :
+    frontier (Graph.face G drawing base) ⊆ Graph.pointSet G drawing :=
+  Plane.frontier_connectedComponentIn_compl_subset h.isClosed_pointSet base
+
+/-! ## Attaching the crosscut as an ear
+
+`lem:subdivision-ear-preserve` (b) with the ear a single straight edge: once the crosscut's two
+endpoints are vertices — which they are, being cut points of the overlay lying on `Γ` — the
+segment joining them is a path graph of length one. -/
+
+/-- A single nondegenerate segment is a path graph between its two ends. -/
+theorem isPathGraph_single {q₀ q₁ : Plane} (hne : q₀ ≠ q₁) :
+    (pieceListGraph [(q₀, q₁)]).IsPathGraph q₀ [(q₀, q₁)] q₁ where
+  isPath := .single (pieceListGraph_isLink_self (by simp)) hne
+  edgeSet_eq := rfl
+  vertexSet_eq := by
+    have hmem : ((q₀, q₁) : Piece) ∈ [((q₀, q₁) : Piece)] := List.mem_singleton_self _
+    ext x
+    constructor
+    · rintro ⟨P, hP, hx⟩
+      rw [List.mem_singleton] at hP
+      subst hP
+      simp only [Graph.walkVertices, mem_insert_iff, Graph.coveredVertices, mem_setOf_eq]
+      rcases hx with h | h
+      · exact Or.inl h
+      · exact Or.inr ⟨(q₀, q₁), hmem, pieceListGraph_inc hmem (Or.inr h)⟩
+    · intro hx
+      simp only [Graph.walkVertices, mem_insert_iff, Graph.coveredVertices, mem_setOf_eq] at hx
+      rcases hx with h | ⟨e, he, hinc⟩
+      · exact ⟨(q₀, q₁), hmem, Or.inl h⟩
+      · rw [List.mem_singleton] at he
+        subst he
+        obtain ⟨-, hx'⟩ := pieceListGraph_inc_iff.1 hinc
+        exact ⟨(q₀, q₁), hmem, hx'⟩
+
+/-- **A crosscut is an ear.** Adding to a 2-connected family of segments one further segment
+whose two ends are already ends of the family keeps it 2-connected. -/
+theorem pieceListGraph_append_crosscut {l : List Piece} {q₀ q₁ : Plane}
+    (hl : (pieceListGraph l).IsTwoConnected) (hne : q₀ ≠ q₁)
+    (h0 : q₀ ∈ endSet l) (h1 : q₁ ∈ endSet l) :
+    (pieceListGraph (l ++ [(q₀, q₁)])).IsTwoConnected := by
+  rw [← pieceListGraph_union]
+  exact hl.ear (pieceListGraph_compatible _ _) (isPathGraph_single hne) hne h0 h1
+
+/-! ## The component-joining loop
+
+*"If `|L| ∖ C` has more than one component, choose points in two of its components and join them
+by a simple polygonal arc in `D` … Each round therefore strictly decreases the number of
+components. Since there are only finitely many components, finitely many repetitions produce a
+2-connected graph `H_n` for which `|H_n| ∖ C` is connected."*
+
+Counting components and decrementing is one way to run that loop; picking one representative per
+component and joining each to a fixed one is another, and it is the one that survives
+formalisation, because it replaces "strictly decreases" by a single induction-free statement. The
+finiteness the blueprint spends is what supplies the finite list `reps`. -/
+
+/-- **The joining loop.** If every point of `A` is joined inside `A` to one of finitely many
+representatives, and each representative is joined to a fixed `r₀ ∈ A` by a connected set `T r`,
+then `A` together with all the `T r` is connected.
+
+The `T r` are the blueprint's joining arcs; nothing is assumed about how they meet `A` beyond
+containing their two ends, so an arc that crosses `A` many times is no harder than one that does
+not. -/
+theorem isConnected_union_joins {A : Set Plane} {r₀ : Plane} (hr₀ : r₀ ∈ A)
+    {reps : List Plane} {T : Plane → Set Plane}
+    (hTconn : ∀ r ∈ reps, IsPreconnected (T r))
+    (hThub : ∀ r ∈ reps, r₀ ∈ T r) (hTrep : ∀ r ∈ reps, r ∈ T r)
+    (hcover : ∀ z ∈ A, ∃ r ∈ reps, ∃ S : Set Plane,
+      S ⊆ A ∧ IsPreconnected S ∧ z ∈ S ∧ r ∈ S) :
+    IsConnected (A ∪ ⋃ r ∈ reps, T r) := by
+  have hmem : r₀ ∈ A ∪ ⋃ r ∈ reps, T r := Or.inl hr₀
+  refine ⟨⟨r₀, hmem⟩, isPreconnected_of_forall r₀ ?_⟩
+  rintro z (hz | hz)
+  · -- inside `A`: walk to a representative, then along its joining set to the hub
+    obtain ⟨r, hr, S, hSA, hSconn, hzS, hrS⟩ := hcover z hz
+    refine ⟨S ∪ T r, ?_, Or.inr (hThub r hr), Or.inl hzS,
+      hSconn.union' ⟨r, hrS, hTrep r hr⟩ (hTconn r hr)⟩
+    exact union_subset (hSA.trans subset_union_left)
+      (fun w hw => Or.inr (mem_biUnion hr hw))
+  · -- on a joining set: it already contains the hub
+    simp only [mem_iUnion, exists_prop] at hz
+    obtain ⟨r, hr, hzT⟩ := hz
+    exact ⟨T r, fun w hw => Or.inr (mem_biUnion hr hw), hThub r hr, hzT, hTconn r hr⟩
+
 end Schoenflies

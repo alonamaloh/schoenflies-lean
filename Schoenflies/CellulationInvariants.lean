@@ -142,6 +142,12 @@ theorem cellUnion_insert (R : S.Realization) (σ : γ) (Cs : Set γ) :
 
 @[simp] theorem cellUnion_empty (R : S.Realization) : R.cellUnion ∅ = ∅ := Set.biUnion_empty _
 
+@[simp] theorem cellUnion_singleton (R : S.Realization) (σ : γ) :
+    R.cellUnion {σ} = R.cell σ := Set.biUnion_singleton _ _
+
+theorem cellUnion_pair (R : S.Realization) (σ τ : γ) :
+    R.cellUnion {σ, τ} = R.cell σ ∪ R.cell τ := Set.biUnion_pair _ _ _
+
 theorem cellUnion_subset {Cs : Set γ} {A : Set Plane} (h : ∀ σ ∈ Cs, R.cell σ ⊆ A) :
     R.cellUnion Cs ⊆ A := Set.iUnion₂_subset h
 
@@ -294,6 +300,288 @@ theorem IsRefinement.isFaceJordan (href : d.IsRefinement R R') (hJ : R.IsFaceJor
     exact hJ.cell_eq_inside hF
 
 end SubdivData
+
+/-! ### Assertion (i) at the split constructor
+
+The split analogue of `SubdivData.IsRefinement`, and the propagation of assertion (i) across it.
+The blueprint's proof of this step is exactly
+
+> `thm:general-crosscut` decomposes the old open 2-cell into the disjoint union of the two new
+> open 2-cells and the open cells of the ear, and gives `closure Rᵢ = Rᵢ ∪ P ∪ Bᵢ`.
+
+so those two identities, together with the incidences along the ear, are the fields of
+`SplitData.IsRefinement`; `SplitData.IsCrosscutSplit` below constructs them from
+`Schoenflies.crosscut_theorem`. -/
+
+namespace SplitData
+
+variable {d : S.SplitData} {R : S.Realization} {R' : (S.splitFace d).Realization}
+
+/-- The cells the ear **creates**: its interior vertices and its edges. The two ends of the ear
+are old vertices, and the blueprint is explicit that the split does not create them. -/
+def earNewCells (d : S.SplitData) : Set γ := (V(d.ear) \ {d.source, d.target}) ∪ E(d.ear)
+
+theorem newCells_eq (d : S.SplitData) : d.newCells = d.earNewCells ∪ {d.face₁, d.face₂} := rfl
+
+theorem earNewCells_subset_newCells (d : S.SplitData) : d.earNewCells ⊆ d.newCells :=
+  Set.subset_union_left
+
+theorem earNewCells_subset_earCells (d : S.SplitData) : d.earNewCells ⊆ d.earCells := by
+  rintro z (⟨hz, -⟩ | hz)
+  exacts [Or.inl hz, Or.inr hz]
+
+theorem mem_earNewCells_of_mem_ear_vertexSet {z : γ} (hz : z ∈ V(d.ear)) (hs : z ≠ d.source)
+    (ht : z ≠ d.target) : z ∈ d.earNewCells :=
+  Or.inl ⟨hz, by rintro (h | h); exacts [hs h, ht h]⟩
+
+theorem mem_earNewCells_of_mem_ear_edgeSet {f : γ} (hf : f ∈ E(d.ear)) : f ∈ d.earNewCells :=
+  Or.inr hf
+
+theorem mem_splitFace_cells_of_earNew {z : γ} (hz : z ∈ d.earNewCells) :
+    z ∈ (S.splitFace d).cells :=
+  d.mem_splitFace_cells_of_new (d.earNewCells_subset_newCells hz)
+
+/-! #### The subcells of each kind of cell after a split -/
+
+/-- On old cells other than the split 2-cell the relation is unchanged, and **only** old cells
+lie below such a cell. This is `SplitData.old_subRel_iff` with the membership of `σ` derived
+rather than assumed, which is what the closure clause of assertion (i) needs. -/
+theorem subRel_iff_of_mem_cells (hS : S.CombInvariants) (d : S.SplitData) {σ τ : γ}
+    (hτc : τ ∈ S.cells) (hτf : τ ≠ d.face) :
+    d.subRel σ τ ↔ (σ ∈ S.cells ∧ σ ≠ d.face ∧ S.sub σ τ) := by
+  refine ⟨fun h => ?_, fun h => d.subRel_of_old h.1 hτc h.2.1 hτf h.2.2⟩
+  rcases h with ⟨-, -, hσf, -, hsub⟩ | ⟨heq, hσn⟩ | hinc | ⟨heq, -⟩ | ⟨heq, -⟩
+  · exact ⟨hS.sub_mem_left hsub, hσf, hsub⟩
+  · exact absurd (heq ▸ hσn) (notMem_newCells_of_mem_cells hτc)
+  · exact absurd hτc (d.edge_fresh hinc.edge_mem)
+  · exact absurd (heq ▸ hτc) d.face₁_notMem
+  · exact absurd (heq ▸ hτc) d.face₂_notMem
+
+/-- The subcells of a surviving cell are its old subcells. -/
+theorem subcells_of_mem_cells (hS : S.CombInvariants) (d : S.SplitData) {τ : γ}
+    (hτc : τ ∈ S.cells) (hτf : τ ≠ d.face) : (S.splitFace d).subcells τ = S.subcells τ := by
+  ext σ
+  constructor
+  · rintro ⟨-, hsub⟩
+    obtain ⟨hσc, -, hσ⟩ := (subRel_iff_of_mem_cells hS d hτc hτf).1 hsub
+    exact ⟨hσc, hσ⟩
+  · rintro ⟨hσc, hσ⟩
+    have hσf : σ ≠ d.face := by
+      rintro rfl
+      exact hτf (hS.face_maximal d.face_mem hσ)
+    exact ⟨d.mem_splitFace_cells_of_old hσc hσf,
+      (subRel_iff_of_mem_cells hS d hτc hτf).2 ⟨hσc, hσf, hσ⟩⟩
+
+/-- Nothing lies below an interior vertex of the ear but the vertex itself. -/
+theorem subRel_earVertex_iff (d : S.SplitData) {z σ : γ} (hz : z ∈ V(d.ear)) (hs : z ≠ d.source)
+    (ht : z ≠ d.target) : d.subRel σ z ↔ σ = z := by
+  have hzn : z ∈ d.newCells :=
+    d.earNewCells_subset_newCells (mem_earNewCells_of_mem_ear_vertexSet hz hs ht)
+  refine ⟨fun h => ?_, fun h => Or.inr (Or.inl ⟨h, h ▸ hzn⟩)⟩
+  rcases h with ⟨-, hzn', -, -, -⟩ | ⟨heq, -⟩ | hinc | ⟨heq, -⟩ | ⟨heq, -⟩
+  · exact absurd hzn hzn'
+  · exact heq
+  · exact absurd hinc.edge_mem (Set.disjoint_left.1 d.ear_disjoint hz)
+  · exact absurd (heq ▸ hz) fun hh => d.face₁_notMem_ear (Or.inl hh)
+  · exact absurd (heq ▸ hz) fun hh => d.face₂_notMem_ear (Or.inl hh)
+
+/-- The cells below an ear edge are it and its two endpoints. -/
+theorem subRel_earEdge_iff (d : S.SplitData) {f a b σ : γ} (hl : d.ear.IsLink f a b) :
+    d.subRel σ f ↔ (σ = f ∨ σ = a ∨ σ = b) := by
+  have hfn : f ∈ d.newCells :=
+    d.earNewCells_subset_newCells (mem_earNewCells_of_mem_ear_edgeSet hl.edge_mem)
+  constructor
+  · intro h
+    rcases h with ⟨-, hfn', -, -, -⟩ | ⟨heq, -⟩ | hinc | ⟨heq, -⟩ | ⟨heq, -⟩
+    · exact absurd hfn hfn'
+    · exact Or.inl heq
+    · exact Or.inr (hinc.eq_or_eq_of_isLink hl)
+    · exact absurd (heq ▸ hl.edge_mem) fun hh => d.face₁_notMem_ear (Or.inr hh)
+    · exact absurd (heq ▸ hl.edge_mem) fun hh => d.face₂_notMem_ear (Or.inr hh)
+  · rintro (rfl | rfl | rfl)
+    · exact Or.inr (Or.inl ⟨rfl, hfn⟩)
+    · exact Or.inr (Or.inr (Or.inl hl.inc_left))
+    · exact Or.inr (Or.inr (Or.inl hl.inc_right))
+
+theorem subcells_earVertex (d : S.SplitData) {z : γ} (hz : z ∈ V(d.ear)) (hs : z ≠ d.source)
+    (ht : z ≠ d.target) : (S.splitFace d).subcells z = {z} := by
+  ext σ
+  refine ⟨fun hσ => (d.subRel_earVertex_iff hz hs ht).1 hσ.2, ?_⟩
+  rintro rfl
+  exact ⟨d.mem_splitFace_cells_of_earNew (mem_earNewCells_of_mem_ear_vertexSet hz hs ht),
+    (d.subRel_earVertex_iff hz hs ht).2 rfl⟩
+
+theorem subcells_earEdge (d : S.SplitData) {f a b : γ} (hl : d.ear.IsLink f a b) :
+    (S.splitFace d).subcells f = {f, a, b} := by
+  ext σ
+  refine ⟨fun hσ => (d.subRel_earEdge_iff hl).1 hσ.2,
+    fun hσ => ⟨?_, (d.subRel_earEdge_iff hl).2 hσ⟩⟩
+  rcases hσ with rfl | rfl | rfl
+  · exact d.mem_splitFace_cells_of_earNew (mem_earNewCells_of_mem_ear_edgeSet hl.edge_mem)
+  · exact d.mem_splitFace_cells_of_ear (Or.inl hl.left_mem)
+  · exact d.mem_splitFace_cells_of_ear (Or.inl hl.right_mem)
+
+theorem subcells_face₁ (d : S.SplitData) :
+    (S.splitFace d).subcells d.face₁ = {d.face₁} ∪ d.earCells ∪ d.cells₁ := by
+  ext σ
+  constructor
+  · intro hσ
+    rcases d.subRel_face₁_iff.1 hσ.2 with h | h | h
+    exacts [Or.inl (Or.inl h), Or.inl (Or.inr h), Or.inr h]
+  · intro hσ
+    have hcell : σ ∈ (S.splitFace d).cells := by
+      rcases hσ with (rfl | h) | h
+      · exact d.mem_splitFace_cells_of_new d.face₁_mem_newCells
+      · exact d.mem_splitFace_cells_of_ear h
+      · exact d.mem_splitFace_cells_of_old (d.cells₁_subset h) (d.cells₁_ne_face h)
+    refine ⟨hcell, d.subRel_face₁_iff.2 ?_⟩
+    rcases hσ with (h | h) | h
+    exacts [Or.inl h, Or.inr (Or.inl h), Or.inr (Or.inr h)]
+
+theorem subcells_face₂ (d : S.SplitData) :
+    (S.splitFace d).subcells d.face₂ = {d.face₂} ∪ d.earCells ∪ d.cells₂ := by
+  ext σ
+  constructor
+  · intro hσ
+    rcases d.subRel_face₂_iff.1 hσ.2 with h | h | h
+    exacts [Or.inl (Or.inl h), Or.inl (Or.inr h), Or.inr h]
+  · intro hσ
+    have hcell : σ ∈ (S.splitFace d).cells := by
+      rcases hσ with (rfl | h) | h
+      · exact d.mem_splitFace_cells_of_new d.face₂_mem_newCells
+      · exact d.mem_splitFace_cells_of_ear h
+      · exact d.mem_splitFace_cells_of_old (d.cells₂_subset h) (d.cells₂_ne_face h)
+    refine ⟨hcell, d.subRel_face₂_iff.2 ?_⟩
+    rcases hσ with (h | h) | h
+    exacts [Or.inl h, Or.inr (Or.inl h), Or.inr (Or.inr h)]
+
+/-! #### The refinement relation of one split -/
+
+/-- **`R'` refines `R` along the split `d`.** The fields are the blueprint's own sentences: the
+old open 2-cell is the disjoint union of the two new open 2-cells and the *open* cells of the
+ear; the closure of each new 2-cell is itself together with the ear and its own boundary path;
+and the ear's own cells are incident as a path.
+
+Exactly as with `SubdivData.IsRefinement`, this is local data — it speaks only of the cells the
+split creates and of the split 2-cell — and `IsRefinement.isCellDecomposition` upgrades it to
+assertion (i) for the whole refined structure. `IsCrosscutSplit.isRefinement` constructs it from
+`thm:general-crosscut`. -/
+structure IsRefinement (d : S.SplitData) (R : S.Realization)
+    (R' : (S.splitFace d).Realization) : Prop where
+  /-- Surviving cells are unmoved. -/
+  cell_eq : ∀ ⦃σ⦄, σ ∈ S.cells → σ ≠ d.face → R'.cell σ = R.cell σ
+  /-- The old open 2-cell is the two new open 2-cells together with the open cells of the ear. -/
+  cell_face : R.cell d.face =
+    R'.cell d.face₁ ∪ R'.cell d.face₂ ∪ R'.cellUnion d.earNewCells
+  /-- The new open cells are nonempty. -/
+  nonempty : ∀ ⦃σ⦄, σ ∈ d.newCells → (R'.cell σ).Nonempty
+  /-- …and pairwise disjoint. -/
+  disjoint : ∀ ⦃σ τ⦄, σ ∈ d.newCells → τ ∈ d.newCells → σ ≠ τ → Disjoint (R'.cell σ) (R'.cell τ)
+  /-- An interior vertex of the ear is a closed cell. -/
+  closure_earVertex : ∀ ⦃z⦄, z ∈ V(d.ear) → z ≠ d.source → z ≠ d.target →
+    closure (R'.cell z) = R'.cell z
+  /-- The closure of an ear edge is it together with its two endpoints. -/
+  closure_earEdge : ∀ ⦃f a b⦄, d.ear.IsLink f a b →
+    closure (R'.cell f) = R'.cell f ∪ (R'.cell a ∪ R'.cell b)
+  /-- `closure R₁ = R₁ ∪ P ∪ B₁`. -/
+  closure_face₁ : closure (R'.cell d.face₁) =
+    R'.cell d.face₁ ∪ R'.cellUnion d.earCells ∪ R'.cellUnion d.cells₁
+  /-- `closure R₂ = R₂ ∪ P ∪ B₂`. -/
+  closure_face₂ : closure (R'.cell d.face₂) =
+    R'.cell d.face₂ ∪ R'.cellUnion d.earCells ∪ R'.cellUnion d.cells₂
+
+namespace IsRefinement
+
+variable {D : Set Plane}
+
+/-- Every cell the split creates lies inside the old open 2-cell. -/
+theorem cell_subset_face (href : d.IsRefinement R R') {σ : γ} (hσ : σ ∈ d.newCells) :
+    R'.cell σ ⊆ R.cell d.face := by
+  rw [href.cell_face]
+  rcases hσ with hσ | hσ
+  · exact fun _ hz => Or.inr (R'.cell_subset_cellUnion hσ hz)
+  · rcases hσ with rfl | rfl
+    exacts [fun _ hz => Or.inl (Or.inl hz), fun _ hz => Or.inl (Or.inr hz)]
+
+/-- **Assertion (i) is preserved by a 2-cell split.** -/
+theorem isCellDecomposition (hS : S.CombInvariants) (href : d.IsRefinement R R')
+    (h : R.IsCellDecomposition D) : R'.IsCellDecomposition D where
+  nonempty := by
+    intro σ hσ
+    rw [splitFace_cells] at hσ
+    rcases hσ with ⟨hσc, hσf⟩ | hσn
+    · rw [href.cell_eq hσc hσf]; exact h.nonempty hσc
+    · exact href.nonempty hσn
+  disjoint := by
+    intro σ τ hσ hτ hne
+    rw [splitFace_cells] at hσ hτ
+    rcases hσ with ⟨hσc, hσf⟩ | hσn <;> rcases hτ with ⟨hτc, hτf⟩ | hτn
+    · rw [href.cell_eq hσc hσf, href.cell_eq hτc hτf]; exact h.disjoint hσc hτc hne
+    · rw [href.cell_eq hσc hσf]
+      exact (h.disjoint hσc d.face_mem_cells hσf).mono_right (href.cell_subset_face hτn)
+    · rw [href.cell_eq hτc hτf]
+      exact (h.disjoint d.face_mem_cells hτc (Ne.symm hτf)).mono_left
+        (href.cell_subset_face hσn)
+    · exact href.disjoint hσn hτn hne
+  iUnion_eq := by
+    rw [← h.iUnion_eq]
+    ext z
+    simp only [Set.mem_iUnion, exists_prop]
+    constructor
+    · rintro ⟨σ, hσ, hz⟩
+      rw [splitFace_cells] at hσ
+      rcases hσ with ⟨hσc, hσf⟩ | hσn
+      · exact ⟨σ, hσc, by rwa [href.cell_eq hσc hσf] at hz⟩
+      · exact ⟨d.face, d.face_mem_cells, href.cell_subset_face hσn hz⟩
+    · rintro ⟨σ, hσ, hz⟩
+      by_cases hσf : σ = d.face
+      · subst hσf
+        rw [href.cell_face] at hz
+        rcases hz with hz | hz
+        · rcases hz with hz | hz
+          · exact ⟨d.face₁, d.mem_splitFace_cells_of_new d.face₁_mem_newCells, hz⟩
+          · exact ⟨d.face₂, d.mem_splitFace_cells_of_new d.face₂_mem_newCells, hz⟩
+        · obtain ⟨ρ, hρ, hzρ⟩ := Realization.mem_cellUnion_iff.1 hz
+          exact ⟨ρ, d.mem_splitFace_cells_of_earNew hρ, hzρ⟩
+      · exact ⟨σ, d.mem_splitFace_cells_of_old hσ hσf, by rwa [href.cell_eq hσ hσf]⟩
+  closure_eq := by
+    intro τ hτ
+    change closure (R'.cell τ) = R'.cellUnion ((S.splitFace d).subcells τ)
+    rw [splitFace_cells] at hτ
+    rcases hτ with ⟨hτc, hτf⟩ | hτn
+    · -- a surviving cell: neither it nor anything below it has moved
+      rw [href.cell_eq hτc hτf, h.closure_cell_eq hτc, d.subcells_of_mem_cells hS hτc hτf]
+      refine Set.iUnion₂_congr fun σ hσ => ?_
+      refine (href.cell_eq hσ.1 ?_).symm
+      rintro rfl
+      exact hτf (hS.face_maximal d.face_mem hσ.2)
+    · rcases hτn with hτn | hτn
+      · rcases hτn with ⟨hzV, hznot⟩ | hfE
+        · -- an interior vertex of the ear
+          have hs : τ ≠ d.source := fun hh => hznot (Or.inl hh)
+          have ht : τ ≠ d.target := fun hh => hznot (Or.inr hh)
+          rw [d.subcells_earVertex hzV hs ht, Realization.cellUnion_singleton,
+            href.closure_earVertex hzV hs ht]
+        · -- an edge of the ear
+          obtain ⟨a, b, hl⟩ := Graph.exists_isLink_of_mem_edgeSet hfE
+          rw [d.subcells_earEdge hl, href.closure_earEdge hl, Realization.cellUnion_insert,
+            Realization.cellUnion_pair]
+      · rcases hτn with rfl | rfl
+        · rw [href.closure_face₁, d.subcells_face₁, Realization.cellUnion_union,
+            Realization.cellUnion_union, Realization.cellUnion_singleton]
+        · rw [href.closure_face₂, d.subcells_face₂, Realization.cellUnion_union,
+            Realization.cellUnion_union, Realization.cellUnion_singleton]
+
+/-- **A 2-cell split is a refinement**, in the sense of `Realization.Refines`. The one-liner
+`RefinementStars.lean` left for this module, beside `SubdivData.IsRefinement.refines`; it feeds
+`SplitData.refines` the argument `h'` that module could not construct. -/
+theorem refines (hS : S.CombInvariants) (href : d.IsRefinement R R')
+    (h : R.IsCellDecomposition D) : R'.Refines R d.parent :=
+  SplitData.refines hS h (href.isCellDecomposition hS h) href.cell_eq
+
+end IsRefinement
+
+end SplitData
 
 end CellStructure
 

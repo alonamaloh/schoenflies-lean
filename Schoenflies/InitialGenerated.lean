@@ -593,4 +593,139 @@ theorem isWeaklyAdmissible (H : HexData)
 
 end HexData
 
+/-! ### The closed square, as a domain
+
+`GeneratedPair` asks for the *closed* target domain. `Schoenflies.inside_modelCurve` identifies
+the Jordan domain of `S` with the open square, so the closed domain `S ∪ Int(S)` is literally
+`Q = [-1,1]²`. -/
+
+/-- **`S ∪ Int(S) = Q`.** -/
+theorem modelCurve_union_inside : modelCurve ∪ inside modelCurve = Plane.closedSquare 0 1 := by
+  rw [inside_modelCurve]
+  ext x
+  rw [Set.mem_union, mem_openSquare_zero_one, mem_closedSquare_zero_one]
+  constructor
+  · rintro (h | h)
+    · exact le_of_eq (h : Plane.supNorm x = 1)
+    · exact h.le
+  · intro h
+    rcases lt_or_eq_of_le h with h' | h'
+    · exact Or.inr h'
+    · exact Or.inl h'
+
+/-! ### The initial pair is a `GeneratedPair`
+
+Both realizations are instances of the two `HexData` theorems above; all that is left is to
+present the hypotheses in the shape they take, which on the source side means rewriting
+`d.src.outerArcs` to `C` and on the target side `d.tgt.outerArcs` to `S`. -/
+
+namespace InitialData
+
+variable {C : Set Plane} (d : InitialData C)
+
+/-- The crosscut configuration on the source side, with the outer cycle named as the `HexData`
+sees it. -/
+theorem isCrosscut_src : IsCrosscut d.src.outerArcs d.src.chordSet (d.src.pos 1) (d.src.pos 4) := by
+  rw [d.src_outerArcs]; exact d.isCrosscut
+
+/-- The crosscut configuration on the target side. -/
+theorem isCrosscut_tgt : IsCrosscut d.tgt.outerArcs d.tgt.chordSet (d.tgt.pos 1) (d.tgt.pos 4) := by
+  rw [d.tgt_outerArcs]; exact d.isCrosscutTarget
+
+/-- **Assertion (i) on the source side**: the fifteen open cells of `Γ` decompose `C ∪ D`. -/
+theorem src_isCellDecomposition : d.sourceRealization.IsCellDecomposition (C ∪ inside C) := by
+  have h := d.src.isCellDecomposition d.isCrosscut_src
+    (by rw [d.src_outerArcs]; exact d.isCutPair)
+    (by rw [d.src_outerArcs]; exact d.hasArcCollarsSource)
+  rwa [d.src_outerArcs] at h
+
+/-- **Assertion (i) on the target side**: the fifteen open cells of `Γ'` decompose `Q`. -/
+theorem tgt_isCellDecomposition :
+    d.targetRealization.IsCellDecomposition (Plane.closedSquare 0 1) := by
+  have h := d.tgt.isCellDecomposition d.isCrosscut_tgt
+    (by rw [d.tgt_outerArcs]; exact d.isCutPairTarget)
+    (by rw [d.tgt_outerArcs]; exact d.hasArcCollarsTarget)
+  rwa [d.tgt_outerArcs, modelCurve_union_inside] at h
+
+/-- **`def:admissible-graph` (weak form) on the source side.** -/
+theorem src_isWeaklyAdmissible : d.sourceRealization.IsWeaklyAdmissible C (C ∪ inside C) := by
+  have h := d.src.isWeaklyAdmissible d.isCrosscut_src
+  rwa [d.src_outerArcs] at h
+
+/-- **`def:admissible-graph` (weak form) on the target side.** -/
+theorem tgt_isWeaklyAdmissible :
+    d.targetRealization.IsWeaklyAdmissible modelCurve (Plane.closedSquare 0 1) := by
+  have h := d.tgt.isWeaklyAdmissible d.isCrosscut_tgt
+  rwa [d.tgt_outerArcs, modelCurve_union_inside] at h
+
+/-- **Stage 0 of the Schönflies recursion.** The initial matched pair of `prop:initial-pair` is a
+generated matched cellulation: it is generated from `Schoenflies.initialStructure` by the empty
+sequence of elementary operations (`GeneratedStructure.base`), its two realizations are the two
+realizations of `prop:initial-pair`, and the two cell decompositions are
+`lem:cellulation-invariants`(i) on each side.
+
+This is the base case of the whole construction: `thm:finite-transfer` consumes a `GeneratedPair`
+and produces one, and this is the first. -/
+noncomputable def generatedPair :
+    GeneratedPair initialStructure C (C ∪ inside C) modelCurve (Plane.closedSquare 0 1) where
+  str := initialStructure
+  generated := GeneratedStructure.base
+  src := d.sourceRealization
+  tgt := d.targetRealization
+  homeo := d.skeletonHomeo
+  src_isCellDecomposition := d.src_isCellDecomposition
+  tgt_isCellDecomposition := d.tgt_isCellDecomposition
+  src_isWeaklyAdmissible := d.src_isWeaklyAdmissible
+  tgt_isWeaklyAdmissible := d.tgt_isWeaklyAdmissible
+
+@[simp] theorem generatedPair_str : d.generatedPair.str = initialStructure := rfl
+
+@[simp] theorem generatedPair_src : d.generatedPair.src = d.sourceRealization := rfl
+
+@[simp] theorem generatedPair_tgt : d.generatedPair.tgt = d.targetRealization := rfl
+
+@[simp] theorem generatedPair_homeo : d.generatedPair.homeo = d.skeletonHomeo := rfl
+
+/-- The combinatorial invariants at stage 0, read off the bundle: this is what
+`GeneratedPair.combInvariants` needs supplied at the base, and what every later stage inherits. -/
+theorem generatedPair_combInvariants : d.generatedPair.str.CombInvariants :=
+  d.generatedPair.combInvariants combInvariants_initialStructure
+
+/-- **The initial pair is admissible in the strong sense**, on both sides.
+`rem:intermediate-disconnection` waives connectedness of the open nonboundary part at
+intermediate stages; at stage 0 it holds, the open nonboundary part being the open crosscut. -/
+theorem generatedPair_src_isAdmissible :
+    d.generatedPair.src.IsAdmissible C (C ∪ inside C) :=
+  d.generatedPair.src_isAdmissible d.isConnected_sourceRealization_nonboundary
+
+theorem generatedPair_tgt_isAdmissible :
+    d.generatedPair.tgt.IsAdmissible modelCurve (Plane.closedSquare 0 1) :=
+  d.generatedPair.tgt_isAdmissible d.isConnected_sourceRealization_nonboundary
+
+end InitialData
+
+/-- **Stage 0 from the anchored initial pair.** `AnchoredInitialData` adds only the clause
+`a, b ∈ 𝒜`, which no field of `GeneratedPair` mentions; it is what lets a later stage run a fresh
+crosscut into `a` or `b` (`AnchoredInitialData.stronglyAccessible_a`). So the pair is built from
+the underlying `InitialData`, and this is the specialisation for a consumer holding the anchored
+form. -/
+noncomputable def AnchoredInitialData.generatedPair {C : Set Plane} {A : AnchorSet C}
+    (D : AnchoredInitialData C A) :
+    GeneratedPair initialStructure C (C ∪ inside C) modelCurve (Plane.closedSquare 0 1) :=
+  D.toInitialData.generatedPair
+
+/-! ### The interface, exercised
+
+A machine-checked statement that stage 0 delivers exactly what `thm:finite-transfer` reads off a
+`GeneratedPair`: the abstract structure carries the combinatorial invariants, the source and
+target realizations are cell decompositions of the two closed domains, and both are admissible in
+the strong sense. Nothing below mentions how the pair was built. -/
+example {C : Set Plane} (hC : IsJordanCurve C) :
+    ∃ P : GeneratedPair initialStructure C (C ∪ inside C) modelCurve (Plane.closedSquare 0 1),
+      P.str.CombInvariants ∧ P.src.IsAdmissible C (C ∪ inside C) ∧
+        P.tgt.IsAdmissible modelCurve (Plane.closedSquare 0 1) :=
+  ⟨(initialData hC).generatedPair, (initialData hC).generatedPair_combInvariants,
+    (initialData hC).generatedPair_src_isAdmissible,
+    (initialData hC).generatedPair_tgt_isAdmissible⟩
+
 end Schoenflies

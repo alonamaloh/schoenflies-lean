@@ -61,3 +61,10 @@ import Schoenflies.PrePolygonSep
 import Schoenflies.PrePolygonArc
 import Schoenflies.FaceCyclesLand
 import Schoenflies.Graph.K33Land
+import Schoenflies.AccessibleJoin
+import Schoenflies.CrosscutAtMostTwo
+import Schoenflies.SkeletonLocal
+import Schoenflies.SquareMesh
+import Schoenflies.ArcComplementPrep
+import Schoenflies.JordanSeparates
+import Schoenflies.OuterChain

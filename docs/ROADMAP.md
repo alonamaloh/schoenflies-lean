@@ -86,35 +86,39 @@ one field of `CellStructure` on which no axiom is imposed. The route is therefor
   `mem_faceCells_iff` in `InitialPairFixed.lean`, which were written for exactly this;
 * preserve it under the two constructors. The split constructor is where the two paths come
   from and where they go: `SplitData` already carries `path₁`, `path₂` as data, so the new
-  2-cells' walks are built from them and the ear. The subdivision constructor needs the repair
-  `CellulationInvariants.lean` already built and explains at length —
-  `SubdivData.SubstWalk`, because `subdivideEdge`'s current update replaces the subdivided edge
-  by the fixed list `[newEdge₁, newEdge₂]`, which is **orientation-blind and wrong**: an
-  interior edge lies on the boundary of two 2-cells whose walks cross it in opposite
-  directions, and `SubdivData.not_isWalk_boundary_of_head` is that failure, machine-checked.
+  2-cells' walks are built from them and the ear. **The subdivision constructor is done** — see
+  the next paragraph.
 
-So `SubstWalk` was built for precisely this, and this is the first consumer that needs it.
+**The design point, decided and written in Lean.** `subdivideEdge` used to replace the
+subdivided edge in every boundary walk by the fixed list `[newEdge₁, newEdge₂]`, which is
+**orientation-blind and wrong**: an interior edge lies on the boundary of two 2-cells whose
+walks cross it in opposite directions, and one of them needs `[newEdge₂, newEdge₁]`. The
+correction is a *relation*, not a function of the list — which order is right is determined by
+the walk, which the list does not record — so it could not be another closed form, and the
+corrected walks now **arrive as data**. Of the two shapes on the table, the field won over an
+extra argument to `subdivideEdge`, for the reason recorded here: `SubdivData` is already the
+bundle of everything one subdivision chooses, and this keeps `subdivideEdge` a function of its
+data alone. What the write-up did not foresee is that it takes **three** fields, not one:
 
-**The design point, worked out but not yet written in Lean.** `SubstWalk` is a *relation*, not a
-function of the list — which of `[newEdge₁, newEdge₂]` and `[newEdge₂, newEdge₁]` is correct is
-determined by the walk, and the list alone does not record it. So the corrected boundary update
-cannot simply replace `subdivideEdge`'s current
+* `Schoenflies.IsSubstWalk` had to be restated for a bare graph, because a field's type may name
+  only *earlier* fields — `d.SubstWalk` does not exist inside the declaration of `d`.
+  `SubdivData.SubstWalk` survives as the specialization.
+* `boundaryStart : γ → γ` is a field of its own. A `newBoundary` constrained at *every* vertex
+  its boundary list happens to walk from would be **unsatisfiable**: the one-edge walk `[e]`
+  walks from both ends of `e`, and demands both orders of `e₁, e₂` at once
+  (`Schoenflies.eq_of_isSubstWalk_singleton`). The departure vertex is exactly what the closed
+  form could not see, so it is exactly what the data has to carry.
+* the constraint is conditional on the old list being a walk at all, since `CellStructure`
+  imposes no axiom on `boundary`, and `Schoenflies.substWalk` builds the witness — so the three
+  fields cost a constructor nothing.
 
-```
-boundary F := (S.boundary F).flatMap fun f => if f = d.edge then [e₁, e₂] else [f]
-```
+The payoff a consumer sees is `CellStructure.subdivideEdge_isWalk_boundary`: a boundary walk of
+`S` is still a walk, with the same ends, after a subdivision. The record of the defect stays in
+`CellulationInvariants.lean` as `SubdivData.flatBoundary` and
+`SubdivData.not_isWalk_flatBoundary_of_head`. Done in the window nothing constructed a
+`SubdivData` — the same window that made the `SplitData.paths_meet` repair cheap.
 
-by another closed-form expression. The corrected walks have to *arrive as data*: either
-`SubdivData` gains a field `newBoundary : γ → List γ` together with the property that it is a
-`SubstWalk`-image of `S.boundary`, or `subdivideEdge` takes that function as an extra argument.
-The first is the better fit — `SubdivData` is already the bundle of everything one subdivision
-chooses, `exists_substWalk` shows the data always exists, and it keeps `subdivideEdge` a
-function of its data alone. Either way it is a change to `GeneratedStructure.lean` that ripples
-into `CellulationInvariants.lean`, so it is worth doing before anything else is built on the
-current update. Nothing yet constructs a `SubdivData`, so it is still cheap — the same window
-that made the `SplitData.paths_meet` repair cheap, and it will close.
-
-That is the next thing to build, and everything downstream is assembly on top of it:
+The invariant itself is next, and everything downstream is assembly on top of it:
 
 1. face boundary cycles, hence `EarStep`; `CommonSubdivision` alongside it;
 2. `thm:finite-transfer` (a) unconditional, and (b) — whose one extra ingredient, accessibility
@@ -127,7 +131,8 @@ Everything that *consumes* those is done.
 
 ### What the standing rules caught
 
-Five things, all worth the cost of the rules that found them.
+Five things, all worth the cost of the rules that found them — and one of the same kind that a
+rule did not have to catch, because writing the field caught it first.
 
 **A false hypothesis.** `Graph.CrosscutEncloses` stood on `main` as an assumed hypothesis for a
 whole wave, and is **false**. Nothing in its hypotheses stopped the crosscut from being drawn
@@ -189,6 +194,16 @@ stages. `def:admissible-graph` says it correctly ("its edges *not contained in `
 polygonal arcs") and the Lean statement had dropped the restriction. Nothing was lost by the
 repair: both proofs in the module already applied the field only to nonboundary edges. It had
 not been hit because nothing had ever constructed an `IsStageOn`.
+
+**A field that would have been unsatisfiable, caught while writing it.** The `newBoundary` field
+of `SubdivData` was to say "the corrected boundary walk, for whichever vertex the old one walks
+from". Quantified that way it cannot be filled: the walk `[e]` consisting of the subdivided edge
+alone walks from *both* ends of `e`, and the two corrections are the two orders of `e₁, e₂`, so
+the field would demand a single list equal to both. The repair is the extra field
+`boundaryStart`, and the obstruction is machine-checked as
+`Schoenflies.eq_of_isSubstWalk_singleton`. Not a standing-rules catch — it was found by writing
+the field rather than by a review — but the same failure mode as the two above, and the same
+window: nothing constructs a `SubdivData`.
 
 **And one claimed gap that was not one.** `SquareMeshFixed.lean` carried a hypothesis
 `SubdividesToPath` and its docstring — and `SquareMeshConnected.lean`'s — asserted that

@@ -207,4 +207,119 @@ theorem isArcBetween_secondHalf (hc : ContinuousOn (drawing e) I) (hi : InjOn (d
   ⟨secondHalf drawing e t, continuousOn_secondHalf hc ht, injOn_secondHalf hi ht h1, rfl,
     secondHalf_zero, secondHalf_one⟩
 
+/-! ### The orientation of the drawn subdivided edge -/
+
+namespace CellStructure
+
+namespace SubdivData
+
+variable {γ : Type*} {S : CellStructure γ} (d : S.SubdivData) (R : S.Realization)
+
+/-- What the realization already knows about the subdivided edge: it is an edge of the drawn
+skeleton. -/
+theorem edge_mem_edgeSet_graph : d.edge ∈ E(R.graph) := by
+  rw [Realization.edgeSet_graph]; exact d.edge_mem_edgeSet
+
+theorem continuousOn_drawing_edge : ContinuousOn (R.drawing d.edge) I :=
+  (R.isDrawing.edge_param (d.edge_mem_edgeSet_graph R)).1
+
+theorem injOn_drawing_edge : InjOn (R.drawing d.edge) I :=
+  (R.isDrawing.edge_param (d.edge_mem_edgeSet_graph R)).2.1
+
+theorem isLink_drawn_edge : R.graph.IsLink d.edge (R.pos d.left) (R.pos d.right) :=
+  d.isLink.map R.pos
+
+open scoped Classical in
+/-- **The orientation of the drawn subdivided edge**: the endpoint parameter, `0` or `1`, at
+which `R.drawing d.edge` sits at `R.pos d.left`.
+
+`IsDrawing.edge_param` fixes only the unordered pair of endpoint values, so this cannot be read
+off the structure; it is decided by a case distinction, once, here. -/
+noncomputable def leftParam : ℝ := if R.drawing d.edge 0 = R.pos d.left then 0 else 1
+
+/-- The endpoint parameter at which the drawn subdivided edge sits at `R.pos d.right`. -/
+noncomputable def rightParam : ℝ := 1 - d.leftParam R
+
+theorem leftParam_eq_zero_or_one : d.leftParam R = 0 ∨ d.leftParam R = 1 := by
+  unfold leftParam
+  split_ifs
+  exacts [Or.inl rfl, Or.inr rfl]
+
+/-- **The two endpoint parameters land on the two endpoints.** The only lemma that looks inside
+`leftParam`; everything downstream is orientation-free. -/
+theorem drawing_params :
+    R.drawing d.edge (d.leftParam R) = R.pos d.left ∧
+      R.drawing d.edge (d.rightParam R) = R.pos d.right := by
+  have hd := R.isDrawing.edge_param (d.edge_mem_edgeSet_graph R)
+  rcases (d.isLink_drawn_edge R).eq_and_eq_or_eq_and_eq hd.2.2 with ⟨h0, h1⟩ | ⟨h0, h1⟩
+  · have hL : d.leftParam R = 0 := if_pos h0.symm
+    refine ⟨by rw [hL]; exact h0.symm, ?_⟩
+    have hR : d.rightParam R = 1 := by rw [rightParam, hL]; ring
+    rw [hR]; exact h1.symm
+  · -- Here `R.pos d.left = R.drawing d.edge 1`; the other reading would collapse the two
+    -- endpoint values, which injectivity forbids.
+    have hne : ¬ (R.drawing d.edge 0 = R.pos d.left) := fun hcon =>
+      zero_ne_one (hd.2.1 zero_mem_I one_mem_I (by rw [hcon, h0]))
+    have hL : d.leftParam R = 1 := if_neg hne
+    refine ⟨by rw [hL]; exact h0.symm, ?_⟩
+    have hR : d.rightParam R = 0 := by rw [rightParam, hL]; ring
+    rw [hR]; exact h1.symm
+
+theorem drawing_leftParam : R.drawing d.edge (d.leftParam R) = R.pos d.left :=
+  (d.drawing_params R).1
+
+theorem drawing_rightParam : R.drawing d.edge (d.rightParam R) = R.pos d.right :=
+  (d.drawing_params R).2
+
+theorem leftParam_mem_I : d.leftParam R ∈ I := by
+  rcases d.leftParam_eq_zero_or_one R with h | h <;> rw [h]
+  exacts [zero_mem_I, one_mem_I]
+
+theorem rightParam_mem_I : d.rightParam R ∈ I := by
+  rcases d.leftParam_eq_zero_or_one R with h | h
+  · rw [rightParam, h, sub_zero]; exact one_mem_I
+  · rw [rightParam, h, sub_self]; exact zero_mem_I
+
+/-- The two endpoint parameters span the whole parameter interval, in whichever order. -/
+theorem uIcc_params : uIcc (d.leftParam R) (d.rightParam R) = I := by
+  rcases d.leftParam_eq_zero_or_one R with h | h
+  · rw [rightParam, h, sub_zero]; exact uIcc_zero_one
+  · rw [rightParam, h, sub_self, uIcc_comm]; exact uIcc_zero_one
+
+theorem leftParam_ne (ht : t ∈ Ioo (0 : ℝ) 1) : d.leftParam R ≠ t := by
+  rcases d.leftParam_eq_zero_or_one R with h | h <;> rw [h]
+  exacts [ht.1.ne, ht.2.ne']
+
+theorem rightParam_ne (ht : t ∈ Ioo (0 : ℝ) 1) : d.rightParam R ≠ t := by
+  rcases d.leftParam_eq_zero_or_one R with h | h
+  · rw [rightParam, h, sub_zero]; exact ht.2.ne'
+  · rw [rightParam, h, sub_self]; exact ht.1.ne
+
+theorem mem_uIcc_params (ht : t ∈ Ioo (0 : ℝ) 1) : t ∈ uIcc (d.leftParam R) (d.rightParam R) := by
+  rw [d.uIcc_params R]; exact Ioo_subset_Icc_self ht
+
+/-- **An interior point of a drawn edge is not a vertex.** The one geometric fact the
+construction needs that is not simply read off a field, and the reason `SubdivData.realize`
+needs no side condition. -/
+theorem newPos_notMem_vertexSet (ht : t ∈ Ioo (0 : ℝ) 1) :
+    R.drawing d.edge t ∉ V(R.graph) := by
+  intro hmem
+  have harc : R.drawing d.edge t ∈ edgeArc R.drawing d.edge :=
+    ⟨t, Ioo_subset_Icc_self ht, rfl⟩
+  have hinj := d.injOn_drawing_edge R
+  rcases R.isDrawing.vertex_mem_edgeArc (d.isLink_drawn_edge R) hmem harc with h | h
+  · exact d.leftParam_ne R ht
+      (hinj (d.leftParam_mem_I R) (Ioo_subset_Icc_self ht) ((d.drawing_leftParam R).trans h.symm))
+  · exact d.rightParam_ne R ht
+      (hinj (d.rightParam_mem_I R) (Ioo_subset_Icc_self ht)
+        ((d.drawing_rightParam R).trans h.symm))
+
+theorem newPos_ne_pos (ht : t ∈ Ioo (0 : ℝ) 1) {v : γ} (hv : v ∈ V(S.skel)) :
+    R.drawing d.edge t ≠ R.pos v := fun h =>
+  d.newPos_notMem_vertexSet R ht (by rw [h, Realization.vertexSet_graph]; exact ⟨v, hv, rfl⟩)
+
+end SubdivData
+
+end CellStructure
+
 end Schoenflies

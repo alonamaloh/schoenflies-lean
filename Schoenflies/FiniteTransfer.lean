@@ -112,6 +112,9 @@ survives verbatim is what the construction uses downstream — the occupied set,
   ear lies in one current face", with
   `Schoenflies.CellStructure.Realization.cell_subset_skeletonSet` and
   `Schoenflies.CellStructure.Realization.mem_faces_of_notMem_skeletonSet`.
+* `Schoenflies.CellStructure.Realization.pos_mem_closure_cell_congr`,
+  `Schoenflies.exists_target_ear` — "let `F*, v*, w*` be the corresponding face and endpoints in
+  the other realization", and the whole fourth paragraph assembled from the source-side data.
 * `Schoenflies.GeneratedPair.src_isAdmissible`, `Schoenflies.GeneratedPair.tgt_isAdmissible` —
   the last paragraph of the proof, via `lem:combinatorial-invariance`.
 * `Schoenflies.EarStep`, `Schoenflies.CommonSubdivision` — the two named hypotheses.
@@ -561,5 +564,83 @@ theorem exists_target_crosscut_split [G.Finite] (h : IsDrawing G drawing)
     hpart.2.2.2.2.2.2.2.1, hpart.2.2.2.2.2.2.2.2.1, hpart.2.2.2.2.2.2.2.2.2⟩
 
 end TargetEar
+
+/-! ### The ear's endpoints, transferred
+
+*Let `F*, v*, w*` be the corresponding face and endpoints in the other realization.* Under the
+representation of `Schoenflies/CombinatorialInvariance.lean` there is nothing to transport: `F`
+and the two endpoint 0-cells are cells of the **one** abstract structure both realizations
+realize, and assertion (ix) turns "the source endpoint lies on the boundary of the source face"
+into the abstract statement `a ≼ F`, which reads back in the target realization. -/
+
+section EndpointTransfer
+
+variable {S : CellStructure γ} {R₁ R₂ : S.Realization} {D₁ D₂ Q J A₁ A₂ : Set Plane} {a b F : γ}
+
+/-- **The endpoints of the ear transfer to the other realization.** A 0-cell on the boundary of a
+2-cell in one realization is on the boundary of the same 2-cell in the other. -/
+theorem CellStructure.Realization.pos_mem_closure_cell_congr
+    (h₁ : R₁.IsCellDecomposition D₁) (h₂ : R₂.IsCellDecomposition D₂)
+    (ha : a ∈ V(S.skel)) (hF : F ∈ S.faces) (hmem : R₁.pos a ∈ closure (R₁.cell F)) :
+    R₂.pos a ∈ closure (R₂.cell F) := by
+  have hac : a ∈ S.cells := S.mem_cells_of_mem_vertexSet ha
+  have hFc : F ∈ S.cells := S.mem_cells_of_mem_faces hF
+  have hsub : S.sub a F := by
+    refine h₁.sub_of_subset_closure hac hFc ?_
+    rw [R₁.cell_vertex ha]
+    exact Set.singleton_subset_iff.2 hmem
+  have := h₂.subset_closure hac hFc hsub
+  rw [R₂.cell_vertex ha] at this
+  exact this (Set.mem_singleton _)
+
+/-- **The geometric half of one ear insertion, direction (a).**
+
+The source ear lies in a current source 2-cell `F` and its two endpoints are 0-cells on the
+boundary of `F` (`hacl`, `hbcl`). The target realization of `F` is a polygonal Jordan region in
+the open square `Q` (`hFJ` — assertion (vii)) whose 2-cells are the components of
+`Q ∖ |Γ'|` (`hcell` — assertion (i) on the target side). Then the corresponding target endpoints
+are joined by a polygonal crosscut inside the closure of the target face, which splits that face
+into exactly the two Jordan regions bounded by the crosscut and the two boundary paths.
+
+This is the fourth paragraph of the blueprint's proof of `thm:finite-transfer`(a), assembled;
+what is left of the induction step is the abstract-data bookkeeping around it. -/
+theorem exists_target_ear (h₁ : R₁.IsCellDecomposition D₁) (h₂ : R₂.IsCellDecomposition D₂)
+    (hpoly : ∀ ⦃e⦄, e ∈ E(S.skel) → IsPolygonal (edgeArc R₂.drawing e))
+    (hQ : IsOpen Q) (hQK : frontier Q ⊆ R₂.skeletonSet)
+    (hcell : ∀ T ∈ S.faces, R₂.cell T ⊆ Q ∧
+      ∃ z, R₂.cell T = connectedComponentIn (Q \ R₂.skeletonSet) z)
+    (hF : F ∈ S.faces) (hJ : J ⊆ R₂.skeletonSet) (hJc : IsJordanCurve J)
+    (hFJ : R₂.cell F = inside J)
+    (ha : a ∈ V(S.skel)) (hb : b ∈ V(S.skel)) (hab : R₂.pos a ≠ R₂.pos b)
+    (haJ : R₂.pos a ∈ J) (hbJ : R₂.pos b ∈ J)
+    (hacl : R₁.pos a ∈ closure (R₁.cell F)) (hbcl : R₁.pos b ∈ closure (R₁.cell F))
+    (hcut : IsCutPair J (R₂.pos a) (R₂.pos b) A₁ A₂) :
+    ∃ P : Set Plane, IsPolygonal P ∧ IsArcBetween P (R₂.pos a) (R₂.pos b) ∧
+      P \ {R₂.pos a, R₂.pos b} ⊆ R₂.cell F ∧ P ∩ J = {R₂.pos a, R₂.pos b} ∧
+      IsCrosscut J P (R₂.pos a) (R₂.pos b) ∧
+      R₂.cell F = inside (A₁ ∪ P) ∪ inside (A₂ ∪ P) ∪ (P \ {R₂.pos a, R₂.pos b}) ∧
+      Disjoint (inside (A₁ ∪ P)) (inside (A₂ ∪ P)) ∧
+      Disjoint (inside (A₁ ∪ P)) (P \ {R₂.pos a, R₂.pos b}) ∧
+      Disjoint (inside (A₂ ∪ P)) (P \ {R₂.pos a, R₂.pos b}) ∧
+      IsOpen (inside (A₁ ∪ P)) ∧ IsOpen (inside (A₂ ∪ P)) ∧
+      (inside (A₁ ∪ P)).Nonempty ∧ (inside (A₂ ∪ P)).Nonempty ∧
+      closure (inside (A₁ ∪ P)) = inside (A₁ ∪ P) ∪ (A₁ ∪ P) ∧
+      closure (inside (A₂ ∪ P)) = inside (A₂ ∪ P) ∪ (A₂ ∪ P) := by
+  -- The family of target 2-cells, in the shape `lem:polygonal-side-accessibility` consumes.
+  have hcell' : ∀ T ∈ {A : Set Plane | ∃ T ∈ S.faces, A = R₂.cell T},
+      T ⊆ Q ∧ ∃ z, T = connectedComponentIn (Q \ pointSet R₂.graph R₂.drawing) z := by
+    rintro T ⟨T', hT', rfl⟩
+    exact hcell T' hT'
+  have hpoly' : ∀ e ∈ E(R₂.graph), IsPolygonal (edgeArc R₂.drawing e) := by
+    intro e he
+    rw [CellStructure.Realization.edgeSet_graph] at he
+    exact hpoly he
+  have hdraw : IsDrawing R₂.graph R₂.drawing := R₂.isDrawing
+  exact exists_target_crosscut_split hdraw hpoly' hQ hQK hcell'
+    ⟨F, hF, rfl⟩ hJ hJc hFJ hab haJ hbJ
+    (CellStructure.Realization.pos_mem_closure_cell_congr h₁ h₂ ha hF hacl)
+    (CellStructure.Realization.pos_mem_closure_cell_congr h₁ h₂ hb hF hbcl) hcut
+
+end EndpointTransfer
 
 end Schoenflies

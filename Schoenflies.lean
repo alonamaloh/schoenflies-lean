@@ -48,3 +48,4 @@ import Schoenflies.StripLocal
 import Schoenflies.PolygonBridge
 import Schoenflies.Graph.K33
 import Schoenflies.PolygonalJordan
+import Schoenflies.SimpleArc

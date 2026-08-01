@@ -130,12 +130,79 @@ Two decisions deliberately not carried over:
 
 ## Findings
 
-1. **The meet of two segments needs no degenerate case.** The other development splits on
-   `a = b` first, so that an equation-shaped case never has to reconcile two spellings of
-   the same segment. Parametrizing by `AffineMap.lineMap a b` and pulling the meet back
-   removes the split: the preimage carries the meet forward whether or not the
-   parametrization is injective, so `a = b` is not special. `segment_inter_segment` has no
-   case analysis at all.
+Places where formalizing found the blueprint, or the companion development, over-assuming,
+under-assuming, or doing more work than needed. None is an error in the mathematics.
+
+1. **The meet of two segments needs no degenerate case.** The companion splits on `a = b`
+   first, so that an equation-shaped case never has to reconcile two spellings of the same
+   segment. Parametrizing by `AffineMap.lineMap a b` and pulling the meet back removes the
+   split: the preimage carries the meet forward whether or not the parametrization is
+   injective. `segment_inter_segment` has no case analysis at all.
+
+2. **`splitAt_avoids` needs nondegeneracy, and the companion's four properties of `subdivide`
+   do not record it.** A degenerate piece `(p, p)` has `p` in its interior, and cutting it
+   produces two more copies of itself, so "after cutting at `p`, no piece has `p` in its
+   interior" is false without `Nondeg`. The hypothesis is free in context — `subdivide_ne`
+   supplies it — but it belongs in the statement.
+
+3. **The handshake lemma holds with loops.** The companion proves it only for loopless
+   well-formed graphs. Mathlib's `IsLoopAt` / `IsNonloopAt` split makes the general statement
+   clean, and `sum_degree_eq_two_mul_ncard_edgeSet` carries no side condition.
+
+4. **No looplessness hypothesis propagates through the path theory.** `Graph.IsPath` excludes
+   loops by its own freshness clause — a step from `u` requires `u` to be absent from what the
+   rest visits, and the arrival is always present — so `IsPath.not_isLoopAt` needs nothing of
+   the graph. The companion excludes loops in `IsWellFormed` and then carries that hypothesis
+   through several files.
+
+5. **"An edge determines where taking it arrives" needs no distinctness.** Mathlib's
+   `eq_or_eq_of_isLink_of_isLink` is strong enough that a loop also determines its arrival
+   (back where it started), so `IsWalk.target_unique` has no side condition. The companion's
+   `Graph.Joins.unique` assumes distinct ends.
+
+6. **`IsTwoConnected.ear_exists` needs a looplessness hypothesis that is *not* removable.** A
+   2-connected graph plus a loop is 2-connected, so a 2-connected subgraph missing only that
+   loop grows by no ear and the conclusion — a path between *distinct* vertices — is false. A
+   plane consumer discharges it from `IsDrawing.ne_of_isLink`.
+
+7. **`Reaches.reroute`'s premise has to be universally quantified.** The companion asserts
+   that the replaced edge joins its two ends in the vertex-deleted graph, which does not
+   follow — the ends may themselves have been deleted. Quantifying over what the edge joins
+   makes that case vacuous instead of false.
+
+8. **The blueprint's "internal vertices are new" is unnecessary for half (b) of
+   `lem:subdivision-ear-preserve`.** The companion found this and it reproduces in Lean with
+   nothing extra: what the proof turns on is `IsPathGraph.reaches_an_end`. Half (a) does need
+   it, and the two statements differ accordingly.
+
+9. **`IsTree.three_leaves` should assert uniqueness.** The companion gives only existence of a
+   degree-3 vertex; the blueprint's `lem:three-leaf-tree` also wants that every other vertex
+   has degree at most two, and the ear decomposition cites it. It costs nothing extra in the
+   handshake count.
+
+10. **The outside of a square is connected for every radius.** No sign condition is needed: for
+    `r < 0` the four half-planes already cover the plane.
+
+11. **The polygonal overlay must carry finiteness in its conclusion.** Stated as
+    `∃ G, IsDrawing G _ ∧ pointSet G _ = cover pieces`, the graph is hidden behind a binder and
+    no `[G.Finite]` instance can be recovered — so the overlay could not be handed to the face
+    machinery at all, though both halves compiled in isolation. `Schoenflies/Compose.lean`
+    exists to catch exactly this class of drift.
+
+## Frictions
+
+- **Parallel formalization collides on unstated general lemmas.** Three independent modules
+  proved `IsPath.anti` and `IsWalk.deleteEdges`, and merging them failed with "environment
+  already contains". The cause was that `Walk.lean` shipped `IsWalk.anti` without its path and
+  deletion companions, leaving an obvious gap that every consumer filled locally. Both now sit
+  in `Walk.lean`.
+- `WithLp` is a structure in this Mathlib, so points of `EuclideanSpace ℝ (Fin 2)` are not
+  functions definitionally: `ext` works and `funext` does not.
+- `List.Subset.trans` collides with the deprecated `HasSubset.Subset.trans`, so dot notation on
+  a list inclusion fails with "invalid field notation"; the fully qualified name works.
+- `induction` on `IsWalk` / `IsPath` auto-reverts every hypothesis mentioning an index, and all
+  three of source, edge list and target are indices, so the induction hypothesis silently gains
+  them as arguments.
 
 ## License
 

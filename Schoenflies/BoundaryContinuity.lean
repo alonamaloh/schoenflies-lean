@@ -64,6 +64,10 @@ namespace Graph
 
 variable {β : Type*} {G : Graph Plane β} {drawing : β → ℝ → Plane} {C D : Set Plane}
 
+/-- An edge is **nonboundary** when its arc is not contained in the outer boundary. -/
+def Nonboundary (drawing : β → ℝ → Plane) (C : Set Plane) (e : β) : Prop :=
+  ¬ edgeArc drawing e ⊆ C
+
 /-- **One finite stage of the skeleton**, as `lem:skeleton-crosscuts` uses it.
 
 `C` is the outer boundary and `D` the region it bounds. The two substantive clauses are
@@ -76,8 +80,16 @@ about it, and the consumer instantiates it with the Jordan domain. -/
 structure IsStageOn (G : Graph Plane β) (drawing : β → ℝ → Plane) (C D : Set Plane) : Prop where
   /-- the graph is drawn in the plane -/
   isDrawing : IsDrawing G drawing
-  /-- every edge is drawn as a polygonal arc -/
-  polygonal : ∀ ⦃e⦄, e ∈ E(G) → Schoenflies.IsPolygonal (edgeArc drawing e)
+  /-- every **nonboundary** edge is drawn as a polygonal arc.
+
+  Only the nonboundary edges: `def:admissible-graph` says "its edges *not contained in `C`* are
+  polygonal arcs", and for a source stage that restriction is not a convenience but a necessity.
+  The outer edges of a source stage are subarcs of the wild Jordan curve `C`, which is in general
+  nowhere polygonal, so a field asking `IsPolygonal` of every edge would make `IsStageOn`
+  unsatisfiable for exactly the graphs `lem:skeleton-crosscuts` is about. It was stated that way
+  and is repaired here; both proofs below already applied it only to nonboundary edges. -/
+  polygonal : ∀ ⦃e⦄, e ∈ E(G) → Nonboundary drawing C e →
+    Schoenflies.IsPolygonal (edgeArc drawing e)
   /-- the outer boundary and the region it bounds are disjoint -/
   disjoint : Disjoint C D
   /-- a vertex off the outer boundary lies in the region -/
@@ -87,10 +99,6 @@ structure IsStageOn (G : Graph Plane β) (drawing : β → ℝ → Plane) (C D :
     edgeArc drawing e ⊆ C ∨ edgeArc drawing e \ {x, y} ⊆ D
   /-- **admissibility**: the open nonboundary part is connected -/
   isConnected_diff : IsConnected (pointSet G drawing \ C)
-
-/-- An edge is **nonboundary** when its arc is not contained in the outer boundary. -/
-def Nonboundary (drawing : β → ℝ → Plane) (C : Set Plane) (e : β) : Prop :=
-  ¬ edgeArc drawing e ⊆ C
 
 namespace IsStageOn
 
@@ -490,7 +498,7 @@ theorem exists_crosscut [G.Finite] (h : IsStageOn G drawing C D) {a b : Plane}
     obtain ⟨e, x, y, hl, hnb, hx, hy⟩ := hbig
     have hlab : G.IsLink e a b := h.isLink_of_ends_mem hl hnb hx hy hab ha hb
     refine ⟨edgeArc drawing e, edgeArc_subset_pointSet hlab.edge_mem,
-      h.polygonal hlab.edge_mem, h.isDrawing.edge_isArcBetween hlab, ?_, ?_⟩
+      h.polygonal hlab.edge_mem hnb, h.isDrawing.edge_isArcBetween hlab, ?_, ?_⟩
     · refine subset_antisymm (h.edgeArc_inter_curve hlab hnb) ?_
       rintro p (rfl | rfl)
       · exact ⟨h.left_mem_edgeArc hlab, haC⟩
@@ -556,6 +564,15 @@ theorem exists_crosscut [G.Finite] (h : IsStageOn G drawing C D) {a b : Plane}
       · rcases h.edgeArc_inter_curve hlb hbnb ⟨hp, hpC⟩ with h1 | h1
         · exact Or.inr h1
         · exact absurd (h1 ▸ hpC) (h.notMem_curve hybD)
+    -- Every edge of `EE` is nonboundary: one lying in `D` cannot lie in `C`, and `ea`, `eb`
+    -- were chosen nonboundary. This is what makes `polygonal` applicable to all of them.
+    have hEEnb : ∀ e ∈ EE, Nonboundary drawing C e := by
+      rintro e ⟨heG, hD | rfl | rfl⟩
+      · intro hC
+        obtain ⟨x, y, hl⟩ := G.exists_isLink_of_mem_edgeSet heG
+        exact (h.disjoint.ne_of_mem (hC (h.left_mem_edgeArc hl)) (hD (h.left_mem_edgeArc hl))) rfl
+      · exact hanb
+      · exact hbnb
     have hfin : (Sum.inl '' (V(G) ∩ D) ∪ Sum.inr '' EE : Set (Plane ⊕ β)).Finite :=
       (((Graph.finite_vertexSet (G := G)).inter_of_left D).image _).union
         (((Graph.finite_edgeSet (G := G)).subset fun e he => he.1).image _)
@@ -563,10 +580,11 @@ theorem exists_crosscut [G.Finite] (h : IsStageOn G drawing C D) {a b : Plane}
         IsPolygonal (Sum.elim (fun v : Plane => ({v} : Set Plane)) (edgeArc drawing) i) := by
       rintro (v | e) hi
       · exact ⟨[v], rfl⟩
-      · refine h.polygonal ?_
-        rcases hi with ⟨w, -, hw⟩ | ⟨w, hw, hw'⟩
-        · exact absurd hw (by simp)
-        · exact ((Sum.inr_injective hw') ▸ hw).1
+      · have he : e ∈ EE := by
+          rcases hi with ⟨w, -, hw⟩ | ⟨w, hw, hw'⟩
+          · exact absurd hw (by simp)
+          · exact (Sum.inr_injective hw') ▸ hw
+        exact h.polygonal he.1 (hEEnb e he)
     obtain ⟨P, hPsub, hPpoly, hParc, hPcut, hPD⟩ :=
       exists_crosscut_arc_of_biUnion_finite (ι := Plane ⊕ β)
         (s := Sum.inl '' (V(G) ∩ D) ∪ Sum.inr '' EE)

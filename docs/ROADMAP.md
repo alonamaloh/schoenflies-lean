@@ -22,8 +22,8 @@ Keep this file honest. A "done" that is really a "conditional" costs the next ag
 **Part I has none.** `thm:jordan` and `thm:general-crosscut` rest on `propext`,
 `Classical.choice` and `Quot.sound` alone.
 
-**Part II is now one interface away from `thm:main`.** The chain is complete and every link is
-proved; what is missing is the *construction* that produces the object the chain consumes.
+**Part II's consuming chain is complete and every link is proved**; what is missing is the
+*construction* that produces the object the chain consumes.
 
 ```
 Schoenflies.jordan_schoenflies   thm:main            ← SquareExtension
@@ -36,17 +36,36 @@ Schoenflies.CellStructure.LimitTower.isHomeoOn_F      ← the fields of LimitTow
 | `Schoenflies.SquareExtension` | `Endgame.lean` | `thm:main` | discharged by `square_extension` below, so not really open |
 | `Schoenflies.HasLimitHomeomorphism` | `BoundaryContinuity2.lean` | `thm:square-extension` | four conjuncts: a dense anchor set, the interior homeomorphism, `HasAnchorCrosscuts`, `HasSpokes`. **`LimitTower` supplies the second; the other three need the construction.** |
 | the fields of `CellStructure.LimitTower` | `LimitMap.lean` | the interior homeomorphism | ~14 fields, each an obligation on whoever builds the nested sequence: the cell decompositions, the shared parent maps, the two halves of `prop:shrinking-stars`, and the nesting of the skeleton maps. See the module docstring |
-| `Schoenflies.CellsAbsorb` | `SkeletonAccess.lean` | `lem:polygonal-side-accessibility` | one clause of `lem:cellulation-invariants`; `cellsAbsorb_of_isComponent_in` discharges it when the cells are the components |
+| `Schoenflies.CommonSubdivision` | `FiniteTransfer.lean` | `thm:finite-transfer`(a) | step 1. The overlay itself is proved (`exists_overlay_of_biUnion_finite`); what is missing is carrying each new subdivision point through the chosen edge parametrization to the *other* realization, for which no API exists on `main` |
+| `Schoenflies.EarStep` | `FiniteTransfer.lean` | `thm:finite-transfer`(a) | step 3, one ear. Carries `[Infinite γ]` — see below. Its geometric core is proved (`exists_target_crosscut_split`); what is missing is the **realization constructor** for a 2-cell split |
+| `Schoenflies.CellsAbsorb` | `SkeletonAccess.lean`, `FiniteTransfer.lean`, `FreshAccess.lean` | `lem:polygonal-side-accessibility`, ear placement | one clause of `lem:cellulation-invariants`; `cellsAbsorb_of_isComponent_in` discharges it when the cells are the components |
 
-The remaining work is therefore exactly `thm:finite-transfer` plus the quantitative refinement
-(`prop:shrinking-stars`, `prop:anchored-square-mesh`, `prop:local-grid-attachment`,
-`lem:anchor-density`) — the machinery that builds the nested matched cellulations and proves
-their stars shrink. Everything that *consumes* them is done.
+### The shape of what is left
+
+`CellulationInvariants.lean` closed the two hard assertions of `lem:cellulation-invariants` — (i)
+at the split constructor and (vii) — **as step theorems**: *given* a realization `R'` of the
+refined structure standing in the relation `SubdivData.IsRefinement` or
+`SplitData.IsCrosscutSplit` to `R`, every invariant propagates. That is the right form, and it
+leaves one gap that everything else now waits on:
+
+> **Nothing on `main` builds such an `R'`.** There is no realization constructor for either
+> elementary operation — no `SubdivData.realize`, no `SplitData.realize`.
+
+That gap is the atom. `EarStep` is exactly it for the split; the local grid, the anchored mesh
+and the stage recursion all reduce to it once it exists. The remaining work is therefore:
+
+1. the two realization constructors, and with them `EarStep` and `CommonSubdivision`;
+2. `thm:finite-transfer` (a) assembled from them, and (b), whose one extra ingredient —
+   accessibility at a fresh anchor on the wild curve — is now closed in `FreshAccess.lean`;
+3. the quantitative refinement (`prop:anchored-square-mesh`, `prop:local-grid-attachment`,
+   `lem:grid-star-estimate`, `prop:shrinking-stars`, `lem:anchor-density`);
+4. the stage recursion, assembling a `LimitTower`.
+
+Everything that *consumes* those is done.
 
 ### What the standing rules caught
-### What the standing rules caught
 
-Two things, both worth the cost of the rules that found them.
+Three things, all worth the cost of the rules that found them.
 
 **A false hypothesis.** `Graph.CrosscutEncloses` stood on `main` as an assumed hypothesis for a
 whole wave, and is **false**. Nothing in its hypotheses stopped the crosscut from being drawn
@@ -66,7 +85,27 @@ thing joining the rings, so every interior vertex of that spoke is a cut vertex.
 `Schoenflies.not_isTwoConnected_squareMesh_of_fresh_nil` in `SquareMeshFixed.lean`. The
 blueprint's own construction never hits either case, because it chooses enough fresh points to
 make every boundary arc have diameter `< δ/4`; what is missing in Lean is that hypothesis on
-the parameter, and `Schoenflies.FreshDense` in `SquareMesh.lean` is the shape it should take.
+the parameter. `Schoenflies.FreshDense` in `SquareMesh.lean` was proposed as the repair and
+**is not one on its own**: `LocalGrid.lean` proves `freshDense_of_four_sqrt_two_le` (at
+`4√2 ≤ δ` the condition is vacuous, the empty list included) and
+`freshDense_not_isTwoConnected` (the counterexample, formal). What repairs it is `FreshDense`
+*together with a bound on `δ`* — `exists_two_distinct_fresh_of_freshDense` turns `δ < 4` into
+two distinct fresh points — and two distinct fresh points is exactly the right amount, because
+`not_isTwoConnected_meshGraph_of_fresh_subsingleton` shows fewer is always fatal. The
+blueprint's own `δ = ε_n = 2^{-n}` is far below the bound.
+
+**A hypothesis that is false in the generality it was stated in.** `Schoenflies.EarStep` in
+`FiniteTransfer.lean` quantified over an arbitrary name type `γ`. Every cell of every structure
+is a name drawn from `γ` — `V(skel)`, `E(skel)` and `faces` are three disjoint subsets of it —
+and an ear insertion consumes fresh names for the ear's interior vertices, its edges and the two
+2-cells the split creates, while the conclusion forces the new structure to realize a
+subdivision of the enlarged graph. A `γ` large enough to carry the transfer of `B` and too small
+to carry it with one more ear satisfies the hypotheses and refutes the conclusion. The repair is
+`[Infinite γ]`, and the consumer instantiates `γ := ℕ`. Unlike the two above this one is
+*recorded rather than machine-checked*: pinning it down needs a `GeneratedPair` over an
+exactly-exhausted finite `γ`, a page of construction for a defect the type class removes
+outright. Had it been a `sorry` it would have been filled in for `γ = ℕ` and the statement left
+false.
 
 ## Part I — the Jordan curve theorem
 
@@ -130,9 +169,10 @@ the parameter, and `Schoenflies.FreshDense` in `SquareMesh.lean` is the shape it
 
 The abstract scaffolding was deliberately built first, because `lem:combinatorial-invariance`
 has no internal prerequisites and so could be proved while the Jordan curve theorem was still
-open. With Part I closed, the critical path is assertions (i) and (vii) of
-`lem:cellulation-invariants` — the two that need `thm:general-crosscut` at every 2-cell split —
-and then `thm:finite-transfer`.
+open. With Part I closed, assertions (i) and (vii) of `lem:cellulation-invariants` — the two that
+need `thm:general-crosscut` at every 2-cell split — are done, as step theorems. The critical
+path is now the two **realization constructors** they are stated against, and then
+`thm:finite-transfer`.
 
 | Statement | Status | Where |
 |---|---|---|
@@ -141,17 +181,19 @@ and then `thm:finite-transfer`.
 | `lem:outer-incidence` | done | `LimitMap.lean` (`IsCellDecomposition.closure_cell_meets_outer_iff`, `.star_meets_outer_iff`, `LimitTower.star_meets_bdry_iff`). **Not** `CombinatorialInvariance.outerEdge_face_corresponds`, which this table used to point at — that is assertion (vi), a different statement |
 | `def:strong-accessibility`, `lem:nearest-strong`, `lem:tangent-cone`, `prop:countable-strong-access` | done | `Accessible.lean` |
 | `lem:square-point-mover` | done | `SquareMover.lean` |
-| `lem:local-skeleton-structure` | partial | `SkeletonLocal.lean` + `SkeletonSectors.lean` — open only at points with fewer than two local directions |
-| `prop:anchored-square-mesh` | partial | `SquareMesh.lean` + `SquareMeshConnected.lean` — geometry and diameter bounds done, 2-connectivity not yet connected to the mesh itself |
+| `lem:local-skeleton-structure` | partial | `SkeletonLocal.lean` + `SkeletonSectors.lean` — open only at points with fewer than two local directions; the two missing cases are closed in `SkeletonAccess.lean` |
+| `prop:anchored-square-mesh` | partial | `SquareMesh.lean`, `SquareMeshConnected.lean`, `SquareMeshFixed.lean`, `LocalGrid.lean` — clauses 1, 2, 3, 4 and 6 done; clause 5 (2-connectivity) open, and see above for which hypothesis repairs it; the outer cycle is proved only as a point set, not as a cycle of the graph |
 | `lem:skeleton-crosscuts` | partial | `AccessibleJoin.lean` — the final extraction paragraph only |
 | `lem:tangent-dense` | done | `Inversion.lean` |
-| `prop:initial-pair` | partial | `InitialPair.lean` — `initialStructure`, both realizations, `InitialData`, `initial_pair`. Its two hypotheses are now both discharged on `main` and should be substituted. Two clauses remain open: the source and target 2-cell labellings are never linked (no lemma says `tgt.arcOf k = u '' src.arcOf k`), and strong accessibility of the two chosen points is not recorded, though the blueprint requires `a, b ∈ 𝒜` |
-| `def:generated-structure`, `rem:intermediate-disconnection` | partial | `GeneratedStructure.lean` — both elementary operations as defs and the inductive closure, but carrying no realizations yet |
-| `lem:cellulation-invariants` | partial | `GeneratedStructure.lean` — (ii), (iii), (iv compatibility), (v), (vi), (viii), (ix), and (i) for the subdivision constructor. **(i) for the split constructor and (vii) are the remaining work**, and both need `thm:general-crosscut`, now available |
+| `prop:initial-pair` | **done** | `InitialPair.lean` (`initialStructure`, both realizations, `InitialData`) completed in `InitialPairFixed.lean`: the anchor clause (`AnchorSet`, `AnchoredInitialData`, `stronglyAccessible_initialData_a`), the matched labelling (`tgt_arcOf_eq_image`, `closure_cell_face_link`), the polygonal target edges, the boundary-walk check, and both hypotheses `harc` / `hcollars` discharged — `initial_pair'` is unconditional |
+| `def:generated-structure`, `rem:intermediate-disconnection` | partial | `GeneratedStructure.lean` — both elementary operations as defs and the inductive closure. **The realization constructors are missing**: nothing builds a `Realization` of `S.subdivideEdge d` or of `S.splitFace d` from geometry, which is the one gap everything downstream now waits on |
+| `lem:cellulation-invariants` | done | (ii), (iii), (iv), (v), (vi), (viii), (ix) and (i) at the subdivision constructor in `GeneratedStructure.lean`; **(i) at the split constructor and (vii)** in `CellulationInvariants.lean` (`SplitData.IsCrosscutSplit.isCellDecomposition_and_isFaceJordan`, `SubdivData.IsRefinement.isCellDecomposition_and_isFaceJordan`). Both are *step* theorems, stated against a realization of the refined structure — see the row above for what is still missing |
 | `lem:refinement-compatibility`, `lem:star-intersection`, `lem:star-face-mesh`, `lem:cell-neighborhood` | done | `RefinementStars.lean`. The carrier is a total function and refinement is abstract, which is what lets the limit section be built against an interface |
 | `lem:polygonal-side-accessibility` | conditional (`Schoenflies.CellsAbsorb`) | `SkeletonAccess.lean` — both halves, on one clause of `lem:cellulation-invariants` |
-| `thm:finite-transfer` | open | the largest single statement in the manuscript: twelve internal prerequisites |
-| `prop:local-grid-attachment`, `lem:grid-star-estimate`, `prop:shrinking-stars`, `lem:anchor-density` | open | quantitative refinement |
+| `thm:finite-transfer` (a) | conditional (`CommonSubdivision`, `EarStep`) | `FiniteTransfer.lean` — steps 2 and 4 and the last paragraph unconditional, the induction scheme closed, steps 1 and 3 named. See the live-obligations table |
+| `thm:finite-transfer` (b) | partial | its one ingredient beyond (a), source accessibility at a fresh anchor on the wild curve, is closed in `FreshAccess.lean` (`polyAccessible_of_stronglyAccessible`). The statement itself is not yet written |
+| `prop:local-grid-attachment` | partial | `LocalGrid.lean` — `localGrid` and its diameter clause; the overlay, the three cases and the component-joining loop are open |
+| `lem:grid-star-estimate`, `prop:shrinking-stars`, `lem:anchor-density` | open | quantitative refinement; they consume the stage recursion, which does not exist yet |
 | `lem:cell-neighborhood`, `prop:skeleton-agreement`, `prop:F-continuous`, `prop:image-interior`, `prop:F-injective`, `prop:target-skeleton-dense`, `prop:F-surjective`, `lem:exact-cell-correspondence`, `prop:inverse-continuous`, `prop:interior-homeomorphism` | open | the limit homeomorphism |
 | `lem:crosscut-side-correspondence`, `prop:boundary-continuity` | open | continuity at the curve |
 | `thm:square-extension`, `prop:square-reduction`, `thm:closed-interior-extension` | open | |

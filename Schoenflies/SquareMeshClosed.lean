@@ -1074,4 +1074,96 @@ theorem attachSpokes_isTwoConnected {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane
     exact fun h => smul_ne_self hN (hfresh u hu) (inv_mem_meshRadii hN)
       (inv_cast_lt_one hN).ne h.symm
 
+
+/-! ### Clause 5: the skeleton of the mesh is 2-connected -/
+
+/-- **The whole mesh, assembled**: the core, then every ring, then every spoke. -/
+noncomputable def meshAssembly (N : ℕ) (fresh anchors : List Plane) (z w : Plane) :
+    Graph Plane Piece :=
+  attachSpokes N fresh anchors
+    (attachRings N fresh anchors (meshCore N fresh anchors z w) (meshRadii N)) fresh
+
+theorem meshAssembly_le {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
+    (hfresh : ∀ x ∈ fresh, x ∈ modelCurve) (anchors : List Plane) {z w : Plane}
+    (hz : z ∈ fresh) (hw : w ∈ fresh) (hzw : z ≠ w) :
+    meshAssembly N fresh anchors z w ≤ meshGraph N fresh anchors :=
+  attachSpokes_le hN hfresh
+    (attachRings_le (meshCore_le hN hfresh anchors hz hw hzw) (meshRadii N)) fun _ hx => hx
+
+theorem meshAssembly_isTwoConnected {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
+    (hfresh : ∀ x ∈ fresh, x ∈ modelCurve) (anchors : List Plane) {z w : Plane}
+    (hz : z ∈ fresh) (hw : w ∈ fresh) (hzw : z ≠ w) :
+    (meshAssembly N fresh anchors z w).IsTwoConnected := by
+  have hcore := meshCore_isTwoConnected hN hfresh anchors hz hw hzw
+  have hcorele := meshCore_le hN hfresh anchors hz hw hzw
+  -- both crossing points of every ring lie on the ear, hence in the core
+  have hzK : ∀ r ∈ meshRadii N, r • z ∈ V(meshCore N fresh anchors z w) := fun r hr =>
+    Or.inl (Or.inr (smul_mem_walkVertices_meshEar hN hfresh anchors hz hw hzw hr).1)
+  have hwK : ∀ r ∈ meshRadii N, r • w ∈ V(meshCore N fresh anchors z w) := fun r hr =>
+    Or.inl (Or.inr (smul_mem_walkVertices_meshEar hN hfresh anchors hz hw hzw hr).2)
+  have hrings := attachRings_isTwoConnected hN hfresh hz hw hzw hcore hcorele hzK hwK
+    (l := meshRadii N) fun _ hx => hx
+  refine attachSpokes_isTwoConnected hN hfresh hrings
+    (attachRings_le hcorele (meshRadii N)) ?_ ?_ fun _ hx => hx
+  · exact fun u hu => (le_attachRings N fresh anchors _ (meshRadii N)).vertexSet_mono
+      (Or.inl (Or.inl (mem_vertexSet_ringGraph_one hN hfresh anchors hu)))
+  · exact fun u hu => (le_attachRings N fresh anchors _ (meshRadii N)).vertexSet_mono
+      (Or.inr (smul_mem_vertexSet_ringGraph hN hfresh anchors hu (inv_mem_meshRadii hN)))
+
+/-- **The assembly spans the mesh.** Every vertex of the mesh is an end of an edge, every edge
+lies inside a mesh segment, and a mesh segment is either a ring side — putting the vertex on
+that ring — or a spoke, putting it on that spoke's path. -/
+theorem vertexSet_meshGraph_subset_meshAssembly {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
+    (hfresh : ∀ x ∈ fresh, x ∈ modelCurve) (anchors : List Plane) {z w : Plane}
+    (hz : z ∈ fresh) (hw : w ∈ fresh) (hzw : z ≠ w) :
+    V(meshGraph N fresh anchors) ⊆ V(meshAssembly N fresh anchors z w) := by
+  have hcorele := meshCore_le hN hfresh anchors hz hw hzw
+  intro v hv
+  obtain ⟨Q, hQ, hvQ⟩ := meshGraph_mem_vertexSet.1 hv
+  obtain ⟨R, hR, hsub⟩ := meshGraph_edge_source hQ
+  have hvseg : v ∈ Q.seg := by
+    rcases hvQ with rfl | rfl
+    exacts [left_mem_segment ℝ _ _, right_mem_segment ℝ _ _]
+  have hvR : v ∈ R.seg := hsub hvseg
+  have hvp : v ∈ meshPoints N fresh anchors :=
+    overlayPieces_ends_cut (meshPoints_endsAreCut N fresh anchors) Q hQ v hvQ
+  rcases mem_meshSegments.1 hR with ⟨r, hr, hRr⟩ | ⟨u, hu, rfl⟩
+  · -- `v` lies on the ring of radius `r`
+    have hvring : v ∈ V(ringGraph N fresh anchors r) :=
+      mem_vertexSet_ringGraph hN hfresh hr hvp
+        (ringPieces_seg_subset (meshRadii_pos hN hr).le hRr hvR)
+    exact (le_attachSpokes N fresh anchors _ fresh).vertexSet_mono
+      ((ringGraph_le_attachRings hcorele hr).vertexSet_mono hvring)
+  · -- `v` lies on the spoke at `u`
+    have hvwalk : v ∈ (meshGraph N fresh anchors).walkVertices u (spokeWalk N fresh anchors u) :=
+      mem_walkVertices_of_mem_points (meshSegments_nondeg hN hfresh)
+        (spokePiece_mem_meshSegments hu) (spokeWalk_spec hN hfresh anchors hu).2 hvp hvR
+    exact (spokeGraph_le_attachSpokes (l := fresh)
+      (attachRings_le hcorele (meshRadii N)) hN hfresh (fun _ hx => hx) hu).vertexSet_mono hvwalk
+
+/-- **`prop:anchored-square-mesh`, clause 5, for `meshGraph`: the skeleton is 2-connected.**
+
+The hypothesis is *two distinct fresh points*, and it is exactly right:
+`Schoenflies.not_isTwoConnected_meshGraph_of_fresh_subsingleton` shows the conclusion is
+**false** with fewer. -/
+theorem meshGraph_isTwoConnected {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
+    (hfresh : ∀ x ∈ fresh, x ∈ modelCurve) (anchors : List Plane) {z w : Plane}
+    (hz : z ∈ fresh) (hw : w ∈ fresh) (hzw : z ≠ w) :
+    (meshGraph N fresh anchors).IsTwoConnected :=
+  (meshAssembly_isTwoConnected hN hfresh anchors hz hw hzw).of_le_of_vertexSet_subset
+    (meshAssembly_le hN hfresh anchors hz hw hzw)
+    (vertexSet_meshGraph_subset_meshAssembly hN hfresh anchors hz hw hzw)
+
+/-- **`prop:anchored-square-mesh`, clause 5, for `squareMesh`.**
+
+`Schoenflies.FreshDense fresh δ` alone does **not** suffice — `freshDense_not_isTwoConnected`
+is the counterexample — but `FreshDense` together with `δ < 4` does, because it forces two
+distinct fresh points (`Schoenflies.exists_two_distinct_fresh_of_freshDense`). The blueprint's
+caller uses `δ = ε_n = 2⁻ⁿ`, far below `4`. -/
+theorem squareMesh_isTwoConnected {fresh : List Plane} (hfresh : ∀ x ∈ fresh, x ∈ modelCurve)
+    {δ : ℝ} (hdense : FreshDense fresh δ) (hδ : δ < 4) (anchors : List Plane) :
+    (squareMesh δ fresh anchors).IsTwoConnected := by
+  obtain ⟨z, hz, w, hw, hzw⟩ := exists_two_distinct_fresh_of_freshDense hdense hδ
+  exact meshGraph_isTwoConnected (two_le_meshCount δ) hfresh anchors hz hw hzw
+
 end Schoenflies

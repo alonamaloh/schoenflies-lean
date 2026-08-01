@@ -7,9 +7,80 @@ import Schoenflies.Graph.CycleJordan
 import Schoenflies.Subarc
 
 /-!
-# The utility graph, and the combinatorics of its nonplanarity
+# The utility graph `K(3,3)` inside a plane graph
 
-Placeholder docstring.
+The blueprint's proof of `lem:k33` is four sentences: regard `K(3,3)` as the six-cycle
+`x₀y₀x₁y₁x₂y₂x₀` together with the three remaining edges `x₀y₁, x₁y₂, x₂y₀`; the six-cycle is
+a Jordan curve; each remaining edge lies wholly on one side of it; two of the three lie on the
+same side, and their endpoints alternate on the six-cycle, contrary to
+`cor:alternating-crosscuts`.
+
+**Everything in that proof except the last two citations is established here.** What is left is
+the polygonal Jordan curve theorem — which supplies "the two sides" — and the alternating
+crosscut corollary itself; neither exists yet, so `lem:k33` is not stated. See the note at the
+end of this docstring for exactly how the last step will read.
+
+## `K(3,3)` is a configuration, not a graph
+
+There is no `K33 : Graph α β`. A copy of `K(3,3)` inside `G` is `Graph.IsK33Config G x y e`:
+six vertices `x 0, x 1, x 2, y 0, y 1, y 2`, all distinct, and nine edge names `e i j` with
+`e i j` linking `x i` to `y j`. Nothing says `G` has no other vertex or edge.
+
+This is the shape the theorem is used in — one always *finds* a `K(3,3)` inside a graph one
+already has, never constructs the abstract one — and it is also what makes the drawing
+hypothesis land correctly: `Graph.IsDrawing G drawing` is a hypothesis about all of `G`, so
+taking `G` larger only strengthens it.
+
+Two economies follow from stating the configuration this way. The nine edge names are
+automatically distinct (`Graph.IsK33Config.eq_of_e_eq`): an edge has only two ends, so two
+names coinciding would force the index pairs to agree. And no looplessness clause is needed:
+`x i ≠ y j` is one of the four fields.
+
+## The indexing is arithmetic in `Fin 3`, so that `decide` can do the bookkeeping
+
+The six-cycle uses the edges `e i i` and `e (i+1) i`; the three remaining edges are
+`e s (s+1)` for `s : Fin 3`. Every combinatorial side condition below — that a remaining edge
+is not a cycle edge, that the two arcs of the cut cycle cover it and meet only at the cut
+points — is a statement about index pairs quantified over `Fin 3`, and is discharged by
+`decide`. The edges themselves never have to be compared.
+
+The two arcs into which the ends of the remaining edge `e s (s+1)` cut the six-cycle are named
+by their index pairs as well (`Graph.arcAPairs`, `Graph.arcBPairs`); `Graph.arcA` and
+`Graph.arcB` are the corresponding edge lists, `rfl`-equal to the mapped pair lists so that
+both presentations are available with no conversion lemma.
+
+## Blueprint
+
+* `Graph.IsK33Config` — a copy of the utility graph.
+* `Graph.IsK33Config.hexagon_isCycleThrough` — §"Plane graphs and the utility graph": "regard
+  `K(3,3)` as the six-cycle `x₁y₁x₂y₂x₃y₃x₁` together with the three remaining edges".
+* `Graph.IsK33Config.hexagon_isJordanCurve` — `lem:k33`, "the six-cycle is a polygonal Jordan
+  curve". Polygonality plays no part; it is needed only where the *polygonal* Jordan curve
+  theorem is applied to the result.
+* `Graph.IsK33Config.chord_inter_hexSet`, `Graph.IsK33Config.chord_openArc_eq`,
+  `Graph.IsK33Config.chord_openArc_subset_connectedComponentIn` — `lem:k33`, "each remaining
+  edge lies wholly on one side": a remaining edge meets the six-cycle in exactly its own two
+  ends, so its interior is a connected subset of the complement, hence lies in one component.
+  This is also the crosscut hypothesis of `thm:polygonal-crosscut` and
+  `cor:alternating-crosscuts`.
+* `Graph.IsK33Config.exists_two_chords_same_side` — `lem:k33`, "two of the three lie on the
+  same side". The two sides arrive as an arbitrary pair of disjoint open sets covering the
+  complement, which is the form `thm:polygonal-jordan` will supply them in.
+* `Graph.IsK33Config.chords_alternate` — `lem:k33`, "their endpoints alternate on the
+  six-cycle", in the form `cor:alternating-crosscuts` consumes: the ends of one remaining edge
+  cut the cycle into two arcs meeting only at those ends, and the two ends of another remaining
+  edge lie one interior to each. Every pair of remaining edges is of the form `(s, s+1)`, so
+  the single index `s` covers all three pairs.
+* `Graph.IsK33Config.chords_disjoint` — the disjointness that `cor:alternating-crosscuts`
+  contradicts: two remaining edges have four distinct ends, and distinct edges of a plane graph
+  meet only at a shared end.
+
+**How `lem:k33` will close.** Given a plane drawing of a graph with a `K(3,3)` configuration,
+make it polygonal (`Graph.polygonal_redrawing`, `lem:polygonal-redrawing`); the six-cycle is
+then a polygonal Jordan curve, and `thm:polygonal-jordan` gives the two disjoint open sides
+that `exists_two_chords_same_side` wants. It returns two remaining edges on the same side;
+`chords_alternate` says their ends alternate, so `cor:alternating-crosscuts` makes them meet,
+and `chords_disjoint` says they do not.
 -/
 
 open Set Schoenflies unitInterval
@@ -170,6 +241,76 @@ theorem mem_hexList (e : Fin 3 → Fin 3 → β) {p : Fin 3 × Fin 3} (hp : p �
     e p.1 p.2 ∈ hexList e :=
   mem_hexList_iff.2 ⟨p, hp, rfl⟩
 
+/-! ### The six-cycle cut at the ends of one remaining edge
+
+The two ends of the remaining edge `e s (s+1)` are `x s` and `y (s+1)`, and they cut the
+six-cycle into two paths: `x s → y s → x (s+1) → y (s+1)` and
+`x s → y (s+2) → x (s+2) → y (s+1)`. The other two remaining edges each have one end interior
+to the first and one end interior to the second — this is the blueprint's "their endpoints
+alternate on the six-cycle". -/
+
+/-- Index pairs of the first of the two paths the ends of `e s (s+1)` cut the six-cycle into. -/
+def arcAPairs (s : Fin 3) : List (Fin 3 × Fin 3) := [(s, s), (s + 1, s), (s + 1, s + 1)]
+
+/-- Index pairs of the second of the two paths. -/
+def arcBPairs (s : Fin 3) : List (Fin 3 × Fin 3) := [(s, s + 2), (s + 2, s + 2), (s + 2, s + 1)]
+
+/-- The edges of the first path. -/
+def arcA (e : Fin 3 → Fin 3 → β) (s : Fin 3) : List β := [e s s, e (s + 1) s, e (s + 1) (s + 1)]
+
+/-- The edges of the second path. -/
+def arcB (e : Fin 3 → Fin 3 → β) (s : Fin 3) : List β :=
+  [e s (s + 2), e (s + 2) (s + 2), e (s + 2) (s + 1)]
+
+theorem arcA_eq_map (e : Fin 3 → Fin 3 → β) (s : Fin 3) :
+    arcA e s = (arcAPairs s).map fun p ↦ e p.1 p.2 := rfl
+
+theorem arcB_eq_map (e : Fin 3 → Fin 3 → β) (s : Fin 3) :
+    arcB e s = (arcBPairs s).map fun p ↦ e p.1 p.2 := rfl
+
+namespace IsK33Config
+
+/-- The first of the two paths is a path. -/
+theorem arcA_isPath (h : IsK33Config G x y e) (s : Fin 3) :
+    G.IsPath (x s) (arcA e s) (y (s + 1)) := by
+  have hab : s ≠ s + 1 := by revert s; decide
+  have p3 : G.IsPath (x (s + 1)) [e (s + 1) (s + 1)] (y (s + 1)) :=
+    .single (h.isLink (s + 1) (s + 1)) (h.x_ne_y _ _)
+  have p2 : G.IsPath (y s) [e (s + 1) s, e (s + 1) (s + 1)] (y (s + 1)) := by
+    refine .cons (h.isLink (s + 1) s).symm p3 (h.notMem_walkVertices (h.y_ne_x _ _) ?_)
+    rintro f hf
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hf
+    rcases hf with rfl
+    exact ⟨s + 1, s + 1, rfl, h.y_ne_x _ _, h.y_ne_y hab⟩
+  refine .cons (h.isLink s s) p2 (h.notMem_walkVertices (h.x_ne_y _ _) ?_)
+  rintro f hf
+  simp only [List.mem_cons, List.not_mem_nil, or_false] at hf
+  rcases hf with rfl | rfl
+  · exact ⟨s + 1, s, rfl, h.x_ne_x hab, h.x_ne_y _ _⟩
+  · exact ⟨s + 1, s + 1, rfl, h.x_ne_x hab, h.x_ne_y _ _⟩
+
+/-- The second of the two paths is a path. -/
+theorem arcB_isPath (h : IsK33Config G x y e) (s : Fin 3) :
+    G.IsPath (x s) (arcB e s) (y (s + 1)) := by
+  have hac : s ≠ s + 2 := by revert s; decide
+  have hcb : s + 2 ≠ s + 1 := by revert s; decide
+  have q3 : G.IsPath (x (s + 2)) [e (s + 2) (s + 1)] (y (s + 1)) :=
+    .single (h.isLink (s + 2) (s + 1)) (h.x_ne_y _ _)
+  have q2 : G.IsPath (y (s + 2)) [e (s + 2) (s + 2), e (s + 2) (s + 1)] (y (s + 1)) := by
+    refine .cons (h.isLink (s + 2) (s + 2)).symm q3 (h.notMem_walkVertices (h.y_ne_x _ _) ?_)
+    rintro f hf
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at hf
+    rcases hf with rfl
+    exact ⟨s + 2, s + 1, rfl, h.y_ne_x _ _, h.y_ne_y hcb⟩
+  refine .cons (h.isLink s (s + 2)) q2 (h.notMem_walkVertices (h.x_ne_y _ _) ?_)
+  rintro f hf
+  simp only [List.mem_cons, List.not_mem_nil, or_false] at hf
+  rcases hf with rfl | rfl
+  · exact ⟨s + 2, s + 2, rfl, h.x_ne_x hac, h.x_ne_y _ _⟩
+  · exact ⟨s + 2, s + 1, rfl, h.x_ne_x hac, h.x_ne_y _ _⟩
+
+end IsK33Config
+
 end Graph
 
 /-! ## The six-cycle drawn in the plane
@@ -185,6 +326,29 @@ variable {drawing : β → ℝ → Plane} {s t : Fin 3}
 /-- The point set of the six-cycle of a drawn `K(3,3)`. -/
 def hexSet (drawing : β → ℝ → Plane) (e : Fin 3 → Fin 3 → β) : Set Plane :=
   edgesCover drawing (hexList e)
+
+theorem mem_edgesCover_map_iff {L : List (Fin 3 × Fin 3)} {p : Plane} :
+    p ∈ edgesCover drawing (L.map fun q ↦ e q.1 q.2) ↔
+      ∃ q ∈ L, p ∈ edgeArc drawing (e q.1 q.2) := by
+  constructor
+  · intro hp
+    obtain ⟨f, hf, hpf⟩ := mem_edgesCover_iff.1 hp
+    obtain ⟨q, hq, rfl⟩ := List.mem_map.1 hf
+    exact ⟨q, hq, hpf⟩
+  · rintro ⟨q, hq, hpq⟩
+    exact mem_edgesCover (List.mem_map_of_mem hq) hpq
+
+theorem mem_hexSet_iff {p : Plane} :
+    p ∈ hexSet drawing e ↔ ∃ q ∈ hexPairs, p ∈ edgeArc drawing (e q.1 q.2) := by
+  rw [hexSet, hexList_eq_map]; exact mem_edgesCover_map_iff
+
+theorem mem_arcA_iff {p : Plane} :
+    p ∈ edgesCover drawing (arcA e s) ↔ ∃ q ∈ arcAPairs s, p ∈ edgeArc drawing (e q.1 q.2) := by
+  rw [arcA_eq_map]; exact mem_edgesCover_map_iff
+
+theorem mem_arcB_iff {p : Plane} :
+    p ∈ edgesCover drawing (arcB e s) ↔ ∃ q ∈ arcBPairs s, p ∈ edgeArc drawing (e q.1 q.2) := by
+  rw [arcB_eq_map]; exact mem_edgesCover_map_iff
 
 namespace IsK33Config
 
@@ -275,6 +439,126 @@ theorem chords_disjoint (h : IsK33Config G x y e) (hd : IsDrawing G drawing) (hs
   · exact (h.x_ne_y s (t + 1)) hh
   · exact (h.y_ne_x (s + 1) t) hh
   · exact (h.y_ne_y hne2) hh
+
+/-! ### The two arcs the ends of a remaining edge cut the six-cycle into -/
+
+theorem arcA_isArcBetween (h : IsK33Config G x y e) (hd : IsDrawing G drawing) (s : Fin 3) :
+    IsArcBetween (edgesCover drawing (arcA e s)) (x s) (y (s + 1)) :=
+  hd.path_isArcBetween (h.arcA_isPath s) (by simp [arcA])
+
+theorem arcB_isArcBetween (h : IsK33Config G x y e) (hd : IsDrawing G drawing) (s : Fin 3) :
+    IsArcBetween (edgesCover drawing (arcB e s)) (x s) (y (s + 1)) :=
+  hd.path_isArcBetween (h.arcB_isPath s) (by simp [arcB])
+
+/-- **The two arcs make up the six-cycle.** -/
+theorem arcs_union (s : Fin 3) :
+    edgesCover drawing (arcA e s) ∪ edgesCover drawing (arcB e s) = hexSet drawing e := by
+  have hA : ∀ s : Fin 3, ∀ q ∈ arcAPairs s, q ∈ hexPairs := by decide
+  have hB : ∀ s : Fin 3, ∀ q ∈ arcBPairs s, q ∈ hexPairs := by decide
+  have hC : ∀ s : Fin 3, ∀ q ∈ hexPairs, q ∈ arcAPairs s ∨ q ∈ arcBPairs s := by decide
+  refine Set.eq_of_subset_of_subset ?_ ?_
+  · rintro p (hp | hp)
+    · obtain ⟨q, hq, hpq⟩ := mem_arcA_iff.1 hp
+      exact mem_hexSet_iff.2 ⟨q, hA s q hq, hpq⟩
+    · obtain ⟨q, hq, hpq⟩ := mem_arcB_iff.1 hp
+      exact mem_hexSet_iff.2 ⟨q, hB s q hq, hpq⟩
+  · intro p hp
+    obtain ⟨q, hq, hpq⟩ := mem_hexSet_iff.1 hp
+    rcases hC s q hq with hq' | hq'
+    exacts [Or.inl (mem_arcA_iff.2 ⟨q, hq', hpq⟩), Or.inr (mem_arcB_iff.2 ⟨q, hq', hpq⟩)]
+
+/-- **The two arcs meet exactly in the two ends of the remaining edge that cuts the cycle.** -/
+theorem arcs_inter (h : IsK33Config G x y e) (hd : IsDrawing G drawing) (s : Fin 3) :
+    edgesCover drawing (arcA e s) ∩ edgesCover drawing (arcB e s) = {x s, y (s + 1)} := by
+  have hne : ∀ s : Fin 3, ∀ q ∈ arcAPairs s, ∀ r ∈ arcBPairs s, ¬ (q.1 = r.1 ∧ q.2 = r.2) := by
+    decide
+  have h1 : ∀ s : Fin 3, ∀ q ∈ arcAPairs s, ∀ r ∈ arcBPairs s, q.1 = r.1 → q.1 = s := by decide
+  have h2 : ∀ s : Fin 3, ∀ q ∈ arcAPairs s, ∀ r ∈ arcBPairs s, q.2 = r.2 → q.2 = s + 1 := by
+    decide
+  refine Set.eq_of_subset_of_subset ?_ ?_
+  · rintro p ⟨hpA, hpB⟩
+    obtain ⟨q, hq, hpq⟩ := mem_arcA_iff.1 hpA
+    obtain ⟨r, hr, hpr⟩ := mem_arcB_iff.1 hpB
+    obtain ⟨-, hincq, hincr⟩ := hd.edge_inter (h.isLink q.1 q.2).edge_mem
+      (h.isLink r.1 r.2).edge_mem (h.e_ne (hne s q hq r hr)) hpq hpr
+    rcases h.inc_elim hincq with hh | hh <;> rcases h.inc_elim hincr with hh' | hh'
+    · exact Or.inl (hh.trans (by rw [h1 s q hq r hr (h.x_injective (hh.symm.trans hh'))]))
+    · exact absurd (hh.symm.trans hh') (h.x_ne_y _ _)
+    · exact absurd (hh.symm.trans hh') (h.y_ne_x _ _)
+    · exact Or.inr (hh.trans (by rw [h2 s q hq r hr (h.y_injective (hh.symm.trans hh'))]))
+  · rintro p (rfl | rfl)
+    · exact ⟨mem_arcA_iff.2 ⟨(s, s), by simp [arcAPairs],
+        (hd.edge_isArcBetween (h.isLink s s)).left_mem⟩,
+        mem_arcB_iff.2 ⟨(s, s + 2), by simp [arcBPairs],
+          (hd.edge_isArcBetween (h.isLink s (s + 2))).left_mem⟩⟩
+    · exact ⟨mem_arcA_iff.2 ⟨(s + 1, s + 1), by simp [arcAPairs],
+        (hd.edge_isArcBetween (h.isLink (s + 1) (s + 1))).right_mem⟩,
+        mem_arcB_iff.2 ⟨(s + 2, s + 1), by simp [arcBPairs],
+          (hd.edge_isArcBetween (h.isLink (s + 2) (s + 1))).right_mem⟩⟩
+
+/-- **The endpoints of two of the three remaining edges alternate on the six-cycle.**
+
+The remaining edge indexed by `s` has ends `x s` and `y (s+1)`; they cut the six-cycle into
+two arcs `A` and `B` meeting only in those two points. The remaining edge indexed by `s+1`
+has ends `x (s+1)` and `y (s+1+1)`, and this says one of them is interior to `A` and the other
+interior to `B`. Since the three remaining edges are indexed by `Fin 3`, every *pair* of them
+is of this form, which is what the blueprint's "their endpoints alternate on the six-cycle"
+asserts. -/
+theorem chords_alternate (h : IsK33Config G x y e) (hd : IsDrawing G drawing) (s : Fin 3) :
+    ∃ A B : Set Plane,
+      IsArcBetween A (x s) (y (s + 1)) ∧ IsArcBetween B (x s) (y (s + 1)) ∧
+        A ∪ B = hexSet drawing e ∧ A ∩ B = {x s, y (s + 1)} ∧
+        x (s + 1) ∈ A \ ({x s, y (s + 1)} : Set Plane) ∧
+        y (s + 1 + 1) ∈ B \ ({x s, y (s + 1)} : Set Plane) := by
+  have hsucc : s + 1 + 1 = s + 2 := by revert s; decide
+  have hs1 : s + 1 ≠ s := by revert s; decide
+  have hs2 : s + 2 ≠ s + 1 := by revert s; decide
+  refine ⟨_, _, h.arcA_isArcBetween hd s, h.arcB_isArcBetween hd s, arcs_union s,
+    h.arcs_inter hd s, ⟨?_, ?_⟩, ?_, ?_⟩
+  · exact mem_arcA_iff.2 ⟨(s + 1, s), by simp [arcAPairs],
+      (hd.edge_isArcBetween (h.isLink (s + 1) s)).left_mem⟩
+  · rintro (hc | hc)
+    exacts [h.x_ne_x hs1 hc, h.x_ne_y _ _ hc]
+  · rw [hsucc]
+    exact mem_arcB_iff.2 ⟨(s + 2, s + 2), by simp [arcBPairs],
+      (hd.edge_isArcBetween (h.isLink (s + 2) (s + 2))).right_mem⟩
+  · rw [hsucc]
+    rintro (hc | hc)
+    exacts [h.y_ne_x _ _ hc, h.y_ne_y hs2 hc]
+
+/-! ### Two of the three remaining edges lie on the same side -/
+
+/-- A remaining edge lies wholly in one of two disjoint open sets covering the complement of
+the six-cycle: its interior is connected and misses the cycle. -/
+theorem chord_subset_or (h : IsK33Config G x y e) (hd : IsDrawing G drawing) {U V : Set Plane}
+    (hUo : IsOpen U) (hVo : IsOpen V) (hUV : Disjoint U V)
+    (hcover : (hexSet drawing e)ᶜ ⊆ U ∪ V) (s : Fin 3) :
+    openArc (drawing (e s (s + 1))) ⊆ U ∨ openArc (drawing (e s (s + 1))) ⊆ V := by
+  have hsub : openArc (drawing (e s (s + 1))) ⊆ U ∪ V :=
+    (h.chord_openArc_subset_compl hd s).trans hcover
+  obtain ⟨p, hp⟩ := chord_openArc_nonempty (drawing := drawing) (e := e) s
+  rcases hsub hp with hpU | hpV
+  · exact Or.inl ((h.chord_openArc_isPreconnected hd s).subset_left_of_subset_union
+      hUo hVo hUV hsub ⟨p, hp, hpU⟩)
+  · refine Or.inr ((h.chord_openArc_isPreconnected hd s).subset_left_of_subset_union
+      hVo hUo hUV.symm (hsub.trans (by rw [Set.union_comm])) ⟨p, hp, hpV⟩)
+
+/-- **Two of the three remaining edges lie on the same side of the six-cycle.** The blueprint's
+"two of the three lie on the same side": three edges, two sides. The two sides arrive here as
+an arbitrary pair of disjoint open sets covering the complement of the cycle, which is the form
+the polygonal Jordan curve theorem supplies them in. -/
+theorem exists_two_chords_same_side (h : IsK33Config G x y e) (hd : IsDrawing G drawing)
+    {U V : Set Plane} (hUo : IsOpen U) (hVo : IsOpen V) (hUV : Disjoint U V)
+    (hcover : (hexSet drawing e)ᶜ ⊆ U ∪ V) :
+    ∃ s t : Fin 3, s ≠ t ∧
+      ((openArc (drawing (e s (s + 1))) ⊆ U ∧ openArc (drawing (e t (t + 1))) ⊆ U) ∨
+        (openArc (drawing (e s (s + 1))) ⊆ V ∧ openArc (drawing (e t (t + 1))) ⊆ V)) := by
+  have key := fun s ↦ h.chord_subset_or hd hUo hVo hUV hcover s
+  rcases key 0 with h0 | h0 <;> rcases key 1 with h1 | h1 <;> rcases key 2 with h2 | h2
+  exacts [⟨0, 1, by decide, Or.inl ⟨h0, h1⟩⟩, ⟨0, 1, by decide, Or.inl ⟨h0, h1⟩⟩,
+    ⟨0, 2, by decide, Or.inl ⟨h0, h2⟩⟩, ⟨1, 2, by decide, Or.inr ⟨h1, h2⟩⟩,
+    ⟨1, 2, by decide, Or.inl ⟨h1, h2⟩⟩, ⟨0, 2, by decide, Or.inr ⟨h0, h2⟩⟩,
+    ⟨0, 1, by decide, Or.inr ⟨h0, h1⟩⟩, ⟨0, 1, by decide, Or.inr ⟨h0, h1⟩⟩]
 
 end IsK33Config
 

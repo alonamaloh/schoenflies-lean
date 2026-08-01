@@ -668,6 +668,121 @@ theorem isDrawing_split {D : Set Plane} (hcd : R.IsCellDecomposition D) :
 
 end EarCrosscut
 
+/-- **The frontier of the old open 2-cell is the union of its two realized boundary paths.**
+`SplitData.sub_face` says which cells lie below the split 2-cell, and assertion (i) turns the
+union of those open cells into the topological frontier. -/
+theorem frontier_cell_face {D : Set Plane} (hcd : R.IsCellDecomposition D)
+    (hJ : R.IsFaceJordan) :
+    frontier (R.cell d.face) = R.cellUnion d.cells₁ ∪ R.cellUnion d.cells₂ := by
+  rw [← hJ.faceBoundary_eq hcd d.face_mem, Realization.faceBoundary, d.subcells_face_diff,
+    Realization.cellUnion_union]
+
+theorem pos_source_mem_cellUnion_cells₁ : R.pos d.source ∈ R.cellUnion d.cells₁ :=
+  Realization.cell_subset_cellUnion d.source_mem_cells₁
+    (by rw [R.cell_vertex d.source_mem_skel]; rfl)
+
+theorem pos_source_mem_cellUnion_cells₂ : R.pos d.source ∈ R.cellUnion d.cells₂ :=
+  Realization.cell_subset_cellUnion d.source_mem_cells₂
+    (by rw [R.cell_vertex d.source_mem_skel]; rfl)
+
+theorem pos_target_mem_cellUnion_cells₁ : R.pos d.target ∈ R.cellUnion d.cells₁ :=
+  Realization.cell_subset_cellUnion d.target_mem_cells₁
+    (by rw [R.cell_vertex d.target_mem_skel]; rfl)
+
+theorem pos_target_mem_cellUnion_cells₂ : R.pos d.target ∈ R.cellUnion d.cells₂ :=
+  Realization.cell_subset_cellUnion d.target_mem_cells₂
+    (by rw [R.cell_vertex d.target_mem_skel]; rfl)
+
+/-- **A realized boundary path is a simple arc between the ear's two ends.** -/
+theorem isArcBetween_cellUnion_cells₁ :
+    IsArcBetween (R.cellUnion d.cells₁) (R.pos d.source) (R.pos d.target) := by
+  rw [cells₁, R.cellUnion_pathCells d.isPath₁.isWalk]
+  exact R.isDrawing.isArcBetween_walkPointSet (d.isPath₁.map R.injOn_pos)
+    (fun h => d.source_ne_target (R.injOn_pos d.source_mem_skel d.target_mem_skel h))
+
+theorem isArcBetween_cellUnion_cells₂ :
+    IsArcBetween (R.cellUnion d.cells₂) (R.pos d.source) (R.pos d.target) := by
+  rw [cells₂, R.cellUnion_pathCells d.isPath₂.isWalk]
+  exact R.isDrawing.isArcBetween_walkPointSet (d.isPath₂.map R.injOn_pos)
+    (fun h => d.source_ne_target (R.injOn_pos d.source_mem_skel d.target_mem_skel h))
+
+/-- **The two boundary paths cut the old 2-cell's boundary curve in two.**
+
+The hypothesis `hpaths` is the only thing `SplitData` does not already give: `paths_disjoint`
+forbids the two paths a common *edge*, but not a common interior *vertex*, and with a common
+interior vertex the two realized paths would meet in more than the two cut points. See the
+module docstring. -/
+theorem isCutPair_of_inter {D : Set Plane} (hcd : R.IsCellDecomposition D)
+    (hJ : R.IsFaceJordan) (hpaths : d.cells₁ ∩ d.cells₂ = {d.source, d.target}) :
+    IsCutPair (frontier (R.cell d.face)) (R.pos d.source) (R.pos d.target)
+      (R.cellUnion d.cells₁) (R.cellUnion d.cells₂) where
+  fst := isArcBetween_cellUnion_cells₁
+  snd := isArcBetween_cellUnion_cells₂
+  union_eq := (frontier_cell_face hcd hJ).symm
+  inter_eq := by
+    refine Set.Subset.antisymm (fun x ⟨hx₁, hx₂⟩ => ?_) ?_
+    · obtain ⟨σ, hσ, hxσ⟩ := Realization.mem_cellUnion_iff.1 hx₁
+      obtain ⟨τ, hτ, hxτ⟩ := Realization.mem_cellUnion_iff.1 hx₂
+      have hστ : σ = τ := by
+        by_contra hne
+        exact Set.disjoint_left.1
+          (hcd.disjoint (d.cells₁_subset hσ) (d.cells₂_subset hτ) hne) hxσ hxτ
+      subst hστ
+      have hmem : σ ∈ ({d.source, d.target} : Set γ) := hpaths ▸ ⟨hσ, hτ⟩
+      rcases hmem with rfl | rfl
+      · rw [R.cell_vertex d.source_mem_skel] at hxσ
+        exact Or.inl hxσ
+      · rw [R.cell_vertex d.target_mem_skel] at hxσ
+        exact Or.inr hxσ
+    · rintro x (rfl | rfl)
+      exacts [⟨pos_source_mem_cellUnion_cells₁, pos_source_mem_cellUnion_cells₂⟩,
+        ⟨pos_target_mem_cellUnion_cells₁, pos_target_mem_cellUnion_cells₂⟩]
+
+namespace EarCrosscut
+
+variable (hE : d.EarCrosscut R earPos earDraw)
+
+include hE
+
+/-- The drawn ear is a path graph in the plane. -/
+theorem isPathGraph_earGraph :
+    (d.earGraph earPos).IsPathGraph (R.pos d.source) d.earWalk (R.pos d.target) := by
+  have := d.isPathGraph.map hE.injOn
+  rwa [hE.pos_source, hE.pos_target] at this
+
+/-- **The drawn ear is a simple arc between the two old 0-cells it is glued to.** -/
+theorem isArcBetween_earSet :
+    IsArcBetween (d.earSet earPos earDraw) (R.pos d.source) (R.pos d.target) :=
+  hE.isDrawing.isArcBetween_pointSet hE.isPathGraph_earGraph source_ne_target_pos
+
+/-- **The drawn ear is a crosscut of the old Jordan face.** -/
+theorem isCrosscut_earSet {D : Set Plane} (hcd : R.IsCellDecomposition D)
+    (hJ : R.IsFaceJordan) :
+    IsCrosscut (frontier (R.cell d.face)) (d.earSet earPos earDraw)
+      (R.pos d.source) (R.pos d.target) where
+  curve := hJ.isJordanCurve d.face_mem
+  arc := hE.isArcBetween_earSet
+  polygonal := hE.polygonal
+  left_mem := (frontier_cell_face hcd hJ) ▸ Or.inl pos_source_mem_cellUnion_cells₁
+  right_mem := (frontier_cell_face hcd hJ) ▸ Or.inl pos_target_mem_cellUnion_cells₁
+  sdiff_subset := by
+    rw [← hJ.cell_eq_inside d.face_mem]
+    exact hE.subset_face
+
+/-- The closure of an ear edge's open arc is the closed arc. -/
+theorem closure_edgeArc_diff {f a b : γ} (hl : d.ear.IsLink f a b) :
+    closure (Graph.edgeArc earDraw f \ {earPos a, earPos b}) = Graph.edgeArc earDraw f := by
+  have harc : IsArcBetween (Graph.edgeArc earDraw f) (earPos a) (earPos b) :=
+    hE.isDrawing.edge_isArcBetween (hl.map earPos)
+  refine Set.Subset.antisymm (closure_minimal Set.sdiff_subset harc.isArc.isCompact.isClosed) ?_
+  intro x hx
+  by_cases hxab : x ∈ ({earPos a, earPos b} : Set Plane)
+  · rcases hxab with rfl | rfl
+    exacts [harc.left_mem_closure_diff, harc.right_mem_closure_diff]
+  · exact subset_closure ⟨hx, hxab⟩
+
+end EarCrosscut
+
 end SplitData
 
 end CellStructure

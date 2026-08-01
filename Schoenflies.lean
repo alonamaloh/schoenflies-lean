@@ -77,3 +77,6 @@ import Schoenflies.SquareMeshConnected
 import Schoenflies.ArcComplement
 import Schoenflies.Jordan
 import Schoenflies.GeneralCrosscut
+import Schoenflies.SquareCycle
+import Schoenflies.PolyArcRealize
+import Schoenflies.JordanClosed

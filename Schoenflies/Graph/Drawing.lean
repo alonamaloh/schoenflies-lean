@@ -21,16 +21,24 @@ combinatorial citation.
 The vertices being plane points is what makes the definition short: that the vertices are
 distinct is not a clause, it is what `V(G) : Set Plane` already means.
 
-`IsDrawing` has three clauses. Each edge is drawn by an arc between its two ends; an edge's
-arc meets the vertex set only at those two ends; and two distinct edges meet only at vertices
-incident with both. The second and third are the blueprint's "distinct edges of a plane graph
-meet only at shared vertices", split so that `unique_edge_at` — away from the vertices a point
-of the drawing lies on exactly one edge — falls out directly. That corollary is the form the
-polygonal overlay wants.
+`IsDrawing` has three clauses. Each edge is drawn by an injective continuous parametrization on
+`[0, 1]` whose endpoint values are the two ends of that edge; an edge's arc meets the vertex set
+only at those two ends; and two distinct edges meet only at vertices incident with both. The
+second and third are the blueprint's "distinct edges of a plane graph meet only at shared
+vertices", split so that `unique_edge_at` — away from the vertices a point of the drawing lies
+on exactly one edge — falls out directly. That corollary is the form the polygonal overlay
+wants.
+
+The first clause names the *parametrization*, not merely its image. The weaker reading — "the
+point set of an edge is an arc between its ends" — suffices for everything about faces, and
+fails for the polygonal redrawing, which must speak of the last parameter at which an edge is
+inside a given square. `edge_isArcBetween` recovers the weaker reading, so consumers needing
+only that are unaffected.
 
 ## Blueprint
 
 * `IsDrawing` — a plane graph, as an abstract graph plus a drawing.
+* `IsDrawing.edge_param`, `IsDrawing.edge_isArcBetween` — the parametrization, and its image.
 * `IsDrawing.arcs_meet_at_vertex`, `IsDrawing.unique_edge_at` — distinct edges meet only at
   shared vertices; away from the vertices, a point lies on exactly one edge.
 * `pointSet`, `IsDrawing.isCompact_pointSet`, `exterior`, `isOpen_exterior` — what a plane

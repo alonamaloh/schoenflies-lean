@@ -17,18 +17,24 @@ skeleton of `Γ`, the three cases of the union argument, and the component-joini
 
 ## Blueprint
 
-* `lem:polygonal-overlay` / `rem:polygonal-overlay-convention` — `Schoenflies.attachPieces`,
-  `Schoenflies.attachGraph` and its drawing/point-set lemmas.
-* `lem:union-two-connected` — `Schoenflies.attachGraph_isTwoConnected_of_two_common`
-  (case "at least two common vertices"), through `Graph.IsTwoConnected.union`.
-* `lem:subdivision-ear-preserve` — `Schoenflies.overlayGraph_isTwoConnected`, which is the
-  step the blueprint spends without comment ("By `lem:subdivision-ear-preserve`, subdivision
-  preserves 2-connectivity") and which needed a missing bridge; see below.
-* the crosscut `E` of the two degenerate cases — `Schoenflies.crosscutEnd₀`,
-  `Schoenflies.crosscutEnd₁`, `Schoenflies.crosscut_spec`, built on
-  `Schoenflies.Plane.exists_openSegment_eq_connectedComponentIn`.
-* the component-joining loop — `Schoenflies.isPreconnected_union_joins`, and the graph-level
-  `Schoenflies.attachJoin_isTwoConnected`.
+* `lem:polygonal-overlay`, with the convention of `rem:polygonal-overlay-convention` —
+  `Schoenflies.attachPoints`, `Schoenflies.attachGraph`, `Schoenflies.attachGraph_isDrawing`,
+  `Schoenflies.attachGraph_pointSet`.
+* `lem:subdivision-ear-preserve` — `Graph.SameLinks` and
+  `Schoenflies.overlayGraph_isTwoConnected`, the bridge that lets the raw-subdivision
+  2-connectivity of `Schoenflies/SquareMeshFixed.lean` reach an overlay graph at all (see the
+  next section); `Schoenflies.pieceListGraph_append_crosscut`, the single-ear step.
+* `lem:union-two-connected` — `Schoenflies.overlayGraph_append_isTwoConnected` and
+  `Schoenflies.attachGraph_isTwoConnected`, the blueprint's three cases in one statement.
+* the auxiliary crosscut `E` of the two degenerate cases — `Schoenflies.exists_crosscut`,
+  `Schoenflies.frontier_face_subset_pointSet`, `Schoenflies.seg_subset_crosscut`
+  ("since `E` contains `J`") and `Schoenflies.two_common_of_crosscut`.
+* the component-joining loop — `Schoenflies.isConnected_union_joins` and its cover form
+  `Schoenflies.isConnected_cover_diff_of_joins`.
+* `prop:local-grid-attachment` itself — `Schoenflies.gridAttachPieces`,
+  `Schoenflies.gridAttachGraph`, with clause 1 `gridAttachGraph_isConnected_diff`, clause 2
+  `localGrid_subset_gridAttachGraph`, clause 3 `attachGraph_localGridCell_diam`, and
+  2-connectivity `gridAttachGraph_isTwoConnected`.
 
 ## The bridge that was missing: 2-connectivity of an overlay graph
 
@@ -47,17 +53,27 @@ not see edge *names*: it is a statement about which pairs of vertices are joined
 
 ## What is a hypothesis here, and why
 
-Two things the blueprint's proof uses are stated as hypotheses rather than proved, and both are
-statements about `Γ`, not about the grid:
+Three things the blueprint's proof uses are hypotheses of the assembled theorems rather than
+lemmas of this module, and all three are statements about `Γ`, never about the grid.
 
-* `hΓsub` — that the skeleton of `Γ`, subdivided at the crossing points, is still 2-connected.
-  For the polygonal part this is `pieceListGraph_subdivide_isTwoConnected`; for the arcs of `C`
-  it is `Graph.IsTwoConnected.replace_edge_by_path` iterated. It is not provable *here* because
-  this module never sees `Γ`'s drawing — the whole union argument is combinatorial.
-* `hears` in `attachJoin_isTwoConnected` — that a joining arc decomposes into ears of the old
-  graph. The blueprint asserts it in one sentence ("each component of the arc outside the old
-  graph is an open subarc whose closure has two distinct endpoints on the old graph"); turning
-  that into a list of `Graph.IsPathGraph`s is a separate piece of work.
+* `hΓ` of `gridAttachGraph_isTwoConnected` — the skeleton of `Γ`, with the case's crosscut and
+  the loop's joining arcs appended and everything subdivided at the crossing points, is still
+  2-connected. `Γ` itself is 2-connected by hypothesis of the proposition; the subdivision is
+  `lem:subdivision-ear-preserve` (a), which is `pieceListGraph_subdivide_isTwoConnected` for the
+  polygonal part and `Graph.IsTwoConnected.replace_edge_by_path` for the arcs of `C`; the ears
+  are `lem:subdivision-ear-preserve` (b), which is `Graph.IsTwoConnected.ear`, and
+  `pieceListGraph_append_crosscut` is that step for one straight crosscut. It is not proved here
+  because this module never sees `Γ`'s drawing — `C` is not drawn by segments, so `Γ` is not a
+  `pieceListGraph` and the union argument has to stay combinatorial.
+* `hcov` of `gridAttachGraph_isConnected_diff` — that finitely many representatives meet every
+  component of `|L| ∖ C`. This is the blueprint's *"since there are only finitely many
+  components"*, and it is where the loop's termination lives. Nothing on `main` proves finiteness
+  of a component count for a plane set.
+* the joining arcs themselves — supplied to `gridAttachGraph_isConnected_diff` as the family
+  `Jarc`, with the four properties `lem:polygonal-connected` gives them
+  (`Schoenflies.exists_simple_poly_of_isPreconnected` in `Schoenflies/PolygonalCarrier.lean`
+  produces a polygonal path inside the open connected `D`, and `D ∩ C = ∅` gives `hJC`).
+
 
 Neither is a restatement of a goal of this module, and both are true.
 -/
@@ -466,7 +482,7 @@ theorem isConnected_cover_diff_of_joins {l : List Piece} {C : Set Plane} {r₀ :
   have hEq : cover (l ++ reps.flatMap J) \ C = (cover l \ C) ∪ ⋃ r ∈ reps, cover (J r) := by
     rw [cover_append, cover_flatMap']
     ext z
-    simp only [mem_diff, mem_union, mem_iUnion, exists_prop]
+    simp only [Set.mem_sdiff, mem_union, mem_iUnion, exists_prop]
     constructor
     · rintro ⟨hz | ⟨r, hr, hz⟩, hzC⟩
       · exact Or.inl ⟨hz, hzC⟩
@@ -499,5 +515,158 @@ theorem attachGraph_localGridCell_diam {p : Plane} {s ε : ℝ} (hε : 0 < ε) (
     {x y : Plane} (hx : x ∈ localGridCell p s (localGridCount s ε) i j)
     (hy : y ∈ localGridCell p s (localGridCount s ε) i j) : dist x y < ε :=
   lt_of_le_of_lt (dist_le_of_mem_localGridCell hx hy) (localGridCount_spec hε)
+
+/-! ### From the crosscut to two common vertices
+
+*"Since `E` contains `J`, after subdivision `Γ ∪ E` and `K` have at least two common
+vertices."* — the step that turns each degenerate case into the main one. Its content is the
+swallowing clause of `exists_crosscut`: the grid edge's relative interior is a connected subset
+of `ℓ ∩ F` through the chosen point, hence lies inside the crosscut's open part, hence the whole
+closed grid edge lies inside the closed crosscut. -/
+
+/-- **The crosscut contains the chosen grid edge.** -/
+theorem seg_subset_crosscut {q₀ q₁ : Plane} {J : Piece}
+    (hswallow : ∀ S : Set Plane, IsPreconnected S → S ⊆ Plane.line a b ∩ F → y ∈ S →
+      S ⊆ openSegment ℝ q₀ q₁)
+    (hJline : J.interior ⊆ Plane.line a b ∩ F) (hy : y ∈ J.interior) :
+    J.seg ⊆ segment ℝ q₀ q₁ := by
+  have h1 : J.interior ⊆ openSegment ℝ q₀ q₁ :=
+    hswallow _ (convex_openSegment _ _).isPreconnected hJline hy
+  calc J.seg = closure J.interior := (closure_openSegment _ _).symm
+    _ ⊆ closure (openSegment ℝ q₀ q₁) := closure_mono h1
+    _ = segment ℝ q₀ q₁ := closure_openSegment _ _
+
+/-- A point of the crosscut lies on the `Γ`-side family once the crosscut has been appended
+to it. -/
+theorem mem_cover_append_crosscut {l : List Piece} {q₀ q₁ z : Plane}
+    (hz : z ∈ segment ℝ q₀ q₁) : z ∈ cover (l ++ [(q₀, q₁)]) := by
+  rw [cover_append]
+  exact Or.inr (mem_cover_iff.2 ⟨(q₀, q₁), List.mem_singleton_self _, hz⟩)
+
+/-- An end of a listed piece lies on what the list covers. -/
+theorem left_mem_cover {l : List Piece} {P : Piece} (hP : P ∈ l) : P.1 ∈ cover l :=
+  mem_cover_iff.2 ⟨P, hP, left_mem_segment ℝ _ _⟩
+
+theorem right_mem_cover {l : List Piece} {P : Piece} (hP : P ∈ l) : P.2 ∈ cover l :=
+  mem_cover_iff.2 ⟨P, hP, right_mem_segment ℝ _ _⟩
+
+/-- **The degenerate cases, reduced to the main one.** With the crosscut `(q₀, q₁)` appended to
+the `Γ`-side family, the two ends of the chosen grid edge `J` are two distinct points lying on
+both families — which is exactly what `attachGraph_isTwoConnected` asks for.
+
+Note what is *not* assumed: nothing about how many vertices `Γ` and `K` had in common. The case
+split of the blueprint is a device for choosing `J` and the line `ℓ`; once they are chosen, the
+three cases run the same argument. -/
+theorem two_common_of_crosscut {l l' : List Piece} {q₀ q₁ : Plane} {J : Piece}
+    (hJ : J ∈ l') (hJnd : J.Nondeg)
+    (hswallow : ∀ S : Set Plane, IsPreconnected S → S ⊆ Plane.line a b ∩ F → y ∈ S →
+      S ⊆ openSegment ℝ q₀ q₁)
+    (hJline : J.interior ⊆ Plane.line a b ∩ F) (hy : y ∈ J.interior) :
+    J.1 ≠ J.2 ∧ J.1 ∈ cover (l ++ [(q₀, q₁)]) ∧ J.2 ∈ cover (l ++ [(q₀, q₁)]) ∧
+      J.1 ∈ cover l' ∧ J.2 ∈ cover l' := by
+  have hsub := seg_subset_crosscut hswallow hJline hy
+  exact ⟨hJnd, mem_cover_append_crosscut (hsub (left_mem_segment ℝ _ _)),
+    mem_cover_append_crosscut (hsub (right_mem_segment ℝ _ _)),
+    left_mem_cover hJ, right_mem_cover hJ⟩
+
+/-! ## `prop:local-grid-attachment`, assembled
+
+One graph, and each clause of the proposition a theorem about it. The graph is a `def` and not
+an existential: `thm:finite-transfer`(a) takes `H` as an input and reads its drawing, its
+2-connectivity and its point set separately. -/
+
+theorem cover_swap (l₁ l₂ l₃ : List Piece) :
+    cover ((l₁ ++ l₂) ++ l₃) = cover ((l₁ ++ l₃) ++ l₂) := by
+  simp only [cover_append]
+  ac_rfl
+
+/-- The segments of the assembled extension: the polygonal nonboundary skeleton of `Γ` — with
+whatever auxiliary crosscut the case needed already appended to it — then the joining arcs of the
+loop, then the local grid on `W`. -/
+noncomputable def gridAttachPieces (gsegs : List Piece) (reps : List Plane)
+    (Jarc : Plane → List Piece) (p : Plane) (s ε : ℝ) : List Piece :=
+  (gsegs ++ reps.flatMap Jarc) ++ localGridEdges p s (localGridCount s ε)
+
+/-- **The extension `H_n` of `prop:local-grid-attachment`.** -/
+noncomputable def gridAttachGraph (gsegs : List Piece) (reps : List Plane)
+    (Jarc : Plane → List Piece) (p : Plane) (s ε : ℝ) (extra : List Plane) : Graph Plane Piece :=
+  attachGraph (gridAttachPieces gsegs reps Jarc p s ε) extra
+
+variable {gsegs : List Piece} {reps : List Plane} {Jarc : Plane → List Piece} {p : Plane}
+  {s ε : ℝ} {extra : List Plane} {C : Set Plane} {r₀ : Plane}
+
+instance gridAttachGraph_finite (gsegs : List Piece) (reps : List Plane)
+    (Jarc : Plane → List Piece) (p : Plane) (s ε : ℝ) (extra : List Plane) :
+    Graph.Finite (gridAttachGraph gsegs reps Jarc p s ε extra) := attachGraph_finite _ _
+
+/-- The nondegeneracy of every segment in play, which is what `lem:polygonal-overlay` needs. -/
+theorem gridAttachPieces_nondeg (hs : 0 < s)
+    (hg : ∀ P ∈ gsegs, P.Nondeg) (hj : ∀ P ∈ reps.flatMap Jarc, P.Nondeg) :
+    ∀ P ∈ gridAttachPieces gsegs reps Jarc p s ε, P.Nondeg := by
+  intro P hP
+  rcases List.mem_append.1 hP with hP' | hP'
+  · rcases List.mem_append.1 hP' with hP'' | hP''
+    exacts [hg P hP'', hj P hP'']
+  · exact localGridEdges_nondeg hs (one_le_localGridCount s ε) P hP'
+
+/-- **The extension is a plane graph**, drawn with straight edges — `lem:polygonal-overlay`. -/
+theorem gridAttachGraph_isDrawing (hs : 0 < s)
+    (hg : ∀ P ∈ gsegs, P.Nondeg) (hj : ∀ P ∈ reps.flatMap Jarc, P.Nondeg) :
+    Graph.IsDrawing (gridAttachGraph gsegs reps Jarc p s ε extra) segmentDrawing :=
+  attachGraph_isDrawing (gridAttachPieces_nondeg hs hg hj) extra
+
+@[simp] theorem gridAttachGraph_pointSet :
+    Graph.pointSet (gridAttachGraph gsegs reps Jarc p s ε extra) segmentDrawing =
+      cover (gridAttachPieces gsegs reps Jarc p s ε) := attachGraph_pointSet _ _
+
+/-- **Clause 2.** The extension contains the whole local grid on `W`. -/
+theorem localGrid_subset_gridAttachGraph :
+    cover (localGridEdges p s (localGridCount s ε)) ⊆
+      Graph.pointSet (gridAttachGraph gsegs reps Jarc p s ε extra) segmentDrawing := by
+  rw [gridAttachGraph_pointSet, gridAttachPieces, cover_append]
+  exact subset_union_right
+
+/-- **The extension is 2-connected** — the three cases of the blueprint, all of which end in
+`lem:union-two-connected` applied to two distinct points lying on both families.
+
+`hΓ` is the `Γ`-side hypothesis this module cannot discharge: the skeleton of `Γ`, with the
+crosscut and the joining arcs appended and everything subdivided at the crossing points, is still
+2-connected. For the polygonal part it is `pieceListGraph_subdivide_isTwoConnected`; for the arcs
+of `C` and for the ears it is `Graph.IsTwoConnected.replace_edge_by_path` and
+`Graph.IsTwoConnected.ear` iterated (`pieceListGraph_append_crosscut` above is the single ear
+step, for a straight crosscut). -/
+theorem gridAttachGraph_isTwoConnected (hs : 0 < s)
+    (hg : ∀ P ∈ gsegs, P.Nondeg) (hj : ∀ P ∈ reps.flatMap Jarc, P.Nondeg)
+    (hΓ : (pieceListGraph (subdivide (gsegs ++ reps.flatMap Jarc)
+      (attachPoints (gridAttachPieces gsegs reps Jarc p s ε) extra))).IsTwoConnected)
+    (hK : (pieceListGraph (subdivide (localGridEdges p s (localGridCount s ε))
+      (attachPoints (gridAttachPieces gsegs reps Jarc p s ε) extra))).IsTwoConnected)
+    {a b : Plane} (hab : a ≠ b) (ha : a ∈ extra) (hb : b ∈ extra)
+    (haΓ : a ∈ cover (gsegs ++ reps.flatMap Jarc))
+    (hbΓ : b ∈ cover (gsegs ++ reps.flatMap Jarc))
+    (haK : a ∈ cover (localGridEdges p s (localGridCount s ε)))
+    (hbK : b ∈ cover (localGridEdges p s (localGridCount s ε))) :
+    (gridAttachGraph gsegs reps Jarc p s ε extra).IsTwoConnected := by
+  refine attachGraph_isTwoConnected (fun P hP => ?_)
+    (localGridEdges_nondeg hs (one_le_localGridCount s ε)) hΓ hK hab ha hb haΓ hbΓ haK hbK
+  rcases List.mem_append.1 hP with hP' | hP'
+  exacts [hg P hP', hj P hP']
+
+/-- **Clause 1.** `|H| ∖ C` is connected — the component-joining loop, run once for each
+representative. Nothing is asked of a joining arc except that it be connected, run from the hub
+`r₀` to its representative, and miss `C`; the blueprint's *"because the joining arc lies in `D`"*
+is the last of these. -/
+theorem gridAttachGraph_isConnected_diff
+    (hr₀ : r₀ ∈ cover (gsegs ++ localGridEdges p s (localGridCount s ε)) \ C)
+    (hJconn : ∀ r ∈ reps, IsPreconnected (cover (Jarc r)))
+    (hJhub : ∀ r ∈ reps, r₀ ∈ cover (Jarc r)) (hJrep : ∀ r ∈ reps, r ∈ cover (Jarc r))
+    (hJC : ∀ r ∈ reps, ∀ z ∈ cover (Jarc r), z ∉ C)
+    (hcov : ∀ z ∈ cover (gsegs ++ localGridEdges p s (localGridCount s ε)) \ C,
+      ∃ r ∈ reps, ∃ S : Set Plane, S ⊆ cover (gsegs ++ localGridEdges p s (localGridCount s ε)) \ C
+        ∧ IsPreconnected S ∧ z ∈ S ∧ r ∈ S) :
+    IsConnected
+      (Graph.pointSet (gridAttachGraph gsegs reps Jarc p s ε extra) segmentDrawing \ C) := by
+  rw [gridAttachGraph_pointSet, gridAttachPieces, cover_swap]
+  exact isConnected_cover_diff_of_joins hr₀ hJconn hJhub hJrep hJC hcov
 
 end Schoenflies

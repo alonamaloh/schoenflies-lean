@@ -36,3 +36,6 @@ import Schoenflies.PolyLocal
 import Schoenflies.Accessible
 import Schoenflies.Graph.Redrawing
 import Schoenflies.Graph.RelativeEar
+import Schoenflies.CrosscutCells
+import Schoenflies.ModelCurve
+import Schoenflies.CombinatorialInvariance

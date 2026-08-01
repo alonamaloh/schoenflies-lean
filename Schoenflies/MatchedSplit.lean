@@ -159,6 +159,13 @@ theorem skeletonSet_realize {R : S.Realization} {earPos : γ → Plane} {earDraw
   · exact Graph.pointSet_congr fun e he =>
       edgeArc_splitDrawing_of_mem_ear (by rwa [d.edgeSet_earGraph] at he)
 
+/-- **A 2-cell split only grows the realized 1-skeleton.** This is the field
+`Schoenflies.StageSequence.skeletonSet_mono` at a split step. -/
+theorem skeletonSet_subset_realize {R : S.Realization} {earPos : γ → Plane}
+    {earDraw : γ → ℝ → Plane} (hE : d.EarCrosscut R earPos earDraw) :
+    R.skeletonSet ⊆ (d.realize R earPos earDraw hE).skeletonSet :=
+  (skeletonSet_realize hE).symm ▸ Set.subset_union_left
+
 /-- The drawn ear is closed: it is a simple arc, hence compact. -/
 theorem isClosed_earSet {R : S.Realization} {earPos : γ → Plane} {earDraw : γ → ℝ → Plane}
     (hE : d.EarCrosscut R earPos earDraw) : IsClosed (d.earSet earPos earDraw) :=

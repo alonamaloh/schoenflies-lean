@@ -150,4 +150,21 @@ theorem exists_poly_of_isPreconnected (hΩ : IsOpen Ω) (hconn : IsPreconnected 
     exact hw.2.2 hw.1
   exact this.2
 
+/-- Concatenating two vertex lists that agree at the join concatenates their carriers. The
+hypothesis is what makes this true: without it `poly [a] ∪ poly [b] = {a, b}` misses the segment
+that `poly [a, b]` carries. -/
+theorem poly_append : ∀ {vs : List Plane} (h : vs ≠ []) (w : Plane) (rest : List Plane),
+    vs.getLast h = w → poly (vs ++ w :: rest) = poly vs ∪ poly (w :: rest)
+  | [], h, _, _, _ => absurd rfl h
+  | [v], _, w, rest, hvw => by
+    simp only [List.getLast_singleton] at hvw
+    subst hvw
+    simp [segment_same]
+  | u :: v :: tl, _, w, rest, hvw => by
+    have h' : (v :: tl).getLast (List.cons_ne_nil v tl) = w := by
+      rw [← List.getLast_cons (a := u) (List.cons_ne_nil v tl)]; exact hvw
+    simp only [List.cons_append, poly_cons_cons]
+    rw [← List.cons_append, poly_append (List.cons_ne_nil v tl) w rest h']
+    exact (union_assoc _ _ _).symm
+
 end Schoenflies

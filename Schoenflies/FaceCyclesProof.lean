@@ -80,7 +80,7 @@ two halves. What is missing is the parity theory of presentations carrying redun
 `Graph.walkVertices_congr_of_le` and `Graph.edgesCover_append` / `…_perm` / `…_reverse` are
 general and belong in `Schoenflies/Graph/Walk.lean` and `Schoenflies/Graph/CycleJordan.lean`.
 `Schoenflies.IsArcBetween.eq_of_subset` belongs in `Schoenflies/Subarc.lean` and
-`Schoenflies.poly_append` in `Schoenflies/PolyPath.lean`.
+`Schoenflies.poly_append_join` in `Schoenflies/PolyPath.lean`.
 
 ## Blueprint
 
@@ -171,7 +171,7 @@ theorem IsArcBetween.eq_of_subset {A B : Set Plane} {p q : Plane}
 /-- **Appending two vertex lists joins their carriers by one segment.** The segment runs from
 the last vertex of the first list to the first vertex of the second, and is degenerate — hence
 contributes nothing — exactly when the two lists already share that vertex. -/
-theorem poly_append : ∀ {as : List Plane} (h₁ : as ≠ []) {bs : List Plane} (h₂ : bs ≠ []),
+theorem poly_append_join : ∀ {as : List Plane} (h₁ : as ≠ []) {bs : List Plane} (h₂ : bs ≠ []),
     poly (as ++ bs) = poly as ∪ segment ℝ (as.getLast h₁) (bs.head h₂) ∪ poly bs
   | [], h₁, _, _ => absurd rfl h₁
   | [x], _, bs, h₂ => by
@@ -183,7 +183,7 @@ theorem poly_append : ∀ {as : List Plane} (h₁ : as ≠ []) {bs : List Plane}
   | x :: y :: as, _, bs, h₂ => by
     have hne : (y :: as) ≠ [] := List.cons_ne_nil _ _
     rw [List.cons_append, poly_cons_of_ne_nil (by simp), poly_cons_cons,
-      poly_append hne h₂, List.head_append_of_ne_nil hne,
+      poly_append_join hne h₂, List.head_append_of_ne_nil hne,
       List.getLast_cons hne]
     ac_rfl
 
@@ -191,7 +191,7 @@ theorem poly_append : ∀ {as : List Plane} (h₁ : as ≠ []) {bs : List Plane}
 shared vertex. -/
 theorem poly_append_of_eq {as bs : List Plane} (h₁ : as ≠ []) (h₂ : bs ≠ [])
     (h : as.getLast h₁ = bs.head h₂) : poly (as ++ bs) = poly as ∪ poly bs := by
-  rw [poly_append h₁ h₂, h, segment_same, Set.union_assoc, Set.singleton_union,
+  rw [poly_append_join h₁ h₂, h, segment_same, Set.union_assoc, Set.singleton_union,
     Set.insert_eq_self.2 (head_mem_poly h₂)]
 
 /-! ## A component survives the removal of a set
@@ -554,13 +554,6 @@ theorem IsDrawing.exists_poly_eq_edgesCover (h : IsDrawing G drawing)
       · rw [List.getLast_append_of_ne_nil _ hvs]; exact hlast
       · rw [poly_append_of_eq hes hvs (by rw [heslast, hhead]), hespoly, hpolyv,
           edgesCover_cons]
-
-/-- **What a nonempty walk of a polygonal plane graph draws is polygonal.** -/
-theorem IsDrawing.isPolygonal_edgesCover (h : IsDrawing G drawing)
-    (hpoly : ∀ e ∈ E(G), IsPolygonal (edgeArc drawing e)) (hW : G.IsWalk u W v) (hne : W ≠ []) :
-    IsPolygonal (edgesCover drawing W) := by
-  obtain ⟨vs, -, -, -, hvs⟩ := h.exists_poly_eq_edgesCover hpoly hW hne
-  exact ⟨vs, hvs.symm⟩
 
 /-! ## The realisation of a cycle is a separating curve
 

@@ -54,3 +54,6 @@ import Schoenflies.PolygonalCrosscut
 import Schoenflies.AlternatingCrosscuts
 import Schoenflies.FaceCycles
 import Schoenflies.Graph.K33Planar
+import Schoenflies.Realization
+import Schoenflies.Graph.K33Closed
+import Schoenflies.FaceCyclesProof

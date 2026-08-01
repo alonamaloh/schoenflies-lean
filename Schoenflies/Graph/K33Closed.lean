@@ -74,101 +74,6 @@ carrier of any one list. It is closed under unions that meet, and the way to see
 the ends of the list: a list can be made to start and end wherever one likes on its own carrier,
 by running out and back. -/
 
-/-- **A polygonal set is carried by a vertex list running from any of its points to any other.**
-The list is written with its two ends displayed, so no `List.head`/`List.getLast` obligations
-appear. -/
-theorem exists_poly_anchored : ∀ (vs : List Plane), vs ≠ [] → ∀ z w : Plane,
-    z ∈ poly vs → w ∈ poly vs → ∃ mid : List Plane, poly (z :: (mid ++ [w])) = poly vs := by
-  intro vs
-  induction vs with
-  | nil => exact fun h => absurd rfl h
-  | cons u tl ih =>
-    rcases tl with _ | ⟨v, rest⟩
-    · -- A one-point carrier: both ends are that point.
-      intro _ z w hz hw
-      rw [poly_singleton, Set.mem_singleton_iff] at hz hw
-      subst hz; subst hw
-      exact ⟨[], by simp [segment_same]⟩
-    · intro _ z w hz hw
-      have hne : (v :: rest) ≠ [] := List.cons_ne_nil v rest
-      have hv : v ∈ poly (v :: rest) := mem_poly_of_mem (List.mem_cons_self ..)
-      rw [poly_cons_cons] at hz hw
-      -- `segment z u ⊆ segment u v` for `z` on the first edge, and likewise for `w`.
-      have hsub : ∀ p ∈ segment ℝ u v, segment ℝ p u ⊆ segment ℝ u v := fun p hp =>
-        (convex_segment u v).segment_subset hp (left_mem_segment ℝ u v)
-      have hsub' : ∀ p ∈ segment ℝ u v, segment ℝ u p ⊆ segment ℝ u v := fun p hp =>
-        (convex_segment u v).segment_subset (left_mem_segment ℝ u v) hp
-      rcases hz with hz | hz
-      · rcases hw with hw | hw
-        · -- Both ends on the first edge: run out along the rest of the list and back.
-          obtain ⟨Z, hZ⟩ := ih hne v v hv hv
-          refine ⟨u :: v :: (Z ++ [v, v, u]), ?_⟩
-          have hlast : (z :: u :: (v :: (Z ++ [v]))).getLast (by simp) = v := by
-            simp
-          have hsplit : z :: ((u :: v :: (Z ++ [v, v, u])) ++ [w])
-              = (z :: u :: (v :: (Z ++ [v]))) ++ (v :: u :: [w]) := by
-            simp
-          have h1 : poly (z :: u :: (v :: (Z ++ [v])))
-              = segment ℝ z u ∪ (segment ℝ u v ∪ poly (v :: rest)) := by
-            rw [poly_cons_cons, poly_cons_cons, hZ]
-          have h2 : poly (v :: u :: [w]) = segment ℝ u v ∪ segment ℝ u w := by
-            rw [poly_cons_cons, poly_pair, segment_symm ℝ v u]
-          have hd1 : segment ℝ z u ⊆ segment ℝ u v ∪ poly (v :: rest) :=
-            (hsub z hz).trans Set.subset_union_left
-          have hd2 : segment ℝ u v ∪ segment ℝ u w ⊆ segment ℝ u v ∪ poly (v :: rest) :=
-            Set.union_subset Set.subset_union_left ((hsub' w hw).trans Set.subset_union_left)
-          rw [hsplit, poly_append (by simp) v (u :: [w]) hlast, h1, h2, poly_cons_cons,
-            Set.union_eq_self_of_subset_left hd1, Set.union_eq_self_of_subset_right hd2]
-        · -- The far end is on the rest: append its list to the first edge.
-          obtain ⟨Y, hY⟩ := ih hne v w hv hw
-          refine ⟨u :: v :: Y, ?_⟩
-          have hsplit : z :: ((u :: v :: Y) ++ [w]) = z :: u :: (v :: (Y ++ [w])) := by simp
-          have hd1 : segment ℝ z u ⊆ segment ℝ u v ∪ poly (v :: rest) :=
-            (hsub z hz).trans Set.subset_union_left
-          rw [hsplit, poly_cons_cons, poly_cons_cons, hY, poly_cons_cons,
-            Set.union_eq_self_of_subset_left hd1]
-      · rcases hw with hw | hw
-        · -- The near end is on the rest: run to `v`, then out along the first edge.
-          obtain ⟨X, hX⟩ := ih hne z v hz hv
-          refine ⟨X ++ [v, v, u], ?_⟩
-          have hlast : (z :: (X ++ [v])).getLast (by simp) = v := by simp
-          have hsplit : z :: ((X ++ [v, v, u]) ++ [w]) = (z :: (X ++ [v])) ++ (v :: u :: [w]) := by
-            simp
-          have h2 : poly (v :: u :: [w]) = segment ℝ u v ∪ segment ℝ u w := by
-            rw [poly_cons_cons, poly_pair, segment_symm ℝ v u]
-          rw [hsplit, poly_append (by simp) v (u :: [w]) hlast, hX, h2, poly_cons_cons,
-            Set.union_eq_self_of_subset_right (hsub' w hw), Set.union_comm]
-        · -- Both ends on the rest: run from one to `v`, out and back along the first edge, on.
-          obtain ⟨X, hX⟩ := ih hne z v hz hv
-          obtain ⟨Y, hY⟩ := ih hne v w hv hw
-          refine ⟨X ++ [v, v, u] ++ (v :: Y), ?_⟩
-          have hlast : (z :: (X ++ [v])).getLast (by simp) = v := by simp
-          have hsplit : z :: ((X ++ [v, v, u] ++ (v :: Y)) ++ [w])
-              = (z :: (X ++ [v])) ++ (v :: u :: (v :: (Y ++ [w]))) := by simp
-          have h2 : poly (v :: u :: (v :: (Y ++ [w])))
-              = segment ℝ u v ∪ (segment ℝ u v ∪ poly (v :: rest)) := by
-            rw [poly_cons_cons, poly_cons_cons, hY, segment_symm ℝ v u]
-          have hd1 : segment ℝ u v ⊆ segment ℝ u v ∪ poly (v :: rest) := Set.subset_union_left
-          have hd2 : poly (v :: rest) ⊆ segment ℝ u v ∪ poly (v :: rest) := Set.subset_union_right
-          rw [hsplit, poly_append (by simp) v (u :: (v :: (Y ++ [w]))) hlast, hX, h2,
-            poly_cons_cons, Set.union_eq_self_of_subset_left hd1,
-            Set.union_eq_self_of_subset_left hd2]
-
-/-- **Two polygonal sets that meet have a polygonal union.** Anchor both lists at a common
-point and concatenate. -/
-theorem IsPolygonal.union {A B : Set Plane} (hA : IsPolygonal A) (hB : IsPolygonal B)
-    (hmeet : (A ∩ B).Nonempty) : IsPolygonal (A ∪ B) := by
-  obtain ⟨vs, rfl⟩ := hA
-  obtain ⟨ws, rfl⟩ := hB
-  obtain ⟨z, hzA, hzB⟩ := hmeet
-  have hvs : vs ≠ [] := by rintro rfl; exact hzA
-  have hws : ws ≠ [] := by rintro rfl; exact hzB
-  obtain ⟨X, hX⟩ := exists_poly_anchored vs hvs z z hzA hzA
-  obtain ⟨Y, hY⟩ := exists_poly_anchored ws hws z z hzB hzB
-  refine ⟨(z :: (X ++ [z])) ++ (z :: (Y ++ [z])), ?_⟩
-  have hlast : (z :: (X ++ [z])).getLast (by simp) = z := by simp
-  rw [poly_append (by simp) z (Y ++ [z]) hlast, hX, hY]
-
 /-! ## A closed polygon read backwards
 
 A realization of a splitting names its two arcs *in a direction*, and two realizations of one
@@ -674,30 +579,6 @@ namespace Graph
 open Schoenflies
 
 variable {β : Type*} {G : Graph Plane β} {drawing : β → ℝ → Plane}
-
-/-- The source of a nonempty walk lies on what the walk draws. -/
-theorem IsWalk.left_mem_edgesCover {u v : Plane} {W : List β} (hW : G.IsWalk u W v)
-    (hd : IsDrawing G drawing) (hne : W ≠ []) : u ∈ edgesCover drawing W := by
-  cases hW with
-  | nil => exact absurd rfl hne
-  | cons hl _ => exact mem_edgesCover (List.mem_cons_self ..) (hd.edge_isArcBetween hl).left_mem
-
-/-- **A walk of a polygonal plane graph draws a polygonal set.** Consecutive edges share the
-vertex between them, so the union stays a single vertex list. -/
-theorem IsDrawing.isPolygonal_edgesCover (hd : IsDrawing G drawing)
-    (hpoly : ∀ f ∈ E(G), IsPolygonal (edgeArc drawing f)) :
-    ∀ {u v : Plane} {W : List β}, G.IsWalk u W v → W ≠ [] →
-      IsPolygonal (edgesCover drawing W) := by
-  intro u v W hW
-  induction hW with
-  | nil => exact fun h => absurd rfl h
-  | @cons u w v f W hl hW ih =>
-    intro _
-    rcases eq_or_ne W [] with rfl | hWne
-    · simpa using hpoly f hl.edge_mem
-    · rw [edgesCover_cons]
-      exact ((hpoly f hl.edge_mem).union (ih hWne)
-        ⟨w, (hd.edge_isArcBetween hl).right_mem, hW.left_mem_edgesCover hd hWne⟩)
 
 /-! ## What the realization needs from the drawing, and nothing else -/
 

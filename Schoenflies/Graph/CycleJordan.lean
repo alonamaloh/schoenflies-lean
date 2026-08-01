@@ -6,6 +6,7 @@ Authors: Álvaro Begué
 import Schoenflies.Concatenate
 import Schoenflies.Graph.Cycle
 import Schoenflies.Graph.Drawing
+import Schoenflies.Polygonal
 
 /-!
 # The realisation of a cycle is a Jordan curve
@@ -202,5 +203,29 @@ theorem IsDrawing.cycle_isJordanCurve (h : IsDrawing G drawing)
       (h.edge_isArcBetween hc.isLink).reverse fun z hzD hze ↦ h.detour_meets_edge hc hzD hze
   rw [edgesCover_cons, Set.union_comm]
   exact hJ
+
+/-- The source of a nonempty walk lies on what the walk draws. -/
+theorem IsWalk.left_mem_edgesCover {u v : Plane} {W : List β} (hW : G.IsWalk u W v)
+    (hd : IsDrawing G drawing) (hne : W ≠ []) : u ∈ edgesCover drawing W := by
+  cases hW with
+  | nil => exact absurd rfl hne
+  | cons hl _ => exact mem_edgesCover (List.mem_cons_self ..) (hd.edge_isArcBetween hl).left_mem
+
+/-- **A walk of a polygonal plane graph draws a polygonal set.** Consecutive edges share the
+vertex between them, so the union stays a single vertex list. -/
+theorem IsDrawing.isPolygonal_edgesCover (hd : IsDrawing G drawing)
+    (hpoly : ∀ f ∈ E(G), Schoenflies.IsPolygonal (edgeArc drawing f)) :
+    ∀ {u v : Plane} {W : List β}, G.IsWalk u W v → W ≠ [] →
+      Schoenflies.IsPolygonal (edgesCover drawing W) := by
+  intro u v W hW
+  induction hW with
+  | nil => exact fun h => absurd rfl h
+  | @cons u w v f W hl hW ih =>
+    intro _
+    rcases eq_or_ne W [] with rfl | hWne
+    · simpa using hpoly f hl.edge_mem
+    · rw [edgesCover_cons]
+      exact ((hpoly f hl.edge_mem).union (ih hWne)
+        ⟨w, (hd.edge_isArcBetween hl).right_mem, hW.left_mem_edgesCover hd hWne⟩)
 
 end Graph

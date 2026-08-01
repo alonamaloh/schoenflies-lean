@@ -413,4 +413,99 @@ theorem finite_transfer_toward_square {P : GeneratedPair S₀ srcOuter srcDom tg
     exact hH.isConnected
   exact ⟨T, par, hT, T.src_isAdmissible hconn, T.tgt_isAdmissible hconn⟩
 
+/-! ### Step 4, direction (a): the target crosscut
+
+*In part (a), `F*` is a polygonal Jordan region in the square, by
+`lem:cellulation-invariants`(vii). Every point of its boundary is polygonally accessible from its
+interior. `lem:accessible-endpoints` therefore gives a polygonal crosscut `P* ⊆ closure F*` from
+`v*` to `w*`.* Then: *`thm:general-crosscut` says that the crosscut splits the face into exactly
+the two Jordan regions bounded by the crosscut together with those two paths.*
+
+That whole paragraph is closed below, unconditionally. It is stated for a *target* face — a
+member of a family of components of `Q ∖ |G|` for an ambient open region `Q` whose frontier
+belongs to the skeleton — because that is the shape
+`Graph.polygonal_side_accessibility_target` consumes, and it is the shape a target realization
+of a generated structure has: `Q` is the open square, `|G|` the target skeleton, and the family
+is the set of realized open 2-cells. -/
+
+section TargetEar
+
+variable {β : Type*} {G : Graph Plane β} {drawing : β → ℝ → Plane}
+  {Q F J P A₁ A₂ : Set Plane} {cells : Set (Set Plane)} {v w : Plane}
+
+/-- A target 2-cell is an open connected set disjoint from the skeleton. Everything the crosscut
+construction needs about it, read off the presentation as a component of `Q ∖ |G|`. -/
+theorem isOpen_isPreconnected_disjoint_of_target_cell [G.Finite] (h : IsDrawing G drawing)
+    (hQ : IsOpen Q)
+    (hcell : ∀ R ∈ cells, R ⊆ Q ∧ ∃ z, R = connectedComponentIn (Q \ pointSet G drawing) z)
+    (hF : F ∈ cells) :
+    IsOpen F ∧ IsPreconnected F ∧ Disjoint F (pointSet G drawing) := by
+  obtain ⟨-, z, rfl⟩ := hcell F hF
+  have hopen : IsOpen (Q \ pointSet G drawing) := hQ.sdiff h.isClosed_pointSet
+  exact ⟨hopen.connectedComponentIn, isPreconnected_connectedComponentIn,
+    Set.disjoint_left.2 fun _ hx => (connectedComponentIn_subset _ _ hx).2⟩
+
+/-- **The target crosscut of `thm:finite-transfer`(a), step 4.** Two distinct points of a curve
+`J` inside the target skeleton, both in the closure of a target 2-cell `F`, are joined by a
+simple polygonal arc lying in `F` apart from its two endpoints and meeting `J` exactly there.
+
+The three inputs are the three the blueprint names: `lem:polygonal-side-accessibility` on the
+target side for the accessibility of each endpoint, and `lem:accessible-endpoints` in its
+crosscut form for the join. Nothing is assumed. -/
+theorem exists_target_crosscut [G.Finite] (h : IsDrawing G drawing)
+    (hpoly : ∀ e ∈ E(G), IsPolygonal (edgeArc drawing e))
+    (hQ : IsOpen Q) (hQK : frontier Q ⊆ pointSet G drawing)
+    (hcell : ∀ R ∈ cells, R ⊆ Q ∧ ∃ z, R = connectedComponentIn (Q \ pointSet G drawing) z)
+    (hF : F ∈ cells) (hJ : J ⊆ pointSet G drawing)
+    (hvw : v ≠ w) (hvJ : v ∈ J) (hwJ : w ∈ J)
+    (hv : v ∈ closure F) (hw : w ∈ closure F) :
+    ∃ P : Set Plane, IsPolygonal P ∧ IsArcBetween P v w ∧ P \ {v, w} ⊆ F ∧ P ∩ J = {v, w} := by
+  obtain ⟨hopen, hconn, hdisj⟩ :=
+    isOpen_isPreconnected_disjoint_of_target_cell h hQ hcell hF
+  obtain ⟨ws, -, -, -, hsub, harc, hmeet⟩ :=
+    exists_crosscut_of_polyAccessible hopen hconn (hdisj.mono_right hJ) hvw hvJ hwJ
+      (Graph.polygonal_side_accessibility_target h hpoly hQ hQK hcell hF hv)
+      (Graph.polygonal_side_accessibility_target h hpoly hQ hQK hcell hF hw)
+  exact ⟨poly ws, ⟨ws, rfl⟩, harc, hsub, hmeet⟩
+
+/-- **Step 4 in full: the target crosscut splits the target face into exactly two Jordan
+regions.** By `lem:cellulation-invariants`(vii) the target 2-cell `F` is the bounded
+complementary region of the Jordan curve `J` realizing its boundary walk; the crosscut of
+`Schoenflies.exists_target_crosscut` is then a crosscut of `J` in the sense of
+`thm:general-crosscut`, which decomposes `F` into the two Jordan regions bounded by the crosscut
+together with the two boundary paths.
+
+The conclusion is returned in the shape assertion (i) consumes at a 2-cell split
+(`Schoenflies.crosscut_cell_partition`): the old open 2-cell is the disjoint union of the two new
+open 2-cells and the open crosscut, each new 2-cell is open and nonempty, and the closure of each
+is that open 2-cell together with its own boundary curve. -/
+theorem exists_target_crosscut_split [G.Finite] (h : IsDrawing G drawing)
+    (hpoly : ∀ e ∈ E(G), IsPolygonal (edgeArc drawing e))
+    (hQ : IsOpen Q) (hQK : frontier Q ⊆ pointSet G drawing)
+    (hcell : ∀ R ∈ cells, R ⊆ Q ∧ ∃ z, R = connectedComponentIn (Q \ pointSet G drawing) z)
+    (hF : F ∈ cells) (hJ : J ⊆ pointSet G drawing) (hJc : IsJordanCurve J) (hFJ : F = inside J)
+    (hvw : v ≠ w) (hvJ : v ∈ J) (hwJ : w ∈ J)
+    (hv : v ∈ closure F) (hw : w ∈ closure F) (hcut : IsCutPair J v w A₁ A₂) :
+    ∃ P : Set Plane, IsPolygonal P ∧ IsArcBetween P v w ∧ P \ {v, w} ⊆ F ∧ P ∩ J = {v, w} ∧
+      IsCrosscut J P v w ∧
+      F = inside (A₁ ∪ P) ∪ inside (A₂ ∪ P) ∪ (P \ {v, w}) ∧
+      Disjoint (inside (A₁ ∪ P)) (inside (A₂ ∪ P)) ∧
+      Disjoint (inside (A₁ ∪ P)) (P \ {v, w}) ∧
+      Disjoint (inside (A₂ ∪ P)) (P \ {v, w}) ∧
+      IsOpen (inside (A₁ ∪ P)) ∧ IsOpen (inside (A₂ ∪ P)) ∧
+      (inside (A₁ ∪ P)).Nonempty ∧ (inside (A₂ ∪ P)).Nonempty ∧
+      closure (inside (A₁ ∪ P)) = inside (A₁ ∪ P) ∪ (A₁ ∪ P) ∧
+      closure (inside (A₂ ∪ P)) = inside (A₂ ∪ P) ∪ (A₂ ∪ P) := by
+  obtain ⟨P, hPpoly, hParc, hPsub, hPmeet⟩ :=
+    exists_target_crosscut h hpoly hQ hQK hcell hF hJ hvw hvJ hwJ hv hw
+  have hcross : IsCrosscut J P v w :=
+    ⟨hJc, hParc, hPpoly, hvJ, hwJ, by rw [← hFJ]; exact hPsub⟩
+  have hpart := crosscut_cell_partition (fun _ hS => jordan_curve_theorem hS) hcross hcut
+    hcross.hasArcCollars
+  exact ⟨P, hPpoly, hParc, hPsub, hPmeet, hcross, by rw [hFJ]; exact hpart.1, hpart.2.1,
+    hpart.2.2.1, hpart.2.2.2.1, hpart.2.2.2.2.1, hpart.2.2.2.2.2.1, hpart.2.2.2.2.2.2.1,
+    hpart.2.2.2.2.2.2.2.1, hpart.2.2.2.2.2.2.2.2.1, hpart.2.2.2.2.2.2.2.2.2⟩
+
+end TargetEar
+
 end Schoenflies

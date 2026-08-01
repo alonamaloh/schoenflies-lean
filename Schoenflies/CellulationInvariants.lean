@@ -151,6 +151,12 @@ theorem cellUnion_pair (R : S.Realization) (σ τ : γ) :
 theorem cellUnion_subset {Cs : Set γ} {A : Set Plane} (h : ∀ σ ∈ Cs, R.cell σ ⊆ A) :
     R.cellUnion Cs ⊆ A := Set.iUnion₂_subset h
 
+/-- Two realizations — of the same structure or of two different ones over the same names — that
+agree cell by cell on a set of cells realize that set by the same point set. -/
+theorem cellUnion_congr {S₁ S₂ : CellStructure γ} {R₁ : S₁.Realization} {R₂ : S₂.Realization}
+    {Cs : Set γ} (h : ∀ σ ∈ Cs, R₁.cell σ = R₂.cell σ) : R₁.cellUnion Cs = R₂.cellUnion Cs :=
+  Set.iUnion₂_congr h
+
 /-- The **realized boundary of a 2-cell**, read off the abstract data: the union of the open
 cells strictly below it. Under assertion (i) this is the topological frontier of the open
 2-cell (`IsCellDecomposition.faceBoundary_eq_frontier`), which is what makes it the right thing
@@ -580,6 +586,180 @@ theorem refines (hS : S.CombInvariants) (href : d.IsRefinement R R')
   SplitData.refines hS h (href.isCellDecomposition hS h) href.cell_eq
 
 end IsRefinement
+
+/-! #### The geometric input of one split, and the two invariants constructed from it
+
+`thm:general-crosscut` is applied here, and only here. Its two standing hypotheses on `main` —
+`thm:jordan` and `HasArcCollars` — are both discharged: the first by
+`Schoenflies.jordan_curve_theorem`, the second by `Schoenflies.IsCrosscut.hasArcCollars`, which
+is why `IsCrosscutSplit` need not mention either. -/
+
+/-- **The geometric input of one 2-cell split**: the realized ear is a polygonal crosscut of the
+Jordan region realizing the split 2-cell, the two abstract boundary paths realize the two arcs
+that crosscut cuts the boundary curve into, and the two new open 2-cells are the two sides.
+
+Everything the split needs downstream — assertion (i) at the new stage
+(`IsCrosscutSplit.isRefinement`) and assertion (vii) at the new stage
+(`IsCrosscutSplit.isFaceJordan`) — is *constructed* from this by
+`Schoenflies.crosscut_theorem`, not assumed.
+
+The four clauses about the ear's own cells are the only thing left assumed: the crosscut theorem
+treats the ear as a single arc `P` and says nothing about how the ear's vertices and edges
+subdivide it. They are statements about the drawing of a path graph and belong with whichever
+module draws the ear. -/
+structure IsCrosscutSplit (d : S.SplitData) (R : S.Realization)
+    (R' : (S.splitFace d).Realization) : Prop where
+  /-- Surviving cells are unmoved. -/
+  cell_eq : ∀ ⦃σ⦄, σ ∈ S.cells → σ ≠ d.face → R'.cell σ = R.cell σ
+  /-- The realized ear is a polygonal crosscut of the old Jordan face. -/
+  isCrosscut : IsCrosscut (frontier (R.cell d.face)) (R'.cellUnion d.earCells)
+    (R.pos d.source) (R.pos d.target)
+  /-- The two boundary paths realize the two arcs of the old 2-cell boundary. -/
+  isCutPair : IsCutPair (frontier (R.cell d.face)) (R.pos d.source) (R.pos d.target)
+    (R.cellUnion d.cells₁) (R.cellUnion d.cells₂)
+  /-- The first new open 2-cell is the side of the crosscut bounded by the first path. -/
+  cell_face₁ : R'.cell d.face₁ = inside (R.cellUnion d.cells₁ ∪ R'.cellUnion d.earCells)
+  /-- The second new open 2-cell is the other side. -/
+  cell_face₂ : R'.cell d.face₂ = inside (R.cellUnion d.cells₂ ∪ R'.cellUnion d.earCells)
+  /-- The *open* cells of the ear are the crosscut with its two endpoints removed. -/
+  cellUnion_earNewCells : R'.cellUnion d.earNewCells =
+    R'.cellUnion d.earCells \ {R.pos d.source, R.pos d.target}
+  /-- The open cells the ear creates are nonempty. -/
+  earNonempty : ∀ ⦃σ⦄, σ ∈ d.earNewCells → (R'.cell σ).Nonempty
+  /-- …and pairwise disjoint. -/
+  earDisjoint : ∀ ⦃σ τ⦄, σ ∈ d.earNewCells → τ ∈ d.earNewCells → σ ≠ τ →
+    Disjoint (R'.cell σ) (R'.cell τ)
+  /-- An interior vertex of the ear is a closed cell. -/
+  closure_earVertex : ∀ ⦃z⦄, z ∈ V(d.ear) → z ≠ d.source → z ≠ d.target →
+    closure (R'.cell z) = R'.cell z
+  /-- The closure of an ear edge is it together with its two endpoints. -/
+  closure_earEdge : ∀ ⦃f a b⦄, d.ear.IsLink f a b →
+    closure (R'.cell f) = R'.cell f ∪ (R'.cell a ∪ R'.cell b)
+
+namespace IsCrosscutSplit
+
+/-- The boundary paths are realized identically before and after the split: their cells are old
+cells, and none of them is the split 2-cell. -/
+theorem cellUnion_cells₁ (hc : d.IsCrosscutSplit R R') :
+    R'.cellUnion d.cells₁ = R.cellUnion d.cells₁ :=
+  Realization.cellUnion_congr fun _ hσ => hc.cell_eq (d.cells₁_subset hσ) (d.cells₁_ne_face hσ)
+
+theorem cellUnion_cells₂ (hc : d.IsCrosscutSplit R R') :
+    R'.cellUnion d.cells₂ = R.cellUnion d.cells₂ :=
+  Realization.cellUnion_congr fun _ hσ => hc.cell_eq (d.cells₂_subset hσ) (d.cells₂_ne_face hσ)
+
+/-- Every open cell the ear creates lies in the open crosscut. -/
+theorem cell_earNew_subset (hc : d.IsCrosscutSplit R R') {σ : γ} (hσ : σ ∈ d.earNewCells) :
+    R'.cell σ ⊆ R'.cellUnion d.earCells \ {R.pos d.source, R.pos d.target} := by
+  rw [← hc.cellUnion_earNewCells]
+  exact R'.cell_subset_cellUnion hσ
+
+/-- **The Jordan curve of the first new 2-cell** is `B₁ ∪ P`. -/
+theorem frontier_face₁ (hc : d.IsCrosscutSplit R R') :
+    frontier (R'.cell d.face₁) = R.cellUnion d.cells₁ ∪ R'.cellUnion d.earCells := by
+  rw [hc.cell_face₁]
+  exact hc.isCrosscut.frontier_side (fun _ hs => jordan_curve_theorem hs) hc.isCutPair
+
+theorem frontier_face₂ (hc : d.IsCrosscutSplit R R') :
+    frontier (R'.cell d.face₂) = R.cellUnion d.cells₂ ∪ R'.cellUnion d.earCells := by
+  rw [hc.cell_face₂]
+  exact hc.isCrosscut.frontier_side (fun _ hs => jordan_curve_theorem hs) hc.isCutPair.symm
+
+theorem disjoint_faces (hc : d.IsCrosscutSplit R R') :
+    Disjoint (R'.cell d.face₁) (R'.cell d.face₂) := by
+  rw [hc.cell_face₁, hc.cell_face₂]
+  exact hc.isCrosscut.disjoint_sides (fun _ hs => jordan_curve_theorem hs) hc.isCutPair
+
+theorem disjoint_face₁_earNew (hc : d.IsCrosscutSplit R R') {σ : γ} (hσ : σ ∈ d.earNewCells) :
+    Disjoint (R'.cell d.face₁) (R'.cell σ) := by
+  rw [hc.cell_face₁]
+  exact (hc.isCrosscut.disjoint_side_crosscut (fun _ hs => jordan_curve_theorem hs)
+    hc.isCutPair).mono_right (hc.cell_earNew_subset hσ)
+
+theorem disjoint_face₂_earNew (hc : d.IsCrosscutSplit R R') {σ : γ} (hσ : σ ∈ d.earNewCells) :
+    Disjoint (R'.cell d.face₂) (R'.cell σ) := by
+  rw [hc.cell_face₂]
+  exact (hc.isCrosscut.disjoint_side_crosscut (fun _ hs => jordan_curve_theorem hs)
+    hc.isCutPair.symm).mono_right (hc.cell_earNew_subset hσ)
+
+/-- **Assertion (i) at the split, constructed from `thm:general-crosscut`.** The crosscut theorem
+decomposes the old open 2-cell into the two new open 2-cells and the open cells of the ear, and
+gives `closure Rᵢ = Rᵢ ∪ P ∪ Bᵢ`; those are exactly the fields of `SplitData.IsRefinement` that
+are not about the ear's own drawing.
+
+The old instance of assertion (vii) is what identifies the old open 2-cell with the Jordan
+domain the crosscut cuts. -/
+theorem isRefinement (hc : d.IsCrosscutSplit R R') (hJ : R.IsFaceJordan) :
+    d.IsRefinement R R' where
+  cell_eq := hc.cell_eq
+  cell_face := by
+    calc R.cell d.face = inside (frontier (R.cell d.face)) := hJ.cell_eq_inside d.face_mem
+      _ = inside (R.cellUnion d.cells₁ ∪ R'.cellUnion d.earCells) ∪
+            inside (R.cellUnion d.cells₂ ∪ R'.cellUnion d.earCells) ∪
+            (R'.cellUnion d.earCells \ {R.pos d.source, R.pos d.target}) :=
+          hc.isCrosscut.inside_eq_split (fun _ hs => jordan_curve_theorem hs) hc.isCutPair
+            hc.isCrosscut.hasArcCollars
+      _ = R'.cell d.face₁ ∪ R'.cell d.face₂ ∪ R'.cellUnion d.earNewCells := by
+          rw [hc.cell_face₁, hc.cell_face₂, hc.cellUnion_earNewCells]
+  nonempty := by
+    rintro σ (hσ | (rfl | rfl))
+    · exact hc.earNonempty hσ
+    · rw [hc.cell_face₁]
+      exact hc.isCrosscut.side_nonempty (fun _ hs => jordan_curve_theorem hs) hc.isCutPair
+    · rw [hc.cell_face₂]
+      exact hc.isCrosscut.side_nonempty (fun _ hs => jordan_curve_theorem hs) hc.isCutPair.symm
+  disjoint := by
+    rintro σ τ (hσ | (rfl | rfl)) (hτ | (rfl | rfl)) hne
+    · exact hc.earDisjoint hσ hτ hne
+    · exact (hc.disjoint_face₁_earNew hσ).symm
+    · exact (hc.disjoint_face₂_earNew hσ).symm
+    · exact hc.disjoint_face₁_earNew hτ
+    · exact absurd rfl hne
+    · exact hc.disjoint_faces
+    · exact hc.disjoint_face₂_earNew hτ
+    · exact hc.disjoint_faces.symm
+    · exact absurd rfl hne
+  closure_earVertex := hc.closure_earVertex
+  closure_earEdge := hc.closure_earEdge
+  closure_face₁ := by
+    rw [hc.cell_face₁, hc.cellUnion_cells₁,
+      hc.isCrosscut.closure_side (fun _ hs => jordan_curve_theorem hs) hc.isCutPair]
+    simp only [Set.union_assoc, Set.union_comm]
+  closure_face₂ := by
+    rw [hc.cell_face₂, hc.cellUnion_cells₂,
+      hc.isCrosscut.closure_side (fun _ hs => jordan_curve_theorem hs) hc.isCutPair.symm]
+    simp only [Set.union_assoc, Set.union_comm]
+
+/-- **Assertion (vii) is preserved by a 2-cell split.** The two new open 2-cells are the two
+sides of the crosscut, and `thm:general-crosscut` says each is the bounded complementary region
+of the Jordan curve `Bᵢ ∪ P`; every other 2-cell is unmoved. -/
+theorem isFaceJordan (hc : d.IsCrosscutSplit R R') (hJ : R.IsFaceJordan) : R'.IsFaceJordan where
+  isJordanCurve := by
+    intro F hF
+    rw [splitFace_faces] at hF
+    rcases hF with rfl | rfl | ⟨hFc, hFf⟩
+    · rw [hc.frontier_face₁]; exact hc.isCrosscut.isJordanCurve_union hc.isCutPair
+    · rw [hc.frontier_face₂]; exact hc.isCrosscut.isJordanCurve_union hc.isCutPair.symm
+    · rw [hc.cell_eq (S.mem_cells_of_mem_faces hFc) hFf]; exact hJ.isJordanCurve hFc
+  cell_eq_inside := by
+    intro F hF
+    rw [splitFace_faces] at hF
+    rcases hF with rfl | rfl | ⟨hFc, hFf⟩
+    · rw [hc.frontier_face₁]; exact hc.cell_face₁
+    · rw [hc.frontier_face₂]; exact hc.cell_face₂
+    · rw [hc.cell_eq (S.mem_cells_of_mem_faces hFc) hFf]; exact hJ.cell_eq_inside hFc
+
+/-- **Both invariants at once**: one 2-cell split of a realization satisfying (i) and (vii)
+produces a realization satisfying (i) and (vii), and the pair is a `Realization.Refines`. This
+is the whole induction step of `lem:cellulation-invariants` over the second constructor. -/
+theorem isCellDecomposition_and_isFaceJordan (hc : d.IsCrosscutSplit R R')
+    (hS : S.CombInvariants) {D : Set Plane} (h : R.IsCellDecomposition D)
+    (hJ : R.IsFaceJordan) :
+    R'.IsCellDecomposition D ∧ R'.IsFaceJordan ∧ R'.Refines R d.parent :=
+  ⟨(hc.isRefinement hJ).isCellDecomposition hS h, hc.isFaceJordan hJ,
+    (hc.isRefinement hJ).refines hS h⟩
+
+end IsCrosscutSplit
 
 end SplitData
 

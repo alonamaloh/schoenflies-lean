@@ -45,3 +45,6 @@ import Schoenflies.StripConstants
 import Schoenflies.StripConnected
 import Schoenflies.Parity
 import Schoenflies.StripLocal
+import Schoenflies.PolygonBridge
+import Schoenflies.Graph.K33
+import Schoenflies.PolygonalJordan

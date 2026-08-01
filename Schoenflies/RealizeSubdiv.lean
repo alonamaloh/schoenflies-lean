@@ -45,6 +45,23 @@ needs — that `d.edge` is drawn, injectively and continuously, between the posi
 and `d.right`, and that an interior point of a drawn edge is not a vertex — is already carried by
 `CellStructure.Realization`, and is extracted here rather than assumed.
 
+## What is *not* here: the transported skeleton homeomorphism
+
+`SkeletonHomeo.realize` is absent. Six of its eight fields are immediate — `skeletonSet_realize`
+below says the realized 1-skeleton is *literally the same set* after a subdivision, so the map,
+its inverse, both continuity clauses and both inverse clauses transport verbatim, and
+`pos_apply` at the new 0-cell is the statement `g.toFun (R₁.drawing d.edge t₁) =
+R₂.drawing d.edge t₂` that a caller choosing corresponding parameters supplies anyway.
+
+What is missing is `edgeArc_image` at the two new edges: that `g` carries the *half* arc from
+`R₁.pos d.left` to the new source point onto the half arc from `R₂.pos d.left` to the new target
+point. This is true but is not implied by the `SkeletonHomeo` data pointwise: it needs the fact
+that a homeomorphism between two arcs matching their endpoints is monotone, hence carries
+initial subarcs to initial subarcs. That fact is not on `main`, and assuming the two clauses
+would be assuming the conclusion, so nothing is stated here. A module proving
+"a continuous injection of an arc onto an arc fixing the ends preserves the order of its points"
+closes the gap; everything else it needs is below.
+
 ## Blueprint
 
 * `def:generated-structure`, operation 1 (edge subdivision) — the geometric half of the
@@ -66,6 +83,11 @@ Declarations:
   edge.
 * `Schoenflies.CellStructure.SubdivData.realize` — the realization of the subdivided structure.
 * `Schoenflies.CellStructure.SubdivData.isRefinement_realize` — it refines the given one.
+* `Schoenflies.CellStructure.SubdivData.realize_isCellDecomposition_and_isFaceJordan` — the
+  induction step of `lem:cellulation-invariants` over the first constructor, now constructed
+  rather than conditional.
+* `Schoenflies.CellStructure.SubdivData.skeletonSet_realize` — a subdivision does not move the
+  realized 1-skeleton.
 -/
 
 open Set unitInterval
@@ -988,6 +1010,33 @@ theorem realize_isCellDecomposition_and_isFaceJordan (hS : S.CombInvariants) {D 
     (d.realize R t ht).IsCellDecomposition D ∧ (d.realize R t ht).IsFaceJordan ∧
       (d.realize R t ht).Refines R d.parent :=
   (isRefinement_realize ht).isCellDecomposition_and_isFaceJordan hS h hJ
+
+/-! ### The subdivision does not move the skeleton
+
+Cutting an edge in two adds a point that was already on the drawing and replaces one arc by two
+whose union is that arc. So the realized 1-skeleton is literally the same set — which is what
+lets a skeleton homeomorphism be transported across a subdivision without being rebuilt. -/
+
+theorem pointSet_realize :
+    pointSet (d.realizeGraph R t) (d.realizeDrawing R t) = pointSet R.graph R.drawing := by
+  have hedge : (⋃ f ∈ E(R.graph), edgeArc R.drawing f) =
+      edgeArc R.drawing d.edge ∪ ⋃ f ∈ E(S.skel) \ {d.edge}, edgeArc R.drawing f := by
+    rw [← biUnion_insert, insert_sdiff_singleton,
+      insert_eq_of_mem (show d.edge ∈ E(S.skel) from d.edge_mem_edgeSet), Realization.edgeSet_graph]
+  have hnew : (⋃ f ∈ E(d.realizeGraph R t), edgeArc (d.realizeDrawing R t) f) =
+      edgeArc R.drawing d.edge ∪ ⋃ f ∈ E(S.skel) \ {d.edge}, edgeArc R.drawing f := by
+    rw [realizeGraph_edgeSet, d.skeleton_edgeSet, biUnion_insert, biUnion_insert,
+      iUnion₂_congr (fun f (hf : f ∈ E(S.skel) \ {d.edge}) =>
+        edgeArc_of_ne (d := d) (R := R) (t := t)
+          (d.ne_newEdge₁_of_mem_cells (S.mem_cells_of_mem_edgeSet hf.1))
+          (d.ne_newEdge₂_of_mem_cells (S.mem_cells_of_mem_edgeSet hf.1))),
+      ← union_assoc, edgeArc_new_union ht]
+  have hM : R.drawing d.edge t ∈ edgeArc R.drawing d.edge := ⟨t, Ioo_subset_Icc_self ht, rfl⟩
+  rw [pointSet, pointSet, hnew, hedge, realizeGraph_vertexSet, insert_union,
+    insert_eq_of_mem (mem_union_right _ (mem_union_left _ hM))]
+
+/-- **An edge subdivision does not move the realized 1-skeleton.** -/
+theorem skeletonSet_realize : (d.realize R t ht).skeletonSet = R.skeletonSet := pointSet_realize ht
 
 end SubdivData
 

@@ -541,6 +541,133 @@ theorem splitCell_earEdge {f : γ} (hf : f ∈ E(d.ear)) :
   unfold splitCell
   rw [if_neg h₁, if_neg h₂, if_neg h₃, if_pos hf]
 
+theorem edgeArc_splitDrawing_of_mem_skel {f : γ} (hf : f ∈ E(S.skel)) :
+    Graph.edgeArc (d.splitDrawing R earDraw) f = Graph.edgeArc R.drawing f := by
+  rw [Graph.edgeArc, Graph.edgeArc, splitDrawing_of_mem_skel hf]
+
+theorem edgeArc_splitDrawing_of_mem_ear {f : γ} (hf : f ∈ E(d.ear)) :
+    Graph.edgeArc (d.splitDrawing R earDraw) f = Graph.edgeArc earDraw f := by
+  rw [Graph.edgeArc, Graph.edgeArc, splitDrawing_of_mem_ear hf]
+
+namespace EarCrosscut
+
+variable (hE : d.EarCrosscut R earPos earDraw)
+
+include hE
+
+/-- The skeleton of the split structure, drawn: the old drawn skeleton with the drawn ear
+glued on. -/
+theorem splitGraph_eq :
+    (S.splitFace d).skel.map (d.splitPos R earPos) = R.graph.union (d.earGraph earPos) := by
+  change (S.skel.union d.ear).map (d.splitPos R earPos) = _
+  rw [Graph.map_union]
+  congr 1
+  · exact Graph.map_eq_of_eqOn fun z hz => hE.splitPos_eq hz
+  · exact Graph.map_eq_of_eqOn fun z hz => splitPos_of_mem_ear hz
+
+/-- **The old drawn skeleton with the drawn ear glued on is a plane graph.** The three clauses
+of `Graph.IsDrawing` all reduce, on a mixed pair, to the same fact: the ear meets the old
+drawing only at its two ends, because its interior lies in an open 2-cell and an open 2-cell
+misses the drawn skeleton. -/
+theorem isDrawing_split {D : Set Plane} (hcd : R.IsCellDecomposition D) :
+    Graph.IsDrawing (R.graph.union (d.earGraph earPos)) (d.splitDrawing R earDraw) := by
+  have hEskel : E(R.graph) = E(S.skel) := Realization.edgeSet_graph R
+  have hcompat : R.graph.Compatible (d.earGraph earPos) :=
+    Graph.Compatible.of_disjoint_edgeSet (by
+      rw [hEskel, d.edgeSet_earGraph]; exact d.disjoint_edgeSet)
+  have hle₁ : R.graph ≤ R.graph.union (d.earGraph earPos) := Graph.left_le_union _ _
+  have hle₂ : d.earGraph earPos ≤ R.graph.union (d.earGraph earPos) := hcompat.right_le_union
+  have hmeet := hE.earSet_inter_skeletonSet hcd
+  have hends : ∀ {x : Plane}, x ∈ ({R.pos d.source, R.pos d.target} : Set Plane) →
+      x ∈ V(R.graph) ∧ x ∈ V(d.earGraph earPos) := by
+    rintro x (rfl | rfl)
+    · exact ⟨by rw [Realization.vertexSet_graph]; exact ⟨_, d.source_mem_skel, rfl⟩,
+        by rw [d.vertexSet_earGraph]; exact ⟨d.source, d.source_mem_ear, hE.pos_source⟩⟩
+    · exact ⟨by rw [Realization.vertexSet_graph]; exact ⟨_, d.target_mem_skel, rfl⟩,
+        by rw [d.vertexSet_earGraph]; exact ⟨d.target, d.target_mem_ear, hE.pos_target⟩⟩
+  have hcross : ∀ {x : Plane}, x ∈ d.earSet earPos earDraw → x ∈ R.skeletonSet →
+      x ∈ V(R.graph) ∧ x ∈ V(d.earGraph earPos) := fun hx hx' => hends (hmeet ⟨hx, hx'⟩)
+  have hmix : ∀ {p : Plane} {e g : γ}, e ∈ E(S.skel) → g ∈ E(d.ear) →
+      p ∈ Graph.edgeArc R.drawing e → p ∈ Graph.edgeArc earDraw g →
+      p ∈ V(R.graph.union (d.earGraph earPos)) ∧
+        (R.graph.union (d.earGraph earPos)).Inc e p ∧
+        (R.graph.union (d.earGraph earPos)).Inc g p := by
+    intro p e g he hg hpe hpg
+    have hp1 : p ∈ R.skeletonSet :=
+      Graph.edgeArc_subset_pointSet (by rwa [hEskel]) hpe
+    have hp2 : p ∈ d.earSet earPos earDraw := edgeArc_subset_earSet hg hpg
+    obtain ⟨hpV1, hpV2⟩ := hcross hp2 hp1
+    obtain ⟨a, b, hlab⟩ := Graph.exists_isLink_of_mem_edgeSet (show e ∈ E(R.graph) by rwa [hEskel])
+    obtain ⟨c, c', hlcc⟩ := Graph.exists_isLink_of_mem_edgeSet
+      (show g ∈ E(d.earGraph earPos) by rwa [d.edgeSet_earGraph])
+    have hInc1 : R.graph.Inc e p := by
+      rcases R.isDrawing.vertex_mem_edgeArc hlab hpV1 hpe with rfl | rfl
+      exacts [hlab.inc_left, hlab.inc_right]
+    have hInc2 : (d.earGraph earPos).Inc g p := by
+      rcases hE.isDrawing.vertex_mem_edgeArc hlcc hpV2 hpg with rfl | rfl
+      exacts [hlcc.inc_left, hlcc.inc_right]
+    exact ⟨Or.inl hpV1, hInc1.mono hle₁, hInc2.mono hle₂⟩
+  refine ⟨?_, ?_, ?_⟩
+  · -- each edge is drawn by its own parametrization
+    intro e he
+    rcases he with he | he
+    · rw [hEskel] at he
+      obtain ⟨hc, hi, hl⟩ := R.isDrawing.edge_param (by rwa [Graph.edgeSet_map])
+      rw [splitDrawing_of_mem_skel he]
+      exact ⟨hc, hi, Graph.union_isLink.2 (Or.inl hl)⟩
+    · rw [d.edgeSet_earGraph] at he
+      obtain ⟨hc, hi, hl⟩ := hE.isDrawing.edge_param (by rwa [d.edgeSet_earGraph])
+      rw [splitDrawing_of_mem_ear he]
+      exact ⟨hc, hi, Graph.union_isLink.2
+        (Or.inr ⟨by rw [hEskel]; exact Set.disjoint_right.1 d.disjoint_edgeSet he, hl⟩)⟩
+  · -- an edge's arc meets the vertices only at its own ends
+    intro e x y v hl hv hmem
+    rcases Graph.union_isLink.1 hl with hl | ⟨-, hl⟩
+    · have he : e ∈ E(S.skel) := by rw [← hEskel]; exact hl.edge_mem
+      rw [edgeArc_splitDrawing_of_mem_skel he] at hmem
+      have hvg : v ∈ V(R.graph) := by
+        rcases hv with hv | hv
+        · exact hv
+        · exact (hcross (Graph.vertexSet_subset_pointSet hv)
+            (Graph.edgeArc_subset_pointSet (by rwa [hEskel]) hmem)).1
+      exact R.isDrawing.vertex_mem_edgeArc hl hvg hmem
+    · have he : e ∈ E(d.ear) := by rw [← d.edgeSet_earGraph]; exact hl.edge_mem
+      rw [edgeArc_splitDrawing_of_mem_ear he] at hmem
+      have hvg : v ∈ V(d.earGraph earPos) := by
+        rcases hv with hv | hv
+        · exact (hcross (edgeArc_subset_earSet he hmem)
+            (Graph.vertexSet_subset_pointSet hv)).2
+        · exact hv
+      exact hE.isDrawing.vertex_mem_edgeArc hl hvg hmem
+  · -- two distinct edges meet only at shared vertices
+    intro e f he hf hef p hpe hpf
+    rcases he with he | he <;> rcases hf with hf | hf
+    · rw [hEskel] at he hf
+      rw [edgeArc_splitDrawing_of_mem_skel he] at hpe
+      rw [edgeArc_splitDrawing_of_mem_skel hf] at hpf
+      obtain ⟨hpV, hIe, hIf⟩ := R.isDrawing.edge_inter (by rwa [Graph.edgeSet_map])
+        (by rwa [Graph.edgeSet_map]) hef hpe hpf
+      exact ⟨Or.inl hpV, hIe.mono hle₁, hIf.mono hle₁⟩
+    · rw [hEskel] at he
+      rw [d.edgeSet_earGraph] at hf
+      rw [edgeArc_splitDrawing_of_mem_skel he] at hpe
+      rw [edgeArc_splitDrawing_of_mem_ear hf] at hpf
+      exact hmix he hf hpe hpf
+    · rw [d.edgeSet_earGraph] at he
+      rw [hEskel] at hf
+      rw [edgeArc_splitDrawing_of_mem_ear he] at hpe
+      rw [edgeArc_splitDrawing_of_mem_skel hf] at hpf
+      obtain ⟨hv, h1, h2⟩ := hmix hf he hpf hpe
+      exact ⟨hv, h2, h1⟩
+    · rw [d.edgeSet_earGraph] at he hf
+      rw [edgeArc_splitDrawing_of_mem_ear he] at hpe
+      rw [edgeArc_splitDrawing_of_mem_ear hf] at hpf
+      obtain ⟨hpV, hIe, hIf⟩ := hE.isDrawing.edge_inter (by rwa [d.edgeSet_earGraph])
+        (by rwa [d.edgeSet_earGraph]) hef hpe hpf
+      exact ⟨Or.inr hpV, hIe.mono hle₂, hIf.mono hle₂⟩
+
+end EarCrosscut
+
 end SplitData
 
 end CellStructure

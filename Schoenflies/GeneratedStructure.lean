@@ -32,18 +32,37 @@ inductive `Schoenflies.GeneratedStructure`, and proves the assertions of
   `Schoenflies.CellStructure.SplitData.sub_parent` — assertion (iv) of
   `lem:cellulation-invariants`, the parent map of one elementary refinement and the
   compatibility `σ ≼ τ → par σ ≼ par τ`.
-* `Schoenflies.CellStructure.CombInvariants` and its two preservation theorems
-  `.subdivideEdge`, `.splitFace`, closed by
-  `Schoenflies.GeneratedStructure.combInvariants` — assertions (iii), (v), (vi), together with
-  the abstract form of (viii) and the bookkeeping facts about `≼_abs` that the blueprint uses
-  silently.
+* `Schoenflies.CellStructure.CombInvariants`, its two preservation theorems
+  `Schoenflies.CellStructure.SubdivData.combInvariants` and
+  `Schoenflies.CellStructure.SplitData.combInvariants`, and
+  `Schoenflies.GeneratedStructure.combInvariants`, which closes the induction — assertions
+  (iii), (v), (vi), together with the abstract form of (viii) and the bookkeeping facts about
+  `≼_abs` that the blueprint uses silently.
+* `Schoenflies.GeneratedStructure.trans` — refinement sequences compose.
 * `Schoenflies.CellStructure.Realization.IsCellDecomposition` — assertion (i) for one
   realization, and from it, with no further geometry:
   `.frontier_property` (assertion (ii)), `.sub_iff_subset_closure` and
   `Schoenflies.CellStructure.subset_closure_congr` (assertion (ix)), and `.face_eq`
   (assertion (viii)).
+* `Schoenflies.CellStructure.SubdivData.IsRefinement` and
+  `Schoenflies.CellStructure.SubdivData.IsRefinement.isCellDecomposition` — the induction step
+  of assertion (i) over the *first* constructor: a realization of the subdivided structure that
+  refines a realization of the old one inherits (i).
 * `Schoenflies.crosscut_cell_partition` — the geometric content of one 2-cell split, from
   `Schoenflies.general_crosscut`, in the shape assertion (i) consumes.
+
+**Not here.** The induction step of (i) over the *second* constructor, and assertion (vii) in
+either. `crosscut_cell_partition` is the geometric input the split step needs; what is missing
+is the `SplitData` analogue of `IsRefinement` — a relation between a realization of
+`S.splitFace d` and one of `S`, saying that the ear is drawn as a crosscut of the realized open
+2-cell — and the identification of the abstract boundary walk of a 2-cell with the Jordan curve
+of assertion (vii). Assertions (ii), (viii) and (ix) are stated here against `(i)` as a
+hypothesis, so they become unconditional the moment that step lands.
+
+Two general graph facts are proved here for want of a home: `Schoenflies.subdivGraph` (with
+`Schoenflies.subdivGraph_mono` and `Schoenflies.subdivGraph_eq_self`) and
+`Schoenflies.isLink_of_le_of_mem_edgeSet`. The second belongs in `Schoenflies/Graph/`; nothing
+on `main` states it.
 
 ## Design
 
@@ -387,7 +406,7 @@ noncomputable def subdivideEdge (S : CellStructure γ) (d : S.SubdivData) : Cell
     rw [d.skeleton_vertexSet]; exact S.finite_vertexSet.insert _
   finite_edgeSet := by
     rw [d.skeleton_edgeSet]
-    exact ((S.finite_edgeSet.diff).insert _).insert _
+    exact ((S.finite_edgeSet.sdiff).insert _).insert _
   finite_faces := S.finite_faces
   disjoint_vertexSet_edgeSet := by
     rw [Set.disjoint_left]
@@ -436,7 +455,7 @@ theorem subdivideEdge_cells : (S.subdivideEdge d).cells = (S.cells \ {d.edge}) �
   ext z
   simp only [cells, subdivideEdge_skel, subdivideEdge_faces, d.skeleton_vertexSet,
     d.skeleton_edgeSet, SubdivData.newCells, Set.mem_union, Set.mem_insert_iff,
-    Set.mem_singleton_iff, Set.mem_diff]
+    Set.mem_singleton_iff, Set.mem_sdiff]
   constructor
   · rintro ((hz | hz) | hz)
     · rcases hz with rfl | hz
@@ -596,7 +615,8 @@ theorem face₂_mem_newCells : d.face₂ ∈ d.newCells := Or.inr (Or.inr rfl)
 theorem disjoint_edgeSet : Disjoint E(S.skel) E(d.ear) :=
   Set.disjoint_left.2 fun _ hz hz' => d.edge_fresh hz' (S.mem_cells_of_mem_edgeSet hz)
 
-theorem compatible : S.skel.Compatible d.ear := Graph.Compatible.of_disjoint_edgeSet d.disjoint_edgeSet
+theorem compatible : S.skel.Compatible d.ear :=
+  Graph.Compatible.of_disjoint_edgeSet d.disjoint_edgeSet
 
 /-- The skeleton after the split: the old skeleton with the ear glued in along its two ends. -/
 def skeleton : Graph γ γ := S.skel.union d.ear
@@ -648,7 +668,7 @@ noncomputable def splitFace (S : CellStructure γ) (d : S.SplitData) : CellStruc
   sub := d.subRel
   finite_vertexSet := S.finite_vertexSet.union d.finite_ear_vertexSet
   finite_edgeSet := S.finite_edgeSet.union d.finite_ear_edgeSet
-  finite_faces := ((S.finite_faces.diff).insert _).insert _
+  finite_faces := ((S.finite_faces.sdiff).insert _).insert _
   disjoint_vertexSet_edgeSet := by
     rw [Set.disjoint_left]
     rintro z (hz | hz) (hz' | hz')
@@ -699,7 +719,7 @@ two new 2-cells. (The ear's two ends are old cells and appear on both sides.) -/
 theorem splitFace_cells : (S.splitFace c).cells = (S.cells \ {c.face}) ∪ c.newCells := by
   ext z
   simp only [cells, splitFace_skel, splitFace_faces, c.skeleton_vertexSet, c.skeleton_edgeSet,
-    SplitData.newCells, Set.mem_union, Set.mem_insert_iff, Set.mem_singleton_iff, Set.mem_diff]
+    SplitData.newCells, Set.mem_union, Set.mem_insert_iff, Set.mem_singleton_iff, Set.mem_sdiff]
   constructor
   · rintro ((hz | hz) | hz)
     · rcases hz with hz | hz
@@ -1335,13 +1355,411 @@ end SplitData
 /-- **Assertions (iii), (v), (vi) and abstract (viii) hold at every generated stage.** The
 induction is over the two constructors; the base case is supplied by the producer of `S₀` —
 `prop:initial-pair` for the blueprint's own generated structures. -/
-theorem GeneratedStructure.combInvariants {S₀ S : CellStructure γ}
+theorem _root_.Schoenflies.GeneratedStructure.combInvariants {S₀ S : CellStructure γ}
     (h : GeneratedStructure S₀ S) (h₀ : S₀.CombInvariants) : S.CombInvariants := by
   induction h with
   | base => exact h₀
   | subdivideEdge _ d ih => exact d.combInvariants ih
   | splitFace _ d ih => exact d.combInvariants ih
 
+/-- **Refinement sequences compose.** A structure generated from `S₁`, itself generated from
+`S₀`, is generated from `S₀`. `thm:finite-transfer` builds its stages one ear at a time and
+needs exactly this. -/
+theorem _root_.Schoenflies.GeneratedStructure.trans {S₀ S₁ S₂ : CellStructure γ}
+    (h₁ : GeneratedStructure S₀ S₁) (h₂ : GeneratedStructure S₁ S₂) :
+    GeneratedStructure S₀ S₂ := by
+  induction h₂ with
+  | base => exact h₁
+  | subdivideEdge _ d ih => exact ih.subdivideEdge d
+  | splitFace _ d ih => exact ih.splitFace d
+
+/-- **The composite parent map of a full ear insertion.** The blueprint inserts an ear only
+after subdividing its endpoint cells if necessary, and remarks that the composite parent map
+then sends such an endpoint to the pre-subdivision edge. Compatibility composes along with it:
+this is assertion (iv) for the two-step refinement. -/
+theorem sub_parent_comp {S : CellStructure γ} (hS : S.CombInvariants) (d₁ : S.SubdivData)
+    (d₂ : (S.subdivideEdge d₁).SplitData) {σ τ : γ}
+    (h : ((S.subdivideEdge d₁).splitFace d₂).sub σ τ) :
+    S.sub (d₁.parent (d₂.parent σ)) (d₁.parent (d₂.parent τ)) :=
+  d₁.sub_parent hS (d₂.sub_parent (d₁.combInvariants hS) h)
+
+/-! ### The geometric assertions
+
+Assertion (i) is the only geometric input the rest need: (ii), (viii) and (ix) follow from it
+formally, with no further topology beyond "a nonempty open set contained in a closure meets the
+set". That is why they are stated here for an arbitrary realization satisfying (i), rather than
+by induction: the induction is entirely in (i) and (vii), and those are the standing gap of this
+module. -/
+
+namespace Realization
+
+/-- **Assertion (i)** of `lem:cellulation-invariants`, for one realization: the open cells are
+nonempty and pairwise disjoint, they cover the closed domain `D`, and every closed cell is the
+union of its open subcells — the last clause read against the *abstract* relation `≼_abs`,
+which is what makes (ix) a formal consequence. -/
+structure IsCellDecomposition {S : CellStructure γ} (R : S.Realization) (D : Set Plane) :
+    Prop where
+  /-- Every open cell is nonempty. -/
+  nonempty : ∀ ⦃σ⦄, σ ∈ S.cells → (R.cell σ).Nonempty
+  /-- Distinct open cells are disjoint. -/
+  disjoint : ∀ ⦃σ τ⦄, σ ∈ S.cells → τ ∈ S.cells → σ ≠ τ → Disjoint (R.cell σ) (R.cell τ)
+  /-- The open cells cover the closed domain. -/
+  iUnion_eq : ⋃ σ ∈ S.cells, R.cell σ = D
+  /-- Every closed cell is the union of its open subcells. -/
+  closure_eq : ∀ ⦃τ⦄, τ ∈ S.cells →
+    closure (R.cell τ) = ⋃ σ ∈ {σ | σ ∈ S.cells ∧ S.sub σ τ}, R.cell σ
+
+namespace IsCellDecomposition
+
+variable {S : CellStructure γ} {R : S.Realization} {D : Set Plane} {σ τ ρ : γ}
+
+theorem subset_closure (h : R.IsCellDecomposition D) (hσ : σ ∈ S.cells) (hτ : τ ∈ S.cells)
+    (hsub : S.sub σ τ) : R.cell σ ⊆ closure (R.cell τ) := by
+  rw [h.closure_eq hτ]
+  exact Set.subset_biUnion_of_mem (u := fun ρ => R.cell ρ) (show σ ∈ _ from ⟨hσ, hsub⟩)
+
+/-- A point of an open cell lying in a closed cell forces the abstract relation. This is the
+one step of the argument; everything below is a corollary of it. -/
+theorem sub_of_mem (h : R.IsCellDecomposition D) (hσ : σ ∈ S.cells) (hτ : τ ∈ S.cells)
+    {z : Plane} (hzσ : z ∈ R.cell σ) (hzτ : z ∈ closure (R.cell τ)) : S.sub σ τ := by
+  rw [h.closure_eq hτ] at hzτ
+  obtain ⟨ρ, hρ, hzρ⟩ := Set.mem_iUnion₂.1 hzτ
+  by_cases hne : σ = ρ
+  · exact hne ▸ hρ.2
+  · exact absurd hzρ (Set.disjoint_left.1 (h.disjoint hσ hρ.1 hne) hzσ)
+
+theorem sub_of_subset_closure (h : R.IsCellDecomposition D) (hσ : σ ∈ S.cells)
+    (hτ : τ ∈ S.cells) (hsub : R.cell σ ⊆ closure (R.cell τ)) : S.sub σ τ := by
+  obtain ⟨z, hz⟩ := h.nonempty hσ
+  exact h.sub_of_mem hσ hτ hz (hsub hz)
+
+/-- **Assertion (ix)** for one realization: the abstract subcell relation *is* geometric
+containment. -/
+theorem sub_iff_subset_closure (h : R.IsCellDecomposition D) (hσ : σ ∈ S.cells)
+    (hτ : τ ∈ S.cells) : S.sub σ τ ↔ R.cell σ ⊆ closure (R.cell τ) :=
+  ⟨h.subset_closure hσ hτ, h.sub_of_subset_closure hσ hτ⟩
+
+/-- **Assertion (ii)**, the frontier property: an open cell is either inside a closed cell or
+misses it. It is a formal consequence of (i) — a closed cell is a union of open cells, and two
+open cells that meet are equal. -/
+theorem frontier_property (h : R.IsCellDecomposition D) (hσ : σ ∈ S.cells) (hτ : τ ∈ S.cells) :
+    R.cell σ ⊆ closure (R.cell τ) ∨ Disjoint (R.cell σ) (closure (R.cell τ)) := by
+  by_cases hd : Disjoint (R.cell σ) (closure (R.cell τ))
+  · exact Or.inr hd
+  · refine Or.inl (h.subset_closure hσ hτ ?_)
+    rw [Set.not_disjoint_iff] at hd
+    obtain ⟨z, hzσ, hzτ⟩ := hd
+    exact h.sub_of_mem hσ hτ hzσ hzτ
+
+/-- On a structure with a cell decomposition `≼_abs` *is* reflexive on cells — the blueprint's
+"each geometric relation is reflexive". It is not assumed of a `CellStructure`; it is read off
+(i). -/
+theorem sub_refl (h : R.IsCellDecomposition D) (hσ : σ ∈ S.cells) : S.sub σ σ :=
+  h.sub_of_subset_closure hσ hσ _root_.subset_closure
+
+/-- …and transitive, for the same reason. -/
+theorem sub_trans (h : R.IsCellDecomposition D) (hσ : σ ∈ S.cells) (hτ : τ ∈ S.cells)
+    (hρ : ρ ∈ S.cells) (h₁ : S.sub σ τ) (h₂ : S.sub τ ρ) : S.sub σ ρ := by
+  refine h.sub_of_subset_closure hσ hρ ((h.subset_closure hσ hτ h₁).trans ?_)
+  simpa using closure_mono (h.subset_closure hτ hρ h₂)
+
+/-- **Assertion (viii)**: distinct open 2-cells are never comparable.
+
+The hypothesis is that the lower 2-cell is *open*, which is what assertion (vii) supplies — it
+realizes each open 2-cell as the bounded complementary region of a Jordan curve. Given that,
+`thm:jordan` is not needed a second time: a nonempty open set inside a closure meets the set. -/
+theorem face_eq (h : R.IsCellDecomposition D) {F T : γ} (hF : F ∈ S.faces) (hT : T ∈ S.faces)
+    (hopen : IsOpen (R.cell F)) (hsub : R.cell F ⊆ closure (R.cell T)) : F = T := by
+  by_contra hne
+  obtain ⟨z, hz⟩ := h.nonempty (S.mem_cells_of_mem_faces hF)
+  obtain ⟨w, hwF, hwT⟩ := mem_closure_iff.1 (hsub hz) (R.cell F) hopen hz
+  exact Set.disjoint_left.1
+    (h.disjoint (S.mem_cells_of_mem_faces hF) (S.mem_cells_of_mem_faces hT) hne) hwF hwT
+
+end IsCellDecomposition
+
+end Realization
+
+/-- **Assertion (ix)**, in full: geometric containment in the source realization, geometric
+containment in the target realization, and the abstract relation, all coincide. Both
+realizations realize the *same* abstract `S`, so there is nothing to transport — the two
+geometric relations are equal because each equals `≼_abs`. -/
+theorem subset_closure_congr {S : CellStructure γ} {R₁ R₂ : S.Realization} {D₁ D₂ : Set Plane}
+    (h₁ : R₁.IsCellDecomposition D₁) (h₂ : R₂.IsCellDecomposition D₂) {σ τ : γ}
+    (hσ : σ ∈ S.cells) (hτ : τ ∈ S.cells) :
+    (R₁.cell σ ⊆ closure (R₁.cell τ) ↔ R₂.cell σ ⊆ closure (R₂.cell τ)) ∧
+      (S.sub σ τ ↔ R₁.cell σ ⊆ closure (R₁.cell τ)) ∧
+      (S.sub σ τ ↔ R₂.cell σ ⊆ closure (R₂.cell τ)) :=
+  ⟨(h₁.sub_iff_subset_closure hσ hτ).symm.trans (h₂.sub_iff_subset_closure hσ hτ),
+    h₁.sub_iff_subset_closure hσ hτ, h₂.sub_iff_subset_closure hσ hτ⟩
+
+/-! ### Assertion (i) is preserved by an edge subdivision
+
+The induction step of (i) over the first constructor. It relates two realizations of two
+different structures, so it needs a name for "`R'` refines `R` along `d`": that is
+`SubdivData.IsRefinement`, whose fields are exactly the blueprint's sentence "the corresponding
+point is inserted into the corresponding edge using the edge parametrization", read as a
+statement about the resulting open cells and their closures. -/
+
+namespace SubdivData
+
+variable {S : CellStructure γ} {d : S.SubdivData}
+
+/-- **`R'` refines `R` along the subdivision `d`.** Every surviving cell stays where it was;
+the old open edge is cut into the two new open edges and the new vertex; and the closure of
+each new cell is the new cell together with the cells the update declares below it. -/
+structure IsRefinement (d : S.SubdivData) (R : S.Realization)
+    (R' : (S.subdivideEdge d).Realization) : Prop where
+  /-- Surviving cells are unmoved. -/
+  cell_eq : ∀ ⦃σ⦄, σ ∈ S.cells → σ ≠ d.edge → R'.cell σ = R.cell σ
+  /-- The old open edge is cut in three. -/
+  cell_edge : R.cell d.edge = R'.cell d.newEdge₁ ∪ R'.cell d.newVertex ∪ R'.cell d.newEdge₂
+  /-- The three new open cells are nonempty. -/
+  nonempty : ∀ ⦃σ⦄, σ ∈ d.newCells → (R'.cell σ).Nonempty
+  /-- …and pairwise disjoint. -/
+  disjoint : ∀ ⦃σ τ⦄, σ ∈ d.newCells → τ ∈ d.newCells → σ ≠ τ → Disjoint (R'.cell σ) (R'.cell τ)
+  /-- The new vertex is a closed cell. -/
+  closure_newVertex : closure (R'.cell d.newVertex) = R'.cell d.newVertex
+  /-- The closure of the first new edge is it, the new vertex and the old left endpoint. -/
+  closure_newEdge₁ : closure (R'.cell d.newEdge₁) =
+    R'.cell d.newEdge₁ ∪ R'.cell d.newVertex ∪ R.cell d.left
+  /-- The closure of the second new edge is it, the new vertex and the old right endpoint. -/
+  closure_newEdge₂ : closure (R'.cell d.newEdge₂) =
+    R'.cell d.newEdge₂ ∪ R'.cell d.newVertex ∪ R.cell d.right
+
+/-- Nothing is below the new vertex but the new vertex. -/
+theorem subRel_newVertex_iff (hS : S.CombInvariants) (d : S.SubdivData) {σ : γ} :
+    d.subRel σ d.newVertex ↔ σ = d.newVertex := by
+  refine ⟨fun h => ?_, fun h => Or.inr (Or.inl ⟨h.trans rfl, Or.inl h⟩)⟩
+  rcases h with ⟨-, h, -, -, -⟩ | ⟨h, -⟩ | ⟨-, h | h⟩ | ⟨-, h⟩ | ⟨-, h⟩ | ⟨-, -, h⟩
+  · exact absurd (Or.inl rfl) h
+  · exact h
+  · exact absurd h d.newVertex_ne₁
+  · exact absurd h d.newVertex_ne₂
+  · exact absurd h d.newVertex_ne₁
+  · exact absurd h d.newVertex_ne₂
+  · exact absurd (hS.sub_mem_right h) d.newVertex_notMem
+
+/-- The cells below the first new edge are it, the new vertex, and the old left endpoint. -/
+theorem subRel_newEdge₁_iff (hS : S.CombInvariants) (d : S.SubdivData) {σ : γ} :
+    d.subRel σ d.newEdge₁ ↔ (σ = d.newEdge₁ ∨ σ = d.newVertex ∨ σ = d.left) := by
+  constructor
+  · intro h
+    rcases h with ⟨-, h, -, -, -⟩ | ⟨h, -⟩ | ⟨h, -⟩ | ⟨h, -⟩ | ⟨-, h⟩ | ⟨-, -, h⟩
+    · exact absurd (Or.inr (Or.inl rfl)) h
+    · exact Or.inl h
+    · exact Or.inr (Or.inl h)
+    · exact Or.inr (Or.inr h)
+    · exact absurd h d.newEdge_ne
+    · exact absurd (hS.sub_mem_right h) d.newEdge₁_notMem
+  · rintro (rfl | rfl | rfl)
+    · exact Or.inr (Or.inl ⟨rfl, Or.inr (Or.inl rfl)⟩)
+    · exact Or.inr (Or.inr (Or.inl ⟨rfl, Or.inl rfl⟩))
+    · exact Or.inr (Or.inr (Or.inr (Or.inl ⟨rfl, rfl⟩)))
+
+/-- The cells below the second new edge are it, the new vertex, and the old right endpoint. -/
+theorem subRel_newEdge₂_iff (hS : S.CombInvariants) (d : S.SubdivData) {σ : γ} :
+    d.subRel σ d.newEdge₂ ↔ (σ = d.newEdge₂ ∨ σ = d.newVertex ∨ σ = d.right) := by
+  constructor
+  · intro h
+    rcases h with ⟨-, h, -, -, -⟩ | ⟨h, -⟩ | ⟨h, -⟩ | ⟨-, h⟩ | ⟨h, -⟩ | ⟨-, -, h⟩
+    · exact absurd (Or.inr (Or.inr rfl)) h
+    · exact Or.inl h
+    · exact Or.inr (Or.inl h)
+    · exact absurd h d.newEdge_ne.symm
+    · exact Or.inr (Or.inr h)
+    · exact absurd (hS.sub_mem_right h) d.newEdge₂_notMem
+  · rintro (rfl | rfl | rfl)
+    · exact Or.inr (Or.inl ⟨rfl, Or.inr (Or.inr rfl)⟩)
+    · exact Or.inr (Or.inr (Or.inl ⟨rfl, Or.inr rfl⟩))
+    · exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inl ⟨rfl, rfl⟩))))
+
+namespace IsRefinement
+
+variable {R : S.Realization} {R' : (S.subdivideEdge d).Realization} {D : Set Plane}
+
+theorem cell_subset_edge (href : d.IsRefinement R R') {σ : γ} (hσ : σ ∈ d.newCells) :
+    R'.cell σ ⊆ R.cell d.edge := by
+  rw [href.cell_edge]
+  rcases hσ with rfl | rfl | rfl
+  · exact fun _ hz => Or.inl (Or.inr hz)
+  · exact fun _ hz => Or.inl (Or.inl hz)
+  · exact fun _ hz => Or.inr hz
+
+/-- **Assertion (i) is preserved by an edge subdivision.** -/
+theorem isCellDecomposition (hS : S.CombInvariants) (href : d.IsRefinement R R')
+    (h : R.IsCellDecomposition D) : R'.IsCellDecomposition D where
+  nonempty := by
+    intro σ hσ
+    rw [subdivideEdge_cells] at hσ
+    rcases hσ with ⟨hσc, hσe⟩ | hσn
+    · rw [href.cell_eq hσc hσe]; exact h.nonempty hσc
+    · exact href.nonempty hσn
+  disjoint := by
+    intro σ τ hσ hτ hne
+    rw [subdivideEdge_cells] at hσ hτ
+    rcases hσ with ⟨hσc, hσe⟩ | hσn <;> rcases hτ with ⟨hτc, hτe⟩ | hτn
+    · rw [href.cell_eq hσc hσe, href.cell_eq hτc hτe]; exact h.disjoint hσc hτc hne
+    · rw [href.cell_eq hσc hσe]
+      exact (h.disjoint hσc d.edge_mem_cells hσe).mono_right (href.cell_subset_edge hτn)
+    · rw [href.cell_eq hτc hτe]
+      exact (h.disjoint d.edge_mem_cells hτc (Ne.symm hτe)).mono_left
+        (href.cell_subset_edge hσn)
+    · exact href.disjoint hσn hτn hne
+  iUnion_eq := by
+    rw [← h.iUnion_eq]
+    ext z
+    simp only [Set.mem_iUnion, exists_prop]
+    constructor
+    · rintro ⟨σ, hσ, hz⟩
+      rw [subdivideEdge_cells] at hσ
+      rcases hσ with ⟨hσc, hσe⟩ | hσn
+      · exact ⟨σ, hσc, by rwa [href.cell_eq hσc hσe] at hz⟩
+      · exact ⟨d.edge, d.edge_mem_cells, href.cell_subset_edge hσn hz⟩
+    · rintro ⟨σ, hσ, hz⟩
+      by_cases hσe : σ = d.edge
+      · subst hσe
+        rw [href.cell_edge] at hz
+        rcases hz with hz | hz
+        · rcases hz with hz | hz
+          · exact ⟨d.newEdge₁, d.mem_subdivideEdge_cells_of_new (Or.inr (Or.inl rfl)), hz⟩
+          · exact ⟨d.newVertex, d.mem_subdivideEdge_cells_of_new (Or.inl rfl), hz⟩
+        · exact ⟨d.newEdge₂, d.mem_subdivideEdge_cells_of_new (Or.inr (Or.inr rfl)), hz⟩
+      · exact ⟨σ, d.mem_subdivideEdge_cells_of_old hσ hσe, by rwa [href.cell_eq hσ hσe]⟩
+  closure_eq := by
+    intro τ hτ
+    rw [subdivideEdge_cells] at hτ
+    ext z
+    simp only [Set.mem_iUnion, Set.mem_setOf_eq, exists_prop]
+    rcases hτ with ⟨hτc, hτe⟩ | hτn
+    · -- a surviving cell: the index set gains the new cells exactly when it had `e`
+      rw [href.cell_eq hτc hτe, h.closure_eq hτc]
+      simp only [Set.mem_iUnion, Set.mem_setOf_eq, exists_prop]
+      constructor
+      · rintro ⟨σ, ⟨hσc, hσsub⟩, hz⟩
+        by_cases hσe : σ = d.edge
+        · subst hσe
+          rw [href.cell_edge] at hz
+          have hnew : ∀ ρ ∈ d.newCells, ((S.subdivideEdge d).sub ρ τ) := fun ρ hρ =>
+            (d.newCells_subRel_iff hρ hτc).2 ⟨hτe, hσsub⟩
+          rcases hz with hz | hz
+          · rcases hz with hz | hz
+            · exact ⟨d.newEdge₁, ⟨d.mem_subdivideEdge_cells_of_new (Or.inr (Or.inl rfl)),
+                hnew _ (Or.inr (Or.inl rfl))⟩, hz⟩
+            · exact ⟨d.newVertex, ⟨d.mem_subdivideEdge_cells_of_new (Or.inl rfl),
+                hnew _ (Or.inl rfl)⟩, hz⟩
+          · exact ⟨d.newEdge₂, ⟨d.mem_subdivideEdge_cells_of_new (Or.inr (Or.inr rfl)),
+              hnew _ (Or.inr (Or.inr rfl))⟩, hz⟩
+        · exact ⟨σ, ⟨d.mem_subdivideEdge_cells_of_old hσc hσe,
+            d.subRel_of_old hσc hτc hσe hτe hσsub⟩, by rwa [href.cell_eq hσc hσe]⟩
+      · rintro ⟨σ, ⟨hσ, hσsub⟩, hz⟩
+        rw [subdivideEdge_cells] at hσ
+        rcases hσ with ⟨hσc, hσe⟩ | hσn
+        · exact ⟨σ, ⟨hσc, (d.old_subRel_iff hσc hτc hσe hτe).1 hσsub⟩,
+            by rwa [href.cell_eq hσc hσe] at hz⟩
+        · exact ⟨d.edge, ⟨d.edge_mem_cells, ((d.newCells_subRel_iff hσn hτc).1 hσsub).2⟩,
+            href.cell_subset_edge hσn hz⟩
+    · -- a new cell: its closure is read off the refinement, and so is the index set
+      have hleft : d.left ∈ (S.subdivideEdge d).cells :=
+        d.mem_subdivideEdge_cells_of_old d.left_mem_cells d.left_ne_edge
+      have hright : d.right ∈ (S.subdivideEdge d).cells :=
+        d.mem_subdivideEdge_cells_of_old d.right_mem_cells d.right_ne_edge
+      rcases hτn with rfl | rfl | rfl
+      · rw [href.closure_newVertex]
+        refine ⟨fun hz => ⟨d.newVertex, ⟨d.mem_subdivideEdge_cells_of_new (Or.inl rfl),
+          (d.subRel_newVertex_iff hS).2 rfl⟩, hz⟩, ?_⟩
+        rintro ⟨σ, ⟨-, hσsub⟩, hz⟩
+        rwa [(d.subRel_newVertex_iff hS).1 hσsub] at hz
+      · rw [href.closure_newEdge₁, ← href.cell_eq d.left_mem_cells d.left_ne_edge]
+        constructor
+        · rintro (hz | hz)
+          · rcases hz with hz | hz
+            · exact ⟨d.newEdge₁, ⟨d.mem_subdivideEdge_cells_of_new (Or.inr (Or.inl rfl)),
+                (d.subRel_newEdge₁_iff hS).2 (Or.inl rfl)⟩, hz⟩
+            · exact ⟨d.newVertex, ⟨d.mem_subdivideEdge_cells_of_new (Or.inl rfl),
+                (d.subRel_newEdge₁_iff hS).2 (Or.inr (Or.inl rfl))⟩, hz⟩
+          · exact ⟨d.left, ⟨hleft, (d.subRel_newEdge₁_iff hS).2 (Or.inr (Or.inr rfl))⟩, hz⟩
+        · rintro ⟨σ, ⟨-, hσsub⟩, hz⟩
+          rcases (d.subRel_newEdge₁_iff hS).1 hσsub with rfl | rfl | rfl
+          · exact Or.inl (Or.inl hz)
+          · exact Or.inl (Or.inr hz)
+          · exact Or.inr hz
+      · rw [href.closure_newEdge₂, ← href.cell_eq d.right_mem_cells d.right_ne_edge]
+        constructor
+        · rintro (hz | hz)
+          · rcases hz with hz | hz
+            · exact ⟨d.newEdge₂, ⟨d.mem_subdivideEdge_cells_of_new (Or.inr (Or.inr rfl)),
+                (d.subRel_newEdge₂_iff hS).2 (Or.inl rfl)⟩, hz⟩
+            · exact ⟨d.newVertex, ⟨d.mem_subdivideEdge_cells_of_new (Or.inl rfl),
+                (d.subRel_newEdge₂_iff hS).2 (Or.inr (Or.inl rfl))⟩, hz⟩
+          · exact ⟨d.right, ⟨hright, (d.subRel_newEdge₂_iff hS).2 (Or.inr (Or.inr rfl))⟩, hz⟩
+        · rintro ⟨σ, ⟨-, hσsub⟩, hz⟩
+          rcases (d.subRel_newEdge₂_iff hS).1 hσsub with rfl | rfl | rfl
+          · exact Or.inl (Or.inl hz)
+          · exact Or.inl (Or.inr hz)
+          · exact Or.inr hz
+
+end IsRefinement
+
+end SubdivData
+
 end CellStructure
+
+/-! ### The geometric content of one 2-cell split
+
+`thm:general-crosscut` is what the induction step of assertions (i) and (vii) applies at each
+split. The two hypotheses it still carries on `main` — `thm:jordan` and `HasArcCollars` — are
+threaded through verbatim; both are being discharged elsewhere. -/
+
+variable {C P A₁ A₂ : Set Plane} {p q : Plane}
+
+/-- The crosscut meets the Jordan domain exactly in its own interior points. -/
+theorem IsCrosscut.inside_inter (h : IsCrosscut C P p q) : inside C ∩ P = P \ {p, q} := by
+  refine Set.Subset.antisymm (fun z hz => ⟨hz.2, fun hzpq => ?_⟩) fun z hz =>
+    ⟨h.sdiff_subset hz, hz.1⟩
+  rcases hzpq with rfl | rfl
+  exacts [inside_subset_compl hz.1 h.left_mem, inside_subset_compl hz.1 h.right_mem]
+
+/-- **The Jordan domain is the disjoint union of the two sides and the open crosscut.** This is
+the shape assertion (i) consumes at a 2-cell split: the old open 2-cell is partitioned into the
+two new open 2-cells together with the open cells of the ear (here the ear is one open edge,
+its two endpoints being old cells). -/
+theorem IsCrosscut.inside_eq_split (hjordan : ∀ S : Set Plane, IsJordanCurve S → IsSeparating S)
+    (h : IsCrosscut C P p q) (hcut : IsCutPair C p q A₁ A₂)
+    (hcollars : HasArcCollars (inside C) P) :
+    inside C = inside (A₁ ∪ P) ∪ inside (A₂ ∪ P) ∪ (P \ {p, q}) := by
+  conv_lhs => rw [← Set.sdiff_union_inter (inside C) P]
+  rw [h.inside_diff_eq hjordan hcut hcollars, h.inside_inter]
+
+/-- Each side misses the crosscut. -/
+theorem IsCrosscut.disjoint_side_crosscut
+    (hjordan : ∀ S : Set Plane, IsJordanCurve S → IsSeparating S)
+    (h : IsCrosscut C P p q) (hcut : IsCutPair C p q A₁ A₂) :
+    Disjoint (inside (A₁ ∪ P)) (P \ {p, q}) :=
+  Set.disjoint_left.2 fun _ hz hz' => (h.side_subset hjordan hcut hz).2 hz'.1
+
+/-- **One 2-cell split, geometrically** — the induction step of assertions (i) and (vii),
+assembled from `Schoenflies.general_crosscut`.
+
+The old open 2-cell `Int(C)` is the disjoint union of the two new open 2-cells and the open
+crosscut; each new open 2-cell is open and nonempty; and the closure of each is that open
+2-cell together with its own boundary curve `Aᵢ ∪ P`, which is "every closed cell is the union
+of its open subcells" for the two new 2-cells. -/
+theorem crosscut_cell_partition (hjordan : ∀ S : Set Plane, IsJordanCurve S → IsSeparating S)
+    (h : IsCrosscut C P p q) (hcut : IsCutPair C p q A₁ A₂)
+    (hcollars : HasArcCollars (inside C) P) :
+    inside C = inside (A₁ ∪ P) ∪ inside (A₂ ∪ P) ∪ (P \ {p, q}) ∧
+      Disjoint (inside (A₁ ∪ P)) (inside (A₂ ∪ P)) ∧
+      Disjoint (inside (A₁ ∪ P)) (P \ {p, q}) ∧
+      Disjoint (inside (A₂ ∪ P)) (P \ {p, q}) ∧
+      IsOpen (inside (A₁ ∪ P)) ∧ IsOpen (inside (A₂ ∪ P)) ∧
+      (inside (A₁ ∪ P)).Nonempty ∧ (inside (A₂ ∪ P)).Nonempty ∧
+      closure (inside (A₁ ∪ P)) = inside (A₁ ∪ P) ∪ (A₁ ∪ P) ∧
+      closure (inside (A₂ ∪ P)) = inside (A₂ ∪ P) ∪ (A₂ ∪ P) :=
+  ⟨h.inside_eq_split hjordan hcut hcollars, h.disjoint_sides hjordan hcut,
+    h.disjoint_side_crosscut hjordan hcut, h.disjoint_side_crosscut hjordan hcut.symm,
+    h.isOpen_side hjordan hcut, h.isOpen_side hjordan hcut.symm,
+    h.side_nonempty hjordan hcut, h.side_nonempty hjordan hcut.symm,
+    h.closure_side hjordan hcut, h.closure_side hjordan hcut.symm⟩
 
 end Schoenflies

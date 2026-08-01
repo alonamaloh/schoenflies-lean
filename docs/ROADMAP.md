@@ -116,8 +116,8 @@ while the Jordan curve theorem was still open.
 | `lem:skeleton-crosscuts` | partial | `AccessibleJoin.lean` — the final extraction paragraph only |
 | `lem:tangent-dense` | open | needs `thm:jordan` |
 | `prop:initial-pair` | open | needs `thm:general-crosscut` |
-| `def:generated-structure`, `rem:intermediate-disconnection` | open | the inductive closure of the two elementary operations |
-| `lem:cellulation-invariants` | open | **the spine of Part II**: nine assertions by mutual induction over the two constructors, resting on `thm:general-crosscut` |
+| `def:generated-structure`, `rem:intermediate-disconnection` | done | `GeneratedStructure.lean` — `CellStructure.subdivideEdge`, `CellStructure.splitFace`, `GeneratedStructure` (base structure a parameter; the base case is `prop:initial-pair`, supplied by its producer) |
+| `lem:cellulation-invariants` | partial | `GeneratedStructure.lean`. **Done by induction**: (iii), (v), (vi) and abstract (viii), bundled as `CellStructure.CombInvariants` and closed by `GeneratedStructure.combInvariants`. **Done**: (iv), as `SubdivData.parent`/`SplitData.parent` with `sub_parent` (the *characterisation* of the parent as the unique least old closed cell is not formalized). **Done from (i)**: (ii) `frontier_property`, (viii) `face_eq`, (ix) `sub_iff_subset_closure` + `subset_closure_congr`, all against `Realization.IsCellDecomposition` as hypothesis. **Open**: (i) for the split constructor and (vii) throughout — (i) for the subdivision constructor is `SubdivData.IsRefinement.isCellDecomposition`; the geometric input for the split is `crosscut_cell_partition` |
 | `lem:star-intersection`, `lem:refinement-compatibility`, `lem:star-face-mesh`, `rem:inductive-invariants` | open | all rest on `lem:cellulation-invariants` |
 | `lem:polygonal-side-accessibility` | open | needs `lem:local-skeleton-structure` in full |
 | `thm:finite-transfer` | open | the largest single statement in the manuscript: twelve internal prerequisites |

@@ -102,6 +102,22 @@ These cost real time to discover. Do not rediscover them.
   `Convex.isPreconnected`, `AffineMap.lineMap`, `AffineMap.lineMap_continuous`,
   `IsPreconnected.subset_connectedComponentIn`, `isPreconnected_connectedComponentIn`,
   `connectedComponentIn_subset`, `mem_connectedComponentIn`, `IsOpen.frontier_eq`.
+- **`open unitInterval` makes `σ` a *notation*** (for `unitInterval.symm`), so any binder named
+  `σ` fails to parse, with "unexpected token 'σ'" and no hint as to why. `Curve.lean`,
+  `Subarc.lean` and `InitialPair.lean` open it; the cell-structure modules use `σ` freely as a
+  cell binder and do not. Name your binders accordingly, and do not add `open unitInterval` to a
+  module that uses `σ`.
+- **`rw [Realization.edgeSet_graph]` fails once the goal has unfolded `R.graph`** to
+  `map R.pos S.skel`, which happens whenever the goal came from applying an `isDrawing` field.
+  Use `rw [edgeSet_map]` there.
+- **`g.symm.pos_apply` cannot be used under `rw`.** `SkeletonHomeo.symm_toFun` is `rfl`, but `rw`
+  looks for the syntactic `g.symm.toFun`. Introduce a `have` with an explicit type ascription.
+- **`Graph.union`'s lemmas are in this repo's `Schoenflies/Graph/TwoConnected.lean`**, not in
+  Mathlib's `Combinatorics/Graph/Lattice.lean`.
+- **`Graph.map` relabels vertices only**, keeping edge names. There is no edge-relabelling in
+  Mathlib and none in this repo; if you think you need one, read the note on `InitialCell.aux` in
+  `Schoenflies/InitialGenerated.lean` first — the supply of fresh names was solved by giving the
+  naming type a spare constructor, not by relabelling.
 - **Confirm every other Mathlib name by grepping** the source at
   `/home/alvaro/claude/schoenflies-lean/.lake/packages/mathlib/Mathlib`. Citing a lemma that
   does not exist in this version wastes more time than looking it up.

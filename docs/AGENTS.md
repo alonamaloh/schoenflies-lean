@@ -44,6 +44,16 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 ## Hard requirements
 
+- **Commit early and often.** As soon as any coherent piece compiles, commit it — and keep
+  committing as you go. Do not wait for the module to be finished. A `wip: <what is done so
+  far>` commit is worth far more than an uncommitted better one.
+
+  This is not bookkeeping. One wave was cut short partway through by an account spend limit,
+  killing seven agents mid-run. The only work that survived was work already committed: two
+  agents had committed a partial module and their branches were merged and are on `main`; three
+  had not, and everything they had done was lost. Your worktree is not a safe place to leave
+  work.
+
 - **No `sorry`, no `admit`, no `native_decide`.** A module that does not compile clean is not
   done. If you cannot finish a declaration, say so explicitly in your report and leave the
   declaration OUT of the file rather than stubbing it.

@@ -43,6 +43,8 @@ the density arguments of `lem:accessible-dense`, which need `basic_piece_inside_
 * `image_isRelOpen` — a parametrisation is an open map onto its arc; `openArc_isRelOpen` and
   `openArc_subarc_isRelOpen` are the "relatively open subarcs" of `lem:jordan-circle`.
 * `basic_piece_inside_ball` — the subarc basis.
+* `IsArcBetween.left_mem_closure_diff`, `…right_mem_closure_diff` — an endpoint of an arc is a
+  limit of its interior.
 -/
 
 open Set unitInterval
@@ -271,5 +273,31 @@ theorem basic_piece_inside_ball (hc : ContinuousOn f I) {x : Plane} (hx : x ∈ 
     rw [Real.dist_eq, abs_lt]
     exact ⟨by linarith [ht.1], by linarith [ht.2]⟩
   exact Metric.mem_ball.mpr (hclose htI this)
+
+/-! ### The endpoints are limits of the interior -/
+
+/-- **An endpoint of an arc is a limit of its interior.** This is what turns "the closure of the
+cell meets `C` in one arc only" into a statement about the *endpoints* of a second crosscut,
+which is where the blueprint's contradiction lives; it is also what puts the two ends of an ear
+on the frontier of the face the ear's interior lies in. -/
+theorem IsArcBetween.left_mem_closure_diff {A : Set Plane} {p q : Plane}
+    (h : IsArcBetween A p q) : p ∈ closure (A \ {p, q}) := by
+  obtain ⟨f, hc, hi, himg, h0, h1⟩ := h
+  have hEq : A \ {p, q} = f '' Ioo 0 1 := by
+    have hoa := openArc_eq_diff (f := f) hi
+    rw [openArc] at hoa
+    rw [← himg, ← h0, ← h1, ← hoa]
+  -- The endpoint is the limit of the interior as the parameter tends to `0`.
+  have hcw : ContinuousWithinAt f (Ioo (0 : ℝ) 1) 0 := (hc 0 zero_mem_I).mono Ioo_subset_I
+  have hcl : (0 : ℝ) ∈ closure (Ioo (0 : ℝ) 1) := by
+    rw [closure_Ioo (by norm_num : (0 : ℝ) ≠ 1)]; exact ⟨le_refl 0, by norm_num⟩
+  have hmem := hcw.mem_closure_image hcl
+  rw [h0] at hmem
+  rwa [hEq]
+
+theorem IsArcBetween.right_mem_closure_diff {A : Set Plane} {p q : Plane}
+    (h : IsArcBetween A p q) : q ∈ closure (A \ {p, q}) := by
+  have hrev := h.reverse.left_mem_closure_diff
+  rwa [Set.pair_comm q p] at hrev
 
 end Schoenflies

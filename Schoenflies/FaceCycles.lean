@@ -100,7 +100,6 @@ Root `Graph`, as fixed by `Schoenflies/Graph/Walk.lean`. The two arc lemmas are 
   `Graph.face_union_eq_of_disjoint` — "all other faces are unchanged".
 * `Graph.IsDrawing.mono` — the current subgraph is itself a plane graph.
 * `Schoenflies.IsArcBetween.isConnected_diff`,
-  `Schoenflies.IsArcBetween.left_mem_closure_diff`, `…right_mem_closure_diff`,
   `Graph.IsDrawing.edgesCover_inter_pointSet`, `Graph.IsDrawing.exists_face_of_ear`,
   `Graph.IsDrawing.ends_mem_frontier_face` — "its interior is connected and disjoint from the
   current graph, so it lies in one current face `F` … the ear's two endpoints are limits of its
@@ -623,24 +622,6 @@ theorem IsDrawing.mono (hG : IsDrawing G drawing) (hBG : B ≤ G) : IsDrawing B 
       ⟨y, (hBG.isLink_iff he).2 hy⟩, ⟨y', (hBG.isLink_iff hf).2 hy'⟩⟩
 
 /-! ### The ear's ends lie on the boundary of the face its interior lies in -/
-
-/-- **An endpoint of an arc is a limit of the arc's interior.** General, and not in
-`Schoenflies/Subarc.lean`; the integrator may want to hoist it alongside
-`Schoenflies.IsArcBetween.isConnected_diff`. -/
-theorem _root_.Schoenflies.IsArcBetween.left_mem_closure_diff {A : Set Plane} {p q : Plane}
-    (h : IsArcBetween A p q) : p ∈ closure (A \ {p, q}) := by
-  obtain ⟨f, hc, hi, himg, hp, hq⟩ := h
-  have hrw : A \ {p, q} = f '' Ioo 0 1 := by
-    rw [show A \ {p, q} = openArc f by rw [openArc_eq_diff hi, himg, hp, hq], openArc]
-  rw [hrw, ← hp]
-  refine ((hc 0 zero_mem_I).mono Ioo_subset_I).mem_closure_image ?_
-  rw [closure_Ioo (by norm_num : (0 : ℝ) ≠ 1)]
-  exact zero_mem_I
-
-theorem _root_.Schoenflies.IsArcBetween.right_mem_closure_diff {A : Set Plane} {p q : Plane}
-    (h : IsArcBetween A p q) : q ∈ closure (A \ {p, q}) := by
-  rw [Set.pair_comm]
-  exact h.reverse.left_mem_closure_diff
 
 /-- **"The ear's two endpoints are limits of its interior, which lies in `F`, so they lie on
 `∂F`."** This is the hypothesis `thm:polygonal-crosscut` needs of a crosscut: its two ends are

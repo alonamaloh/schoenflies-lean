@@ -74,9 +74,9 @@ those particular sets the realization has to reproduce.
 
 ## Blueprint
 
-* `IsArcBetween.isPreconnected_diff`, `IsArcBetween.left_mem_closure_diff`,
-  `IsArcBetween.right_mem_closure_diff` — the interior of an arc is connected and has both
-  endpoints in its closure. General-purpose; they belong in `Subarc.lean`.
+* `IsArcBetween.isPreconnected_diff` — the interior of an arc is connected. General-purpose;
+  it belongs in `Subarc.lean`, beside `IsArcBetween.left_mem_closure_diff`, which used to be
+  stated here and now lives there.
 * `IsPolygonalCrosscut.connectedComponentIn_cover_eq` — the region the crosscut enters is the
   component of any of its points off `C`.
 * `IsPolygonalCrosscut.inter_cover_nonempty` — `cor:alternating-crosscuts`, core form.
@@ -98,7 +98,9 @@ namespace Schoenflies
 /-! ## The interior of an arc
 
 `openArc f` is `f '' Ioo 0 1`; for an arc between two named points it is the arc minus those
-points (`openArc_eq_diff`). Two facts about it are all the corollary needs. -/
+points (`openArc_eq_diff`). Two facts about it are all the corollary needs: it is connected,
+proved here, and each endpoint is in its closure, which is
+`Schoenflies.IsArcBetween.left_mem_closure_diff` of `Schoenflies/Subarc.lean`. -/
 
 variable {A : Set Plane} {p q : Plane}
 
@@ -117,29 +119,6 @@ theorem IsArcBetween.isPreconnected_diff (h : IsArcBetween A p q) :
   obtain ⟨f, hc, hEq⟩ := h.diff_eq_openArc
   rw [hEq]
   exact isPreconnected_Ioo.image _ (hc.mono Ioo_subset_I)
-
-/-- **An endpoint of an arc is a limit of its interior.** This is what turns "the closure of the
-cell meets `C` in one arc only" into a statement about the *endpoints* of the second crosscut,
-which is where the blueprint's contradiction lives. -/
-theorem IsArcBetween.left_mem_closure_diff (h : IsArcBetween A p q) :
-    p ∈ closure (A \ {p, q}) := by
-  obtain ⟨f, hc, hi, himg, h0, h1⟩ := h
-  have hEq : A \ {p, q} = f '' Ioo 0 1 := by
-    have hoa := openArc_eq_diff (f := f) hi
-    rw [openArc] at hoa
-    rw [← himg, ← h0, ← h1, ← hoa]
-  -- The endpoint is the limit of the interior as the parameter tends to `0`.
-  have hcw : ContinuousWithinAt f (Ioo (0 : ℝ) 1) 0 := (hc 0 zero_mem_I).mono Ioo_subset_I
-  have hcl : (0 : ℝ) ∈ closure (Ioo (0 : ℝ) 1) := by
-    rw [closure_Ioo (by norm_num : (0 : ℝ) ≠ 1)]; exact ⟨le_refl 0, by norm_num⟩
-  have hmem := hcw.mem_closure_image hcl
-  rw [h0] at hmem
-  rwa [hEq]
-
-theorem IsArcBetween.right_mem_closure_diff (h : IsArcBetween A p q) :
-    q ∈ closure (A \ {p, q}) := by
-  have hrev := h.reverse.left_mem_closure_diff
-  rwa [Set.pair_comm q p] at hrev
 
 /-! ## The corollary -/
 

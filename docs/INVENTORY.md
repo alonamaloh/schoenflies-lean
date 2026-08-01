@@ -401,3 +401,7 @@ checker under proof irrelevance.
 ## Schoenflies/UniformBound.lean  (59 lines)
 
 `Schoenflies.exists_pos_le_of_finite`, `Schoenflies.exists_pos_forall_of_finite`
+
+## Schoenflies/Windows.lean  (273 lines)
+
+`Schoenflies.Plane.eq_of_supDist_eq_zero`, `Schoenflies.supRadius`, `Schoenflies.supDist_continuousOn`, `Schoenflies.exists_supRadius_eq`, `Schoenflies.supRadius_le`, `Schoenflies.supRadius_nonneg`, `Schoenflies.supRadius_pos`, `Schoenflies.notMem_of_supDist_lt_supRadius`, `Schoenflies.supRadius_le_add`, `Schoenflies.abs_supRadius_sub_le`, `Schoenflies.openSquare_supRadius_subset_inside`, `Schoenflies.windowRadius`, `Schoenflies.window`, `Schoenflies.openWindow`, `Schoenflies.windowRadius_pos`, `Schoenflies.windowRadius_lt_supRadius`, `Schoenflies.sub_windowRadius_le`, `Schoenflies.le_windowRadius`, `Schoenflies.window_subset_inside`, `Schoenflies.mem_openWindow_of_supDist_lt`, `Schoenflies.exists_mem_rat_supDist_lt`

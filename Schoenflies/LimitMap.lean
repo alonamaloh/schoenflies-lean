@@ -226,6 +226,192 @@ end IsCellDecomposition
 
 end Realization
 
+/-! ### The tower of matched cellulations
+
+Every field below is an obligation on whoever eventually constructs the sequence of
+decompositions, and there is nothing here that the limit argument does not use. -/
+
+/-- **The nesting, matching and shrinking properties of a sequence of matched cellulations**, and
+nothing else. The blueprint's "we now forget how the decompositions were constructed" is this
+structure.
+
+`str n` is the stage-`n` abstract matched cell structure; `src n` and `tgt n` are its two
+realizations, in the closed Jordan domain `dom` and in the closed square `dom'`; `skelHomeo n` is
+the stage-`n` skeleton homeomorphism `g_n`. Consecutive stages are related by a pair of
+`Realization.Refines` instances **sharing one parent map** `par n` — that sharing is
+`lem:refinement-compatibility`(c), "corresponding cells have corresponding parents", under the
+representation of `CombinatorialInvariance.lean`, where cells are abstract names.
+
+The shrinking clauses are `prop:shrinking-stars`, and they are deliberately asymmetric, exactly
+as the blueprint states them: the *target* star diameters are bounded uniformly by a null
+sequence `eps`, while the *source* star diameters are only assumed to tend to zero pointwise, and
+only at points of the open region. -/
+structure LimitTower (γ : Type*) [Nonempty γ] where
+  /-- The stage-`n` abstract matched cell structure. -/
+  str : ℕ → CellStructure γ
+  /-- The source realization, in the closed Jordan domain. -/
+  src : ∀ n, (str n).Realization
+  /-- The target realization, in the closed square. -/
+  tgt : ∀ n, (str n).Realization
+  /-- The stage-`n` skeleton homeomorphism `g_n`. -/
+  skelHomeo : ∀ n, SkeletonHomeo (src n) (tgt n)
+  /-- The composite parent map from stage `n + 1` to stage `n`, shared by the two sides. -/
+  par : ℕ → γ → γ
+  /-- The closed source domain `C ∪ D`. -/
+  dom : Set Plane
+  /-- The source outer curve `C`. -/
+  bdry : Set Plane
+  /-- The closed target domain `Q`. -/
+  dom' : Set Plane
+  /-- The target outer curve `S`. -/
+  bdry' : Set Plane
+  /-- The uniform target mesh: `2 ε_n` of the blueprint. -/
+  eps : ℕ → ℝ
+  /-- **Assertions (i) and (ii)** on the source side. -/
+  srcDecomp : ∀ n, (src n).IsCellDecomposition dom
+  /-- **Assertions (i) and (ii)** on the target side. -/
+  tgtDecomp : ∀ n, (tgt n).IsCellDecomposition dom'
+  /-- **Assertions (iii), (v), (vi)** and the rest of the combinatorial invariants. -/
+  comb : ∀ n, (str n).CombInvariants
+  /-- Consecutive source stages refine, along `par n`. -/
+  srcRefines : ∀ n, (src (n + 1)).Refines (src n) (par n)
+  /-- Consecutive target stages refine, along the *same* `par n`. -/
+  tgtRefines : ∀ n, (tgt (n + 1)).Refines (tgt n) (par n)
+  /-- The realized source outer cycle is `C`, at every stage. -/
+  srcOuterSet : ∀ n, (src n).outerSet = bdry
+  /-- The realized target outer cycle is `S`, at every stage. -/
+  tgtOuterSet : ∀ n, (tgt n).outerSet = bdry'
+  /-- `C ∪ D` is closed. -/
+  isClosed_dom : IsClosed dom
+  /-- `Q` is closed. -/
+  isClosed_dom' : IsClosed dom'
+  /-- `C ∪ D` is bounded. Not in the blueprint, and not optional: `Metric.diam` is `0` on an
+  unbounded set. -/
+  isBounded_dom : IsBounded dom
+  /-- `Q` is bounded, for the same reason. -/
+  isBounded_dom' : IsBounded dom'
+  /-- `D = Int(C)` is open. -/
+  isOpen_region : IsOpen (dom \ bdry)
+  /-- `Q°` is open. -/
+  isOpen_region' : IsOpen (dom' \ bdry')
+  /-- The realized source skeletons grow. -/
+  skeletonSet_mono : ∀ n, (src n).skeletonSet ⊆ (src (n + 1)).skeletonSet
+  /-- **The skeleton maps are nested**: "an edge subdivision leaves the skeleton map unchanged as
+  a point map, and a 2-cell split extends it by the chosen homeomorphism on the new ear". -/
+  skelHomeo_succ : ∀ n,
+    Set.EqOn (skelHomeo (n + 1)).toFun (skelHomeo n).toFun (src n).skeletonSet
+  /-- **`prop:shrinking-stars`, the uniform half**: every stage-`n` target star has diameter at
+  most `eps n`. -/
+  diam_tgtStar_le : ∀ n, ∀ ⦃σ⦄, σ ∈ (str n).cells → diam ((tgt n).star σ) ≤ eps n
+  /-- …and `eps` is a null sequence. -/
+  tendsto_eps : Tendsto eps atTop (nhds 0)
+  /-- **`prop:shrinking-stars`, the pointwise half**: at every point of the open region the
+  source star diameters tend to zero. -/
+  tendsto_diam_srcStar : ∀ ⦃x⦄, x ∈ dom \ bdry →
+    Tendsto (fun n => diam ((src n).star ((src n).carrier x))) atTop (nhds 0)
+
+namespace LimitTower
+
+variable [Nonempty γ] (L : LimitTower γ) {x y z : Plane} {m n : ℕ} {σ : γ}
+
+/-- The open source region `D = Int(C)`. -/
+def region : Set Plane := L.dom \ L.bdry
+
+/-- The open target region `Q°`. -/
+def region' : Set Plane := L.dom' \ L.bdry'
+
+/-- `St_{Γ'_n}(σ'_n(x))`, written `T_n(x)` in the blueprint: the closed target star of the cell
+corresponding to the source carrier of `x`. -/
+def tgtStar (n : ℕ) (x : Plane) : Set Plane := (L.tgt n).star ((L.src n).carrier x)
+
+/-- `St_{Γ_n}(x)`, the closed source star of the source carrier of `x`. -/
+def srcStar (n : ℕ) (x : Plane) : Set Plane := (L.src n).star ((L.src n).carrier x)
+
+variable {L}
+
+theorem region_subset_dom : L.region ⊆ L.dom := Set.sdiff_subset
+
+theorem region'_subset_dom' : L.region' ⊆ L.dom' := Set.sdiff_subset
+
+/-! #### Stars of the tower -/
+
+theorem srcStar_subset_dom (n : ℕ) (σ : γ) : (L.src n).star σ ⊆ L.dom :=
+  ((L.srcDecomp n).star_subset_closure_domain (L.comb n)).trans L.isClosed_dom.closure_subset
+
+theorem tgtStar_subset_dom' (n : ℕ) (σ : γ) : (L.tgt n).star σ ⊆ L.dom' :=
+  ((L.tgtDecomp n).star_subset_closure_domain (L.comb n)).trans L.isClosed_dom'.closure_subset
+
+theorem isBounded_tgt_star (n : ℕ) (σ : γ) : IsBounded ((L.tgt n).star σ) :=
+  (L.tgtDecomp n).isBounded_star (L.comb n) L.isBounded_dom'
+
+theorem isBounded_src_star (n : ℕ) (σ : γ) : IsBounded ((L.src n).star σ) :=
+  (L.srcDecomp n).isBounded_star (L.comb n) L.isBounded_dom
+
+theorem mem_srcStar_self (hx : x ∈ L.dom) (n : ℕ) : x ∈ L.srcStar n x :=
+  (L.srcDecomp n).mem_star_carrier hx
+
+/-- **`lem:refinement-compatibility`(b)** at a point: `T_{n+1}(x) ⊆ T_n(x)`. -/
+theorem tgtStar_succ_subset (hx : x ∈ L.dom) (n : ℕ) : L.tgtStar (n + 1) x ⊆ L.tgtStar n x :=
+  (L.srcRefines n).target_star_subset (L.tgtRefines n) (L.comb (n + 1)) (L.srcDecomp n)
+    (L.srcDecomp (n + 1)) hx
+
+theorem tgtStar_antitone (hx : x ∈ L.dom) : Antitone (fun n => L.tgtStar n x) :=
+  antitone_nat_of_succ_le (L.tgtStar_succ_subset hx)
+
+theorem tgtStar_nonempty (hx : x ∈ L.dom) (n : ℕ) : (L.tgtStar n x).Nonempty :=
+  (L.tgtDecomp n).star_nonempty ((L.srcDecomp n).mem_cells_carrier hx)
+
+theorem isCompact_tgtStar (n : ℕ) (x : Plane) : IsCompact (L.tgtStar n x) :=
+  (L.tgtDecomp n).isCompact_star (L.comb n) L.isBounded_dom'
+
+theorem diam_tgtStar (hx : x ∈ L.dom) (n : ℕ) : diam (L.tgtStar n x) ≤ L.eps n :=
+  L.diam_tgtStar_le n ((L.srcDecomp n).mem_cells_carrier hx)
+
+theorem tendsto_diam_tgtStar (hx : x ∈ L.dom) :
+    Tendsto (fun n => diam (L.tgtStar n x)) atTop (nhds 0) :=
+  squeeze_zero (fun _ => diam_nonneg) (L.diam_tgtStar hx) L.tendsto_eps
+
+/-! #### The limit map -/
+
+theorem exists_eq_singleton_iInter_tgtStar (hx : x ∈ L.dom) :
+    ∃ p, ⋂ n, L.tgtStar n x = {p} :=
+  Plane.eq_singleton_iInter_of_diam_tendsto_zero (L.tgtStar_nonempty hx)
+    (fun n => L.isCompact_tgtStar n x) (L.tgtStar_antitone hx) (L.tendsto_diam_tgtStar hx)
+
+open scoped Classical in
+/-- **The limit map `F`**: the unique point of `⋂ₙ T_n(x)`. Junk off the closed domain; every
+lemma about it carries `x ∈ L.dom`. -/
+noncomputable def F (L : LimitTower γ) (x : Plane) : Plane :=
+  if h : ∃ p, ⋂ n, L.tgtStar n x = {p} then h.choose else 0
+
+/-- **The characterising property of `F`.** -/
+theorem iInter_tgtStar_eq (hx : x ∈ L.dom) : ⋂ n, L.tgtStar n x = {L.F x} := by
+  rw [F, dif_pos (L.exists_eq_singleton_iInter_tgtStar hx)]
+  exact (L.exists_eq_singleton_iInter_tgtStar hx).choose_spec
+
+theorem F_mem_iInter (hx : x ∈ L.dom) : L.F x ∈ ⋂ n, L.tgtStar n x := by
+  rw [L.iInter_tgtStar_eq hx]
+  exact rfl
+
+theorem F_mem_tgtStar (hx : x ∈ L.dom) (n : ℕ) : L.F x ∈ L.tgtStar n x :=
+  Set.mem_iInter.1 (L.F_mem_iInter hx) n
+
+/-- Uniqueness: anything in every `T_n(x)` is `F x`. -/
+theorem eq_F_of_mem_iInter (hx : x ∈ L.dom) (hz : ∀ n, z ∈ L.tgtStar n x) : z = L.F x := by
+  have : z ∈ ⋂ n, L.tgtStar n x := Set.mem_iInter.2 hz
+  rwa [L.iInter_tgtStar_eq hx, Set.mem_singleton_iff] at this
+
+theorem F_mem_dom' (hx : x ∈ L.dom) : L.F x ∈ L.dom' :=
+  tgtStar_subset_dom' 0 _ (L.F_mem_tgtStar hx 0)
+
+/-- `F x` is within `eps n` of anything in the stage-`n` target star of `x`. -/
+theorem dist_F_le_of_mem_tgtStar (hx : x ∈ L.dom) (hz : z ∈ L.tgtStar n x) :
+    dist (L.F x) z ≤ L.eps n :=
+  le_trans (dist_le_diam_of_mem (isBounded_tgt_star n _) (L.F_mem_tgtStar hx n) hz)
+    (L.diam_tgtStar hx n)
+
+end LimitTower
+
 end CellStructure
 
 end Schoenflies

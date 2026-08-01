@@ -35,7 +35,8 @@ The blueprint says "the blocks may be chosen so that consecutive edge and vertex
 in the prescribed small rectangles around the radial segments, while the closures of all
 nonadjacent blocks are disjoint" without naming the constants. `Schoenflies.StripData` names
 them: a cone radius `R`, a trim `lam` by which each edge block stops short of its endpoints, and
-a half-width `rho`. `Schoenflies.exists_stripData` chooses them, in this order:
+a half-width `rho`. They should be chosen in this order (this is the recipe the unproved
+`exists_stripData` has to follow):
 
 1. `R` from the vertex separations, from the distance of each vertex to the nonincident edges
    (with a factor `2` of slack, spent in `dist_core_vertex`), and from the prescribed open set;
@@ -52,8 +53,26 @@ a half-width `rho`. `Schoenflies.exists_stripData` chooses them, in this order:
 * `Plane.germs_split'` — the sign-free vertex matching inside Lemma 1.8.
 * `Schoenflies.ClosedPolygon` — a simple closed polygonal curve presented by its cyclic vertex
   list.
-* `Schoenflies.StripData`, `Schoenflies.exists_stripData` — the choice of constants.
-* `Schoenflies.ClosedPolygon.collar` — Lemma 1.8 (a).
+* `Schoenflies.StripData` — the choice of constants, as a hypothesis.
+* `Schoenflies.StripData.sideL`, `.sideR`, `.nbhd`, `.sideL_disjoint_sideR` — the two labelled
+  sides of the collar, and that they are disjoint.
+
+## Status — what is NOT here
+
+Lemma 1.8 (a) is **not yet proved**. This module builds its apparatus and the hard half of its
+content, and two obligations remain:
+
+1. **`exists_stripData` is not proved.** Every result below is stated for a given
+   `D : StripData P`, and nothing yet produces one. Until it does, the module is conditional:
+   the constants are described and constrained, but never shown to exist. Discharging it means
+   choosing `R`, then `lam := R / 5`, then `rho`, in the order the section above sets out; all
+   but the last are separations of compact sets, and the last is the germ threshold.
+2. **Each side is not yet shown connected**, and `nbhd \ carrier = sideL ∪ sideR` is not
+   stated. Disjointness is proved (`sideL_disjoint_sideR`); connectedness is the blueprint's
+   "consecutive edge and vertex blocks overlap in a nonempty labelled half-strip, so the union
+   of all left pieces is connected", which is a chaining argument around the cyclic vertex list.
+
+`ClosedPolygon.collar` below is a *definition*, not the theorem.
 -/
 
 open Metric Set
@@ -608,7 +627,7 @@ end ClosedPolygon
 nonadjacent closures are disjoint", with every constant named. The three numbers are a cone
 radius `R`, a trim `lam` and a half-width `rho`; the separation hypotheses are exactly the
 instances of Lemma 1.4 (b) that the construction consumes, and `germ` is the vertex-matching
-threshold. `Schoenflies.exists_stripData` produces them. -/
+threshold. Producing them is the unproved `exists_stripData`; see the Status section. -/
 
 /-- The constants of the collar of a simple closed polygon. -/
 structure StripData (P : ClosedPolygon m) where

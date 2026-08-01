@@ -39,3 +39,5 @@ import Schoenflies.Graph.RelativeEar
 import Schoenflies.CrosscutCells
 import Schoenflies.ModelCurve
 import Schoenflies.CombinatorialInvariance
+import Schoenflies.Strip
+import Schoenflies.SquareMover

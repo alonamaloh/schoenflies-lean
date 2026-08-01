@@ -16,8 +16,13 @@ consumes it; `sorryAx` is not.
 Exit status is 1 if any declaration is unclean, or if any name in the source scan fails to
 resolve — the latter means the scanner and Lean disagree about what was declared, which is
 itself a defect worth fixing, since the same scanner gates merges for duplicate names.
+
+The scratch file imports every module found on disk, NOT the root `Schoenflies`. A worker
+adding a leaf module is told not to edit `Schoenflies.lean` — the integrator adds the import —
+so a root-only import made this gate fail on every branch it was supposed to certify, and
+three separate agents wasted time diagnosing it as their own bug.
 """
-import importlib.util, os, subprocess, sys, tempfile
+import glob, os, re, subprocess, sys
 
 ALLOWED = {"propext", "Classical.choice", "Quot.sound"}
 SCRATCH = "AxiomAudit.lean"
@@ -32,11 +37,16 @@ def load_scanner():
     return ns["scan"]
 
 
-owners, _ = load_scanner()()
+owners, per_file = load_scanner()()
 names = sorted(owners)
 
+# Import every module on disk, so that a leaf module not yet listed in Schoenflies.lean is
+# still audited. Module name is the path with separators as dots and the .lean suffix dropped.
+modules = sorted(p[: -len(".lean")].replace(os.sep, ".") for p in per_file)
+
 with open(SCRATCH, "w") as f:
-    f.write("import Schoenflies\n")
+    for m in modules:
+        f.write(f"import {m}\n")
     for n in names:
         f.write(f"#print axioms {n}\n")
 

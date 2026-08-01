@@ -12,12 +12,82 @@ import Schoenflies.Graph.K33Land
 /-!
 # The Jordan curve theorem
 
+The complement of a Jordan curve has exactly two regions, one bounded and one unbounded, and
+both have the curve as their boundary. That is `Schoenflies.IsSeparating C` — the very
+predicate `Schoenflies/CrosscutCells.lean` introduces and
+`Schoenflies.ClosedPolygon.polygonal_jordan` establishes for a polygon — so every consumer of
+the polygonal case applies verbatim to the general one, `inside C` and `outside C` included.
+
+Everything here is conditional on one hypothesis, carried explicitly through every statement
+that needs it:
+
+    harc : ∀ A : Set Plane, IsArc A → IsConnected Aᶜ
+
+which is `thm:arc-complement`, the complement of a simple arc is connected. Nothing else is
+assumed; in particular no part of `thm:jordan` itself is.
+
+## The two theorems
+
+`lem:accessible-dense` (`Schoenflies.accessible_dense`) says the points of `C` reachable from a
+fixed `x ∉ C` by a polygonal arc meeting `C` only at its endpoint are dense in `C`. Its proof
+is the blueprint's: delete a small open subarc `J₀`, leaving a simple arc whose complement is
+connected by `harc`; join `x` there to a point of another component of `Cᶜ`; the joining chain
+must cross `C`, and it can only do so inside `J₀`.
+
+`thm:jordan` (`Schoenflies.IsJordanCurve.isSeparating`) then needs "at most two components",
+which is `Schoenflies.not_three_components`, and the boundary clause, which is
+`lem:accessible-dense` again: an accessible point is a limit of the region it is accessible
+from, so `C` lies in the closure of each region and, being disjoint from both, in each
+frontier.
+
+## Three places where this departs from the blueprint's route
+
+**The first meeting is taken on a vertex list, not on a parametrisation.**
+`Schoenflies.exists_first_meeting` recurses on the list: on the first segment the first hit is
+the infimum of the hitting parameters, and if the first segment misses the obstacle it is
+swallowed by the component of the start and the recursion moves on. It returns the *initial
+chain*, so both consumers — the accessibility of the meeting point, and the third branch of a
+tripod — read off the same lemma.
+
+**The tripod is built without a graph.** The blueprint overlays the three access arcs
+(`lem:polygonal-overlay`), takes a minimal connected spanning subgraph, and extracts its unique
+degree-three vertex by `lem:three-leaf-tree`. `Schoenflies.exists_tripod` instead joins the
+first two terminals by a crosscut (`lem:accessible-endpoints`), runs a chain from the third
+terminal to that crosscut, and takes the first meeting: that meeting point *is* the branch
+vertex, and cutting the crosscut there (`IsArcBetween.exists_split`) gives the other two
+branches. Neither `Schoenflies.polygonal_overlay` nor `Graph.IsTree.three_leaves` is used.
+
+**The nine terminals are chosen in nine prescribed parameter windows.** The blueprint chooses
+them distinct — proving that a dense set meets a nonempty relatively open subarc infinitely
+often — and then *orders* the three on each closed arc `Q_j` to find the middle one `y_j`.
+`Schoenflies.exists_windows` supplies nine pairwise separated windows inside `(0,1)`, in three
+blocks of three; distinctness is then disjointness of the windows, the middle terminal of a
+block is always the one with row index `1`, and no order on the curve is ever constructed. The
+blueprint's `Q_j` never appears: only the parameter blocks `[t 0 j, t 2 j]` do.
+
 ## Blueprint
 
-* `Schoenflies.exists_first_meeting` — the workhorse of `lem:accessible-dense`.
+* `Schoenflies.exists_first_meeting_segment`, `Schoenflies.exists_first_meeting`,
+  `Schoenflies.exists_arc_to_first_meeting`, `Schoenflies.polyAccessible_first_meeting` — the
+  first-meeting machinery `lem:accessible-dense` and `thm:jordan` both run on. General enough
+  to be hoisted if a second module needs it.
+* `Schoenflies.PolyAccessible.mem_closure` — an accessible point of `∂Ω` lies in `closure Ω`.
+* `Schoenflies.IsLoop.compl_openArc` — `lem:jordan-circle` in the form used here: the curve
+  minus an open subarc is the complementary closed arc.
+* `Schoenflies.exists_polyAccessible_openArc`, `Schoenflies.accessible_dense` —
+  `lem:accessible-dense`, in the parameter form the proof produces and in the closure form.
+* `Schoenflies.exists_tripod` — the three internally disjoint branches of the blueprint's
+  `T_i`, at the H5 step of `thm:jordan`.
+* `Schoenflies.exists_windows`, `Schoenflies.uIcc_inter_uIcc_mid` — the choice of the nine
+  terminals and the middle-point bookkeeping that replaces "order `p_{1j}, p_{2j}, p_{3j}`
+  along `Q_j`".
+* `Schoenflies.not_three_components` — the `K(3,3)` half of `thm:jordan`, through
+  `Graph.IsArcK33.elim` (`cor:k33-subdivision`).
+* `Schoenflies.subset_closure_of_accessible_dense`, `Schoenflies.IsJordanCurve.isSeparating` —
+  `thm:jordan`.
 -/
 
-open Metric Set unitInterval
+open Bornology Metric Set unitInterval
 
 namespace Schoenflies
 
@@ -224,7 +294,7 @@ new topology. -/
 
 /-- **The curve minus an open subarc is the complementary closed arc.** -/
 theorem IsLoop.compl_openArc {f : ℝ → Plane} (hf : IsLoop f) {a b : ℝ}
-    (ha : a ∈ I) (hb : b ∈ I) (hb1 : b ≠ 1) (hab : a < b) :
+    (ha : a ∈ I) (hb : b ∈ I) (hab : a < b) :
     f '' I \ f '' Ioo a b = f '' Icc 0 a ∪ f '' Icc b 1 := by
   have halt1 : a < 1 := lt_of_lt_of_le hab hb.2
   have hmI : ∀ m ∈ Ioo a b, m ∈ I ∧ m ≠ 1 := fun m hm =>
@@ -283,12 +353,12 @@ theorem exists_polyAccessible_openArc (harc : ∀ A : Set Plane, IsArc A → IsC
   have hbI : b ∈ I := ⟨(ha.trans hab).le, hb.le⟩
   -- The curve minus the open subarc is a simple arc, so its complement is connected.
   set D : Set Plane := f '' Icc 0 a ∪ f '' Icc b 1 with hD
-  have hDeq : f '' I \ f '' Ioo a b = D := hf.compl_openArc haI hbI (ne_of_lt hb) hab
+  have hDeq : f '' I \ f '' Ioo a b = D := hf.compl_openArc haI hbI hab
   have hDarc : IsArc D :=
     (hf.outside_IsArcBetween haI hbI (ne_of_lt (hab.trans hb)) (ne_of_lt hb) hab).isArc
   have hDconn : IsConnected Dᶜ := harc D hDarc
   have hDopen : IsOpen Dᶜ := hDarc.isClosed.isOpen_compl
-  have hDsub : D ⊆ f '' I := hDeq ▸ diff_subset
+  have hDsub : D ⊆ f '' I := hDeq ▸ sdiff_subset
   have hxD : x ∈ Dᶜ := fun hcon => hx (hDsub hcon)
   -- A point in another component of the complement of the curve.
   obtain ⟨y, hyC, hyne⟩ : ∃ y ∈ (f '' I)ᶜ,
@@ -379,7 +449,7 @@ branch vertex. -/
 /-- **Three internally disjoint arcs from one point of a region to three accessible points of
 its complementary set.** The blueprint's `T_i` with its three branches, for `Ω` the `i`-th
 component and the three points the terminals `p_{ij}`. -/
-theorem exists_tripod (hΩopen : IsOpen Ω) (hΩconn : IsPreconnected Ω) (hCclosed : IsClosed C)
+theorem exists_tripod (hΩopen : IsOpen Ω) (hΩconn : IsPreconnected Ω)
     (hdisj : Disjoint Ω C) {a b c : Plane} (haC : a ∈ C) (hbC : b ∈ C) (hcC : c ∈ C)
     (hab : a ≠ b) (hac : a ≠ c) (hbc : b ≠ c)
     (ha : PolyAccessible Ω a) (hb : PolyAccessible Ω b) (hc : PolyAccessible Ω c) :
@@ -483,5 +553,350 @@ theorem exists_tripod (hΩopen : IsOpen Ω) (hΩconn : IsPreconnected Ω) (hCclo
   · exact hAmeet.subset
   · exact fun z hz => hPA ⟨hz.2, hAcov ▸ mem_union_left _ hz.1⟩
   · exact fun z hz => hPA ⟨hz.2, hAcov ▸ mem_union_right _ hz.1⟩
+
+/-! ### Nine parameter windows
+
+The blueprint chooses the nine terminals `p_{ij}` distinct and then *orders* the three on each
+arc `Q_j` to find the middle one `y_j`. Choosing them in nine prescribed, pairwise separated
+parameter windows does both jobs at once: distinctness is disjointness of the windows, and the
+middle one is always the terminal of the middle index. No order on the curve is ever
+constructed.
+
+The windows are `((6j + 2i + 2)/24, (6j + 2i + 3)/24)`, which for `i, j < 3` are nine disjoint
+intervals inside `(0, 1)`, ordered lexicographically by `(j, i)`. -/
+
+/-- Nine parameter windows strictly inside `(0, 1)`, in blocks of three: increasing the row
+index `i` within a block, or the block index `j`, moves past the end of the current window. -/
+theorem exists_windows : ∃ w : Fin 3 → Fin 3 → ℝ,
+    (∀ i j, 0 < w i j) ∧ (∀ i j, w i j + 1 / 24 < 1) ∧
+      (∀ i j k l : Fin 3, (j = l ∧ i.val < k.val) ∨ j.val < l.val →
+        w i j + 1 / 24 ≤ w k l) := by
+  refine ⟨fun i j => (6 * (j.val : ℝ) + 2 * (i.val : ℝ) + 2) / 24, ?_, ?_, ?_⟩
+  · intro i j
+    have h1 : (0 : ℝ) ≤ (j.val : ℝ) := Nat.cast_nonneg _
+    have h2 : (0 : ℝ) ≤ (i.val : ℝ) := Nat.cast_nonneg _
+    linarith
+  · intro i j
+    have h1 : ((j.val : ℝ)) ≤ 2 := by exact_mod_cast Nat.lt_succ_iff.1 j.isLt
+    have h2 : ((i.val : ℝ)) ≤ 2 := by exact_mod_cast Nat.lt_succ_iff.1 i.isLt
+    linarith
+  · rintro i j k l (⟨rfl, hik⟩ | hjl)
+    · have h : ((i.val : ℝ)) + 1 ≤ (k.val : ℝ) := by exact_mod_cast Nat.succ_le_of_lt hik
+      linarith
+    · have h : ((j.val : ℝ)) + 1 ≤ (l.val : ℝ) := by exact_mod_cast Nat.succ_le_of_lt hjl
+      have h1 : ((i.val : ℝ)) ≤ 2 := by exact_mod_cast Nat.lt_succ_iff.1 i.isLt
+      have h2 : (0 : ℝ) ≤ (k.val : ℝ) := Nat.cast_nonneg _
+      linarith
+
+/-- Two closed intervals sharing the endpoint `m`, one on each side of it, meet only there. -/
+theorem uIcc_inter_uIcc_mid {r s m : ℝ} (hr : r ≤ m) (hs : m ≤ s) :
+    uIcc r m ∩ uIcc s m ⊆ {m} := by
+  rw [uIcc_of_le hr, uIcc_of_ge hs]
+  rintro z ⟨⟨-, h2⟩, ⟨h3, -⟩⟩
+  exact le_antisymm h2 h3
+
+/-! ### At most two components
+
+The heart of `thm:jordan`. Three components would give three tripods, whose nine branches,
+extended along the curve to the three middle terminals, are a plane `K(3,3)` subdivision —
+excluded by `cor:k33-subdivision` (`Graph.IsArcK33.elim`). -/
+
+/-- **Three points of the complement of a Jordan curve cannot lie in three distinct
+components.** -/
+theorem not_three_components (harc : ∀ A : Set Plane, IsArc A → IsConnected Aᶜ)
+    (hC : IsJordanCurve C) {q : Fin 3 → Plane} (hqC : ∀ i, q i ∉ C)
+    (hqne : ∀ i k, i ≠ k → connectedComponentIn Cᶜ (q i) ≠ connectedComponentIn Cᶜ (q k)) :
+    False := by
+  classical
+  obtain ⟨f, hf, rfl⟩ := hC
+  have hCclosed : IsClosed (f '' I) := IsJordanCurve.isClosed ⟨f, hf, rfl⟩
+  set Ω : Fin 3 → Set Plane := fun i => connectedComponentIn (f '' I)ᶜ (q i) with hΩdef
+  have hΩopen : ∀ i, IsOpen (Ω i) := fun _ =>
+    Plane.isOpen_connectedComponentIn hCclosed.isOpen_compl
+  have hΩconn : ∀ i, IsPreconnected (Ω i) := fun _ => isPreconnected_connectedComponentIn
+  have hΩdisj : ∀ i, Disjoint (Ω i) (f '' I) := fun i =>
+    Set.disjoint_left.2 fun z hz => connectedComponentIn_subset _ _ hz
+  have hΩij : ∀ i k, i ≠ k → Disjoint (Ω i) (Ω k) := by
+    intro i k hik
+    rw [Set.disjoint_left]
+    intro z hz hz'
+    exact hqne i k hik ((connectedComponentIn_eq hz).trans (connectedComponentIn_eq hz').symm)
+  -- Nine terminals, one per window, each accessible from its own component.
+  obtain ⟨w, hw0, hw1, hwstep⟩ := exists_windows
+  have key : ∀ i j : Fin 3, ∃ s : ℝ, s ∈ Ioo (w i j) (w i j + 1 / 24) ∧
+      PolyAccessible (Ω i) (f s) := by
+    intro i j
+    obtain ⟨-, ⟨s, hs, rfl⟩, hacc⟩ :=
+      exists_polyAccessible_openArc harc hf (hqC i) (hw0 i j)
+        (by linarith : w i j < w i j + 1 / 24) (hw1 i j)
+    exact ⟨s, hs, hacc⟩
+  choose t ht hacc using key
+  /- ### Parameter bookkeeping -/
+  have hmono : ∀ i j k l : Fin 3, (j = l ∧ i.val < k.val) ∨ j.val < l.val → t i j < t k l :=
+    fun i j k l h => lt_of_lt_of_le (ht i j).2 (le_trans (hwstep i j k l h) (ht k l).1.le)
+  have htI : ∀ i j, t i j ∈ Ico (0 : ℝ) 1 :=
+    fun i j => ⟨((hw0 i j).trans (ht i j).1).le, (ht i j).2.trans (hw1 i j)⟩
+  have htI' : ∀ i j, t i j ∈ I := fun i j => ⟨(htI i j).1, (htI i j).2.le⟩
+  have hle : ∀ i k j : Fin 3, i.val ≤ k.val → t i j ≤ t k j := by
+    intro i k j h
+    rcases h.lt_or_eq with h | h
+    · exact (hmono i j k j (Or.inl ⟨rfl, h⟩)).le
+    · rw [Fin.val_injective h]
+  have htinj : ∀ i j k l : Fin 3, t i j = t k l → i = k ∧ j = l := by
+    intro i j k l h
+    rcases lt_trichotomy j.val l.val with hjl | hjl | hjl
+    · exact absurd h (ne_of_lt (hmono i j k l (Or.inr hjl)))
+    · have hjl' : j = l := Fin.val_injective hjl
+      subst hjl'
+      rcases lt_trichotomy i.val k.val with hik | hik | hik
+      · exact absurd h (ne_of_lt (hmono i j k j (Or.inl ⟨rfl, hik⟩)))
+      · exact ⟨Fin.val_injective hik, rfl⟩
+      · exact absurd h.symm (ne_of_lt (hmono k j i j (Or.inl ⟨rfl, hik⟩)))
+    · exact absurd h.symm (ne_of_lt (hmono k l i j (Or.inr hjl)))
+  have hpC : ∀ i j, f (t i j) ∈ f '' I := fun i j => mem_image_of_mem f (htI' i j)
+  have hpinj : ∀ i j k l : Fin 3, f (t i j) = f (t k l) → i = k ∧ j = l :=
+    fun i j k l h => htinj i j k l (hf.injOn (htI i j) (htI k l) h)
+  -- The block of parameters carrying the three terminals of one arc `Q_j`.
+  have htM : ∀ i j : Fin 3, t i j ∈ Icc (t 0 j) (t 2 j) := fun i j =>
+    ⟨hle 0 i j (Nat.zero_le _), hle i 2 j (Nat.lt_succ_iff.1 i.isLt)⟩
+  have hMIco : ∀ (j : Fin 3), Icc (t 0 j) (t 2 j) ⊆ Ico (0 : ℝ) 1 := fun j s hs =>
+    ⟨(htI 0 j).1.trans hs.1, lt_of_le_of_lt hs.2 (htI 2 j).2⟩
+  have hMdisj : ∀ j l : Fin 3, j.val < l.val →
+      ∀ s ∈ Icc (t 0 j) (t 2 j), ∀ s' ∈ Icc (t 0 l) (t 2 l), s < s' := fun j l h s hs s' hs' =>
+    lt_of_le_of_lt hs.2 (lt_of_lt_of_le (hmono 2 j 0 l (Or.inr h)) hs'.1)
+  /- ### The three arcs along the curve -/
+  have hRparam : ∀ i j : Fin 3, uIcc (t i j) (t 1 j) ⊆ Icc (t 0 j) (t 2 j) := fun i j =>
+    uIcc_subset_Icc (htM i j) (htM 1 j)
+  have hRC : ∀ i j : Fin 3, f '' uIcc (t i j) (t 1 j) ⊆ f '' I := fun i j =>
+    image_mono ((hRparam i j).trans ((hMIco j).trans Ico_subset_Icc_self))
+  have hpR : ∀ i j : Fin 3, f (t i j) ∈ f '' uIcc (t i j) (t 1 j) := fun i j =>
+    mem_image_of_mem f left_mem_uIcc
+  have hRRdisj : ∀ i j k l : Fin 3, j ≠ l →
+      f '' uIcc (t i j) (t 1 j) ∩ f '' uIcc (t k l) (t 1 l) = ∅ := by
+    intro i j k l hjl
+    rw [Set.eq_empty_iff_forall_notMem]
+    rintro z ⟨⟨s, hs, rfl⟩, s', hs', hz'⟩
+    have h1 : s ∈ Icc (t 0 j) (t 2 j) := hRparam i j hs
+    have h2 : s' ∈ Icc (t 0 l) (t 2 l) := hRparam k l hs'
+    have hss : s' = s := hf.injOn (hMIco l h2) (hMIco j h1) hz'
+    rw [hss] at h2
+    rcases lt_trichotomy j.val l.val with h | h | h
+    · exact absurd (hMdisj j l h s h1 s h2) (lt_irrefl s)
+    · exact hjl (Fin.val_injective h)
+    · exact absurd (hMdisj l j h s h2 s h1) (lt_irrefl s)
+  have hRRmeet : ∀ i j k : Fin 3, i ≠ k →
+      f '' uIcc (t i j) (t 1 j) ∩ f '' uIcc (t k j) (t 1 j) ⊆ {f (t 1 j)} := by
+    intro i j k hik
+    have hord : ∀ c e : Fin 3, c.val < e.val → t c j ≤ t 1 j ∧ t 1 j ≤ t e j := by
+      intro c e h
+      have he := e.isLt
+      exact ⟨hle c 1 j (by omega), hle 1 e j (by omega)⟩
+    rintro z ⟨⟨s, hs, rfl⟩, s', hs', hz'⟩
+    have hss : s' = s := hf.injOn (hMIco j (hRparam k j hs')) (hMIco j (hRparam i j hs)) hz'
+    subst hss
+    rcases lt_trichotomy i.val k.val with h | h | h
+    · exact mem_singleton_iff.2 (by
+        rw [uIcc_inter_uIcc_mid (hord i k h).1 (hord i k h).2 ⟨hs, hs'⟩])
+    · exact absurd (Fin.val_injective h) hik
+    · exact mem_singleton_iff.2 (by
+        rw [uIcc_inter_uIcc_mid (hord k i h).1 (hord k i h).2 ⟨hs', hs⟩])
+  /- ### The three tripods -/
+  have htri : ∀ i : Fin 3, ∃ xc : Plane, xc ∈ Ω i ∧ ∃ T : Fin 3 → Set Plane,
+      (∀ j, IsArcBetween (T j) xc (f (t i j))) ∧ (∀ j, T j \ {f (t i j)} ⊆ Ω i) ∧
+        (∀ j l, j ≠ l → T j ∩ T l ⊆ {xc}) := by
+    intro i
+    have hne : ∀ j l : Fin 3, j ≠ l → f (t i j) ≠ f (t i l) := fun j l hjl hcon =>
+      hjl (hpinj i j i l hcon).2
+    obtain ⟨xc, hxc, Ta, Tb, Tc, hTa, hTb, hTc, hTa', hTb', hTc', h01, h02, h12⟩ :=
+      exists_tripod (hΩopen i) (hΩconn i) (hΩdisj i) (hpC i 0) (hpC i 1) (hpC i 2)
+        (hne 0 1 (by decide)) (hne 0 2 (by decide)) (hne 1 2 (by decide))
+        (hacc i 0) (hacc i 1) (hacc i 2)
+    refine ⟨xc, hxc, ![Ta, Tb, Tc], ?_, ?_, ?_⟩
+    · intro j; fin_cases j <;> assumption
+    · intro j; fin_cases j <;> assumption
+    · intro j l hjl
+      fin_cases j <;> fin_cases l <;>
+        first
+          | exact absurd rfl hjl
+          | assumption
+          | (rw [inter_comm]; assumption)
+  choose xx hxxΩ TT hTTarc hTTsub hTTmeet using htri
+  /- ### Assembling the `K(3,3)` -/
+  have hTC : ∀ i j, TT i j ∩ f '' I = {f (t i j)} := by
+    intro i j
+    apply Subset.antisymm
+    · rintro z ⟨hz1, hz2⟩
+      by_contra hzne
+      exact (hΩdisj i).ne_of_mem (hTTsub i j ⟨hz1, hzne⟩) hz2 rfl
+    · rintro z rfl
+      exact ⟨(hTTarc i j).right_mem, hpC i j⟩
+  have hTR : ∀ i j k l : Fin 3, ∀ z ∈ TT i j, z ∈ f '' uIcc (t k l) (t 1 l) →
+      z = f (t i j) ∧ f (t i j) ∈ f '' uIcc (t k l) (t 1 l) := by
+    intro i j k l z hz hz'
+    have hzp : z = f (t i j) := by
+      have hmem : z ∈ TT i j ∩ f '' I := ⟨hz, hRC k l hz'⟩
+      rw [hTC i j] at hmem
+      exact hmem
+    exact ⟨hzp, hzp ▸ hz'⟩
+  have hTTdisj : ∀ i j k l : Fin 3, i ≠ k → TT i j ∩ TT k l = ∅ := by
+    intro i j k l hik
+    rw [Set.eq_empty_iff_forall_notMem]
+    rintro z ⟨hz1, hz2⟩
+    rcases eq_or_ne z (f (t i j)) with rfl | h1
+    · have hmem : f (t i j) ∈ TT k l ∩ f '' I := ⟨hz2, hpC i j⟩
+      rw [hTC k l] at hmem
+      exact hik (hpinj i j k l hmem).1
+    · rcases eq_or_ne z (f (t k l)) with rfl | h2
+      · have hmem : f (t k l) ∈ TT i j ∩ f '' I := ⟨hz1, hpC k l⟩
+        rw [hTC i j] at hmem
+        exact hik (hpinj k l i j hmem).1.symm
+      · exact (hΩij i k hik).ne_of_mem (hTTsub i j ⟨hz1, h1⟩) (hTTsub k l ⟨hz2, h2⟩) rfl
+  -- The nine branch paths: a tripod branch, continued along the curve to the middle terminal.
+  have harcP : ∀ i j : Fin 3,
+      IsArcBetween (TT i j ∪ f '' uIcc (t i j) (t 1 j)) (xx i) (f (t 1 j)) := by
+    intro i j
+    rcases eq_or_ne i 1 with rfl | hi1
+    · -- The middle terminal *is* the terminal: the arc along the curve degenerates.
+      have hdeg : f '' uIcc (t 1 j) (t 1 j) = {f (t 1 j)} := by
+        rw [uIcc_self, image_singleton]
+      rw [hdeg, union_eq_self_of_subset_right
+        (singleton_subset_iff.2 (hTTarc 1 j).right_mem)]
+      exact hTTarc 1 j
+    · have hne : t i j ≠ t 1 j := fun hcon => hi1 (htinj i j 1 j hcon).1
+      have harcR : IsArcBetween (f '' uIcc (t i j) (t 1 j)) (f (t i j)) (f (t 1 j)) :=
+        isArcBetween_subarc hf.continuousOn
+          (hf.injOn.mono ((hRparam i j).trans (hMIco j)))
+          (htI' i j) (htI' 1 j) hne
+      refine (hTTarc i j).concatenate harcR (fun z hz hz' => ?_)
+      exact (hTR i j i j z hz hz').1
+  refine (Graph.IsArcK33.elim (x := xx) (y := fun j => f (t 1 j))
+    (P := fun i j => TT i j ∪ f '' uIcc (t i j) (t 1 j)) ?_)
+  have hmeetHalf : ∀ i j k l : Fin 3, (i, j) ≠ (k, l) →
+      (TT i j ∪ f '' uIcc (t i j) (t 1 j)) ∩ (TT k l ∪ f '' uIcc (t k l) (t 1 l)) ⊆
+        ({xx i, f (t 1 j)} : Set Plane) := by
+    rintro i j k l hne z ⟨hz1, hz2⟩
+    have hRRne : ∀ c e d g : Fin 3, d ≠ g → f (t c d) ∈ f '' uIcc (t e g) (t 1 g) → False :=
+      fun c e d g hdg hmem =>
+        absurd (hRRdisj c d e g hdg) (Set.nonempty_iff_ne_empty.1 ⟨f (t c d), hpR c d, hmem⟩)
+    rcases eq_or_ne i k with rfl | hik
+    · have hjl : j ≠ l := fun h => hne (by rw [h])
+      rcases hz1 with hz1 | hz1 <;> rcases hz2 with hz2 | hz2
+      · exact Or.inl (hTTmeet i j l hjl ⟨hz1, hz2⟩)
+      · exact absurd ((hTR i j i l z hz1 hz2).2) (fun h => hRRne i i j l hjl h)
+      · exact absurd ((hTR i l i j z hz2 hz1).2) (fun h => hRRne i i l j (Ne.symm hjl) h)
+      · exact absurd (hRRdisj i j i l hjl) (Set.nonempty_iff_ne_empty.1 ⟨z, hz1, hz2⟩)
+    · rcases hz1 with hz1 | hz1 <;> rcases hz2 with hz2 | hz2
+      · exact absurd (hTTdisj i j k l hik) (Set.nonempty_iff_ne_empty.1 ⟨z, hz1, hz2⟩)
+      · obtain ⟨hzp, hmem⟩ := hTR i j k l z hz1 hz2
+        rcases eq_or_ne j l with rfl | hjl
+        · exact Or.inr (by rw [hzp]; exact hRRmeet i j k hik ⟨hpR i j, hmem⟩)
+        · exact absurd hmem (fun h => hRRne i k j l hjl h)
+      · obtain ⟨hzp, hmem⟩ := hTR k l i j z hz2 hz1
+        rcases eq_or_ne j l with rfl | hjl
+        · exact Or.inr (by rw [hzp]; exact hRRmeet k j i (Ne.symm hik) ⟨hpR k j, hmem⟩)
+        · exact absurd hmem (fun h => hRRne k i l j (Ne.symm hjl) h)
+      · rcases eq_or_ne j l with rfl | hjl
+        · exact Or.inr (hRRmeet i j k hik ⟨hz1, hz2⟩)
+        · exact absurd (hRRdisj i j k l hjl) (Set.nonempty_iff_ne_empty.1 ⟨z, hz1, hz2⟩)
+  exact
+    { arc := harcP
+      x_injective := by
+        intro i k hik
+        by_contra hne
+        exact (hΩij i k hne).ne_of_mem (hxxΩ i) (hik ▸ hxxΩ k) rfl
+      y_injective := fun j l h => (hpinj 1 j 1 l h).2
+      ne := fun i j hcon =>
+        (hΩdisj i).ne_of_mem (hxxΩ i) (hcon ▸ hpC 1 j) rfl
+      meet := fun i j k l hne =>
+        subset_inter (hmeetHalf i j k l hne)
+          (by rw [inter_comm]; exact hmeetHalf k l i j (Ne.symm hne)) }
+
+/-! ### The Jordan curve theorem
+
+Stated as `IsSeparating C`, the predicate `Schoenflies/CrosscutCells.lean` introduces and
+`Schoenflies.ClosedPolygon.polygonal_jordan` establishes in the polygonal case. Unfolding it,
+that is exactly the blueprint's statement: `inside C` and `outside C` are each a single region,
+one bounded and one unbounded (`IsSeparating.isBounded_inside`,
+`IsSeparating.not_isBounded_outside`), and both have `C` as boundary. Every consumer written
+against the polygonal case therefore applies verbatim. -/
+
+/-- A point of the curve is in the closure of any region it is accessible from — the reverse
+inclusion of the boundary clause, packaged for both regions at once. -/
+theorem subset_closure_of_accessible_dense
+    (harc : ∀ A : Set Plane, IsArc A → IsConnected Aᶜ) (hC : IsJordanCurve C) {x : Plane}
+    (hx : x ∉ C) : C ⊆ closure (connectedComponentIn Cᶜ x) := by
+  refine (accessible_dense harc hC hx).trans (closure_mono ?_) |>.trans closure_closure.subset
+  rintro p ⟨hpC, hacc⟩
+  exact hacc.mem_closure fun hcon => absurd hpC (connectedComponentIn_subset _ _ hcon)
+
+/-- **`thm:jordan` (the Jordan curve theorem).** The complement of a Jordan curve has exactly
+two regions, one bounded and one unbounded, and both have the curve as their boundary.
+
+`harc` is `thm:arc-complement`. -/
+theorem IsJordanCurve.isSeparating (harc : ∀ A : Set Plane, IsArc A → IsConnected Aᶜ)
+    (hC : IsJordanCurve C) : IsSeparating C := by
+  have hCclosed : IsClosed C := hC.isClosed
+  -- The unbounded region is the component of the outside of a large square, unconditionally.
+  obtain ⟨base, hbase, hbaseub, hbaseuniq⟩ :=
+    exists_unique_unbounded_connectedComponentIn_compl hC.isCompact
+  have houtside : Schoenflies.outside C = connectedComponentIn Cᶜ base := by
+    apply Subset.antisymm
+    · intro z hz
+      rw [← hbaseuniq z hz.1 hz.2]
+      exact mem_connectedComponentIn hz.1
+    · intro z hz
+      refine ⟨connectedComponentIn_subset _ _ hz, ?_⟩
+      rw [← connectedComponentIn_eq hz]
+      exact hbaseub
+  -- The complement has a bounded component too: at most one component is unbounded.
+  obtain ⟨z₀, hz₀⟩ : (Schoenflies.inside C).Nonempty := by
+    obtain ⟨u₁, hu₁, u₂, hu₂, hne⟩ := hC.exists_connectedComponentIn_ne
+    by_cases h₁ : IsBounded (connectedComponentIn Cᶜ u₁)
+    · exact ⟨u₁, hu₁, h₁⟩
+    · by_cases h₂ : IsBounded (connectedComponentIn Cᶜ u₂)
+      · exact ⟨u₂, hu₂, h₂⟩
+      · exact absurd ((hbaseuniq u₁ hu₁ h₁).trans (hbaseuniq u₂ hu₂ h₂).symm) hne
+  -- Any two points of the bounded part share a component: a third would give three.
+  have hsame : ∀ z ∈ Schoenflies.inside C,
+      connectedComponentIn Cᶜ z = connectedComponentIn Cᶜ z₀ := by
+    intro z hz
+    by_contra hne
+    -- `z`, `z₀` and the unbounded base would be three distinct components.
+    refine not_three_components harc hC (q := ![z, z₀, base]) ?_ ?_
+    · intro i; fin_cases i
+      exacts [hz.1, hz₀.1, hbase]
+    · have hzb : connectedComponentIn Cᶜ z ≠ connectedComponentIn Cᶜ base := fun hcon =>
+        hbaseub (hcon ▸ hz.2)
+      have hz₀b : connectedComponentIn Cᶜ z₀ ≠ connectedComponentIn Cᶜ base := fun hcon =>
+        hbaseub (hcon ▸ hz₀.2)
+      intro i k hik
+      fin_cases i <;> fin_cases k <;>
+        first
+          | exact absurd rfl hik
+          | exact hne
+          | exact hzb
+          | exact hz₀b
+          | exact Ne.symm hne
+          | exact Ne.symm hzb
+          | exact Ne.symm hz₀b
+  have hinside : Schoenflies.inside C = connectedComponentIn Cᶜ z₀ := by
+    refine Subset.antisymm (fun z hz => ?_) (connectedComponentIn_subset_inside hz₀)
+    rw [← hsame z hz]
+    exact mem_connectedComponentIn hz.1
+  refine ⟨hC, ?_, ?_, ?_, ?_⟩
+  · rw [hinside]
+    exact ⟨⟨z₀, mem_connectedComponentIn hz₀.1⟩, isPreconnected_connectedComponentIn⟩
+  · rw [houtside]
+    exact ⟨⟨base, mem_connectedComponentIn hbase⟩, isPreconnected_connectedComponentIn⟩
+  · apply Subset.antisymm
+    · rw [hinside]; exact Plane.frontier_connectedComponentIn_compl_subset hCclosed z₀
+    · rw [(Schoenflies.isOpen_inside hCclosed).frontier_eq]
+      exact subset_sdiff.2 ⟨hinside ▸ subset_closure_of_accessible_dense harc hC hz₀.1,
+        Set.disjoint_left.2 fun z hzC hzin => hzin.1 hzC⟩
+  · apply Subset.antisymm
+    · rw [houtside]; exact Plane.frontier_connectedComponentIn_compl_subset hCclosed base
+    · rw [(Schoenflies.isOpen_outside hCclosed).frontier_eq]
+      exact subset_sdiff.2 ⟨houtside ▸ subset_closure_of_accessible_dense harc hC hbase,
+        Set.disjoint_left.2 fun z hzC hzout => hzout.1 hzC⟩
 
 end Schoenflies

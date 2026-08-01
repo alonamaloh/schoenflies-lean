@@ -647,4 +647,87 @@ theorem smul_ne_smul {r : ℝ} (hr : r ≠ 0) {z w : Plane} (hzw : z ≠ w) : r 
   intro h
   exact hzw (smul_right_injective Plane hr h)
 
+
+/-! ### The spokes, as paths of the mesh
+
+`Schoenflies.SubdividesToPath` — now a theorem — turns each spoke into a path of the mesh from
+its outer end `z` to its inner end `N⁻¹ • z`. The path is exported as data, `spokeWalk`, so
+that the assembly can name it; and the crossing points are shown to be among the vertices it
+visits, which is what makes each ring attachable at two of them. -/
+
+/-- **A cut point lying on a source segment is a vertex of the path that subdivides it.** The
+edges of the path cover the segment, and a cut point is interior to no edge of an overlay, so
+it is an *end* of one of them. -/
+theorem mem_walkVertices_of_mem_points {pieces : List Piece} {points : List Plane}
+    (hnd : ∀ P ∈ pieces, P.Nondeg) {P : Piece} (hP : P ∈ pieces) {W : List Piece}
+    (hW : ∀ Q, Q ∈ W ↔ (Q ∈ E(overlayGraph pieces points) ∧ Q.seg ⊆ P.seg))
+    {q : Plane} (hq : q ∈ points) (hqP : q ∈ P.seg) :
+    q ∈ (overlayGraph pieces points).walkVertices P.1 W := by
+  have hcov : Graph.edgesCover segmentDrawing W = P.seg := edgesCover_eq_seg hP hW
+  rw [← hcov] at hqP
+  obtain ⟨Q, hQ, hqQ⟩ := Graph.mem_edgesCover_iff.1 hqP
+  rw [edgeArc_segmentDrawing] at hqQ
+  have hQmem : Q ∈ overlayPieces pieces points := ((hW Q).1 hQ).1
+  have hint : q ∉ Q.interior := overlayPieces_avoids hnd q hq Q hQmem
+  have hend : q = Q.1 ∨ q = Q.2 := by
+    by_contra hcon
+    push Not at hcon
+    exact hint (mem_openSegment_of_ne_left_right (Ne.symm hcon.1) (Ne.symm hcon.2) hqQ)
+  exact Graph.mem_walkVertices_of_mem_covered
+    (Graph.mem_coveredVertices hQ (overlayGraph_inc hQmem hend))
+
+open scoped Classical in
+/-- **The subdivision of the spoke at a fresh point, as data**: the list of mesh edges lying
+inside `spokePiece N z`, in order from `z` inwards. Junk when `z` is not a fresh point of the
+model curve. -/
+noncomputable def spokeWalk (N : ℕ) (fresh anchors : List Plane) (z : Plane) : List Piece :=
+  if h : ∃ W : List Piece,
+      (meshGraph N fresh anchors).IsPath z W (((N : ℝ)⁻¹) • z) ∧
+        ∀ Q, Q ∈ W ↔ (Q ∈ E(meshGraph N fresh anchors) ∧ Q.seg ⊆ (spokePiece N z).seg)
+    then h.choose else []
+
+theorem spokeWalk_spec {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
+    (hfresh : ∀ u ∈ fresh, u ∈ modelCurve) (anchors : List Plane) {z : Plane} (hz : z ∈ fresh) :
+    (meshGraph N fresh anchors).IsPath z (spokeWalk N fresh anchors z) (((N : ℝ)⁻¹) • z) ∧
+      ∀ Q, Q ∈ spokeWalk N fresh anchors z ↔
+        (Q ∈ E(meshGraph N fresh anchors) ∧ Q.seg ⊆ (spokePiece N z).seg) := by
+  classical
+  have h : ∃ W : List Piece,
+      (meshGraph N fresh anchors).IsPath z W (((N : ℝ)⁻¹) • z) ∧
+        ∀ Q, Q ∈ W ↔ (Q ∈ E(meshGraph N fresh anchors) ∧ Q.seg ⊆ (spokePiece N z).seg) :=
+    meshSubdividesToPath hN hfresh anchors _ (spokePiece_mem_meshSegments hz)
+      (spokePiece_nondeg hN (hfresh z hz))
+  rw [spokeWalk, dif_pos h]
+  exact h.choose_spec
+
+theorem spokeWalk_isPath {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
+    (hfresh : ∀ u ∈ fresh, u ∈ modelCurve) (anchors : List Plane) {z : Plane} (hz : z ∈ fresh) :
+    (meshGraph N fresh anchors).IsPath z (spokeWalk N fresh anchors z) (((N : ℝ)⁻¹) • z) :=
+  (spokeWalk_spec hN hfresh anchors hz).1
+
+theorem spokeWalk_seg_subset {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
+    (hfresh : ∀ u ∈ fresh, u ∈ modelCurve) (anchors : List Plane) {z : Plane} (hz : z ∈ fresh)
+    {Q : Piece} (hQ : Q ∈ spokeWalk N fresh anchors z) : Q.seg ⊆ (spokePiece N z).seg :=
+  (((spokeWalk_spec hN hfresh anchors hz).2 Q).1 hQ).2
+
+/-- **Every crossing point on a spoke is a vertex the spoke's path visits.** -/
+theorem smul_mem_walkVertices_spokeWalk {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
+    (hfresh : ∀ u ∈ fresh, u ∈ modelCurve) (anchors : List Plane) {z : Plane} (hz : z ∈ fresh)
+    {r : ℝ} (hr : r ∈ meshRadii N) :
+    r • z ∈ (meshGraph N fresh anchors).walkVertices z (spokeWalk N fresh anchors z) := by
+  have hmem : r • z ∈ (spokePiece N z).seg :=
+    ((spokePiece_inter_ringSet hN (hfresh z hz) hr).symm.subset rfl).1
+  exact mem_walkVertices_of_mem_points (meshSegments_nondeg hN hfresh)
+    (spokePiece_mem_meshSegments hz) (spokeWalk_spec hN hfresh anchors hz).2
+    (smul_mem_meshPoints hN hfresh anchors hz hr) hmem
+
+/-- Every vertex the spoke's path visits lies on the spoke. -/
+theorem walkVertices_spokeWalk_subset {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
+    (hfresh : ∀ u ∈ fresh, u ∈ modelCurve) (anchors : List Plane) {z : Plane} (hz : z ∈ fresh)
+    {x : Plane}
+    (hx : x ∈ (meshGraph N fresh anchors).walkVertices z (spokeWalk N fresh anchors z)) :
+    x ∈ (spokePiece N z).seg :=
+  walkVertices_subset_of_edges (left_mem_segment ℝ _ _)
+    (fun _ hQ => spokeWalk_seg_subset hN hfresh anchors hz hQ) hx
+
 end Schoenflies

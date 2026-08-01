@@ -32,11 +32,36 @@ operation: given a realization `R'` of `S.splitFace d` standing in the relation
   points to the ear's vertices and of parametrizations to the ear's edges, drawing the ear as a
   polygonal crosscut of the realized open 2-cell.
 * `Schoenflies.CellStructure.SplitData.realize` — the realization of `S.splitFace d` built from
-  `R` and such an ear. It is a `def` with lemmas, not an existential: `realize_pos`,
-  `realize_drawing`, `realize_cell_of_old`, `realize_cell_face₁`, … name every component.
+  `R` and such an ear. It is a `def` with lemmas, not an existential: `splitPos`,
+  `splitDrawing`, `splitCell` are its three components, each with its own reduction lemmas
+  (`splitCell_face₁`, `splitCell_of_mem_cells`, `splitCell_earVertex`, `splitCell_earEdge`, …),
+  and `realize_pos` / `realize_drawing` / `realize_cell` connect them to the record.
 * `Schoenflies.CellStructure.SplitData.isCrosscutSplit_realize` — the constructed realization
   stands in the relation `IsCrosscutSplit` to `R`. Composed with
   `IsCrosscutSplit.isCellDecomposition_and_isFaceJordan` this is the full induction step.
+
+## What is assumed, and who discharges it
+
+`realize` itself asks only for `EarCrosscut`, whose six fields — `pos_source`, `pos_target`,
+`injOn`, `isDrawing`, `subset_face`, `polygonal` — say that the ear is drawn as a simple
+polygonal arc from `R.pos d.source` to `R.pos d.target` whose interior lies in the open 2-cell,
+plus the seventh, `disjoint_skeleton`, which is a fact about `R` alone and is discharged by
+`Realization.disjoint_cell_skeletonSet` from assertion (i). A producer that starts from
+`Schoenflies.exists_crosscut_of_polyAccessible` — a polygonal arc inside the face with both
+ends on its boundary — and cuts that arc into the ear's edges has all seven in hand.
+
+`isCrosscutSplit_realize` asks in addition for `R.IsCellDecomposition D`, `R.IsFaceJordan`, and
+
+* `hpaths : d.cells₁ ∩ d.cells₂ = {d.source, d.target}` — **the two boundary paths of the split
+  2-cell share nothing but their two ends.**
+
+`hpaths` is the one thing `SplitData` does not already imply: its field `paths_disjoint`
+forbids the two paths a common *edge* but says nothing about a common interior *vertex*, and
+with a common interior vertex the two realized paths would meet in a third point, so the
+`IsCutPair` clause of `IsCrosscutSplit` would be false. It is not a restatement of the goal —
+it is a purely combinatorial condition on the two lists `d.path₁` and `d.path₂`, and the
+producer of the `SplitData` chooses them (as the two arcs of one boundary cycle) and so can
+supply it. If a later wave prefers it as a field of `SplitData`, that is the right place for it.
 
 ## The general lemmas this needed
 
@@ -375,6 +400,10 @@ structure EarCrosscut (d : S.SplitData) (R : S.Realization) (earPos : γ → Pla
   isDrawing : Graph.IsDrawing (d.earGraph earPos) earDraw
   /-- Every point of the drawn ear but its two ends is inside the old open 2-cell. -/
   subset_face : d.earSet earPos earDraw \ {R.pos d.source, R.pos d.target} ⊆ R.cell d.face
+  /-- The old open 2-cell misses the old drawn skeleton. This is a property of `R` alone, not
+  of the ear; it is carried here so that the construction below depends on no ambient domain.
+  `Realization.disjoint_cell_skeletonSet` discharges it from assertion (i). -/
+  disjoint_skeleton : Disjoint (R.cell d.face) R.skeletonSet
   /-- The drawn ear is polygonal. -/
   polygonal : IsPolygonal (d.earSet earPos earDraw)
 
@@ -419,12 +448,11 @@ theorem earPos_mem_cell_face {z : γ} (hz : z ∈ V(d.ear)) (hs : z ≠ d.source
 
 /-- **The drawn ear meets the old skeleton exactly in its two ends.** The interior of the ear
 is inside the open 2-cell, and an open 2-cell misses the drawn skeleton. -/
-theorem earSet_inter_skeletonSet {D : Set Plane} (hcd : R.IsCellDecomposition D) :
+theorem earSet_inter_skeletonSet :
     d.earSet earPos earDraw ∩ R.skeletonSet ⊆ {R.pos d.source, R.pos d.target} := by
   rintro x ⟨hx, hx'⟩
   by_contra hcon
-  exact Set.disjoint_left.1 (R.disjoint_cell_skeletonSet hcd d.face_mem)
-    (hE.subset_face ⟨hx, hcon⟩) hx'
+  exact Set.disjoint_left.1 hE.disjoint_skeleton (hE.subset_face ⟨hx, hcon⟩) hx'
 
 /-- **An ear edge's arc meets the ear's vertices exactly at its own two ends**, so dropping
 all of the ear's vertices from it is the same as dropping its own two ends. This is what makes
@@ -569,7 +597,7 @@ theorem splitGraph_eq :
 of `Graph.IsDrawing` all reduce, on a mixed pair, to the same fact: the ear meets the old
 drawing only at its two ends, because its interior lies in an open 2-cell and an open 2-cell
 misses the drawn skeleton. -/
-theorem isDrawing_split {D : Set Plane} (hcd : R.IsCellDecomposition D) :
+theorem isDrawing_split :
     Graph.IsDrawing (R.graph.union (d.earGraph earPos)) (d.splitDrawing R earDraw) := by
   have hEskel : E(R.graph) = E(S.skel) := Realization.edgeSet_graph R
   have hcompat : R.graph.Compatible (d.earGraph earPos) :=
@@ -577,7 +605,7 @@ theorem isDrawing_split {D : Set Plane} (hcd : R.IsCellDecomposition D) :
       rw [hEskel, d.edgeSet_earGraph]; exact d.disjoint_edgeSet)
   have hle₁ : R.graph ≤ R.graph.union (d.earGraph earPos) := Graph.left_le_union _ _
   have hle₂ : d.earGraph earPos ≤ R.graph.union (d.earGraph earPos) := hcompat.right_le_union
-  have hmeet := hE.earSet_inter_skeletonSet hcd
+  have hmeet := hE.earSet_inter_skeletonSet
   have hends : ∀ {x : Plane}, x ∈ ({R.pos d.source, R.pos d.target} : Set Plane) →
       x ∈ V(R.graph) ∧ x ∈ V(d.earGraph earPos) := by
     rintro x (rfl | rfl)
@@ -799,8 +827,8 @@ This is the object the whole split step of `lem:cellulation-invariants` was miss
 `SplitData.isCrosscutSplit_realize` puts it in the relation `IsCrosscutSplit` to `R`, and
 `IsCrosscutSplit.isCellDecomposition_and_isFaceJordan` then propagates both invariants. -/
 noncomputable def realize (R : S.Realization) (d : S.SplitData) (earPos : γ → Plane)
-    (earDraw : γ → ℝ → Plane) {D : Set Plane} (hcd : R.IsCellDecomposition D)
-    (hE : d.EarCrosscut R earPos earDraw) : (S.splitFace d).Realization where
+    (earDraw : γ → ℝ → Plane) (hE : d.EarCrosscut R earPos earDraw) :
+    (S.splitFace d).Realization where
   pos := d.splitPos R earPos
   drawing := d.splitDrawing R earDraw
   injOn_pos := by
@@ -814,7 +842,7 @@ noncomputable def realize (R : S.Realization) (d : S.SplitData) (earPos : γ →
           (fun h => hyn (h ▸ d.target_mem_skel))
       have h2 : R.pos x ∈ R.skeletonSet :=
         Graph.vertexSet_subset_pointSet (by rw [Realization.vertexSet_graph]; exact ⟨x, hx, rfl⟩)
-      exact Set.disjoint_left.1 (R.disjoint_cell_skeletonSet hcd d.face_mem) h1 h2
+      exact Set.disjoint_left.1 hE.disjoint_skeleton h1 h2
     intro x hx y hy hxy
     have hx' : x ∈ V(S.skel) ∪ V(d.ear) := hx
     have hy' : y ∈ V(S.skel) ∪ V(d.ear) := hy
@@ -833,7 +861,7 @@ noncomputable def realize (R : S.Realization) (d : S.SplitData) (earPos : γ →
       exact hE.injOn hxe hye hxy
   isDrawing := by
     rw [hE.splitGraph_eq]
-    exact hE.isDrawing_split hcd
+    exact hE.isDrawing_split
   cell := d.splitCell R earPos earDraw
   cell_vertex := by
     intro v hv
@@ -853,22 +881,22 @@ noncomputable def realize (R : S.Realization) (d : S.SplitData) (earPos : γ →
         edgeArc_splitDrawing_of_mem_ear hk.edge_mem, splitPos_of_mem_ear hk.left_mem,
         splitPos_of_mem_ear hk.right_mem]
 
-variable {D : Set Plane} (hcd : R.IsCellDecomposition D) (hE : d.EarCrosscut R earPos earDraw)
+variable (hE : d.EarCrosscut R earPos earDraw)
 
-@[simp] theorem realize_pos : (realize R d earPos earDraw hcd hE).pos = d.splitPos R earPos := rfl
+@[simp] theorem realize_pos : (realize R d earPos earDraw hE).pos = d.splitPos R earPos := rfl
 
 @[simp] theorem realize_drawing :
-    (realize R d earPos earDraw hcd hE).drawing = d.splitDrawing R earDraw := rfl
+    (realize R d earPos earDraw hE).drawing = d.splitDrawing R earDraw := rfl
 
 @[simp] theorem realize_cell :
-    (realize R d earPos earDraw hcd hE).cell = d.splitCell R earPos earDraw := rfl
+    (realize R d earPos earDraw hE).cell = d.splitCell R earPos earDraw := rfl
 
 include hE
 
 /-- **The realized ear is the drawn ear.** The open cells of the ear together with the two old
 0-cells at its ends occupy exactly the crosscut. -/
 theorem cellUnion_earCells :
-    (realize R d earPos earDraw hcd hE).cellUnion d.earCells = d.earSet earPos earDraw := by
+    (realize R d earPos earDraw hE).cellUnion d.earCells = d.earSet earPos earDraw := by
   refine Set.Subset.antisymm (Realization.cellUnion_subset fun σ hσ => ?_) ?_
   · have hσ' : σ ∈ V(d.ear) ∪ E(d.ear) := hσ
     rcases hσ' with hσ' | hσ'
@@ -895,7 +923,7 @@ theorem cellUnion_earCells :
 
 /-- **The open cells the ear creates are the crosscut minus its two endpoints.** -/
 theorem cellUnion_earNewCells :
-    (realize R d earPos earDraw hcd hE).cellUnion d.earNewCells =
+    (realize R d earPos earDraw hE).cellUnion d.earNewCells =
       d.earSet earPos earDraw \ {R.pos d.source, R.pos d.target} := by
   refine Set.Subset.antisymm (Realization.cellUnion_subset fun σ hσ => ?_) ?_
   · have hσ' : σ ∈ (V(d.ear) \ {d.source, d.target}) ∪ E(d.ear) := hσ
@@ -946,9 +974,9 @@ theorem cellUnion_earNewCells :
 
 Composed with `IsCrosscutSplit.isCellDecomposition_and_isFaceJordan` this is the whole
 induction step of `lem:cellulation-invariants` over the second elementary operation. -/
-theorem isCrosscutSplit_realize (hJ : R.IsFaceJordan)
-    (hpaths : d.cells₁ ∩ d.cells₂ = {d.source, d.target}) :
-    d.IsCrosscutSplit R (realize R d earPos earDraw hcd hE) where
+theorem isCrosscutSplit_realize {D : Set Plane} (hcd : R.IsCellDecomposition D)
+    (hJ : R.IsFaceJordan) (hpaths : d.cells₁ ∩ d.cells₂ = {d.source, d.target}) :
+    d.IsCrosscutSplit R (realize R d earPos earDraw hE) where
   cell_eq := fun _ hσ _ => splitCell_of_mem_cells hσ
   isCrosscut := by
     rw [cellUnion_earCells]
@@ -1010,6 +1038,18 @@ theorem isCrosscutSplit_realize (hJ : R.IsFaceJordan)
         exact harc.left_mem
       · rw [Set.mem_singleton_iff.1 hx]
         exact harc.right_mem
+
+/-- **The induction step of `lem:cellulation-invariants` over the second elementary operation,
+end to end.** From a realization of `S` satisfying assertions (i) and (vii) and a drawing of
+the ear as a polygonal crosscut, a realization of `S.splitFace d` satisfying (i) and (vii),
+refining it along `SplitData.parent`. -/
+theorem isCellDecomposition_and_isFaceJordan_realize (hS : S.CombInvariants) {D : Set Plane}
+    (hcd : R.IsCellDecomposition D) (hJ : R.IsFaceJordan)
+    (hpaths : d.cells₁ ∩ d.cells₂ = {d.source, d.target}) :
+    (realize R d earPos earDraw hE).IsCellDecomposition D ∧
+      (realize R d earPos earDraw hE).IsFaceJordan ∧
+      (realize R d earPos earDraw hE).Refines R d.parent :=
+  (isCrosscutSplit_realize hE hcd hJ hpaths).isCellDecomposition_and_isFaceJordan hS hcd hJ
 
 end SplitData
 

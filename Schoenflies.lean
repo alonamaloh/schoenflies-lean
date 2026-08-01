@@ -91,3 +91,6 @@ import Schoenflies.InitialPairFixed
 import Schoenflies.LocalGrid
 import Schoenflies.BoundaryContinuity
 import Schoenflies.Endgame
+import Schoenflies.CellulationInvariants
+import Schoenflies.LimitMap
+import Schoenflies.BoundaryContinuity2

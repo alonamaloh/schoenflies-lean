@@ -11,26 +11,40 @@ import Schoenflies.ArcComplementPrep
 import Schoenflies.Graph.Drawing
 
 /-!
-# Continuity at the Jordan curve, and `thm:square-extension`
+# `lem:skeleton-crosscuts`: a crosscut inside one stage of the skeleton
 
-This is the last section of the Schönflies argument. The limit map `F` is by then a
-homeomorphism of `Int(C)` onto the open square; what remains is to glue it to the boundary
-homeomorphism `u : C → S` and check that the glued map is continuous at points of `C`.
+Two anchors lying in a common finite stage are joined by a polygonal crosscut of the Jordan
+domain that lies *in that stage's skeleton* (`jordan_schoenflies.tex` 2857-2872). This file
+proves the first clause, for the source side.
+
+Everything here is unconditional and speaks about **one finite plane graph**: a stage is a
+finite plane graph whose point set carries the Jordan curve `C` as its outer boundary
+(`Graph.IsStageOn`), and nothing below mentions the sequence of stages that produces it.
+
+The blueprint's proof splits on whether some *nonboundary* edge — one whose arc is not
+contained in `C` — has both of its ends on `C`. If one does, its open interior is a whole
+component of the open nonboundary part, so it is the only nonboundary edge and is itself the
+crosscut. Otherwise every nonboundary edge meeting `C` has its other end inside, and the
+interior subgraph `interiorPart` is connected because the half-open attached edges partition
+the open nonboundary part into relatively clopen pieces.
+
+## What is here, and what is not
+
+This module was written in one sitting that ended early, and it stops after the source-side
+crosscut. The rest of the section — the target crosscut of clause 2,
+`lem:crosscut-side-correspondence`, `prop:boundary-continuity`, and the assembly of
+`thm:square-extension` — is in `Schoenflies/BoundaryContinuity2.lean`, which imports this one.
+An earlier version of this docstring listed those as if they were here; they never were.
 
 ## Blueprint
 
-* `Graph.IsStageOn`, `Graph.IsStageOn.exists_crosscut`, `Schoenflies.exists_isCrosscut_of_stage`
-  — **`lem:skeleton-crosscuts`**. Unconditional, and stated for one finite plane graph.
-* `Schoenflies.exists_separating_isCutPair` — the selection step of
-  **`prop:boundary-continuity`**: two anchors of a dense set separating two prescribed points
-  of the curve. Uses `lem:anchor-density` only through the density hypothesis.
-* `Schoenflies.IsHomeoOn.image_connectedComponentIn` — a restricted homeomorphism carries
-  components of a matched subset onto components of its image. **General; belongs in
-  `Schoenflies/Inversion.lean` beside the rest of the `IsHomeoOn` API.**
-* `Schoenflies.crosscut_side_correspondence` — **`lem:crosscut-side-correspondence`**.
-* `Schoenflies.extendByBoundary`, `Schoenflies.boundary_continuity` —
-  **`prop:boundary-continuity`**.
-* `Schoenflies.square_extension` — **`thm:square-extension`**.
+* `Graph.IsStageOn` — a finite plane graph carrying `C` as its outer boundary.
+* `Graph.Nonboundary`, `Graph.interiorPart`, `Graph.attachEdges`,
+  `Graph.isPreconnected_interiorPart` — the interior subgraph and its connectedness, which is
+  the substance of the second case.
+* `Graph.IsStageOn.exists_crosscut` — **`lem:skeleton-crosscuts`, clause 1**: the source-side
+  polygonal crosscut between two prescribed points of `C` that the stage joins. Clause 2, the
+  target crosscut, is in `Schoenflies/BoundaryContinuity2.lean`.
 -/
 
 open Metric Set Schoenflies

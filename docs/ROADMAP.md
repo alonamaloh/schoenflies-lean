@@ -20,13 +20,30 @@ Keep this file honest. A "done" that is really a "conditional" costs the next ag
 ## Live obligations
 
 **Part I has none.** `thm:jordan` and `thm:general-crosscut` rest on `propext`,
-`Classical.choice` and `Quot.sound` alone; `docs/audit-axioms.py` checks that for every
-declaration in the library on every run.
+`Classical.choice` and `Quot.sound` alone.
 
-Part II's open statements are listed below as `open` or `partial` rather than as assumed
-hypotheses: nothing downstream is built on them yet, so there is no obligation to discharge,
-only work to do. The two exceptions are named in the Part II table.
+**Part II is now one interface away from `thm:main`.** The chain is complete and every link is
+proved; what is missing is the *construction* that produces the object the chain consumes.
 
+```
+Schoenflies.jordan_schoenflies   thm:main            ← SquareExtension
+Schoenflies.square_extension     thm:square-extension ← HasLimitHomeomorphism
+Schoenflies.CellStructure.LimitTower.isHomeoOn_F      ← the fields of LimitTower
+```
+
+| Assumed | Declared in | Blocks | Notes |
+|---|---|---|---|
+| `Schoenflies.SquareExtension` | `Endgame.lean` | `thm:main` | discharged by `square_extension` below, so not really open |
+| `Schoenflies.HasLimitHomeomorphism` | `BoundaryContinuity2.lean` | `thm:square-extension` | four conjuncts: a dense anchor set, the interior homeomorphism, `HasAnchorCrosscuts`, `HasSpokes`. **`LimitTower` supplies the second; the other three need the construction.** |
+| the fields of `CellStructure.LimitTower` | `LimitMap.lean` | the interior homeomorphism | ~14 fields, each an obligation on whoever builds the nested sequence: the cell decompositions, the shared parent maps, the two halves of `prop:shrinking-stars`, and the nesting of the skeleton maps. See the module docstring |
+| `Schoenflies.CellsAbsorb` | `SkeletonAccess.lean` | `lem:polygonal-side-accessibility` | one clause of `lem:cellulation-invariants`; `cellsAbsorb_of_isComponent_in` discharges it when the cells are the components |
+
+The remaining work is therefore exactly `thm:finite-transfer` plus the quantitative refinement
+(`prop:shrinking-stars`, `prop:anchored-square-mesh`, `prop:local-grid-attachment`,
+`lem:anchor-density`) — the machinery that builds the nested matched cellulations and proves
+their stars shrink. Everything that *consumes* them is done.
+
+### What the standing rules caught
 ### What the standing rules caught
 
 Two things, both worth the cost of the rules that found them.
@@ -121,7 +138,7 @@ and then `thm:finite-transfer`.
 |---|---|---|
 | `def:admissible-graph`, `def:matched-pair`, `def:matched-cellulation` | done | `CombinatorialInvariance.lean` (`CellStructure`, `Realization`, `SkeletonHomeo`) |
 | `lem:combinatorial-invariance` | done | `CombinatorialInvariance.lean` |
-| `lem:outer-incidence` | done | `CombinatorialInvariance.lean` (`outerEdge_face_corresponds`) |
+| `lem:outer-incidence` | done | `LimitMap.lean` (`IsCellDecomposition.closure_cell_meets_outer_iff`, `.star_meets_outer_iff`, `LimitTower.star_meets_bdry_iff`). **Not** `CombinatorialInvariance.outerEdge_face_corresponds`, which this table used to point at — that is assertion (vi), a different statement |
 | `def:strong-accessibility`, `lem:nearest-strong`, `lem:tangent-cone`, `prop:countable-strong-access` | done | `Accessible.lean` |
 | `lem:square-point-mover` | done | `SquareMover.lean` |
 | `lem:local-skeleton-structure` | partial | `SkeletonLocal.lean` + `SkeletonSectors.lean` — open only at points with fewer than two local directions |
@@ -131,7 +148,7 @@ and then `thm:finite-transfer`.
 | `prop:initial-pair` | partial | `InitialPair.lean` — `initialStructure`, both realizations, `InitialData`, `initial_pair`. Its two hypotheses are now both discharged on `main` and should be substituted. Two clauses remain open: the source and target 2-cell labellings are never linked (no lemma says `tgt.arcOf k = u '' src.arcOf k`), and strong accessibility of the two chosen points is not recorded, though the blueprint requires `a, b ∈ 𝒜` |
 | `def:generated-structure`, `rem:intermediate-disconnection` | partial | `GeneratedStructure.lean` — both elementary operations as defs and the inductive closure, but carrying no realizations yet |
 | `lem:cellulation-invariants` | partial | `GeneratedStructure.lean` — (ii), (iii), (iv compatibility), (v), (vi), (viii), (ix), and (i) for the subdivision constructor. **(i) for the split constructor and (vii) are the remaining work**, and both need `thm:general-crosscut`, now available |
-| `lem:star-intersection`, `lem:refinement-compatibility`, `lem:star-face-mesh`, `rem:inductive-invariants` | open | all rest on `lem:cellulation-invariants` |
+| `lem:refinement-compatibility`, `lem:star-intersection`, `lem:star-face-mesh`, `lem:cell-neighborhood` | done | `RefinementStars.lean`. The carrier is a total function and refinement is abstract, which is what lets the limit section be built against an interface |
 | `lem:polygonal-side-accessibility` | conditional (`Schoenflies.CellsAbsorb`) | `SkeletonAccess.lean` — both halves, on one clause of `lem:cellulation-invariants` |
 | `thm:finite-transfer` | open | the largest single statement in the manuscript: twelve internal prerequisites |
 | `prop:local-grid-attachment`, `lem:grid-star-estimate`, `prop:shrinking-stars`, `lem:anchor-density` | open | quantitative refinement |
@@ -142,6 +159,37 @@ and then `thm:finite-transfer`.
 | `prop:exterior-extension` | conditional (`Schoenflies.PointedInteriorExtension`) | `Inversion.lean` — the last statement before `thm:main`, waiting only on the interior half |
 | `prop:pointed-extension` | open | needs `thm:closed-interior-extension`; `lem:square-point-mover` is done |
 | `thm:main` | open | |
+
+### The limit section, and why it needed no construction
+
+`jordan_schoenflies.tex` line 2570 says the limit section "forgets how the decompositions were
+constructed and uses only their nesting, matching, and shrinking properties". `LimitMap.lean`
+takes that literally: `CellStructure.LimitTower` records exactly those properties, and the whole
+of tex 2568–2826 is proved against it with **no free hypotheses at all** — every obligation is
+a field of the structure, i.e. an obligation on whoever eventually builds the sequence.
+
+| Statement | Lean |
+|---|---|
+| definition of `F` | `LimitTower.F`, `tgtStar`, `iInter_tgtStar_eq` |
+| `prop:skeleton-agreement` | `LimitTower.F_eq_skelHomeo` |
+| `prop:F-continuous` | `LimitTower.continuousOn_F` — on the **closed** domain, not just the interior |
+| `prop:image-interior` | `LimitTower.F_mem_region'` |
+| `prop:F-injective` | `LimitTower.injOn_F` |
+| `prop:target-skeleton-dense` | `LimitTower.exists_mem_tgt_skeletonSet` |
+| `prop:F-surjective` | `LimitTower.exists_mem_region_F_eq` |
+| `lem:exact-cell-correspondence` | `LimitTower.image_cell` |
+| `prop:inverse-continuous` | `LimitTower.continuousOn_inv` |
+| `prop:interior-homeomorphism` | `LimitTower.isHomeoOn_F`, `.interior_homeomorphism` |
+
+Two departures from the blueprint's route, both simplifications, both worth knowing:
+
+* **Assertion (vii) of `lem:cellulation-invariants` is not needed.** The blueprint routes
+  `lem:exact-cell-correspondence` through (vii) → (viii) to get "the only 2-cell above a 2-cell
+  is itself"; that is `CombInvariants.face_maximal`, already an inductive invariant.
+* **`prop:F-surjective` is proved by a shorter route**, so `prop:target-skeleton-dense` is off
+  the critical path. The source stars of the target carriers of `y` are themselves a nested
+  sequence of nonempty compacts, and any point of their intersection is already a preimage — no
+  skeleton density, no convergent subsequence, no compactness of `C ∪ D`.
 
 ### A note on `prop:skeleton-agreement`
 

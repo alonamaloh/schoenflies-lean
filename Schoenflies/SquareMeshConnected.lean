@@ -60,24 +60,31 @@ degenerate case, and it is a hypothesis, not an oversight.
 
 ## The outer cycle
 
-`gridBoundary` walks the four sides of the grid once, `gridBoundaryEdge`/`gridBoundaryPt`
-naming the `2m + 2n` edges and vertices in order. `gridGraph_isCycleThrough_boundary` is a
-`Graph.IsCycleThrough` of the grid graph, and `edgesCover_gridBoundary` computes what it
-occupies: for a monotone grid it is exactly the frame of the bounding rectangle, and for the
-grid on `[-1,1]²` that frame is `modelCurve`, i.e. `S`. That is the cycle
-`thm:finite-transfer`(b) asks for, in the form it asks for it.
+The boundary walk goes once round the four sides, `gridBoundaryEdge` and `gridBoundaryPt`
+naming the `2m + 2n` edges and vertices in order by a four-way `if` on the index. Everything
+about the walk is then arithmetic in `ℕ`, which `omega` decides.
+`gridGraph_isCycleThrough_boundary` is a `Graph.IsCycleThrough` of the grid graph — the
+distinguished outer cycle — and `edgesCover_gridBoundary` computes what it occupies: for
+increasing coordinates it is exactly the frame of the bounding rectangle, and for the grid on
+`[-1,1]²` that frame is `modelCurve`, i.e. `S` (`edgesCover_gridBoundary_modelCurve`,
+`gridGraph_outer_cycle`). That is the cycle `thm:finite-transfer`(b) asks for, in the form it
+asks for it.
+
+The grid is also shown to be a **plane graph** (`gridGraph_isDrawing`), so the outer cycle is a
+Jordan curve (`gridBoundary_isJordanCurve`) and the whole face machinery applies to it.
 
 ## What this does and does not close
 
-**Closed.** Both clauses, for the rectangular grid, from an explicit construction.
+**Closed.** Both clauses, for the rectangular grid, from an explicit construction, together
+with the drawing that makes the grid a plane graph.
 
 **Not closed.** Neither clause is transported to `Schoenflies.squareMesh`, and the reason is
 structural, not a matter of effort: `squareMesh` is `overlayGraph` applied to a list of
 segments *and an unspecified list of cut points* obtained from `exists_cut_points` by choice.
 Its edges are therefore the pieces of a subdivision nobody can enumerate, so neither "the
 edges on `S` form a cycle" nor "the rings are cycles glued along the spokes" is available
-without first proving that the subdivision of a segment at a finite point set is a **path**
-— a theorem no module on `main` has. The honest statement of the missing step is
+without first proving that the subdivision of a segment at a finite point set is a **path** —
+a theorem no module on `main` has. The honest statement of the missing collar step is
 `Graph.IsTwoConnected.attach_cycles` below: it takes a 2-connected hub `K` and finitely many
 2-connected pieces each meeting `K` in two distinct vertices, and concludes for the union.
 Instantiating it at `squareMesh` needs the collar rectangles of the mesh as cycles, which is
@@ -87,7 +94,9 @@ exactly the enumeration that is missing.
 
 * `prop:anchored-square-mesh`, clause 5, for the inner grid — `gridGraph_isTwoConnected`.
 * `prop:anchored-square-mesh`, clause 3, as a cycle — `gridGraph_isCycleThrough_boundary`
-  together with `edgesCover_gridBoundary` and `edgesCover_gridBoundary_modelCurve`.
+  together with `edgesCover_gridBoundary`, `edgesCover_gridBoundary_modelCurve` and the
+  packaged `gridGraph_outer_cycle`.
+* `lem:polygonal-overlay`, the drawing clause, for the grid — `gridGraph_isDrawing`.
 * `lem:union-two-connected` — used through `Graph.IsTwoConnected.union`; iterated here as
   `Graph.IsTwoConnected.attach_cycles`, which is the blueprint's "adding these finitely many
   cycles one at a time".
@@ -315,6 +324,19 @@ theorem mem_vertexSet_segGraph_left {l : List Piece} {P : Piece} (h : P ∈ l) :
 theorem mem_vertexSet_segGraph_right {l : List Piece} {P : Piece} (h : P ∈ l) :
     P.2 ∈ V(segGraph l) := ⟨P, h, Or.inr rfl⟩
 
+/-- An end of a listed segment is incident with it. -/
+theorem segGraph_inc {l : List Piece} {P : Piece} {v : Plane} (hP : P ∈ l)
+    (h : v = P.1 ∨ v = P.2) : (segGraph l).Inc P v := by
+  rcases h with rfl | rfl
+  · exact ⟨P.2, hP, Or.inl ⟨rfl, rfl⟩⟩
+  · exact ⟨P.1, hP, Or.inr ⟨rfl, rfl⟩⟩
+
+/-- Two plane points with the same coordinates are equal. -/
+theorem plane_eq_of_coords {z w : Plane} (h0 : z 0 = w 0) (h1 : z 1 = w 1) : z = w := by
+  ext k
+  fin_cases k
+  exacts [h0, h1]
+
 theorem endSet_append (l l' : List Piece) : endSet (l ++ l') = endSet l ∪ endSet l' := by
   ext v
   simp only [endSet, Set.mem_setOf_eq, Set.mem_union, List.mem_append]
@@ -323,6 +345,27 @@ theorem endSet_append (l l' : List Piece) : endSet (l ++ l') = endSet l ∪ endS
     exacts [Or.inl ⟨P, hP, h⟩, Or.inr ⟨P, hP, h⟩]
   · rintro (⟨P, hP, h⟩ | ⟨P, hP, h⟩)
     exacts [⟨P, Or.inl hP, h⟩, ⟨P, Or.inr hP, h⟩]
+
+instance segGraph_finite (l : List Piece) : Graph.Finite (segGraph l) where
+  finite_vertexSet := finite_endSet l
+  finite_edgeSet := l.finite_toSet
+
+/-- What a segment graph occupies is what its segments occupy: every vertex is an end of a
+listed segment, so the vertices add nothing. -/
+theorem segGraph_pointSet (l : List Piece) :
+    Graph.pointSet (segGraph l) segmentDrawing = cover l := by
+  ext z
+  simp only [Graph.pointSet, Set.mem_union, Set.mem_iUnion, exists_prop, segGraph_vertexSet,
+    endSet, Set.mem_setOf_eq, segGraph_mem_edgeSet, edgeArc_segmentDrawing, cover]
+  constructor
+  · rintro (⟨P, hP, hzP⟩ | ⟨P, hP, hzP⟩)
+    · refine ⟨P, hP, ?_⟩
+      rcases hzP with rfl | rfl
+      · exact left_mem_segment ℝ _ _
+      · exact right_mem_segment ℝ _ _
+    · exact ⟨P, hP, hzP⟩
+  · rintro ⟨P, hP, hzP⟩
+    exact Or.inr ⟨P, hP, hzP⟩
 
 theorem segGraph_mono {l l' : List Piece} (h : l ⊆ l') : segGraph l ≤ segGraph l' where
   vertexSet_mono := by
@@ -532,6 +575,46 @@ theorem gridVEdge_mem_gridEdges {xc yc : ℕ → ℝ} {i j m n : ℕ} (hi : i �
     obtain ⟨k, rfl⟩ : ∃ k, i = k + 1 := ⟨i - 1, by omega⟩
     exact stripEdges_subset_gridEdges (Nat.lt_succ_self k)
       (cellEdges_subset_stripEdges hj (by simp [cellEdges]))
+
+/-- **The edges of the grid, classified.** A grid edge is a horizontal step in a row, or a
+vertical step in a column, and nothing else. -/
+theorem mem_gridEdges_iff {xc yc : ℕ → ℝ} {m n : ℕ} (hm : 1 ≤ m) (hn : 1 ≤ n) {P : Piece} :
+    P ∈ gridEdges xc yc m n ↔
+      (∃ i < m, ∃ j ≤ n, P = gridHEdge xc yc i j) ∨
+        ∃ i ≤ m, ∃ j < n, P = gridVEdge xc yc i j := by
+  constructor
+  · intro hP
+    obtain ⟨i, hi, hPi⟩ := List.mem_flatMap.1 hP
+    obtain ⟨j, hj, hPj⟩ := List.mem_flatMap.1 hPi
+    rw [List.mem_range] at hi hj
+    simp only [cellEdges, List.mem_cons, List.not_mem_nil, or_false] at hPj
+    rcases hPj with rfl | rfl | rfl | rfl
+    · exact Or.inl ⟨i, hi, j, by omega, rfl⟩
+    · exact Or.inr ⟨i + 1, by omega, j, hj, rfl⟩
+    · exact Or.inl ⟨i, hi, j + 1, by omega, rfl⟩
+    · exact Or.inr ⟨i, by omega, j, hj, rfl⟩
+  · rintro (⟨i, hi, j, hj, rfl⟩ | ⟨i, hi, j, hj, rfl⟩)
+    · exact gridHEdge_mem_gridEdges hi hj hn
+    · exact gridVEdge_mem_gridEdges hi hj hm
+
+/-- **The vertices of the grid are exactly the grid points.** -/
+theorem mem_vertexSet_gridGraph_iff {xc yc : ℕ → ℝ} {m n : ℕ} (hm : 1 ≤ m) (hn : 1 ≤ n)
+    {v : Plane} :
+    v ∈ V(gridGraph xc yc m n) ↔ ∃ i ≤ m, ∃ j ≤ n, v = gridPt xc yc i j := by
+  constructor
+  · rintro ⟨P, hP, hv⟩
+    rcases (mem_gridEdges_iff hm hn).1 hP with ⟨i, hi, j, hj, rfl⟩ | ⟨i, hi, j, hj, rfl⟩
+    · rcases hv with rfl | rfl
+      exacts [⟨i, by omega, j, hj, rfl⟩, ⟨i + 1, by omega, j, hj, rfl⟩]
+    · rcases hv with rfl | rfl
+      exacts [⟨i, hi, j, by omega, rfl⟩, ⟨i, hi, j + 1, by omega, rfl⟩]
+  · rintro ⟨i, hi, j, hj, rfl⟩
+    -- a grid point is an end of the horizontal edge on one side of it
+    rcases lt_or_ge i m with h | h
+    · exact mem_vertexSet_segGraph_left (gridHEdge_mem_gridEdges h hj hn)
+    · obtain rfl : i = m := le_antisymm hi h
+      obtain ⟨k, rfl⟩ : ∃ k, i = k + 1 := ⟨i - 1, by omega⟩
+      exact mem_vertexSet_segGraph_right (gridHEdge_mem_gridEdges (Nat.lt_succ_self k) hj hn)
 
 /-! ### The outer cycle
 
@@ -906,5 +989,150 @@ theorem gridGraph_outer_cycle {xc yc : ℕ → ℝ} {m n : ℕ} (hm : 1 ≤ m) (
         (gridBoundaryLast xc yc m n :: gridBoundaryDetour xc yc m n) = modelCurve :=
   ⟨gridGraph_isCycleThrough_boundary hm hn hx hy,
     edgesCover_gridBoundary_modelCurve hm hn hxmono hymono hx0 hxm hy0 hyn⟩
+
+/-! ### The grid is a plane graph
+
+Sorted coordinates make the drawing clause a coordinate computation. A point of a horizontal
+grid edge has the row's `y`-coordinate and an `x`-coordinate in one closed coordinate interval;
+strict monotonicity turns "`xc a` lies in `[xc i, xc (i+1)]`" into "`a = i` or `a = i+1`", and
+that single step settles both remaining clauses of `Graph.IsDrawing`. -/
+
+theorem coord_le_of_idx_le {f : ℕ → ℝ} {N : ℕ} (hf : StrictMonoOn f (Set.Iic N)) {a b : ℕ}
+    (ha : a ≤ N) (hb : b ≤ N) (h : a ≤ b) : f a ≤ f b := by
+  rcases eq_or_lt_of_le h with rfl | h'
+  · exact le_rfl
+  · exact (hf ha hb h').le
+
+theorem idx_le_of_coord_le {f : ℕ → ℝ} {N : ℕ} (hf : StrictMonoOn f (Set.Iic N)) {a b : ℕ}
+    (ha : a ≤ N) (hb : b ≤ N) (h : f a ≤ f b) : a ≤ b := by
+  by_contra hcon
+  exact absurd (hf hb ha (by omega)) (by simpa using h)
+
+/-- **Reading an index off a coordinate.** -/
+theorem idx_of_coord_mem {f : ℕ → ℝ} {N : ℕ} (hf : StrictMonoOn f (Set.Iic N)) {a i : ℕ}
+    (ha : a ≤ N) (hi : i + 1 ≤ N) (h₁ : f i ≤ f a) (h₂ : f a ≤ f (i + 1)) :
+    a = i ∨ a = i + 1 := by
+  have := idx_le_of_coord_le hf (by omega) ha h₁
+  have := idx_le_of_coord_le hf ha hi h₂
+  omega
+
+theorem mem_gridHEdge_seg_iff {xc yc : ℕ → ℝ} {i j : ℕ} {z : Plane} :
+    z ∈ (gridHEdge xc yc i j).seg ↔ z 1 = yc j ∧ z 0 ∈ segment ℝ (xc i) (xc (i + 1)) :=
+  mem_segment_horiz
+
+theorem mem_gridVEdge_seg_iff {xc yc : ℕ → ℝ} {i j : ℕ} {z : Plane} :
+    z ∈ (gridVEdge xc yc i j).seg ↔ z 0 = xc i ∧ z 1 ∈ segment ℝ (yc j) (yc (j + 1)) :=
+  mem_segment_vert
+
+variable {xc yc : ℕ → ℝ} {m n : ℕ}
+
+/-- A grid edge is nondegenerate: its two ends differ in one coordinate. -/
+theorem gridEdges_nondeg (hxs : StrictMonoOn xc (Set.Iic m)) (hys : StrictMonoOn yc (Set.Iic n))
+    (hm : 1 ≤ m) (hn : 1 ≤ n) {P : Piece} (hP : P ∈ gridEdges xc yc m n) : P.Nondeg := by
+  rcases (mem_gridEdges_iff hm hn).1 hP with ⟨i, hi, j, hj, rfl⟩ | ⟨i, hi, j, hj, rfl⟩
+  · exact gridPt_ne_of_fst
+      (ne_of_lt (hxs (Set.mem_Iic.2 (by omega)) (Set.mem_Iic.2 (by omega)) (by omega)))
+  · exact gridPt_ne_of_snd
+      (ne_of_lt (hys (Set.mem_Iic.2 (by omega)) (Set.mem_Iic.2 (by omega)) (by omega)))
+
+/-- A grid point on a grid edge is one of that edge's two ends. -/
+theorem end_of_gridPt_mem_seg (hxs : StrictMonoOn xc (Set.Iic m))
+    (hys : StrictMonoOn yc (Set.Iic n)) (hm : 1 ≤ m) (hn : 1 ≤ n) {P : Piece}
+    (hP : P ∈ gridEdges xc yc m n) {a b : ℕ} (ha : a ≤ m) (hb : b ≤ n)
+    (hmem : gridPt xc yc a b ∈ P.seg) : gridPt xc yc a b = P.1 ∨ gridPt xc yc a b = P.2 := by
+  rcases (mem_gridEdges_iff hm hn).1 hP with ⟨i, hi, j, hj, rfl⟩ | ⟨i, hi, j, hj, rfl⟩
+  · obtain ⟨hz1, hz0⟩ := mem_gridHEdge_seg_iff.1 hmem
+    simp only [gridPt, Plane.mk_one, Plane.mk_zero] at hz1 hz0
+    obtain rfl : b = j := hys.injOn hb hj hz1
+    rw [segment_eq_Icc (coord_le_of_idx_le hxs (by omega) (by omega) (by omega))] at hz0
+    rcases idx_of_coord_mem hxs ha (by omega) hz0.1 hz0.2 with rfl | rfl
+    exacts [Or.inl rfl, Or.inr rfl]
+  · obtain ⟨hz0, hz1⟩ := mem_gridVEdge_seg_iff.1 hmem
+    simp only [gridPt, Plane.mk_one, Plane.mk_zero] at hz1 hz0
+    obtain rfl : a = i := hxs.injOn ha hi hz0
+    rw [segment_eq_Icc (coord_le_of_idx_le hys (by omega) (by omega) (by omega))] at hz1
+    rcases idx_of_coord_mem hys hb (by omega) hz1.1 hz1.2 with rfl | rfl
+    exacts [Or.inl rfl, Or.inr rfl]
+
+/-- **A point on two grid edges is a grid point on both.** The heart of the drawing clause:
+two grid segments cross only where a coordinate of one is pinned by the other. -/
+theorem gridPt_of_mem_two_edges (hxs : StrictMonoOn xc (Set.Iic m))
+    (hys : StrictMonoOn yc (Set.Iic n)) (hm : 1 ≤ m) (hn : 1 ≤ n) {P Q : Piece}
+    (hP : P ∈ gridEdges xc yc m n) (hQ : Q ∈ gridEdges xc yc m n) (hPQ : P ≠ Q) {z : Plane}
+    (hzP : z ∈ P.seg) (hzQ : z ∈ Q.seg) :
+    ∃ a ≤ m, ∃ b ≤ n, z = gridPt xc yc a b := by
+  -- an equal-direction pair: two rows or two columns, meeting at one shared coordinate
+  have same : ∀ (f : ℕ → ℝ) (N i i' : ℕ), StrictMonoOn f (Set.Iic N) → i + 1 ≤ N → i' + 1 ≤ N →
+      i ≠ i' → ∀ c : ℝ, c ∈ segment ℝ (f i) (f (i + 1)) → c ∈ segment ℝ (f i') (f (i' + 1)) →
+      ∃ k ≤ N, c = f k := by
+    intro f N i i' hf hi hi' hne c hc hc'
+    rw [segment_eq_Icc (coord_le_of_idx_le hf (by omega) (by omega) (by omega))] at hc
+    rw [segment_eq_Icc (coord_le_of_idx_le hf (by omega) (by omega) (by omega))] at hc'
+    rcases lt_or_gt_of_ne hne with h | h
+    · -- `i` is to the left: the two intervals can only touch at `f (i+1)`
+      refine ⟨i + 1, hi, le_antisymm hc.2 ?_⟩
+      exact le_trans (coord_le_of_idx_le hf (by omega) (by omega) (by omega)) hc'.1
+    · refine ⟨i, by omega, le_antisymm ?_ hc.1⟩
+      exact le_trans hc'.2 (coord_le_of_idx_le hf (by omega) (by omega) (by omega))
+  rcases (mem_gridEdges_iff hm hn).1 hP with ⟨i, hi, j, hj, rfl⟩ | ⟨i, hi, j, hj, rfl⟩ <;>
+    rcases (mem_gridEdges_iff hm hn).1 hQ with ⟨i', hi', j', hj', rfl⟩ | ⟨i', hi', j', hj', rfl⟩
+  · obtain ⟨hz1, hz0⟩ := mem_gridHEdge_seg_iff.1 hzP
+    obtain ⟨hz1', hz0'⟩ := mem_gridHEdge_seg_iff.1 hzQ
+    obtain rfl : j = j' := hys.injOn hj hj' (hz1 ▸ hz1')
+    have hii : i ≠ i' := by rintro rfl; exact hPQ rfl
+    obtain ⟨k, hk, hck⟩ := same xc m i i' hxs (by omega) (by omega) hii _ hz0 hz0'
+    exact ⟨k, hk, j, hj, plane_eq_of_coords (by simpa [gridPt] using hck)
+      (by simpa [gridPt] using hz1)⟩
+  · obtain ⟨hz1, hz0⟩ := mem_gridHEdge_seg_iff.1 hzP
+    obtain ⟨hz0', hz1'⟩ := mem_gridVEdge_seg_iff.1 hzQ
+    exact ⟨i', hi', j, hj, plane_eq_of_coords (by simpa [gridPt] using hz0')
+      (by simpa [gridPt] using hz1)⟩
+  · obtain ⟨hz0, hz1⟩ := mem_gridVEdge_seg_iff.1 hzP
+    obtain ⟨hz1', hz0'⟩ := mem_gridHEdge_seg_iff.1 hzQ
+    exact ⟨i, hi, j', hj', plane_eq_of_coords (by simpa [gridPt] using hz0)
+      (by simpa [gridPt] using hz1')⟩
+  · obtain ⟨hz0, hz1⟩ := mem_gridVEdge_seg_iff.1 hzP
+    obtain ⟨hz0', hz1'⟩ := mem_gridVEdge_seg_iff.1 hzQ
+    obtain rfl : i = i' := hxs.injOn hi hi' (hz0 ▸ hz0')
+    have hjj : j ≠ j' := by rintro rfl; exact hPQ rfl
+    obtain ⟨k, hk, hck⟩ := same yc n j j' hys (by omega) (by omega) hjj _ hz1 hz1'
+    exact ⟨i, hi, k, hk, plane_eq_of_coords (by simpa [gridPt] using hz0)
+      (by simpa [gridPt] using hck)⟩
+
+/-- **The grid is a plane graph**, drawn with straight edges. -/
+theorem gridGraph_isDrawing (hxs : StrictMonoOn xc (Set.Iic m))
+    (hys : StrictMonoOn yc (Set.Iic n)) (hm : 1 ≤ m) (hn : 1 ≤ n) :
+    Graph.IsDrawing (gridGraph xc yc m n) segmentDrawing := by
+  refine ⟨?_, ?_, ?_⟩
+  · intro P hP
+    have hne : P.Nondeg := gridEdges_nondeg hxs hys hm hn hP
+    refine ⟨AffineMap.lineMap_continuous.continuousOn, injOn_lineMap hne, ?_⟩
+    have h0 : segmentDrawing P 0 = P.1 := by simp [segmentDrawing]
+    have h1 : segmentDrawing P 1 = P.2 := by simp [segmentDrawing]
+    rw [h0, h1]
+    exact segGraph_isLink_self hP
+  · rintro P x y v ⟨hP, hxy⟩ hv hvarc
+    rw [edgeArc_segmentDrawing] at hvarc
+    obtain ⟨a, ha, b, hb, rfl⟩ := (mem_vertexSet_gridGraph_iff hm hn).1 hv
+    have hend := end_of_gridPt_mem_seg hxs hys hm hn hP ha hb hvarc
+    rcases hxy with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
+    · exact hend
+    · exact hend.symm
+  · intro P Q hP hQ hPQ p hpP hpQ
+    rw [edgeArc_segmentDrawing] at hpP hpQ
+    obtain ⟨a, ha, b, hb, rfl⟩ := gridPt_of_mem_two_edges hxs hys hm hn hP hQ hPQ hpP hpQ
+    have hvert : gridPt xc yc a b ∈ V(gridGraph xc yc m n) :=
+      (mem_vertexSet_gridGraph_iff hm hn).2 ⟨a, ha, b, hb, rfl⟩
+    exact ⟨hvert, segGraph_inc hP (end_of_gridPt_mem_seg hxs hys hm hn hP ha hb hpP),
+      segGraph_inc hQ (end_of_gridPt_mem_seg hxs hys hm hn hQ ha hb hpQ)⟩
+
+/-- **The outer cycle is a Jordan curve.** Now that the grid is a plane graph this is
+`Graph.IsDrawing.cycle_isJordanCurve` applied to the boundary cycle. -/
+theorem gridBoundary_isJordanCurve (hxs : StrictMonoOn xc (Set.Iic m))
+    (hys : StrictMonoOn yc (Set.Iic n)) (hm : 1 ≤ m) (hn : 1 ≤ n) :
+    IsJordanCurve (Graph.edgesCover segmentDrawing
+      (gridBoundaryLast xc yc m n :: gridBoundaryDetour xc yc m n)) :=
+  (gridGraph_isDrawing hxs hys hm hn).cycle_isJordanCurve
+    (gridGraph_isCycleThrough_boundary hm hn hxs.injOn hys.injOn)
 
 end Schoenflies

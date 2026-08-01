@@ -193,10 +193,6 @@ theorem outerSet_eq_iUnion_cell : R.outerSet = ⋃ κ ∈ S.outerCells, R.cell �
 
 variable {R}
 
-theorem cell_subset_skeletonSet {κ : γ} (hκ : κ ∈ V(S.skel) ∪ E(S.skel)) :
-    R.cell κ ⊆ R.skeletonSet := by
-  rw [R.skeletonSet_eq_iUnion_cell]; exact Set.subset_biUnion_of_mem hκ
-
 theorem cell_subset_outerSet {κ : γ} (hκ : κ ∈ S.outerCells) : R.cell κ ⊆ R.outerSet := by
   rw [R.outerSet_eq_iUnion_cell]; exact Set.subset_biUnion_of_mem hκ
 

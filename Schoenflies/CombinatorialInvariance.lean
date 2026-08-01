@@ -316,6 +316,23 @@ theorem outerSet_subset_skeletonSet : R.outerSet ⊆ R.skeletonSet :=
 theorem isCompact_skeletonSet : IsCompact R.skeletonSet :=
   @IsDrawing.isCompact_pointSet _ _ _ R.finite_graph R.isDrawing
 
+/-- An open 0-cell or 1-cell is part of the realized skeleton: a 0-cell is realized by a drawn
+vertex, a 1-cell by part of a drawn edge.
+
+Hoisted here because `Schoenflies/LimitMap.lean` and `Schoenflies/FiniteTransfer.lean` each
+proved it independently and the duplicate gate caught the collision — two alpha-equivalent
+`Prop`s pass Lean's import checker under proof irrelevance, so a clean build would not have. -/
+theorem cell_subset_skeletonSet {R : S.Realization} {κ : γ}
+    (hκ : κ ∈ V(S.skel) ∪ E(S.skel)) : R.cell κ ⊆ R.skeletonSet := by
+  rcases hκ with hv | he
+  · rw [R.cell_vertex hv]
+    exact Set.singleton_subset_iff.2 (vertexSet_subset_pointSet
+      (by rw [Realization.vertexSet_graph]; exact ⟨κ, hv, rfl⟩))
+  · obtain ⟨a, b, hl⟩ := exists_isLink_of_mem_edgeSet he
+    rw [R.cell_edge hl]
+    exact Set.sdiff_subset.trans (edgeArc_subset_pointSet
+      (by rw [Realization.edgeSet_graph]; exact he))
+
 end Realization
 
 /-! ### The skeleton homeomorphism -/

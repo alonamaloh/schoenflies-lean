@@ -99,6 +99,34 @@ interact with `IsCellDecomposition`: "the carrier of any point of `C` is an oute
 first sentence of the blueprint's proof of `lem:outer-incidence`, and it is exactly this
 rewriting. -/
 
+/-- Every outer cell is a cell. -/
+theorem outerCells_subset_cells : S.outerCells ⊆ S.cells := by
+  rintro κ (hv | he)
+  · exact S.mem_cells_of_mem_vertexSet (S.outerGraph_le.vertexSet_mono hv)
+  · exact S.mem_cells_of_mem_edgeSet (S.outerGraph_le.edgeSet_mono he)
+
+/-- A cell that is neither a 0-cell nor a 1-cell of the skeleton is a 2-cell — the three
+collections exhaust `cells`. -/
+theorem mem_faces_of_notMem_skel {σ : γ} (hσ : σ ∈ S.cells) (h : σ ∉ V(S.skel) ∪ E(S.skel)) :
+    σ ∈ S.faces := by
+  rcases hσ with hσ | hσ
+  · exact absurd hσ h
+  · exact hσ
+
+/-- A 2-cell is never an outer cell: outer cells are 0- and 1-cells of the skeleton. -/
+theorem notMem_outerCells_of_mem_faces {F : γ} (hF : F ∈ S.faces) : F ∉ S.outerCells := by
+  rintro (hv | he)
+  · exact S.faces_ne_vertexSet hF (S.outerGraph_le.vertexSet_mono hv) rfl
+  · exact S.faces_ne_edgeSet hF (S.outerGraph_le.edgeSet_mono he) rfl
+
+/-- A **nonboundary edge** — assertion (iii) of `lem:cellulation-invariants` produces one on every
+2-cell boundary — is not an outer cell. -/
+theorem notMem_outerCells_of_nonboundary_edge {f : γ} (hf : f ∈ E(S.skel))
+    (h : f ∉ E(S.outerGraph)) : f ∉ S.outerCells := by
+  rintro (hv | he)
+  · exact S.vertexSet_ne_edgeSet (S.outerGraph_le.vertexSet_mono hv) hf rfl
+  · exact h he
+
 namespace Realization
 
 variable (R : S.Realization)
@@ -148,31 +176,12 @@ theorem outerSet_eq_iUnion_cell : R.outerSet = ⋃ κ ∈ S.outerCells, R.cell �
 
 variable {R}
 
-theorem outerCells_subset_cells : S.outerCells ⊆ S.cells := by
-  rintro κ (hv | he)
-  · exact S.mem_cells_of_mem_vertexSet (S.outerGraph_le.vertexSet_mono hv)
-  · exact S.mem_cells_of_mem_edgeSet (S.outerGraph_le.edgeSet_mono he)
-
 theorem cell_subset_skeletonSet {κ : γ} (hκ : κ ∈ V(S.skel) ∪ E(S.skel)) :
     R.cell κ ⊆ R.skeletonSet := by
   rw [R.skeletonSet_eq_iUnion_cell]; exact Set.subset_biUnion_of_mem hκ
 
 theorem cell_subset_outerSet {κ : γ} (hκ : κ ∈ S.outerCells) : R.cell κ ⊆ R.outerSet := by
   rw [R.outerSet_eq_iUnion_cell]; exact Set.subset_biUnion_of_mem hκ
-
-/-- A cell that is neither a 0-cell nor a 1-cell of the skeleton is a 2-cell — the three
-collections exhaust `cells`. -/
-theorem mem_faces_of_notMem_skel {σ : γ} (hσ : σ ∈ S.cells) (h : σ ∉ V(S.skel) ∪ E(S.skel)) :
-    σ ∈ S.faces := by
-  rcases hσ with hσ | hσ
-  · exact absurd hσ h
-  · exact hσ
-
-/-- A 2-cell is never an outer cell: outer cells are 0- and 1-cells of the skeleton. -/
-theorem notMem_outerCells_of_mem_faces {F : γ} (hF : F ∈ S.faces) : F ∉ S.outerCells := by
-  rintro (hv | he)
-  · exact S.faces_ne_vertexSet hF (S.outerGraph_le.vertexSet_mono hv) rfl
-  · exact S.faces_ne_edgeSet hF (S.outerGraph_le.edgeSet_mono he) rfl
 
 namespace IsCellDecomposition
 
@@ -563,6 +572,125 @@ theorem injOn_F (L : LimitTower γ) : Set.InjOn L.F L.region := by
     le_of_tendsto_of_tendsto' tendsto_const_nhds
       (by simpa using (tendsto_diam_srcStar_point hx).add (tendsto_diam_srcStar_point hy)) hbound
   exact dist_le_zero.1 hzero
+
+/-! #### Density of the target skeleton -/
+
+/-- An open cell that is not an outer cell lies in the open region: open cells are disjoint and
+`S` is the union of the open outer ones. -/
+theorem tgt_cell_subset_region' (n : ℕ) {σ : γ} (hσ : σ ∈ (L.str n).cells)
+    (hout : σ ∉ (L.str n).outerCells) : (L.tgt n).cell σ ⊆ L.region' := by
+  intro w hw
+  refine ⟨(L.tgtDecomp n).cell_subset_domain hσ hw, fun hb => ?_⟩
+  rw [← L.tgtOuterSet n] at hb
+  exact Set.disjoint_left.1 ((L.tgtDecomp n).cell_disjoint_outerSet hσ hout) hw hb
+
+/-- **`prop:target-skeleton-dense`**: every point of `Q°` is approximated by target skeleton
+points of `Q°`. If `y` is not already on the stage-`n` skeleton its carrier is a 2-cell, and
+assertion (iii) of `lem:cellulation-invariants` puts a nonboundary edge on its boundary; that
+edge's open cell lies in the star of the carrier, of diameter at most `eps n`. -/
+theorem exists_mem_tgt_skeletonSet (hy : y ∈ L.region') {δ : ℝ} (hδ : 0 < δ) :
+    ∃ n w, w ∈ (L.tgt n).skeletonSet ∧ w ∈ L.region' ∧ dist y w < δ := by
+  obtain ⟨n, hn⟩ := exists_lt_of_tendsto_zero L.tendsto_eps hδ
+  by_cases hys : y ∈ (L.tgt n).skeletonSet
+  · exact ⟨n, y, hys, hy, by simpa using hδ⟩
+  have hyD : y ∈ L.dom' := region'_subset_dom' hy
+  have hcar : (L.tgt n).carrier y ∈ (L.str n).cells := (L.tgtDecomp n).mem_cells_carrier hyD
+  -- the carrier of `y` is a 2-cell: otherwise its open cell would sit on the skeleton
+  have hface : (L.tgt n).carrier y ∈ (L.str n).faces := by
+    refine mem_faces_of_notMem_skel hcar fun hmem => hys ?_
+    exact Realization.cell_subset_skeletonSet hmem ((L.tgtDecomp n).mem_cell_carrier hyD)
+  obtain ⟨f, hf, hfout, hfsub⟩ := (L.comb n).nonboundary_edge hface
+  have hfc : f ∈ (L.str n).cells := (L.str n).mem_cells_of_mem_edgeSet hf
+  obtain ⟨w, hw⟩ := (L.tgtDecomp n).nonempty hfc
+  have hwstar : w ∈ (L.tgt n).star ((L.tgt n).carrier y) :=
+    Realization.closure_cell_subset_star ((L.tgtDecomp n).sub_refl hcar)
+      ((L.tgtDecomp n).subset_closure hfc hcar hfsub hw)
+  refine ⟨n, w, Realization.cell_subset_skeletonSet (Or.inr hf) hw,
+    tgt_cell_subset_region' n hfc (notMem_outerCells_of_nonboundary_edge hf hfout) hw,
+    lt_of_le_of_lt (le_trans (dist_le_diam_of_mem (isBounded_tgt_star n _)
+      ((L.tgtDecomp n).mem_star_carrier hyD) hwstar) (L.diam_tgtStar_le n hcar)) hn⟩
+
+/-! #### Surjectivity
+
+The blueprint reaches `y` through the density of the target skeleton and a compactness argument
+in `C ∪ D`. The route taken here is shorter and needs neither: the *source* stars of the
+*target* carriers of `y` are themselves a nested sequence of nonempty compacts, and every point
+of their intersection is already a preimage of `y`. -/
+
+/-- `St_{Γ_n}(car_{Γ'_n}(y))`: the source star of the target carrier of `y`. This is the set the
+blueprint calls `K`, read at every stage instead of at one. -/
+def preStar (L : LimitTower γ) (n : ℕ) (y : Plane) : Set Plane :=
+  (L.src n).star ((L.tgt n).carrier y)
+
+theorem preStar_succ_subset (hy : y ∈ L.dom') (n : ℕ) :
+    L.preStar (n + 1) y ⊆ L.preStar n y :=
+  (L.tgtRefines n).target_star_subset (L.srcRefines n) (L.comb (n + 1)) (L.tgtDecomp n)
+    (L.tgtDecomp (n + 1)) hy
+
+theorem preStar_nonempty (hy : y ∈ L.dom') (n : ℕ) : (L.preStar n y).Nonempty :=
+  (L.srcDecomp n).star_nonempty ((L.tgtDecomp n).mem_cells_carrier hy)
+
+theorem isCompact_preStar (n : ℕ) (y : Plane) : IsCompact (L.preStar n y) :=
+  (L.srcDecomp n).isCompact_star (L.comb n) L.isBounded_dom
+
+theorem nonempty_iInter_preStar (hy : y ∈ L.dom') : (⋂ n, L.preStar n y).Nonempty :=
+  IsCompact.nonempty_iInter_of_sequence_nonempty_isCompact_isClosed _
+    (fun n => preStar_succ_subset hy n) (preStar_nonempty hy) (isCompact_preStar 0 y)
+    fun n => (isCompact_preStar n y).isClosed
+
+/-- **The heart of surjectivity**: a point lying in every `preStar n y` is carried to `y`. At
+each stage the source carrier of `x` and the target carrier of `y` share a supercell `τ`, so the
+two target stars meet, and both have diameter at most `eps n`. -/
+theorem F_eq_of_mem_iInter_preStar (hy : y ∈ L.dom') (hxD : x ∈ L.dom)
+    (hx : ∀ n, x ∈ L.preStar n y) : L.F x = y := by
+  have hbound : ∀ n, dist (L.F x) y ≤ 2 * L.eps n := by
+    intro n
+    obtain ⟨τ, hτ, hxτ⟩ := Realization.mem_star_iff.1 (hx n)
+    have hτc : τ ∈ (L.str n).cells := (L.comb n).sub_mem_right hτ
+    -- `τ` is a supercell of the source carrier of `x` as well
+    have hsub : (L.str n).sub ((L.src n).carrier x) τ :=
+      (L.srcDecomp n).sub_of_mem ((L.srcDecomp n).mem_cells_carrier hxD) hτc
+        ((L.srcDecomp n).mem_cell_carrier hxD) hxτ
+    obtain ⟨w, hw⟩ := (L.tgtDecomp n).nonempty hτc
+    have hwx : w ∈ L.tgtStar n x :=
+      Realization.closure_cell_subset_star hsub (_root_.subset_closure hw)
+    have hwy : w ∈ (L.tgt n).star ((L.tgt n).carrier y) :=
+      Realization.closure_cell_subset_star hτ (_root_.subset_closure hw)
+    have h₁ : dist (L.F x) w ≤ L.eps n := dist_F_le_of_mem_tgtStar hxD hwx
+    have h₂ : dist w y ≤ L.eps n :=
+      le_trans (dist_le_diam_of_mem (isBounded_tgt_star n _) hwy
+        ((L.tgtDecomp n).mem_star_carrier hy))
+        (L.diam_tgtStar_le n ((L.tgtDecomp n).mem_cells_carrier hy))
+    calc dist (L.F x) y ≤ dist (L.F x) w + dist w y := dist_triangle _ _ _
+      _ ≤ 2 * L.eps n := by linarith
+  have hzero : dist (L.F x) y ≤ 0 :=
+    le_of_tendsto_of_tendsto' tendsto_const_nhds
+      (by simpa using L.tendsto_eps.const_mul 2) hbound
+  exact dist_le_zero.1 hzero
+
+/-- At a point of `Q°` the target star is eventually inside `Q°`. Here the *uniform* half of
+`prop:shrinking-stars` is what is available, and it suffices. -/
+theorem exists_tgt_star_subset_region' (hy : y ∈ L.region') :
+    ∃ n, (L.tgt n).star ((L.tgt n).carrier y) ⊆ L.region' := by
+  obtain ⟨r, hr, hball⟩ := Metric.isOpen_iff.1 L.isOpen_region' y hy
+  obtain ⟨n, hn⟩ := exists_lt_of_tendsto_zero L.tendsto_eps hr
+  refine ⟨n, fun w hw => hball (Metric.mem_ball.2 ?_)⟩
+  have h₁ : dist w y ≤ diam ((L.tgt n).star ((L.tgt n).carrier y)) :=
+    dist_le_diam_of_mem (isBounded_tgt_star n _) hw
+      ((L.tgtDecomp n).mem_star_carrier (region'_subset_dom' hy))
+  have h₂ := L.diam_tgtStar_le n ((L.tgtDecomp n).mem_cells_carrier (region'_subset_dom' hy))
+  linarith
+
+/-- **`prop:F-surjective`**: every point of `Q°` is `F` of a point of `D`. -/
+theorem exists_mem_region_F_eq (hy : y ∈ L.region') : ∃ x, x ∈ L.region ∧ L.F x = y := by
+  obtain ⟨n, hn⟩ := exists_tgt_star_subset_region' hy
+  obtain ⟨x, hx⟩ := nonempty_iInter_preStar (region'_subset_dom' hy)
+  have hmem : ∀ m, x ∈ L.preStar m y := Set.mem_iInter.1 hx
+  have hxD : x ∈ L.dom := srcStar_subset_dom 0 _ (hmem 0)
+  refine ⟨x, ⟨hxD, fun hb => ?_⟩, F_eq_of_mem_iInter_preStar (region'_subset_dom' hy) hxD hmem⟩
+  -- the stage-`n` source star of the target carrier of `y` misses `C`, by `lem:outer-incidence`
+  obtain ⟨w, hw, hwb⟩ := (L.star_meets_bdry_iff n ((L.tgt n).carrier y)).1 ⟨x, hmem n, hb⟩
+  exact (hn hw).2 hwb
 
 end LimitTower
 

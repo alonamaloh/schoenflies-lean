@@ -1169,6 +1169,72 @@ theorem ClosedPolygon.exists_vertex_eq_of_isCornerAt {m : ℕ} (P : ClosedPolygo
     · exact hji ▸ hzj
     · exact absurd hzj (hball j hji z hzb)
 
+/-- Two points of a segment differ by a multiple of its direction. -/
+theorem sub_eq_smul_of_mem_segment {a b x y : Plane} (hx : x ∈ segment ℝ a b)
+    (hy : y ∈ segment ℝ a b) : ∃ c : ℝ, x - y = c • (a - b) := by
+  obtain ⟨α, β, -, -, hαβ, rfl⟩ := hx
+  obtain ⟨γ, δ, -, -, hγδ, rfl⟩ := hy
+  have hb : β = 1 - α := by linarith
+  have hd : δ = 1 - γ := by linarith
+  subst hb; subst hd
+  exact ⟨α - γ, by module⟩
+
+/-- Three points of one segment are collinear. -/
+theorem det_eq_zero_of_mem_segment {a b x y z : Plane} (hx : x ∈ segment ℝ a b)
+    (hy : y ∈ segment ℝ a b) (hz : z ∈ segment ℝ a b) : det (x - z) (y - z) = 0 := by
+  obtain ⟨c, hc⟩ := sub_eq_smul_of_mem_segment hx hz
+  obtain ⟨d, hd⟩ := sub_eq_smul_of_mem_segment hy hz
+  rw [hc, hd, det_smul_left, det_smul_right, det_self, mul_zero, mul_zero]
+
+/-- **Every vertex is a corner.** With `ClosedPolygon.exists_vertex_eq_of_isCornerAt` this says
+that the vertex set of a realization is *exactly* the corner set of the curve — so any two
+realizations of one curve have the same vertices, and a point can be required to be a vertex
+precisely when it is a corner. -/
+theorem ClosedPolygon.isCornerAt_vertex {m : ℕ} (P : ClosedPolygon m) (i : ZMod (m + 3)) :
+    IsCornerAt P.carrier (P.vertex i) := by
+  refine ⟨P.vertex_mem_carrier, ?_⟩
+  rintro ⟨a, b, hvab, r, hr, hsub⟩
+  refine P.corner i ?_
+  set u : Plane := P.vertex (i + 1) - P.vertex i with hu
+  set w : Plane := P.vertex (i - 1) - P.vertex i with hw
+  set t : ℝ := min 1 (r / (2 * (‖u‖ + ‖w‖ + 1))) with ht
+  have hM : (0 : ℝ) < ‖u‖ + ‖w‖ + 1 := by positivity
+  have htpos : 0 < t := lt_min one_pos (by positivity)
+  have htle : t ≤ 1 := min_le_left _ _
+  -- A short step along either edge stays inside the ball.
+  have key : ∀ v : Plane, ‖v‖ ≤ ‖u‖ + ‖w‖ + 1 → t * ‖v‖ < r := by
+    intro v hv
+    calc t * ‖v‖ ≤ (r / (2 * (‖u‖ + ‖w‖ + 1))) * ‖v‖ :=
+          mul_le_mul_of_nonneg_right (min_le_right _ _) (norm_nonneg v)
+      _ < r := by
+          rw [div_mul_eq_mul_div, div_lt_iff₀ (by positivity)]
+          nlinarith [norm_nonneg v]
+  have hstep : ∀ v : Plane, ‖v‖ ≤ ‖u‖ + ‖w‖ + 1 →
+      P.vertex i + t • v ∈ ball (P.vertex i) r := by
+    intro v hv
+    rw [mem_ball, dist_eq_norm, add_sub_cancel_left, norm_smul, Real.norm_eq_abs,
+      abs_of_pos htpos]
+    exact key v hv
+  have hxmem : P.vertex i + t • u ∈ segment ℝ a b := by
+    refine hsub ⟨hstep u (by linarith [norm_nonneg w]), ?_⟩
+    refine ClosedPolygon.edge_subset_carrier (i := i)
+      ⟨1 - t, t, by linarith, htpos.le, by ring, ?_⟩
+    rw [hu]; module
+  have hymem : P.vertex i + t • w ∈ segment ℝ a b := by
+    refine hsub ⟨hstep w (by linarith [norm_nonneg u]), ?_⟩
+    refine ClosedPolygon.edge_subset_carrier (i := i - 1)
+      ⟨t, 1 - t, htpos.le, by linarith, by ring, ?_⟩
+    rw [hw, sub_add_cancel]; module
+  have hvmem : P.vertex i ∈ segment ℝ a b := openSegment_subset_segment ℝ _ _ hvab
+  have hdet := det_eq_zero_of_mem_segment hymem hxmem hvmem
+  rw [add_sub_cancel_left, add_sub_cancel_left, det_smul_left, det_smul_right] at hdet
+  have hne : t * (t * det w u) = 0 := hdet
+  rcases mul_eq_zero.1 hne with h | h
+  · exact absurd h htpos.ne'
+  · rcases mul_eq_zero.1 h with h' | h'
+    · exact absurd h' htpos.ne'
+    · exact h'
+
 /-- **The realization theorem, with named corners.** Any finite list of corners of the curve can
 be required to be among the vertices — and by `ClosedPolygon.exists_vertex_eq_of_isCornerAt`,
 being a corner is exactly what a point must be for that to be possible. -/

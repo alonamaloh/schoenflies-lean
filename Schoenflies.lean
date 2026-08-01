@@ -101,3 +101,5 @@ import Schoenflies.Windows
 import Schoenflies.StageTower
 import Schoenflies.RealizeSubdiv
 import Schoenflies.RealizeSplit
+import Schoenflies.InitialGenerated
+import Schoenflies.SquareMeshClosed

@@ -19,26 +19,37 @@ Keep this file honest. A "done" that is really a "conditional" costs the next ag
 
 ## Live obligations
 
-These are the only statements assumed anywhere in the library. Each is a `def … : Prop` that
-some theorem takes as a hypothesis, so the axiom audit (`docs/audit-axioms.py`) stays a real
-guarantee and an interface defect surfaces at the consumer rather than at the end.
+**Part I has none.** `thm:jordan` and `thm:general-crosscut` rest on `propext`,
+`Classical.choice` and `Quot.sound` alone; `docs/audit-axioms.py` checks that for every
+declaration in the library on every run.
 
-| Assumed | Declared in | Blocks | Notes |
-|---|---|---|---|
-| `Schoenflies.SquaresTwoConnected` | `ArcComplement.lean` | `thm:arc-complement`, hence `lem:accessible-dense`, hence **`thm:jordan`** | a subdivided axis-parallel square boundary is 2-connected. The blueprint gets 2-connectivity of each block by iterating `lem:union-two-connected` over the squares, which presupposes it for one square. **This is the only thing between the library and the Jordan curve theorem.** |
+Part II's open statements are listed below as `open` or `partial` rather than as assumed
+hypotheses: nothing downstream is built on them yet, so there is no obligation to discharge,
+only work to do. The two exceptions are named in the Part II table.
 
-### What the no-`sorry` rule caught
+### What the standing rules caught
 
-`Graph.CrosscutEncloses` stood on `main` as an assumed hypothesis for a whole wave, and is
-**false**. Nothing in its hypotheses stopped the crosscut from being drawn *through* `x`: take
-the unit square cycle with cut points `(0,0)` and `(1,1)`, let `R` be the two edges
-`(0,0) → (1/2,1/2) → (1,1)`, and let `x = (2/5, 2/5)`. Every field of `IsCycleCrosscut` holds,
-`x` is inside the cycle, and `x` lies *on* both spliced curves, so it is inside neither.
+Two things, both worth the cost of the rules that found them.
 
-The repair was one clause, `x ∈ exterior H drawing`, which the consumer already had. Had the
-gap been a `sorry`, it would have been filled in eventually and the falsity discovered only
-then, with everything written in the meantime resting on it. The counterexample is recorded in
-`OuterChain.lean` where the false version stood.
+**A false hypothesis.** `Graph.CrosscutEncloses` stood on `main` as an assumed hypothesis for a
+whole wave, and is **false**. Nothing in its hypotheses stopped the crosscut from being drawn
+*through* `x`: take the unit square cycle with cut points `(0,0)` and `(1,1)`, let `R` be the
+two edges `(0,0) → (1/2,1/2) → (1,1)`, and let `x = (2/5, 2/5)`. Every field of
+`IsCycleCrosscut` holds, `x` is inside the cycle, and `x` lies *on* both spliced curves, so it
+is inside neither. The repair was one clause, `x ∈ exterior H drawing`, which the consumer
+already had. Had the gap been a `sorry` it would have been filled in eventually and the falsity
+found only then, with everything written in the meantime resting on it. The counterexample is
+recorded in `OuterChain.lean` where the false version stood.
+
+**A false clause of a blueprint statement, as formalised.** `prop:anchored-square-mesh`
+clause 5 — "the skeleton of `T` is 2-connected" — is false for the Lean `squareMesh` when the
+fresh-point set is empty: the mesh is then concentric ring frames, pairwise disjoint, hence
+disconnected. It is still false with exactly one fresh point, whose single spoke is the only
+thing joining the rings, so every interior vertex of that spoke is a cut vertex. See
+`Schoenflies.not_isTwoConnected_squareMesh_of_fresh_nil` in `SquareMeshFixed.lean`. The
+blueprint's own construction never hits either case, because it chooses enough fresh points to
+make every boundary arc have diameter `< δ/4`; what is missing in Lean is that hypothesis on
+the parameter, and `Schoenflies.FreshDense` in `SquareMesh.lean` is the shape it should take.
 
 ## Part I — the Jordan curve theorem
 
@@ -91,18 +102,20 @@ then, with everything written in the meantime resting on it. The counterexample 
 |---|---|---|
 | `lem:jordan-circle` | done | `ModelCurve.lean`, `Subarc.lean`, `TwoArcs.lean` |
 | `prop:jordan-disconnected` | done | `JordanSeparates.lean` |
-| `thm:arc-complement` | conditional (`SquaresTwoConnected`) | `ArcComplement.lean`, on `ArcComplementPrep.lean` |
-| `lem:accessible-dense` | conditional (via `thm:arc-complement`) | `Jordan.lean` |
-| `thm:jordan` | conditional (via `thm:arc-complement`) | `Jordan.lean` (`IsJordanCurve.isSeparating`) |
+| `thm:arc-complement` | **done** | `ArcComplement.lean`; `SquaresTwoConnected` discharged in `SquareCycle.lean`; headline `Schoenflies.arc_complement` in `JordanClosed.lean` |
+| `lem:accessible-dense` | **done** | `Jordan.lean` |
+| `thm:jordan` | **done** | `Jordan.lean`; headline `Schoenflies.jordan_curve_theorem` in `JordanClosed.lean`, stated as `IsSeparating C` |
 | `lem:crosscut-at-most-two` | **done** | `CrosscutAtMostTwo.lean`, `ArcCollars.lean`, closed in `PolyArcRealize.lean` (`crosscut_at_most_two_of_isPolygonal`) |
-| `thm:general-crosscut` (H10) | conditional (`thm:jordan` only) | `GeneralCrosscut.lean`, `PolyArcRealize.lean` (`general_crosscut'`, `IsCrosscut.hasArcCollars`) |
+| `thm:general-crosscut` (H10) | **done** | `GeneralCrosscut.lean` + `PolyArcRealize.lean`; headline `Schoenflies.crosscut_theorem` in `JordanClosed.lean` |
 | `lem:accessible-endpoints` | done | `AccessibleJoin.lean` |
 
 ## Part II — the Schönflies extension
 
-Nothing here is finished. The abstract scaffolding exists and was deliberately built first,
-because `lem:combinatorial-invariance` has no internal prerequisites and so could be proved
-while the Jordan curve theorem was still open.
+The abstract scaffolding was deliberately built first, because `lem:combinatorial-invariance`
+has no internal prerequisites and so could be proved while the Jordan curve theorem was still
+open. With Part I closed, the critical path is assertions (i) and (vii) of
+`lem:cellulation-invariants` — the two that need `thm:general-crosscut` at every 2-cell split —
+and then `thm:finite-transfer`.
 
 | Statement | Status | Where |
 |---|---|---|
@@ -114,18 +127,20 @@ while the Jordan curve theorem was still open.
 | `lem:local-skeleton-structure` | partial | `SkeletonLocal.lean` + `SkeletonSectors.lean` — open only at points with fewer than two local directions |
 | `prop:anchored-square-mesh` | partial | `SquareMesh.lean` + `SquareMeshConnected.lean` — geometry and diameter bounds done, 2-connectivity not yet connected to the mesh itself |
 | `lem:skeleton-crosscuts` | partial | `AccessibleJoin.lean` — the final extraction paragraph only |
-| `lem:tangent-dense` | open | needs `thm:jordan` |
-| `prop:initial-pair` | conditional (`thm:arc-complement`, `HasArcCollars` for the crosscut) | `InitialPair.lean` — `initialStructure`, `HexData.realization`, `targetHex`, `sourceHex`, `InitialData` with `sourceRealization` / `targetRealization` / `skeletonHomeo`, `exists_initialData`, `initial_pair` |
-| `def:generated-structure`, `rem:intermediate-disconnection` | open | the inductive closure of the two elementary operations |
-| `lem:cellulation-invariants` | open | **the spine of Part II**: nine assertions by mutual induction over the two constructors, resting on `thm:general-crosscut` |
+| `lem:tangent-dense` | done | `Inversion.lean` |
+| `prop:initial-pair` | partial | `InitialPair.lean` — `initialStructure`, both realizations, `InitialData`, `initial_pair`. Its two hypotheses are now both discharged on `main` and should be substituted. Two clauses remain open: the source and target 2-cell labellings are never linked (no lemma says `tgt.arcOf k = u '' src.arcOf k`), and strong accessibility of the two chosen points is not recorded, though the blueprint requires `a, b ∈ 𝒜` |
+| `def:generated-structure`, `rem:intermediate-disconnection` | partial | `GeneratedStructure.lean` — both elementary operations as defs and the inductive closure, but carrying no realizations yet |
+| `lem:cellulation-invariants` | partial | `GeneratedStructure.lean` — (ii), (iii), (iv compatibility), (v), (vi), (viii), (ix), and (i) for the subdivision constructor. **(i) for the split constructor and (vii) are the remaining work**, and both need `thm:general-crosscut`, now available |
 | `lem:star-intersection`, `lem:refinement-compatibility`, `lem:star-face-mesh`, `rem:inductive-invariants` | open | all rest on `lem:cellulation-invariants` |
-| `lem:polygonal-side-accessibility` | open | needs `lem:local-skeleton-structure` in full |
+| `lem:polygonal-side-accessibility` | conditional (`Schoenflies.CellsAbsorb`) | `SkeletonAccess.lean` — both halves, on one clause of `lem:cellulation-invariants` |
 | `thm:finite-transfer` | open | the largest single statement in the manuscript: twelve internal prerequisites |
 | `prop:local-grid-attachment`, `lem:grid-star-estimate`, `prop:shrinking-stars`, `lem:anchor-density` | open | quantitative refinement |
 | `lem:cell-neighborhood`, `prop:skeleton-agreement`, `prop:F-continuous`, `prop:image-interior`, `prop:F-injective`, `prop:target-skeleton-dense`, `prop:F-surjective`, `lem:exact-cell-correspondence`, `prop:inverse-continuous`, `prop:interior-homeomorphism` | open | the limit homeomorphism |
 | `lem:crosscut-side-correspondence`, `prop:boundary-continuity` | open | continuity at the curve |
 | `thm:square-extension`, `prop:square-reduction`, `thm:closed-interior-extension` | open | |
-| `prop:pointed-extension`, `lem:inversion-sides`, `prop:exterior-extension` | open | the endgame; short once `thm:square-extension` is in hand |
+| `lem:inversion-sides` | done | `Inversion.lean` (`invert_image_outside`, `IsJordanCurve.invert`, `invertHomeo`) |
+| `prop:exterior-extension` | conditional (`Schoenflies.PointedInteriorExtension`) | `Inversion.lean` — the last statement before `thm:main`, waiting only on the interior half |
+| `prop:pointed-extension` | open | needs `thm:closed-interior-extension`; `lem:square-point-mover` is done |
 | `thm:main` | open | |
 
 ### A note on `prop:skeleton-agreement`

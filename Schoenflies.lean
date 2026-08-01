@@ -22,6 +22,7 @@ import Schoenflies.Graph.Degree
 import Schoenflies.Graph.Cycle
 import Schoenflies.Graph.TwoConnected
 import Schoenflies.Graph.PathGraph
+import Schoenflies.Graph.TwoPaths
 import Schoenflies.Graph.Tree
 import Schoenflies.Graph.Component
 import Schoenflies.Graph.Ear
@@ -80,3 +81,8 @@ import Schoenflies.GeneralCrosscut
 import Schoenflies.SquareCycle
 import Schoenflies.PolyArcRealize
 import Schoenflies.JordanClosed
+import Schoenflies.Inversion
+import Schoenflies.SkeletonAccess
+import Schoenflies.InitialPair
+import Schoenflies.GeneratedStructure
+import Schoenflies.SquareMeshFixed

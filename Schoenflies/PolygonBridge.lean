@@ -55,6 +55,15 @@ one, which would otherwise let the polygon close early. The last edge closes the
 `IsJordanCurve.of_two_arcs`, and there the far endpoint is *not* ruled out: it is the second
 shared point that makes the two arcs a curve rather than an arc.
 
+## Both halves at once
+
+The last section is what the bridge is for: the two statements of Lemma 2.2 — parity is
+constant on a component of the complement, and it flips across an edge — restated for the
+*carrier* of a `ClosedPolygon` rather than for the cover of an anonymous list. The flip needs
+the edge list split around the edge being crossed, which is `List.append_of_mem` together with
+`ClosedPolygon.pieces_nodup`; that the two remaining fragments miss the crossing point is
+`edges_meet` a third time.
+
 ## Blueprint
 
 * `Schoenflies.triangle`, `Schoenflies.unitTriangle` — witnesses that §1's "simple closed
@@ -63,8 +72,12 @@ shared point that makes the two arcs a curve rather than an arc.
   the edge list the crossing count of §2 is defined on, and that it carries the polygon.
 * `ClosedPolygon.isJordanCurve_carrier`, `ClosedPolygon.isPolygonal_carrier` — §1, "a simple
   closed polygonal curve"; jointly the hypothesis of Theorem 2.3.
-* `ClosedPolygon.parity_eq_of_mem_connectedComponentIn_carrier` — Lemma 2.2 read off a
-  `ClosedPolygon`, the first statement to use both halves of the bridge at once.
+* `ClosedPolygon.parity_eq_of_mem_connectedComponentIn_carrier`,
+  `ClosedPolygon.parity_flip_carrier` — the two halves of Lemma 2.2, read off a
+  `ClosedPolygon`. These are the statements Theorem 2.3 consumes.
+
+One general lemma is stated here that does not belong here: `Schoenflies.exists_of_mem_cover`,
+the destructor matching `Schoenflies.mem_cover`, whose home is `Schoenflies/Parity.lean`.
 -/
 
 open Metric Set
@@ -519,6 +532,86 @@ theorem parity_eq_of_mem_connectedComponentIn_carrier (P : ClosedPolygon m) {u :
     parity u P.pieces y = parity u P.pieces x := by
   rw [← P.cover_pieces] at hx hy
   exact parity_eq_of_mem_connectedComponentIn hu hL P.isClosedChain_pieces hx hy
+
+/-! ### The flip across an edge
+
+The second half of Lemma 2.2 is stated for the edge list split around the edge being crossed,
+`L₁ ++ (a, b) :: L₂`. Splitting is `List.append_of_mem`; what has to be checked is that the two
+remaining fragments miss the point being crossed, and that is `edges_meet` again — another edge
+can reach an interior point of this one only at one of this one's two ends, which an interior
+point is not. -/
+
+/-- What a list of pieces occupies, taken apart. The counterpart of `Schoenflies.mem_cover`,
+which only builds; **this belongs next to it in `Schoenflies/Parity.lean`.** -/
+theorem exists_of_mem_cover {L : List Piece} {z : Plane} (hz : z ∈ cover L) :
+    ∃ R ∈ L, z ∈ R.seg := by
+  rw [cover] at hz
+  simpa using hz
+
+/-- An interior point of one edge lies on no other edge: `edges_meet` puts any other edge's
+meeting point at an end of this one, and an interior point is neither end. -/
+theorem notMem_edge_of_mem_openSegment {i j : ZMod (m + 3)} (hij : j ≠ i) {p : Plane}
+    (hp : p ∈ openSegment ℝ (P.vertex i) (P.vertex (i + 1))) : p ∉ P.edge j := by
+  intro hpj
+  have hmem := P.edges_meet i j (Ne.symm hij)
+    (Set.mem_inter (openSegment_subset_segment ℝ _ _ hp) hpj)
+  simp only [Set.mem_insert_iff, Set.mem_singleton_iff] at hmem
+  rcases hmem with rfl | rfl
+  · exact P.vertex_ne i (left_mem_openSegment_iff.1 hp)
+  · exact P.vertex_ne i (right_mem_openSegment_iff.1 hp)
+
+/-- The edge list has no repeated entry: distinct indices name distinct initial vertices. -/
+theorem pieces_nodup (P : ClosedPolygon m) : P.pieces.Nodup := by
+  rw [pieces]
+  refine List.Nodup.map_on (fun j hj k hk heq => ?_) List.nodup_range
+  exact natCast_inj (List.mem_range.1 hj) (List.mem_range.1 hk)
+    (P.vertex_inj (congrArg Prod.fst heq))
+
+/-- **Opposite sides of an edge, for a closed polygon** (Lemma 2.2, second half). Just before
+and just after an interior point of an edge, in the ray direction, the base point is off the
+carrier and the crossing parity differs by one. -/
+theorem parity_flip_carrier (P : ClosedPolygon m) {u : Plane} (hu : Plane.IsDirection u)
+    (hL : ∀ Q ∈ P.pieces, hgt u Q.1 ≠ hgt u Q.2) (i : ZMod (m + 3)) {p : Plane}
+    (hp : p ∈ openSegment ℝ (P.vertex i) (P.vertex (i + 1))) :
+    ∃ δ > 0, ∀ t : ℝ, 0 < t → t < δ →
+      p - t • u ∉ P.carrier ∧ p + t • u ∉ P.carrier ∧
+        parity u P.pieces (p - t • u) = parity u P.pieces (p + t • u) + 1 := by
+  obtain ⟨L₁, L₂, hsplit⟩ := List.append_of_mem (P.mem_pieces i)
+  -- the edge being crossed occurs only once, so it is on neither fragment
+  have hnodup := P.pieces_nodup
+  rw [hsplit, List.nodup_append] at hnodup
+  obtain ⟨-, hnd2, hdisj⟩ := hnodup
+  have hQ₁ : (P.vertex i, P.vertex (i + 1)) ∉ L₁ := fun hmem => hdisj _ hmem _ (by simp) rfl
+  have hQ₂ : (P.vertex i, P.vertex (i + 1)) ∉ L₂ := (List.nodup_cons.1 hnd2).1
+  have hmiss : ∀ R ∈ L₁ ++ L₂, p ∉ Piece.seg R := by
+    intro R hR
+    have hRne : R ≠ (P.vertex i, P.vertex (i + 1)) := by
+      rcases List.mem_append.1 hR with h | h
+      · exact fun heq => hQ₁ (heq ▸ h)
+      · exact fun heq => hQ₂ (heq ▸ h)
+    have hRmem : R ∈ P.pieces := by
+      rw [hsplit]
+      rcases List.mem_append.1 hR with h | h
+      · exact List.mem_append_left _ h
+      · exact List.mem_append_right _ (List.mem_cons_of_mem _ h)
+    obtain ⟨j, rfl⟩ := exists_of_mem_pieces hRmem
+    exact notMem_edge_of_mem_openSegment (fun heq => hRne (by rw [heq])) hp
+  have h1 : p ∉ cover L₁ := by
+    intro hmem
+    obtain ⟨R, hR, hpR⟩ := exists_of_mem_cover hmem
+    exact hmiss R (List.mem_append_left _ hR) hpR
+  have h2 : p ∉ cover L₂ := by
+    intro hmem
+    obtain ⟨R, hR, hpR⟩ := exists_of_mem_cover hmem
+    exact hmiss R (List.mem_append_right _ hR) hpR
+  have hL' : ∀ R ∈ L₁ ++ (P.vertex i, P.vertex (i + 1)) :: L₂, hgt u R.1 ≠ hgt u R.2 := by
+    rw [← hsplit]; exact hL
+  obtain ⟨δ, hδ, hmain⟩ := parity_flip hu hL' hp h1 h2
+  refine ⟨δ, hδ, fun t ht htδ => ?_⟩
+  obtain ⟨ha, hb, hc⟩ := hmain t ht htδ
+  rw [← hsplit] at ha hb hc
+  rw [P.cover_pieces] at ha hb
+  exact ⟨ha, hb, hc⟩
 
 end ClosedPolygon
 

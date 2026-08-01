@@ -560,4 +560,91 @@ theorem mem_vertexSet_ringGraph {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
     (squarePieces_zero_subset_meshSegments hr) hy
     (by rw [frontier_closedSquare_zero (meshRadii_pos hN hr).le]; exact hyr)
 
+
+/-! ### Where a spoke crosses a ring
+
+`Schoenflies/SquareMeshFixed.lean` records the crossing points `r • z` as the thing its
+assembly of clause 5 lacked: *"the crossing points `r • z` as vertices (which needs the
+`MeetsAreCut` clause of `meshPoints`)"*. That is what this section supplies. The sup norm is a
+faithful coordinate along a spoke (`Schoenflies.supNorm_smul_of_mem_modelCurve`), so a spoke
+meets the ring of radius `r` in the single point `r • z`; a singleton meet forces both ends of
+the `MeetsAreCut` segment to be that point; and `mem_vertexSet_ringGraph` then makes it a
+vertex of the ring. -/
+
+theorem inv_le_of_mem_meshRadii {N : ℕ} (hN : 2 ≤ N) {r : ℝ} (hr : r ∈ meshRadii N) :
+    ((N : ℝ)⁻¹) ≤ r := by
+  obtain ⟨j, -, rfl⟩ := mem_meshRadii.1 hr
+  have hN0 : (0 : ℝ) < N := by exact_mod_cast Nat.lt_of_lt_of_le two_pos hN
+  rw [inv_eq_one_div, div_le_div_iff_of_pos_right hN0]
+  have : (0 : ℝ) ≤ j := Nat.cast_nonneg j
+  linarith
+
+/-- **A spoke meets a ring in exactly one point.** -/
+theorem spokePiece_inter_ringSet {N : ℕ} (hN : 2 ≤ N) {z : Plane} (hz : z ∈ modelCurve)
+    {r : ℝ} (hr : r ∈ meshRadii N) : (spokePiece N z).seg ∩ ringSet r = {r • z} := by
+  have hrpos : 0 < r := meshRadii_pos hN hr
+  ext x
+  rw [spokePiece_seg hN]
+  constructor
+  · rintro ⟨⟨t, ht, rfl⟩, hx⟩
+    have : t = r := by
+      rw [← supNorm_smul_of_mem_modelCurve (le_trans (inv_cast_pos hN).le ht.1) hz]
+      exact hx
+    simp [this]
+  · rintro rfl
+    exact ⟨⟨r, ⟨inv_le_of_mem_meshRadii hN hr, meshRadii_le_one hN hr⟩, rfl⟩,
+      supNorm_smul_of_mem_modelCurve hrpos.le hz⟩
+
+theorem smul_mem_ringSet {r : ℝ} (hr : 0 ≤ r) {z : Plane} (hz : z ∈ modelCurve) :
+    r • z ∈ ringSet r := supNorm_smul_of_mem_modelCurve hr hz
+
+/-- **Every crossing point of a spoke with a ring is a cut point of the mesh.** The meet of the
+spoke with the side of the ring through the crossing point is the single point `r • z`, and
+`MeetsAreCut` returns a segment with both ends among the cut points; a segment equal to a
+singleton has both ends there. -/
+theorem smul_mem_meshPoints {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
+    (hfresh : ∀ u ∈ fresh, u ∈ modelCurve) (anchors : List Plane) {z : Plane} (hz : z ∈ fresh)
+    {r : ℝ} (hr : r ∈ meshRadii N) : r • z ∈ meshPoints N fresh anchors := by
+  have hzm : z ∈ modelCurve := hfresh z hz
+  have hrpos : 0 < r := meshRadii_pos hN hr
+  -- the side of the ring through the crossing point
+  have hmemring : r • z ∈ cover (ringPieces r) := by
+    rw [cover_ringPieces hrpos.le]; exact smul_mem_ringSet hrpos.le hzm
+  obtain ⟨Q, hQ, hxQ⟩ := mem_cover_iff.1 hmemring
+  set P : Piece := spokePiece N z with hP
+  have hPmem : P ∈ meshSegments N fresh := spokePiece_mem_meshSegments hz
+  have hQmem : Q ∈ meshSegments N fresh := ring_ringPieces_mem hr hQ
+  have hQring : Q.seg ⊆ ringSet r := ringPieces_seg_subset hrpos.le hQ
+  -- the spoke is not a ring side: its two ends have different sup norms
+  have hPQ : P ≠ Q := by
+    intro h
+    have h1 : Plane.supNorm z = r := hQring (h ▸ left_mem_segment ℝ P.1 P.2)
+    have h2 : Plane.supNorm (((N : ℝ)⁻¹) • z) = r := hQring (h ▸ right_mem_segment ℝ P.1 P.2)
+    rw [supNorm_smul_of_mem_modelCurve (inv_cast_pos hN).le hzm] at h2
+    rw [show Plane.supNorm z = 1 from hzm] at h1
+    exact absurd (h2.trans h1.symm) (ne_of_lt (inv_cast_lt_one hN))
+  -- the meet is the crossing point, and nothing else
+  have hmeetsub : meetOf P Q ⊆ {r • z} := by
+    rw [← spokePiece_inter_ringSet hN hzm hr]
+    exact fun x hx => ⟨hx.1, hQring hx.2⟩
+  have hmeetmem : r • z ∈ meetOf P Q :=
+    ⟨((spokePiece_inter_ringSet hN hzm hr).symm ▸ rfl : r • z ∈ (spokePiece N z).seg ∩ ringSet r).1,
+      hxQ⟩
+  obtain ⟨u, v, huv, hu, -⟩ :=
+    meshPoints_meetsAreCut N fresh anchors P hPmem Q hQmem hPQ ⟨_, hmeetmem⟩
+  have : u = r • z := hmeetsub (huv ▸ left_mem_segment ℝ u v)
+  exact this ▸ hu
+
+/-- **The crossing point is a vertex of the ring it lies on.** -/
+theorem smul_mem_vertexSet_ringGraph {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
+    (hfresh : ∀ u ∈ fresh, u ∈ modelCurve) (anchors : List Plane) {z : Plane} (hz : z ∈ fresh)
+    {r : ℝ} (hr : r ∈ meshRadii N) : r • z ∈ V(ringGraph N fresh anchors r) :=
+  mem_vertexSet_ringGraph hN hfresh hr (smul_mem_meshPoints hN hfresh anchors hz hr)
+    (smul_mem_ringSet (meshRadii_pos hN hr).le (hfresh z hz))
+
+/-- Two distinct fresh points have distinct crossing points on every ring. -/
+theorem smul_ne_smul {r : ℝ} (hr : r ≠ 0) {z w : Plane} (hzw : z ≠ w) : r • z ≠ r • w := by
+  intro h
+  exact hzw (smul_right_injective Plane hr h)
+
 end Schoenflies

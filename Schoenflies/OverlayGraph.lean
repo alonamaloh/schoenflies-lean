@@ -357,13 +357,40 @@ theorem overlayGraph_pointSet (pieces : List Piece) (points : List Plane) :
   · rintro ⟨P, hP, hzP⟩
     exact Or.inr ⟨P, hP, hzP⟩
 
+/-! ### Finiteness
+
+Without this the whole face and outer-face machinery of `Schoenflies/Graph/Drawing.lean` and
+`Schoenflies/Graph/OuterFace.lean` is inapplicable to the overlay, since every statement there
+carries a `[G.Finite]` instance. Both sets come from one finite list, so it is immediate — but
+it has to be said, and the instance has to be found by typeclass search at the call site. -/
+
+theorem finite_endSet (edges : List Piece) : (endSet edges).Finite := by
+  -- The end set is the image of a finite list under the two projections.
+  have : endSet edges ⊆ (fun P : Piece => P.1) '' {P | P ∈ edges}
+      ∪ (fun P : Piece => P.2) '' {P | P ∈ edges} := by
+    rintro v ⟨P, hP, rfl | rfl⟩
+    · exact Or.inl ⟨P, hP, rfl⟩
+    · exact Or.inr ⟨P, hP, rfl⟩
+  exact Set.Finite.subset
+    ((edges.finite_toSet.image _).union (edges.finite_toSet.image _)) this
+
+instance overlayGraph_finite (pieces : List Piece) (points : List Plane) :
+    Graph.Finite (overlayGraph pieces points) where
+  finite_vertexSet := finite_endSet _
+  finite_edgeSet := (overlayPieces pieces points).finite_toSet
+
 /-- **Lemma 3.7 (polygonal overlay).** Finitely many nondegenerate segments are the point set
-of a plane graph. -/
+of a *finite* plane graph.
+
+The finiteness clause is not decoration. Every statement about faces and about the outer face
+carries a `[G.Finite]` instance, and an existential that produced only `IsDrawing` would hide
+the graph behind a binder with no way to recover the instance — so the overlay could not be
+fed to the face machinery at all. -/
 theorem polygonal_overlay (pieces : List Piece) (hnd : ∀ P ∈ pieces, P.Nondeg) :
-    ∃ G : Graph Plane Piece, Graph.IsDrawing G segmentDrawing ∧
+    ∃ G : Graph Plane Piece, Graph.Finite G ∧ Graph.IsDrawing G segmentDrawing ∧
       Graph.pointSet G segmentDrawing = cover pieces := by
   obtain ⟨points, hEnds, hMeets⟩ := exists_cut_points pieces
-  exact ⟨overlayGraph pieces points,
+  exact ⟨overlayGraph pieces points, overlayGraph_finite pieces points,
     overlayGraph_isDrawing pieces points hnd hEnds hMeets,
     overlayGraph_pointSet pieces points⟩
 

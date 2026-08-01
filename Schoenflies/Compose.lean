@@ -1,0 +1,57 @@
+/-
+Copyright (c) 2026 Álvaro Begué. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Álvaro Begué
+-/
+import Schoenflies.OverlayGraph
+import Schoenflies.Graph.OuterFace
+import Schoenflies.Graph.CycleJordan
+import Schoenflies.TwoArcs
+
+/-!
+# Composition checks
+
+Each layer of this development was built against an interface rather than against its
+consumer, so the interfaces can drift apart while every module still compiles on its own.
+These are the checks that they actually fit: short theorems that use two or more layers
+together and are worth nothing except as a tripwire.
+
+The first one has already earned its place. `polygonal_overlay` originally concluded only
+`IsDrawing G segmentDrawing ∧ pointSet G segmentDrawing = cover pieces`, with `G` bound by an
+existential. Every statement about faces carries a `[G.Finite]` instance, and there is no way
+to recover an instance for a graph hidden behind a binder — so the overlay could not be handed
+to the face machinery at all, even though both halves compiled. The overlay now carries
+`Graph.Finite` in its conclusion, and this file is what would have caught that.
+
+## What is checked
+
+* `overlay_has_outer_face` — Layer 6's overlay composes with Layer 6's outer face.
+* `two_arcs_roundtrip` — Layer 4's cutting theorem composes with its gluing theorem.
+-/
+
+open Set
+open scoped Graph
+
+namespace Schoenflies
+
+/-- The overlay of finitely many nondegenerate segments is a plane graph to which the
+outer-face theorem applies. Uses `polygonal_overlay`, `Graph.Finite`, `IsDrawing`, `face` and
+`exists_unbounded_face` together. -/
+theorem overlay_has_outer_face (pieces : List Piece) (hnd : ∀ P ∈ pieces, P.Nondeg) :
+    ∃ G : Graph Plane Piece, Graph.pointSet G segmentDrawing = cover pieces ∧
+      ∃ base ∈ Graph.exterior G segmentDrawing,
+        ¬ Bornology.IsBounded (Graph.face G segmentDrawing base) := by
+  obtain ⟨G, hfin, hdraw, hpt⟩ := polygonal_overlay pieces hnd
+  haveI := hfin
+  exact ⟨G, hpt, Graph.exists_unbounded_face hdraw⟩
+
+/-- Cutting a Jordan curve at two points and gluing the pieces back returns a Jordan curve —
+`IsJordanCurve.two_arcs` composed with `IsJordanCurve.of_two_arcs`. The two are converse, and
+this is what says so. -/
+theorem two_arcs_roundtrip {C : Set Plane} (hC : IsJordanCurve C) {p q : Plane}
+    (hp : p ∈ C) (hq : q ∈ C) (hpq : p ≠ q) :
+    ∃ A B, A ∪ B = C ∧ IsJordanCurve (A ∪ B) := by
+  obtain ⟨A, B, hA, hB, hcov, hmeet⟩ := hC.two_arcs hp hq hpq
+  exact ⟨A, B, hcov, IsJordanCurve.two_arcs_of_two_arcs hA hB hmeet⟩
+
+end Schoenflies

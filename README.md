@@ -189,8 +189,41 @@ under-assuming, or doing more work than needed. None is an error in the mathemat
     machinery at all, though both halves compiled in isolation. `Schoenflies/Compose.lean`
     exists to catch exactly this class of drift.
 
+12. **H6's brick B2 is too weak as designed.** "For each vertex, a radius whose square meets
+    no other vertex and no non-incident edge arc" does not make distinct vertex squares
+    disjoint — a square about `v` avoiding `w` says nothing about the square about `w` reaching
+    towards `v` — so brick B4's "the core meets no other vertex square" fails. The fix costs
+    nothing but must be made at B2: choose one radius for all vertices by B1, then **halve it**.
+    Two squares of radius `r` that met would put their centres within `2r` in the sup metric,
+    which the unhalved choice already forbids. `IsDrawing.exists_vertexSquares` is stated that
+    way, and it is why `Square.lean` needed a triangle inequality for `supDist`.
+
+13. **H6's brick B4 needs "first entry *after* the last exit", not "first entry".** Nothing
+    forbids an edge arc dipping into the far vertex's square, returning to the near one, and
+    only then running to its endpoint; with the global first entry the two parameters come out
+    in the wrong order and the core is empty or reversed. This is why brick B3 is stated over
+    an arbitrary `Icc α β` rather than over `[0, 1]` — the second application lives on `[a, 1]`.
+
+14. **A drawing must name its parametrization.** `IsDrawing` originally asserted only that the
+    *point set* of an edge is an arc between its ends. That makes two drawings with the same
+    point sets indistinguishable — fine for the face theory, and useless for the redrawing,
+    where "the last parameter at which this edge is inside the square at `v`" has to mean
+    something. The field is now `edge_param`, and it must be stated orientation-free
+    (`G.IsLink e (drawing e 0) (drawing e 1)`) because `IsLink` is symmetric: pinning
+    `drawing e 0` to a named end of a given link would force the two ends to coincide.
+
+15. **A plane graph has no loops, and H6 is therefore vacuous on them rather than incomplete.**
+    `IsArcBetween A x x` would need an injective parametrization with `f 0 = f 1`, so
+    `IsDrawing.ne_of_isLink` rules loops out. The design never says what a loop's core is; it
+    does not have to.
+
 ## Frictions
 
+- **A duplicate theorem can compile.** `supDist_triangle` was proved independently in two
+  modules and the build *succeeded*: the two statements are alpha-equivalent `Prop`s, so proof
+  irrelevance lets the import checker accept both. Compiling is therefore not a sufficient
+  collision check — only a name scan across the source is. (An earlier collision on
+  `IsWalk.deleteEdges` did fail loudly, which is what made the silent case surprising.)
 - **Parallel formalization collides on unstated general lemmas.** Three independent modules
   proved `IsPath.anti` and `IsWalk.deleteEdges`, and merging them failed with "environment
   already contains". The cause was that `Walk.lean` shipped `IsWalk.anti` without its path and

@@ -598,6 +598,396 @@ theorem mem_edge_sub {x : Plane} (hx : x ∈ P.edge i) :
   obtain ⟨c, ⟨hc0, _⟩, rfl⟩ := hx
   exact ⟨c, hc0, pt_sub_vertex⟩
 
+theorem pt_eq : P.pt i c = P.vertex i + c • P.tang i := by rw [pt, off, zero_smul, add_zero]
+
 end ClosedPolygon
+
+/-! ## The constants
+
+`StripData` is the blueprint's "choose the blocks so that consecutive ones overlap and
+nonadjacent closures are disjoint", with every constant named. The three numbers are a cone
+radius `R`, a trim `lam` and a half-width `rho`; the separation hypotheses are exactly the
+instances of Lemma 1.4 (b) that the construction consumes, and `germ` is the vertex-matching
+threshold. `Schoenflies.exists_stripData` produces them. -/
+
+/-- The constants of the collar of a simple closed polygon. -/
+structure StripData (P : ClosedPolygon m) where
+  /-- The radius of the vertex sectors. -/
+  R : ℝ
+  /-- The distance by which an edge block stops short of each endpoint of its edge. -/
+  lam : ℝ
+  /-- The half-width of an edge block. -/
+  rho : ℝ
+  rho_pos : 0 < rho
+  rho_lt_lam : rho < lam
+  /-- The sectors reach past the ends of the blocks they have to overlap. -/
+  two_lam_lt_R : 2 * lam < R
+  /-- The blocks are nonempty, with room to spare at both ends. -/
+  four_lam_lt_len : ∀ i, 4 * lam < P.len i
+  /-- A sector does not run past the far end of an incident edge. -/
+  R_le_len : ∀ i, R ≤ P.len i
+  /-- Distinct vertices are `2R` apart, so distinct sectors are disjoint. -/
+  sep_vertex : ∀ i j, i ≠ j → 2 * R ≤ dist (P.vertex i) (P.vertex j)
+  /-- A vertex is `2R` away from every nonincident edge. The factor `2` is the slack that a
+  block of half-width `rho ≤ R` needs in `notMem_sectorL_of_far`. -/
+  sep_vertex_edge : ∀ i j, j ≠ i - 1 → j ≠ i → ∀ y ∈ P.edge j, 2 * R ≤ dist (P.vertex i) y
+  /-- The trimmed edge `i` is `2 * rho` away from every other edge. -/
+  sep_trim_edge : ∀ i j, j ≠ i → ∀ c ∈ Set.Icc lam (P.len i - lam), ∀ y ∈ P.edge j,
+    2 * rho ≤ dist (P.pt i c) y
+  /-- **The vertex-matching threshold.** This is the only hypothesis that is not a separation of
+  compact sets: it says the blocks are narrow enough, relative to how far they stop short of the
+  vertices, for `Plane.germs_split'` to apply at every corner. -/
+  germ : ∀ i, rho * (1 + |inner ℝ (P.rayIn i) (P.tang i)|) ≤ lam * |det (P.rayIn i) (P.tang i)|
+
+namespace StripData
+
+variable {P : ClosedPolygon m} (D : StripData P) {i j : ZMod (m + 3)} {x : Plane}
+
+theorem lam_pos : 0 < D.lam := lt_trans D.rho_pos D.rho_lt_lam
+
+theorem R_pos : 0 < D.R := by have := D.lam_pos; linarith [D.two_lam_lt_R]
+
+theorem rho_lt_R : D.rho < D.R := by
+  have := D.lam_pos; have := D.rho_lt_lam; linarith [D.two_lam_lt_R]
+
+/-! ### The four families of blocks -/
+
+/-- The left block of edge `i`. -/
+def blockL (i : ZMod (m + 3)) : Set Plane :=
+  strip (P.vertex i) (P.tang i) D.lam (P.len i - D.lam) 0 D.rho
+
+/-- The right block of edge `i`. -/
+def blockR (i : ZMod (m + 3)) : Set Plane :=
+  strip (P.vertex i) (P.tang i) D.lam (P.len i - D.lam) (-D.rho) 0
+
+/-- The left sector at vertex `i`: the arc `arcCCW (tang i) (rayIn i)` is the one carrying both
+left germs, by `Plane.germs_split'`. -/
+def sectorL (i : ZMod (m + 3)) : Set Plane :=
+  cone (P.vertex i) (arcCCW (P.tang i) (P.rayIn i)) D.R
+
+/-- The right sector at vertex `i`. -/
+def sectorR (i : ZMod (m + 3)) : Set Plane :=
+  cone (P.vertex i) (arcCCW (P.rayIn i) (P.tang i)) D.R
+
+/-- The left side of the collar. -/
+def sideL : Set Plane := ⋃ i, (D.sectorL i ∪ D.blockL i)
+
+/-- The right side of the collar. -/
+def sideR : Set Plane := ⋃ i, (D.sectorR i ∪ D.blockR i)
+
+/-- The collar itself. -/
+def nbhd : Set Plane := D.sideL ∪ D.sideR ∪ P.carrier
+
+theorem mem_blockL_iff : x ∈ D.blockL i ↔
+    D.lam < coordAlong (P.vertex i) (P.tang i) x ∧
+      coordAlong (P.vertex i) (P.tang i) x < P.len i - D.lam ∧
+      0 < coordAcross (P.vertex i) (P.tang i) x ∧
+      coordAcross (P.vertex i) (P.tang i) x < D.rho := Iff.rfl
+
+theorem mem_blockR_iff : x ∈ D.blockR i ↔
+    D.lam < coordAlong (P.vertex i) (P.tang i) x ∧
+      coordAlong (P.vertex i) (P.tang i) x < P.len i - D.lam ∧
+      -D.rho < coordAcross (P.vertex i) (P.tang i) x ∧
+      coordAcross (P.vertex i) (P.tang i) x < 0 := Iff.rfl
+
+theorem mem_blockL_off {t s : ℝ} : P.off i t s ∈ D.blockL i ↔
+    D.lam < t ∧ t < P.len i - D.lam ∧ 0 < s ∧ s < D.rho := by
+  rw [mem_blockL_iff, ClosedPolygon.coordAlong_off, ClosedPolygon.coordAcross_off]
+
+theorem mem_blockR_off {t s : ℝ} : P.off i t s ∈ D.blockR i ↔
+    D.lam < t ∧ t < P.len i - D.lam ∧ -D.rho < s ∧ s < 0 := by
+  rw [mem_blockR_iff, ClosedPolygon.coordAlong_off, ClosedPolygon.coordAcross_off]
+
+theorem isOpen_blockL : IsOpen (D.blockL i) := isOpen_strip _ _ _ _ _ _
+theorem isOpen_blockR : IsOpen (D.blockR i) := isOpen_strip _ _ _ _ _ _
+theorem isOpen_sectorL : IsOpen (D.sectorL i) := isOpen_cone (isOpen_arcCCW _ _)
+theorem isOpen_sectorR : IsOpen (D.sectorR i) := isOpen_cone (isOpen_arcCCW _ _)
+
+theorem convex_blockL : Convex ℝ (D.blockL i) := convex_strip _ _ _ _ _ _
+theorem convex_blockR : Convex ℝ (D.blockR i) := convex_strip _ _ _ _ _ _
+
+theorem isConnected_sectorL : IsConnected (D.sectorL i) :=
+  isConnected_cone_arcCCW _ (by rw [det_comm]; exact neg_ne_zero.2 ClosedPolygon.det_rays_ne_zero)
+    D.R_pos
+
+theorem isConnected_sectorR : IsConnected (D.sectorR i) :=
+  isConnected_cone_arcCCW _ ClosedPolygon.det_rays_ne_zero D.R_pos
+
+/-! ### Where the blocks live
+
+A block sits inside the `rho`-neighbourhood of the trimmed edge, and a sector inside the ball of
+radius `R` about its vertex. Every "nonadjacent blocks are disjoint" step below is one of these
+two containments against one of the separation hypotheses. -/
+
+/-- The foot of the perpendicular from a point of a block lies on the trimmed edge, within `rho`
+of the point. -/
+theorem exists_foot (h : x ∈ D.blockL i ∪ D.blockR i) :
+    ∃ c ∈ Set.Icc D.lam (P.len i - D.lam), dist x (P.pt i c) < D.rho := by
+  refine ⟨coordAlong (P.vertex i) (P.tang i) x, ?_, ?_⟩
+  · rcases h with h | h
+    · exact ⟨(D.mem_blockL_iff.1 h).1.le, (D.mem_blockL_iff.1 h).2.1.le⟩
+    · exact ⟨(D.mem_blockR_iff.1 h).1.le, (D.mem_blockR_iff.1 h).2.1.le⟩
+  · rw [ClosedPolygon.pt_eq, dist_foot ClosedPolygon.isDirection_tang]
+    rcases h with h | h
+    · obtain ⟨_, _, h1, h2⟩ := D.mem_blockL_iff.1 h
+      rw [abs_of_pos h1]; exact h2
+    · obtain ⟨_, _, h1, h2⟩ := D.mem_blockR_iff.1 h
+      rw [abs_of_neg h2]; linarith
+
+theorem sector_subset_ball : D.sectorL i ⊆ ball (P.vertex i) D.R := cone_subset_ball
+theorem sectorR_subset_ball : D.sectorR i ⊆ ball (P.vertex i) D.R := cone_subset_ball
+
+/-! ### The germ argument at a vertex
+
+These four lemmas are the whole content of "at a vertex the left sides of the incoming and
+outgoing strips enter the same component of the vertex disk minus the two incident rays". Each
+is one projection of `Plane.germs_split'`, applied to the frame decomposition of a point of a
+block. -/
+
+/-- The threshold hypothesis, specialised to a point of a block. -/
+theorem germ_ineq {t s : ℝ} (ht : D.lam < t) (hs0 : 0 < s) (hs : s < D.rho) :
+    s * |inner ℝ (P.rayIn i) (P.tang i)| < t * |det (P.rayIn i) (P.tang i)| := by
+  have hd : 0 < |det (P.rayIn i) (P.tang i)| := abs_pos.2 ClosedPolygon.det_rays_ne_zero
+  have habs : (0 : ℝ) ≤ |inner ℝ (P.rayIn i) (P.tang i)| := abs_nonneg _
+  have h1 : s * |inner ℝ (P.rayIn i) (P.tang i)| ≤ s * (1 + |inner ℝ (P.rayIn i) (P.tang i)|) := by
+    nlinarith
+  have h2 : s * (1 + |inner ℝ (P.rayIn i) (P.tang i)|) <
+      D.rho * (1 + |inner ℝ (P.rayIn i) (P.tang i)|) := by nlinarith
+  have h3 := D.germ i
+  nlinarith
+
+/-- A point of the left block of edge `i`, seen from the vertex it leaves, is the outgoing left
+germ, hence in the left arc there. -/
+theorem blockL_sub_mem_arcL_start (h : x ∈ D.blockL i) :
+    x - P.vertex i ∈ arcCCW (P.tang i) (P.rayIn i) := by
+  obtain ⟨h1, h2, h3, h4⟩ := D.mem_blockL_iff.1 h
+  have hx := ClosedPolygon.off_coord P i x
+  rw [hx, ClosedPolygon.off_sub_vertex]
+  exact (germs_split' ClosedPolygon.det_rays_ne_zero h3 (D.germ_ineq h1 h3 h4)).1.2
+
+/-- The same point, seen from the vertex it arrives at, is the incoming left germ. -/
+theorem blockL_sub_mem_arcL_finish (h : x ∈ D.blockL i) :
+    x - P.vertex (i + 1) ∈ arcCCW (P.tang (i + 1)) (P.rayIn (i + 1)) := by
+  obtain ⟨h1, h2, h3, h4⟩ := D.mem_blockL_iff.1 h
+  set t := coordAlong (P.vertex i) (P.tang i) x with ht
+  set s := coordAcross (P.vertex i) (P.tang i) x with hs
+  have hx : x = P.off i t s := ClosedPolygon.off_coord P i x
+  have hr : P.rayIn (i + 1) = -P.tang i := ClosedPolygon.rayIn_succ
+  have hkey : x - P.vertex (i + 1) =
+      (P.len i - t) • P.rayIn (i + 1) - s • perp (P.rayIn (i + 1)) := by
+    have hv : P.vertex (i + 1) = P.vertex i + (P.len i) • P.tang i := by
+      rw [ClosedPolygon.len_smul_tang]; module
+    rw [hx, ClosedPolygon.off, hv, hr]
+    have hp : perp (-P.tang i) = -perp (P.tang i) := by
+      ext k; fin_cases k <;> simp [perp]
+    rw [hp]
+    module
+  rw [hkey]
+  exact (germs_split' ClosedPolygon.det_rays_ne_zero h3
+    (D.germ_ineq (i := i + 1) (by linarith) h3 h4)).1.1
+
+/-- A point of the right block of edge `i`, seen from the vertex it leaves, is the outgoing right
+germ, hence in the right arc there. -/
+theorem blockR_sub_mem_arcR_start (h : x ∈ D.blockR i) :
+    x - P.vertex i ∈ arcCCW (P.rayIn i) (P.tang i) := by
+  obtain ⟨h1, h2, h3, h4⟩ := D.mem_blockR_iff.1 h
+  set t := coordAlong (P.vertex i) (P.tang i) x with ht
+  set s := coordAcross (P.vertex i) (P.tang i) x with hs
+  have hx : x = P.off i t s := ClosedPolygon.off_coord P i x
+  have hkey : x - P.vertex i = t • P.tang i - (-s) • perp (P.tang i) := by
+    rw [hx, ClosedPolygon.off_sub_vertex]; module
+  rw [hkey]
+  exact (germs_split' ClosedPolygon.det_rays_ne_zero (by linarith)
+    (D.germ_ineq h1 (by linarith) (by linarith))).2.2
+
+/-- The same point, seen from the vertex it arrives at, is the incoming right germ. -/
+theorem blockR_sub_mem_arcR_finish (h : x ∈ D.blockR i) :
+    x - P.vertex (i + 1) ∈ arcCCW (P.rayIn (i + 1)) (P.tang (i + 1)) := by
+  obtain ⟨h1, h2, h3, h4⟩ := D.mem_blockR_iff.1 h
+  set t := coordAlong (P.vertex i) (P.tang i) x with ht
+  set s := coordAcross (P.vertex i) (P.tang i) x with hs
+  have hx : x = P.off i t s := ClosedPolygon.off_coord P i x
+  have hr : P.rayIn (i + 1) = -P.tang i := ClosedPolygon.rayIn_succ
+  have hkey : x - P.vertex (i + 1) =
+      (P.len i - t) • P.rayIn (i + 1) + (-s) • perp (P.rayIn (i + 1)) := by
+    have hv : P.vertex (i + 1) = P.vertex i + (P.len i) • P.tang i := by
+      rw [ClosedPolygon.len_smul_tang]; module
+    rw [hx, ClosedPolygon.off, hv, hr]
+    have hp : perp (-P.tang i) = -perp (P.tang i) := by
+      ext k; fin_cases k <;> simp [perp]
+    rw [hp]
+    module
+  rw [hkey]
+  exact (germs_split' ClosedPolygon.det_rays_ne_zero (by linarith)
+    (D.germ_ineq (i := i + 1) (by linarith) (by linarith) (by linarith))).2.1
+
+/-! ### Nonadjacent blocks are disjoint
+
+Everything here is one of the separation hypotheses of `StripData` against one of the two
+containments `exists_foot` and `sector_subset_ball`. -/
+
+theorem pt_mem_edge_of_trim {c : ℝ} (hc : c ∈ Set.Icc D.lam (P.len i - D.lam)) :
+    P.pt i c ∈ P.edge i :=
+  ClosedPolygon.pt_mem_edge ⟨le_trans D.lam_pos.le hc.1, le_trans hc.2 (by linarith [D.lam_pos])⟩
+
+/-- A block misses every edge but its own. -/
+theorem block_notMem_edge (h : x ∈ D.blockL i ∪ D.blockR i) (hj : j ≠ i) : x ∉ P.edge j := by
+  intro hx
+  obtain ⟨c, hc, hd⟩ := D.exists_foot h
+  have := D.sep_trim_edge i j hj c hc x hx
+  rw [dist_comm] at hd
+  linarith [D.rho_pos]
+
+/-- A block misses its own edge, because its points have nonzero offset. -/
+theorem block_notMem_own_edge (h : x ∈ D.blockL i ∪ D.blockR i) : x ∉ P.edge i := by
+  intro hx
+  rw [ClosedPolygon.mem_edge_iff] at hx
+  obtain ⟨c, _, rfl⟩ := hx
+  have hzero : coordAcross (P.vertex i) (P.tang i) (P.pt i c) = 0 := by
+    rw [ClosedPolygon.pt]; exact ClosedPolygon.coordAcross_off
+  rcases h with h | h
+  · have hpos := (D.mem_blockL_iff.1 h).2.2.1
+    rw [hzero] at hpos
+    exact lt_irrefl 0 hpos
+  · have hneg := (D.mem_blockR_iff.1 h).2.2.2
+    rw [hzero] at hneg
+    exact lt_irrefl 0 hneg
+
+theorem block_notMem_carrier (h : x ∈ D.blockL i ∪ D.blockR i) : x ∉ P.carrier := by
+  rintro hx
+  obtain ⟨j, hj⟩ := Set.mem_iUnion.1 hx
+  by_cases hij : j = i
+  · exact D.block_notMem_own_edge h (hij ▸ hj)
+  · exact D.block_notMem_edge h hij hj
+
+/-- A block stays out of the sectors at every vertex other than its own two. -/
+theorem block_notMem_ball_vertex (h : x ∈ D.blockL i ∪ D.blockR i) (hj1 : j ≠ i)
+    (hj2 : j ≠ i + 1) : x ∉ ball (P.vertex j) D.R := by
+  intro hx
+  obtain ⟨c, hc, hd⟩ := D.exists_foot h
+  have hne1 : i ≠ j - 1 := fun he => hj2 (by rw [he]; ring)
+  have := D.sep_vertex_edge j i hne1 (Ne.symm hj1) _ (D.pt_mem_edge_of_trim hc)
+  have h1 : dist (P.vertex j) (P.pt i c) ≤ dist (P.vertex j) x + dist x (P.pt i c) :=
+    dist_triangle _ _ _
+  rw [mem_ball] at hx
+  rw [dist_comm] at hx
+  linarith [D.rho_lt_R]
+
+/-- A sector misses every edge that is not incident to its vertex. -/
+theorem sector_notMem_far_edge (h : x ∈ ball (P.vertex i) D.R) (hj1 : j ≠ i - 1) (hj2 : j ≠ i) :
+    x ∉ P.edge j := by
+  intro hx
+  have := D.sep_vertex_edge i j hj1 hj2 x hx
+  rw [mem_ball, dist_comm] at h
+  linarith [D.R_pos]
+
+/-- A sector misses the two edges incident to its vertex: their points lie on the two bounding
+rays, and the arcs are open. -/
+theorem sectorL_notMem_carrier (h : x ∈ D.sectorL i) : x ∉ P.carrier := by
+  rintro hx
+  obtain ⟨j, hj⟩ := Set.mem_iUnion.1 hx
+  by_cases hji : j = i
+  · rw [hji] at hj
+    obtain ⟨c, hc, he⟩ := ClosedPolygon.mem_edge_sub hj
+    exact ((notMem_arcCCW_smul (P.tang i) (P.rayIn i) hc).1) (he ▸ h.1)
+  by_cases hjp : j = i - 1
+  · rw [hjp] at hj
+    obtain ⟨c, hc, he⟩ := ClosedPolygon.mem_edge_pred_sub (i := i) hj
+    exact ((notMem_arcCCW_smul (P.rayIn i) (P.tang i) hc).2) (he ▸ h.1)
+  · exact D.sector_notMem_far_edge (i := i) h.2 hjp hji hj
+
+theorem sectorR_notMem_carrier (h : x ∈ D.sectorR i) : x ∉ P.carrier := by
+  rintro hx
+  obtain ⟨j, hj⟩ := Set.mem_iUnion.1 hx
+  by_cases hji : j = i
+  · rw [hji] at hj
+    obtain ⟨c, hc, he⟩ := ClosedPolygon.mem_edge_sub hj
+    exact ((notMem_arcCCW_smul (P.tang i) (P.rayIn i) hc).2) (he ▸ h.1)
+  by_cases hjp : j = i - 1
+  · rw [hjp] at hj
+    obtain ⟨c, hc, he⟩ := ClosedPolygon.mem_edge_pred_sub (i := i) hj
+    exact ((notMem_arcCCW_smul (P.rayIn i) (P.tang i) hc).1) (he ▸ h.1)
+  · exact D.sector_notMem_far_edge (i := i) h.2 hjp hji hj
+
+theorem sideL_disjoint_carrier : Disjoint D.sideL P.carrier := by
+  rw [Set.disjoint_left]
+  rintro y hy hc
+  obtain ⟨i, hi⟩ := Set.mem_iUnion.1 hy
+  rcases hi with hi | hi
+  · exact D.sectorL_notMem_carrier hi hc
+  · exact D.block_notMem_carrier (Or.inl hi) hc
+
+theorem sideR_disjoint_carrier : Disjoint D.sideR P.carrier := by
+  rw [Set.disjoint_left]
+  rintro y hy hc
+  obtain ⟨i, hi⟩ := Set.mem_iUnion.1 hy
+  rcases hi with hi | hi
+  · exact D.sectorR_notMem_carrier hi hc
+  · exact D.block_notMem_carrier (Or.inr hi) hc
+
+/-! ### The two sides are disjoint
+
+Four families times four families. The pairs with distinct indices are settled by distance; the
+pairs at a shared index are settled by `Plane.arcCCW_disjoint'` through the germ lemmas. -/
+
+theorem blockL_disjoint_blockR (hL : x ∈ D.blockL i) (hR : x ∈ D.blockR j) : False := by
+  by_cases hij : j = i
+  · rw [hij] at hR
+    exact absurd (D.mem_blockL_iff.1 hL).2.2.1 (asymm (D.mem_blockR_iff.1 hR).2.2.2)
+  · obtain ⟨c, hc, hd⟩ := D.exists_foot (Or.inl hL)
+    obtain ⟨c', hc', hd'⟩ := D.exists_foot (Or.inr hR)
+    have hsep := D.sep_trim_edge i j hij c hc _ (D.pt_mem_edge_of_trim hc')
+    have h1 : dist (P.pt i c) (P.pt j c') ≤ dist (P.pt i c) x + dist x (P.pt j c') :=
+      dist_triangle _ _ _
+    rw [dist_comm] at hd
+    linarith
+
+theorem blockL_disjoint_sectorR (hL : x ∈ D.blockL i) (hR : x ∈ D.sectorR j) : False := by
+  by_cases hij : j = i
+  · subst hij
+    exact (arcCCW_disjoint' (ClosedPolygon.det_rays_ne_zero (P := P) (i := j))).ne_of_mem
+      hR.1 (D.blockL_sub_mem_arcL_start hL) rfl
+  by_cases hij2 : j = i + 1
+  · subst hij2
+    exact (arcCCW_disjoint' (ClosedPolygon.det_rays_ne_zero (P := P) (i := i + 1))).ne_of_mem
+      hR.1 (D.blockL_sub_mem_arcL_finish hL) rfl
+  · exact D.block_notMem_ball_vertex (Or.inl hL) hij hij2 hR.2
+
+theorem sectorL_disjoint_blockR (hL : x ∈ D.sectorL i) (hR : x ∈ D.blockR j) : False := by
+  by_cases hij : i = j
+  · subst hij
+    exact (arcCCW_disjoint' (ClosedPolygon.det_rays_ne_zero (P := P) (i := i))).ne_of_mem
+      (D.blockR_sub_mem_arcR_start hR) hL.1 rfl
+  by_cases hij2 : i = j + 1
+  · subst hij2
+    exact (arcCCW_disjoint' (ClosedPolygon.det_rays_ne_zero (P := P) (i := j + 1))).ne_of_mem
+      (D.blockR_sub_mem_arcR_finish hR) hL.1 rfl
+  · exact D.block_notMem_ball_vertex (Or.inr hR) hij hij2 hL.2
+
+theorem sectorL_disjoint_sectorR (hL : x ∈ D.sectorL i) (hR : x ∈ D.sectorR j) : False := by
+  by_cases hij : i = j
+  · subst hij
+    exact (arcCCW_disjoint' (ClosedPolygon.det_rays_ne_zero (P := P) (i := i))).ne_of_mem
+      hR.1 hL.1 rfl
+  · have hsep := D.sep_vertex i j hij
+    have hdL : dist x (P.vertex i) < D.R := hL.2
+    have hdR : dist x (P.vertex j) < D.R := hR.2
+    have h1 : dist (P.vertex i) (P.vertex j) ≤ dist (P.vertex i) x + dist x (P.vertex j) :=
+      dist_triangle _ _ _
+    rw [dist_comm (P.vertex i) x] at h1
+    linarith
+
+theorem sideL_disjoint_sideR : Disjoint D.sideL D.sideR := by
+  rw [Set.disjoint_left]
+  rintro y hy hz
+  obtain ⟨i, hi⟩ := Set.mem_iUnion.1 hy
+  obtain ⟨j, hj⟩ := Set.mem_iUnion.1 hz
+  rcases hi with hi | hi <;> rcases hj with hj | hj
+  · exact D.sectorL_disjoint_sectorR hi hj
+  · exact D.sectorL_disjoint_blockR hi hj
+  · exact D.blockL_disjoint_sectorR hi hj
+  · exact D.blockL_disjoint_blockR hi hj
+
+end StripData
 
 end Schoenflies

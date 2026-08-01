@@ -849,4 +849,103 @@ theorem meshEar_isPath {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
   · exact absurd (spokePiece_disjoint hN hzm hwm hzw h hxw) not_false
   · exact (spokePiece_inter_ringSet hN hwm hrm).subset ⟨hxw, h⟩
 
+
+/-! ### The assembly
+
+`meshCore` is the outer ring, the ear, and the inner ring. `attachRings` then adds every ring
+by `lem:union-two-connected` at the two crossing points `r • z ≠ r • w`, and `attachSpokes`
+adds every remaining spoke by `lem:subdivision-ear-preserve` (b) — its two ends are `u` on the
+outer ring and `N⁻¹ • u` on the inner one, both already present. Finally every vertex of the
+mesh lies on a ring or on a spoke, so the assembled graph spans the mesh and
+`Graph.IsTwoConnected.of_le_of_vertexSet_subset` transfers 2-connectivity to the mesh itself. -/
+
+/-- The spoke at `u`, as a subgraph of the mesh. -/
+noncomputable def spokeGraph (N : ℕ) (fresh anchors : List Plane) (u : Plane) :
+    Graph Plane Piece :=
+  (meshGraph N fresh anchors).pathGraphOf u (spokeWalk N fresh anchors u)
+
+theorem spokeGraph_le {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
+    (hfresh : ∀ u ∈ fresh, u ∈ modelCurve) (anchors : List Plane) {u : Plane} (hu : u ∈ fresh) :
+    spokeGraph N fresh anchors u ≤ meshGraph N fresh anchors :=
+  Graph.pathGraphOf_le (spokeWalk_isPath hN hfresh anchors hu).isWalk
+
+/-- A crossing point on a ring other than the outer one is not the fresh point itself. -/
+theorem smul_ne_self {N : ℕ} (hN : 2 ≤ N) {u : Plane} (hu : u ∈ modelCurve) {r : ℝ}
+    (hr : r ∈ meshRadii N) (hr1 : r ≠ 1) : r • u ≠ u := by
+  intro h
+  have h1 : Plane.supNorm (r • u) = r :=
+    supNorm_smul_of_mem_modelCurve (meshRadii_pos hN hr).le hu
+  rw [h, show Plane.supNorm u = 1 from hu] at h1
+  exact hr1 h1.symm
+
+/-- An inner crossing point is *covered* by the spoke's path — it is an end of one of its
+edges, not merely its source. -/
+theorem smul_mem_coveredVertices_spokeWalk {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
+    (hfresh : ∀ x ∈ fresh, x ∈ modelCurve) (anchors : List Plane) {u : Plane} (hu : u ∈ fresh)
+    {r : ℝ} (hr : r ∈ meshRadii N) (hr1 : r ≠ 1) :
+    r • u ∈ (meshGraph N fresh anchors).coveredVertices (spokeWalk N fresh anchors u) := by
+  rcases Graph.mem_walkVertices_iff.1
+    (smul_mem_walkVertices_spokeWalk hN hfresh anchors hu hr) with h | h
+  · exact absurd h (smul_ne_self hN (hfresh u hu) hr hr1)
+  · exact h
+
+/-- **The core**: outer ring, ear, inner ring. -/
+noncomputable def meshCore (N : ℕ) (fresh anchors : List Plane) (z w : Plane) :
+    Graph Plane Piece :=
+  ((ringGraph N fresh anchors 1).union
+      ((meshGraph N fresh anchors).pathGraphOf z (meshEar N fresh anchors z w))).union
+    (ringGraph N fresh anchors ((N : ℝ)⁻¹))
+
+theorem meshCore_le {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
+    (hfresh : ∀ u ∈ fresh, u ∈ modelCurve) (anchors : List Plane) {z w : Plane}
+    (hz : z ∈ fresh) (hw : w ∈ fresh) (hzw : z ≠ w) :
+    meshCore N fresh anchors z w ≤ meshGraph N fresh anchors :=
+  Graph.union_le
+    (Graph.union_le (ringGraph_le N fresh anchors 1)
+      (Graph.pathGraphOf_le (meshEar_isPath hN hfresh anchors hz hw hzw).isWalk))
+    (ringGraph_le N fresh anchors _)
+
+/-- A fresh point is a vertex of the outer ring. -/
+theorem mem_vertexSet_ringGraph_one {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
+    (hfresh : ∀ u ∈ fresh, u ∈ modelCurve) (anchors : List Plane) {u : Plane} (hu : u ∈ fresh) :
+    u ∈ V(ringGraph N fresh anchors 1) := by
+  have := smul_mem_vertexSet_ringGraph hN hfresh anchors hu (one_mem_meshRadii hN)
+  rwa [one_smul] at this
+
+/-- **The core is 2-connected.** -/
+theorem meshCore_isTwoConnected {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
+    (hfresh : ∀ u ∈ fresh, u ∈ modelCurve) (anchors : List Plane) {z w : Plane}
+    (hz : z ∈ fresh) (hw : w ∈ fresh) (hzw : z ≠ w) :
+    (meshCore N fresh anchors z w).IsTwoConnected := by
+  set G := meshGraph N fresh anchors with hG
+  set rmin : ℝ := ((N : ℝ)⁻¹) with hrmin
+  have hrm : rmin ∈ meshRadii N := inv_mem_meshRadii hN
+  have hear := meshEar_isPath hN hfresh anchors hz hw hzw
+  have hearle : G.pathGraphOf z (meshEar N fresh anchors z w) ≤ G :=
+    Graph.pathGraphOf_le hear.isWalk
+  -- the ear, attached to the outer ring
+  have h1 : ((ringGraph N fresh anchors 1).union
+      (G.pathGraphOf z (meshEar N fresh anchors z w))).IsTwoConnected :=
+    (ringGraph_isTwoConnected hN hfresh anchors (one_mem_meshRadii hN)).ear
+      (Graph.Compatible.of_le_le (ringGraph_le N fresh anchors 1) hearle)
+      hear.isPathGraph_pathGraphOf hzw
+      (mem_vertexSet_ringGraph_one hN hfresh anchors hz)
+      (mem_vertexSet_ringGraph_one hN hfresh anchors hw)
+  -- the crossing points, which the ear visits
+  have hrne : rmin ≠ 1 := (inv_cast_lt_one hN).ne
+  have hmemz : rmin • z ∈ V(G.pathGraphOf z (meshEar N fresh anchors z w)) :=
+    Graph.mem_walkVertices_of_mem_covered (Graph.coveredVertices_mono
+      (fun _ hQ => List.mem_append_left _ (List.mem_append_left _ hQ))
+      (smul_mem_coveredVertices_spokeWalk hN hfresh anchors hz hrm hrne))
+  have hmemw : rmin • w ∈ V(G.pathGraphOf z (meshEar N fresh anchors z w)) :=
+    Graph.mem_walkVertices_of_mem_covered (Graph.coveredVertices_mono
+      (fun _ hQ => List.mem_append_right _ (List.mem_reverse.2 hQ))
+      (smul_mem_coveredVertices_spokeWalk hN hfresh anchors hw hrm hrne))
+  exact h1.union (Graph.Compatible.of_le_le
+      (Graph.union_le (ringGraph_le N fresh anchors 1) hearle) (ringGraph_le N fresh anchors rmin))
+    (ringGraph_isTwoConnected hN hfresh anchors hrm)
+    (smul_ne_smul (ne_of_gt (inv_cast_pos hN)) hzw)
+    (Or.inr hmemz) (smul_mem_vertexSet_ringGraph hN hfresh anchors hz hrm)
+    (Or.inr hmemw) (smul_mem_vertexSet_ringGraph hN hfresh anchors hw hrm)
+
 end Schoenflies

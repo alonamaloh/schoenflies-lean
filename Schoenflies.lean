@@ -29,3 +29,4 @@ import Schoenflies.Graph.Drawing
 import Schoenflies.Graph.OuterFace
 import Schoenflies.Graph.CycleJordan
 import Schoenflies.Compose
+import Schoenflies.PolygonalCarrier

@@ -392,4 +392,112 @@ theorem isConnected_union_joins {A : Set Plane} {r₀ : Plane} (hr₀ : r₀ ∈
     obtain ⟨r, hr, hzT⟩ := hz
     exact ⟨T r, fun w hw => Or.inr (mem_biUnion hr hw), hThub r hr, hzT, hTconn r hr⟩
 
+/-! ## The construction
+
+`prop:local-grid-attachment` is an existence statement, but its consumer —
+`thm:finite-transfer`(a) — reads the graph, its drawing and its 2-connectivity by name. So the
+graph is a `def` and every clause is a theorem about it. -/
+
+/-- Cut points for a family of segments, together with prescribed extra points that are to
+become vertices whatever else happens. Enlarging the list produced by `exists_cut_points` is
+harmless (`EndsAreCut.mono`, `MeetsAreCut.mono`) and is what makes the two common vertices of
+`lem:union-two-connected` available. -/
+noncomputable def attachPoints (pieces : List Piece) (extra : List Plane) : List Plane :=
+  extra ++ (exists_cut_points pieces).choose
+
+theorem mem_attachPoints_of_mem {pieces : List Piece} {extra : List Plane} {x : Plane}
+    (hx : x ∈ extra) : x ∈ attachPoints pieces extra := List.mem_append_left _ hx
+
+theorem attachPoints_endsAreCut (pieces : List Piece) (extra : List Plane) :
+    EndsAreCut pieces (attachPoints pieces extra) :=
+  (exists_cut_points pieces).choose_spec.1.mono (List.subset_append_right _ _)
+
+theorem attachPoints_meetsAreCut (pieces : List Piece) (extra : List Plane) :
+    MeetsAreCut pieces (attachPoints pieces extra) :=
+  (exists_cut_points pieces).choose_spec.2.mono (List.subset_append_right _ _)
+
+/-- **The overlay of `lem:polygonal-overlay`, with the convention of
+`rem:polygonal-overlay-convention`**: every intersection of the listed segments is a vertex, and
+so is every prescribed extra point. -/
+noncomputable def attachGraph (pieces : List Piece) (extra : List Plane) : Graph Plane Piece :=
+  overlayGraph pieces (attachPoints pieces extra)
+
+instance attachGraph_finite (pieces : List Piece) (extra : List Plane) :
+    Graph.Finite (attachGraph pieces extra) := overlayGraph_finite _ _
+
+theorem attachGraph_isDrawing {pieces : List Piece} (hnd : ∀ P ∈ pieces, P.Nondeg)
+    (extra : List Plane) : Graph.IsDrawing (attachGraph pieces extra) segmentDrawing :=
+  overlayGraph_isDrawing _ _ hnd (attachPoints_endsAreCut _ _) (attachPoints_meetsAreCut _ _)
+
+@[simp] theorem attachGraph_pointSet (pieces : List Piece) (extra : List Plane) :
+    Graph.pointSet (attachGraph pieces extra) segmentDrawing = cover pieces :=
+  overlayGraph_pointSet _ _
+
+/-- **The three cases of `prop:local-grid-attachment`, in one statement.** The `Γ`-side list `l`
+carries whatever the case needed — the bare skeleton in the main case, the skeleton together with
+the auxiliary crosscut in the two degenerate ones — and the two distinct common points `a`, `b`
+are the ones that case produced. -/
+theorem attachGraph_isTwoConnected {l l' : List Piece} {extra : List Plane}
+    (hnd : ∀ P ∈ l, P.Nondeg) (hnd' : ∀ P ∈ l', P.Nondeg)
+    (hl : (pieceListGraph (subdivide l (attachPoints (l ++ l') extra))).IsTwoConnected)
+    (hl' : (pieceListGraph (subdivide l' (attachPoints (l ++ l') extra))).IsTwoConnected)
+    {a b : Plane} (hab : a ≠ b) (ha : a ∈ extra) (hb : b ∈ extra)
+    (hal : a ∈ cover l) (hbl : b ∈ cover l) (hal' : a ∈ cover l') (hbl' : b ∈ cover l') :
+    (attachGraph (l ++ l') extra).IsTwoConnected :=
+  overlayGraph_append_isTwoConnected hnd hnd' hl hl' hab
+    (mem_attachPoints_of_mem ha) (mem_attachPoints_of_mem hb) hal hbl hal' hbl'
+
+/-! ### Clause 1: the open nonboundary part is connected
+
+The joining loop, transported from sets to the graph. What the graph occupies is
+`cover pieces` (`attachGraph_pointSet`), so the whole statement is about covers. -/
+
+/-- **`prop:local-grid-attachment` clause 1.** Adding to a family of segments the joining arcs
+of the loop makes what it occupies, minus `C`, connected. Each joining arc must miss `C` — the
+blueprint's *"because the joining arc lies in `D`"* — and that is the only thing asked of it. -/
+theorem isConnected_cover_diff_of_joins {l : List Piece} {C : Set Plane} {r₀ : Plane}
+    {reps : List Plane} {J : Plane → List Piece} (hr₀ : r₀ ∈ cover l \ C)
+    (hJconn : ∀ r ∈ reps, IsPreconnected (cover (J r)))
+    (hJhub : ∀ r ∈ reps, r₀ ∈ cover (J r)) (hJrep : ∀ r ∈ reps, r ∈ cover (J r))
+    (hJC : ∀ r ∈ reps, ∀ z ∈ cover (J r), z ∉ C)
+    (hcov : ∀ z ∈ cover l \ C, ∃ r ∈ reps, ∃ S : Set Plane,
+      S ⊆ cover l \ C ∧ IsPreconnected S ∧ z ∈ S ∧ r ∈ S) :
+    IsConnected (cover (l ++ reps.flatMap J) \ C) := by
+  have hEq : cover (l ++ reps.flatMap J) \ C = (cover l \ C) ∪ ⋃ r ∈ reps, cover (J r) := by
+    rw [cover_append, cover_flatMap']
+    ext z
+    simp only [mem_diff, mem_union, mem_iUnion, exists_prop]
+    constructor
+    · rintro ⟨hz | ⟨r, hr, hz⟩, hzC⟩
+      · exact Or.inl ⟨hz, hzC⟩
+      · exact Or.inr ⟨r, hr, hz⟩
+    · rintro (⟨hz, hzC⟩ | ⟨r, hr, hz⟩)
+      · exact ⟨Or.inl hz, hzC⟩
+      · exact ⟨Or.inr ⟨r, hr, hz⟩, hJC r hr z hz⟩
+  rw [hEq]
+  exact isConnected_union_joins hr₀ hJconn hJhub hJrep hcov
+
+/-! ### Clause 2: the graph contains the grid, and clause 3: the grid is fine -/
+
+theorem localGridEdges_nondeg {p : Plane} {s : ℝ} {k : ℕ} (hs : 0 < s) (hk : 1 ≤ k) :
+    ∀ P ∈ localGridEdges p s k, P.Nondeg := fun _ hP =>
+  gridEdges_nondeg ((localGridX_strictMono hs hk).strictMonoOn _)
+    ((localGridY_strictMono hs hk).strictMonoOn _) hk hk hP
+
+/-- **`prop:local-grid-attachment` clause 2.** The assembled graph contains the whole local
+grid: overlaying only cuts, it never removes. -/
+theorem localGrid_subset_attachGraph_pointSet {p : Plane} {s : ℝ} {k : ℕ} (l : List Piece)
+    (extra : List Plane) :
+    cover (localGridEdges p s k) ⊆
+      Graph.pointSet (attachGraph (l ++ localGridEdges p s k) extra) segmentDrawing := by
+  rw [attachGraph_pointSet, cover_append]
+  exact subset_union_right
+
+/-- **`prop:local-grid-attachment` clause 3**, restated for the assembled graph: at the mesh
+`localGridCount s ε` every closed grid rectangle has diameter `< ε`. -/
+theorem attachGraph_localGridCell_diam {p : Plane} {s ε : ℝ} (hε : 0 < ε) (i j : ℕ)
+    {x y : Plane} (hx : x ∈ localGridCell p s (localGridCount s ε) i j)
+    (hy : y ∈ localGridCell p s (localGridCount s ε) i j) : dist x y < ε :=
+  lt_of_le_of_lt (dist_le_of_mem_localGridCell hx hy) (localGridCount_spec hε)
+
 end Schoenflies

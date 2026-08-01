@@ -33,3 +33,5 @@ import Schoenflies.PolygonalCarrier
 import Schoenflies.LocallyPolygonal
 import Schoenflies.Graph.VertexSquares
 import Schoenflies.PolyLocal
+import Schoenflies.Accessible
+import Schoenflies.Graph.Redrawing

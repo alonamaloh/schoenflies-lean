@@ -29,7 +29,7 @@ therefore proved here rather than assumed.
   `lem:cellulation-invariants`, transported). The real `lem:outer-incidence` — `closure σ` meets
   `C` iff some outer cell is a subcell of `σ` iff `closure σ'` meets `S` — is proved below as
   `Realization.IsCellDecomposition.closure_cell_meets_outer_iff` and, for stars,
-  `LimitTower.srcStar_disjoint_bdry_of_tgtStar`. The one geometric input it needs is
+  `LimitTower.star_meets_bdry_iff`. The one geometric input it needs is
   `Realization.outerSet_eq_iUnion_cell`: the realized outer cycle is exactly the union of the
   open cells of the outer cells, which is a consequence of the two `Realization` clauses
   `cell_vertex` and `cell_edge` and holds for any subcomplex.
@@ -58,28 +58,37 @@ diameter bounds are false rather than weak — and it is trivially true for a cl
 
 ## Blueprint
 
-* `Schoenflies.CellStructure.LimitTower` — the abstraction of the head of the section: "we now
-  forget how the decompositions were constructed".
-* `Schoenflies.CellStructure.LimitTower.F` — the limit map, with
-  `…iInter_tgtStar_eq_singleton` (`lem:nested-compact` applied to the nested stars) and
-  `…F_mem_tgtStar` its characterisation.
-* `lem:outer-incidence` —
-  `Schoenflies.CellStructure.Realization.IsCellDecomposition.closure_cell_meets_outer_iff`,
-  `Schoenflies.CellStructure.Realization.IsCellDecomposition.star_meets_outer_iff`, and their
-  matched form `Schoenflies.CellStructure.LimitTower.srcStar_disjoint_bdry_of_tgtStar`.
-* `prop:skeleton-agreement` — `Schoenflies.CellStructure.LimitTower.F_eq_skelHomeo`.
-* `prop:F-continuous` — `Schoenflies.CellStructure.LimitTower.continuousOn_F` (on the *closed*
-  domain).
-* `prop:image-interior` — `Schoenflies.CellStructure.LimitTower.F_mem_region'`.
-* `prop:F-injective` — `Schoenflies.CellStructure.LimitTower.injOn_F`.
-* `prop:target-skeleton-dense` — `Schoenflies.CellStructure.LimitTower.tgtSkeleton_dense`.
-* `prop:F-surjective` — `Schoenflies.CellStructure.LimitTower.surjOn_F`.
-* `lem:exact-cell-correspondence` — `Schoenflies.CellStructure.LimitTower.image_cell`, with the
-  corollary the inverse argument actually uses,
-  `Schoenflies.CellStructure.LimitTower.tgt_carrier_F`.
-* `prop:inverse-continuous` — `Schoenflies.CellStructure.LimitTower.continuousOn_inv`.
-* `prop:interior-homeomorphism` — `Schoenflies.CellStructure.LimitTower.isHomeoOn_F`, in the
-  `Schoenflies.IsHomeoOn` shape that `Endgame.lean` consumes.
+All of the following live in `Schoenflies.CellStructure`.
+
+* `LimitTower` — the abstraction of the head of the section: "we now forget how the
+  decompositions were constructed and use only their nesting, matching, and shrinking
+  properties".
+* The definition of `F` (tex "The limit homeomorphism of the interiors") —
+  `LimitTower.F`, with `LimitTower.iInter_tgtStar_eq` its characterisation
+  (`lem:nested-compact` applied to the nested stars `LimitTower.tgtStar`),
+  `LimitTower.F_mem_tgtStar` and `LimitTower.eq_F_of_mem_iInter`.
+* `lem:outer-incidence` — `Realization.IsCellDecomposition.closure_cell_meets_outer_iff` and
+  `Realization.IsCellDecomposition.star_meets_outer_iff`, with the matched form the limit
+  argument cites, `LimitTower.star_meets_bdry_iff`. Their geometric input is
+  `Realization.outerSet_eq_iUnion_cell`.
+* `prop:skeleton-agreement` — `LimitTower.F_eq_skelHomeo`.
+* `prop:F-continuous` — `LimitTower.continuousOn_F`, on the *closed* domain.
+* `prop:image-interior` — `LimitTower.F_mem_region'`.
+* `prop:F-injective` — `LimitTower.injOn_F`.
+* `prop:target-skeleton-dense` — `LimitTower.exists_mem_tgt_skeletonSet`.
+* `prop:F-surjective` — `LimitTower.exists_mem_region_F_eq`, through `LimitTower.preStar` and
+  `LimitTower.F_eq_of_mem_iInter_preStar`.
+* `lem:exact-cell-correspondence` — `LimitTower.image_cell`, with the corollary the inverse
+  argument actually uses, `LimitTower.tgt_carrier_F`.
+* `prop:inverse-continuous` — `LimitTower.continuousOn_inv`, on the explicit inverse
+  `LimitTower.inv`.
+* `prop:interior-homeomorphism` — `LimitTower.isHomeoOn_F` and, with the skeleton clause,
+  `LimitTower.interior_homeomorphism`; in the `Schoenflies.IsHomeoOn` shape that `Endgame.lean`
+  and the boundary-continuity module consume.
+* `lem:cell-neighborhood` is used, not restated: it is
+  `Realization.IsCellDecomposition.sub_carrier_of_mem_cellNbhd` in `RefinementStars.lean`, and
+  the cross-realization form the limit map needs is
+  `LimitTower.tgtStar_subset_of_mem_cellNbhd`.
 -/
 
 open Set Metric Bornology Filter
@@ -845,6 +854,79 @@ theorem tgt_carrier_F (hx : x ∈ L.region) (n : ℕ) :
   rw [← image_cell n ((L.srcDecomp n).mem_cells_carrier hx.1)
     (src_carrier_notMem_outerCells hx n)]
   exact Set.mem_image_of_mem _ ((L.srcDecomp n).mem_cell_carrier hx.1)
+
+/-! #### The inverse, and the interior homeomorphism -/
+
+open scoped Classical in
+/-- **The inverse of `F`**, as an explicit function `Plane → Plane` rather than a bundled
+`Homeomorph`: a chosen preimage in `D`. Surjectivity makes the choice possible and injectivity
+makes it irrelevant. `Endgame.lean` consumes the pair `(F, inv)` in the `IsHomeoOn` shape, which
+needs the inverse named. -/
+noncomputable def inv (L : LimitTower γ) (y : Plane) : Plane :=
+  if h : ∃ x, x ∈ L.region ∧ L.F x = y then h.choose else 0
+
+theorem inv_spec (h : ∃ x, x ∈ L.region ∧ L.F x = y) :
+    L.inv y ∈ L.region ∧ L.F (L.inv y) = y := by
+  rw [inv, dif_pos h]
+  exact h.choose_spec
+
+theorem inv_mem_region (hy : y ∈ L.region') : L.inv y ∈ L.region :=
+  (inv_spec (exists_mem_region_F_eq hy)).1
+
+theorem F_inv (hy : y ∈ L.region') : L.F (L.inv y) = y :=
+  (inv_spec (exists_mem_region_F_eq hy)).2
+
+theorem inv_F (hx : x ∈ L.region) : L.inv (L.F x) = x :=
+  L.injOn_F (inv_spec ⟨x, hx, rfl⟩).1 hx (inv_spec ⟨x, hx, rfl⟩).2
+
+/-- `tgt_carrier_F` read at `inv y`. -/
+theorem src_carrier_inv (hy : y ∈ L.region') (n : ℕ) :
+    (L.src n).carrier (L.inv y) = (L.tgt n).carrier y := by
+  have h := tgt_carrier_F (inv_mem_region hy) n
+  rw [F_inv hy] at h
+  exact h.symm
+
+/-- **`prop:inverse-continuous`**: `F⁻¹ : Q° → D` is continuous. `lem:cell-neighborhood` is
+applied on the *target* side; `lem:exact-cell-correspondence`, in the form `src_carrier_inv`,
+transports the resulting subcell relation to the source, where the source star of `x` is small. -/
+theorem continuousOn_inv (L : LimitTower γ) : ContinuousOn L.inv L.region' := by
+  rw [Metric.continuousOn_iff]
+  intro y hy η hη
+  have hxr : L.inv y ∈ L.region := inv_mem_region hy
+  obtain ⟨n, hn⟩ := exists_lt_of_tendsto_zero (tendsto_diam_srcStar_point hxr) hη
+  obtain ⟨δ, hδ, hball⟩ :=
+    Metric.isOpen_iff.1 ((L.tgt n).isOpen_cellNbhd y) y ((L.tgt n).mem_cellNbhd_self y)
+  refine ⟨δ, hδ, fun z hz hzdist => ?_⟩
+  have hsub : (L.str n).sub ((L.tgt n).carrier y) ((L.tgt n).carrier z) :=
+    (L.tgtDecomp n).sub_carrier_of_mem_cellNbhd (region'_subset_dom' hy)
+      (hball (Metric.mem_ball.2 hzdist)) (region'_subset_dom' hz)
+  rw [← src_carrier_inv hy n, ← src_carrier_inv hz n] at hsub
+  have hmem : L.inv z ∈ L.srcStar n (L.inv y) :=
+    (L.srcDecomp n).star_anti_of_sub (L.comb n) ((L.srcDecomp n).mem_cells_carrier hxr.1)
+      ((L.srcDecomp n).mem_cells_carrier (inv_mem_region hz).1) hsub
+      ((L.srcDecomp n).mem_star_carrier (inv_mem_region hz).1)
+  exact lt_of_le_of_lt
+    (dist_le_diam_of_mem (isBounded_srcStar n _) hmem (mem_srcStar_self hxr.1 n)) hn
+
+/-- **`prop:interior-homeomorphism`**: `F : Int(C) → Q°` is a homeomorphism, in the
+`Schoenflies.IsHomeoOn` shape — the map, its explicit inverse, and the four laws on the two
+sets — that `Endgame.lean` and the boundary-continuity module consume. -/
+theorem isHomeoOn_F (L : LimitTower γ) : IsHomeoOn L.F L.inv L.region L.region' where
+  mapsTo := fun _ hx => F_mem_region' hx
+  mapsTo_inv := fun _ hy => inv_mem_region hy
+  continuousOn := L.continuousOn_F.mono region_subset_dom
+  continuousOn_inv := L.continuousOn_inv
+  invOn := ⟨fun _ hx => inv_F hx, fun _ hy => F_inv hy⟩
+
+theorem image_region (L : LimitTower γ) : L.F '' L.region = L.region' :=
+  L.isHomeoOn_F.image_eq
+
+/-- **`prop:interior-homeomorphism`** as the blueprint states it: a homeomorphism of `Int(C)` onto
+`Q°` that agrees with the stage-`N` skeleton map on `G_N ∩ (C ∪ D)` for every `N`. -/
+theorem interior_homeomorphism (L : LimitTower γ) :
+    IsHomeoOn L.F L.inv L.region L.region' ∧
+      ∀ n, ∀ x ∈ (L.src n).skeletonSet, x ∈ L.dom → L.F x = (L.skelHomeo n).toFun x :=
+  ⟨L.isHomeoOn_F, fun _ _ hx hxD => F_eq_skelHomeo hx hxD⟩
 
 end LimitTower
 

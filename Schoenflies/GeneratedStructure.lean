@@ -495,9 +495,20 @@ cells are fresh — together with the two boundary paths of the split cell betwe
 the ear.
 
 `sub_face` is the statement that the two boundary paths carry exactly the cells of the split
-2-cell; `paths_disjoint` that they share no edge. Both are consequences of the invariants at
-the stage being refined, and both are what the blueprint means by "the two boundary paths
-between its endpoints". -/
+2-cell; `paths_meet` that they meet exactly at the two ends of the ear. Both are consequences of
+the invariants at the stage being refined, and both are what the blueprint means by "the two
+boundary paths between its endpoints".
+
+**`paths_meet` used to read `paths_disjoint`** — that the two paths share no *edge* — and that
+is too weak. Two edge-disjoint paths between the same two vertices may still share an interior
+vertex: take parallel edges `e₁, f₁ : u — a` and `e₂, f₂ : a — v` and the paths `[e₁, e₂]`,
+`[f₁, f₂]`. Every other field holds, and the two realized boundary paths then meet in three
+points, so `IsCutPair.inter_eq` — which asks that the two arcs meet exactly at the two cut
+points — is **false**, and with it the `isCutPair` field of `SplitData.IsCrosscutSplit`, hence
+assertion (i) at the split constructor. The stronger clause is what a producer actually has,
+since it picks the two paths as the two arcs of one boundary cycle; `paths_disjoint` below is
+recovered from it. Found by the first module that ever built a realization of a split
+(`Schoenflies/RealizeSplit.lean`), which had to carry it as a hypothesis. -/
 structure SplitData (S : CellStructure γ) where
   /-- The 2-cell being split. -/
   face : γ
@@ -548,12 +559,24 @@ structure SplitData (S : CellStructure γ) where
   /-- The cells below the split 2-cell are exactly the cells of its two boundary paths. -/
   sub_face : ∀ ⦃σ⦄, S.sub σ face ↔
     σ = face ∨ σ ∈ S.pathCells source path₁ ∪ S.pathCells source path₂
-  /-- The two boundary paths share no edge. -/
-  paths_disjoint : ∀ ⦃f⦄, f ∈ path₁ → f ∉ path₂
+  /-- **The two boundary paths meet exactly at the two ends of the ear.** Not merely that they
+  share no edge — see the counterexample in the docstring above. -/
+  paths_meet : S.pathCells source path₁ ∩ S.pathCells source path₂ = {source, target}
 
 namespace SplitData
 
 variable {S : CellStructure γ} (d : S.SplitData)
+
+/-- **The two boundary paths share no edge**, recovered from `paths_meet`: a common edge would
+lie in the intersection, hence be one of the two ends, which are 0-cells. -/
+theorem paths_disjoint ⦃f : γ⦄ (h₁ : f ∈ d.path₁) (h₂ : f ∈ d.path₂) : False := by
+  have hmem : f ∈ S.pathCells d.source d.path₁ ∩ S.pathCells d.source d.path₂ :=
+    ⟨Or.inl h₁, Or.inl h₂⟩
+  rw [d.paths_meet] at hmem
+  have hfE : f ∈ E(S.skel) := d.isPath₁.isWalk.edge_mem h₁
+  rcases hmem with rfl | rfl
+  exacts [S.disjoint_vertexSet_edgeSet.ne_of_mem d.isPath₁.left_mem hfE rfl,
+    S.disjoint_vertexSet_edgeSet.ne_of_mem d.isPath₁.right_mem hfE rfl]
 
 /-- All cells of the ear: its vertices, including its two old ends, and its edges. -/
 def earCells : Set γ := V(d.ear) ∪ E(d.ear)

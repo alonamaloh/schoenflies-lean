@@ -100,3 +100,4 @@ import Schoenflies.GridAttach
 import Schoenflies.Windows
 import Schoenflies.StageTower
 import Schoenflies.RealizeSubdiv
+import Schoenflies.RealizeSplit

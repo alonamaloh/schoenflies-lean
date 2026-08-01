@@ -30,3 +30,5 @@ import Schoenflies.Graph.OuterFace
 import Schoenflies.Graph.CycleJordan
 import Schoenflies.Compose
 import Schoenflies.PolygonalCarrier
+import Schoenflies.LocallyPolygonal
+import Schoenflies.Graph.VertexSquares

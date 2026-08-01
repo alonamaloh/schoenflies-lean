@@ -283,21 +283,6 @@ theorem convex_openSquare_inter_sideHalfPlane (p : Plane) (s : ℝ) (c : Plane) 
     (i : Fin 2) (b : Bool) : Convex ℝ (openSquare p s ∩ sideHalfPlane c r i b) :=
   (convex_openSquare p s).inter (convex_sideHalfPlane c r i b)
 
-/-- The sup distance obeys the triangle inequality. Needed to turn "`p` is outside a closed
-square" into "a whole neighbourhood of `p` is outside the open square". -/
-theorem supDist_triangle (x y z : Plane) : supDist x z ≤ supDist x y + supDist y z := by
-  have h0 : |x 0 - z 0| ≤ supDist x y + supDist y z := by
-    have := abs_sub_zero_le_supDist x y
-    have := abs_sub_zero_le_supDist y z
-    calc |x 0 - z 0| ≤ |x 0 - y 0| + |y 0 - z 0| := abs_sub_le _ _ _
-      _ ≤ supDist x y + supDist y z := by linarith
-  have h1 : |x 1 - z 1| ≤ supDist x y + supDist y z := by
-    have := abs_sub_one_le_supDist x y
-    have := abs_sub_one_le_supDist y z
-    calc |x 1 - z 1| ≤ |x 1 - y 1| + |y 1 - z 1| := abs_sub_le _ _ _
-      _ ≤ supDist x y + supDist y z := by linarith
-  simpa [supDist, supNorm, sub_apply] using max_le h0 h1
-
 end Plane
 
 /-! ### Choosing one radius for finitely many constraints -/

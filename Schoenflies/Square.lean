@@ -74,6 +74,17 @@ theorem abs_zero_le_supNorm (x : Plane) : |x 0| ≤ supNorm x := le_max_left _ _
 
 theorem abs_one_le_supNorm (x : Plane) : |x 1| ≤ supNorm x := le_max_right _ _
 
+/-- The sup distance satisfies the triangle inequality, one coordinate at a time. -/
+theorem supDist_triangle (x y z : Plane) : supDist x z ≤ supDist x y + supDist y z := by
+  simp only [supDist, supNorm, sub_apply]
+  refine max_le ?_ ?_
+  · calc |x 0 - z 0| ≤ |x 0 - y 0| + |y 0 - z 0| := abs_sub_le _ _ _
+      _ ≤ supDist x y + supDist y z :=
+          add_le_add (abs_sub_zero_le_supDist x y) (abs_sub_zero_le_supDist y z)
+  · calc |x 1 - z 1| ≤ |x 1 - y 1| + |y 1 - z 1| := abs_sub_le _ _ _
+      _ ≤ supDist x y + supDist y z :=
+          add_le_add (abs_sub_one_le_supDist x y) (abs_sub_one_le_supDist y z)
+
 theorem norm_sq_eq (x : Plane) : ‖x‖ ^ 2 = x 0 ^ 2 + x 1 ^ 2 := by
   rw [EuclideanSpace.real_norm_sq_eq]; simp [Fin.sum_univ_two]
 

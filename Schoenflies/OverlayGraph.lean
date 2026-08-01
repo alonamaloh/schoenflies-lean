@@ -294,13 +294,14 @@ theorem overlayGraph_isDrawing (pieces : List Piece) (points : List Plane)
     (hMeets : MeetsAreCut pieces points) :
     Graph.IsDrawing (overlayGraph pieces points) segmentDrawing := by
   refine ⟨?_, ?_, ?_⟩
-  · -- An edge is a nondegenerate segment, hence an arc between its ends, either way round.
-    rintro P a b ⟨hP, h⟩
-    rw [edgeArc_segmentDrawing]
-    have hne : P.Nondeg := overlayPieces_nondeg points hnd P hP
-    rcases h with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
-    · exact isArcBetween_segment hne
-    · exact (isArcBetween_segment hne).reverse
+  · -- An edge is a nondegenerate segment, and `segmentDrawing` IS its parametrization.
+    intro P hP
+    have hne : P.Nondeg := overlayPieces_nondeg points hnd P (by simpa using hP)
+    refine ⟨AffineMap.lineMap_continuous.continuousOn, injOn_lineMap hne, ?_⟩
+    have h0 : segmentDrawing P 0 = P.1 := by simp [segmentDrawing]
+    have h1 : segmentDrawing P 1 = P.2 := by simp [segmentDrawing]
+    rw [h0, h1]
+    exact ⟨by simpa using hP, Or.inl ⟨rfl, rfl⟩⟩
   · -- A vertex is an end of some edge, hence a cut point, hence interior to nothing; and a
     -- point of a segment that is not interior to it is one of its ends.
     rintro P a b w ⟨hP, h⟩ hw hwarc

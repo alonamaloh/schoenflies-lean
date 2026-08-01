@@ -42,22 +42,26 @@ theorem IsPolygonal.isCompact {A : Set Plane} (h : IsPolygonal A) : IsCompact A 
 theorem isPolygonal_segment (a b : Plane) : IsPolygonal (segment ℝ a b) :=
   ⟨[a, b], (poly_pair a b).symm⟩
 
-/-- A nondegenerate segment is an arc between its endpoints.
+/-- `lineMap a b` is injective on the unit interval exactly when the segment is
+nondegenerate: two parameters differ by a multiple of `b - a`. Exposed separately because the
+plane-graph drawing condition asks for the parametrization, not just its image. -/
+theorem injOn_lineMap {a b : Plane} (hab : a ≠ b) :
+    Set.InjOn (AffineMap.lineMap a b : ℝ → Plane) I := by
+  intro s _ t _ hst
+  have hba : b - a ≠ 0 := sub_ne_zero.2 (Ne.symm hab)
+  have key : (s - t) • (b - a) = 0 := by
+    simp only [AffineMap.lineMap_apply_module] at hst
+    linear_combination (norm := module) hst
+  rcases smul_eq_zero.1 key with h | h
+  · linarith
+  · exact absurd h hba
 
-The parametrization is `AffineMap.lineMap a b`; injectivity on `[0, 1]` is exactly the
-nondegeneracy, since `lineMap` differs by a multiple of `b - a`. -/
+/-- A nondegenerate segment is an arc between its endpoints, parametrized by
+`AffineMap.lineMap a b`. -/
 theorem isArcBetween_segment {a b : Plane} (hab : a ≠ b) :
     IsArcBetween (segment ℝ a b) a b := by
   refine ⟨AffineMap.lineMap a b, AffineMap.lineMap_continuous.continuousOn, ?_, ?_, ?_, ?_⟩
-  · -- Injective: `lineMap a b s = lineMap a b t` forces `(s - t) • (b - a) = 0`.
-    intro s _ t _ hst
-    have hba : b - a ≠ 0 := sub_ne_zero.2 (Ne.symm hab)
-    have key : (s - t) • (b - a) = 0 := by
-      simp only [AffineMap.lineMap_apply_module] at hst
-      linear_combination (norm := module) hst
-    rcases smul_eq_zero.1 key with h | h
-    · linarith
-    · exact absurd h hba
+  · exact injOn_lineMap hab
   · rw [segment_eq_image_lineMap]
   · simp
   · simp

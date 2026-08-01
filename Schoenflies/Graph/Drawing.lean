@@ -53,8 +53,21 @@ def edgeArc (drawing : β → ℝ → Plane) (e : β) : Set Plane := drawing e '
 
 The vertices are already plane points, so a drawing only has to say how the edges run. -/
 structure IsDrawing (G : Graph Plane β) (drawing : β → ℝ → Plane) : Prop where
-  /-- Each edge is drawn by an arc between its two ends. -/
-  edge_isArcBetween : ∀ ⦃e x y⦄, G.IsLink e x y → IsArcBetween (edgeArc drawing e) x y
+  /-- Each edge is drawn by an injective continuous parametrization on `[0, 1]` whose two
+  endpoints are the ends of that edge.
+
+  This says more than "the point set `edgeArc drawing e` is an arc between the ends". That
+  weaker clause makes two drawings with the same point sets indistinguishable, which is fine
+  for the face theory and useless for the redrawing argument: "the last parameter at which
+  this edge is inside the square at `v`" is meaningless unless `drawing e` is itself the
+  parametrization. `edge_isArcBetween` below recovers the weaker statement.
+
+  Stated orientation-free — `G.IsLink e (drawing e 0) (drawing e 1)` — because `IsLink` is
+  symmetric, so pinning `drawing e 0` to a *named* end of a *given* link would force the two
+  ends to coincide. -/
+  edge_param : ∀ ⦃e⦄, e ∈ E(G) →
+    ContinuousOn (drawing e) I ∧ InjOn (drawing e) I ∧ G.IsLink e (drawing e 0) (drawing e 1)
+
   /-- An edge's arc meets the vertex set only at its own two ends. -/
   vertex_mem_edgeArc : ∀ ⦃e x y v⦄, G.IsLink e x y → v ∈ V(G) → v ∈ edgeArc drawing e →
     v = x ∨ v = y
@@ -64,6 +77,17 @@ structure IsDrawing (G : Graph Plane β) (drawing : β → ℝ → Plane) : Prop
       p ∈ V(G) ∧ G.Inc e p ∧ G.Inc f p
 
 namespace IsDrawing
+
+/-- The point set of an edge is an arc between its two ends — the weaker reading of
+`edge_param`, and the one the face theory uses. -/
+theorem edge_isArcBetween (h : IsDrawing G drawing) ⦃e x y⦄ (hl : G.IsLink e x y) :
+    IsArcBetween (edgeArc drawing e) x y := by
+  obtain ⟨hc, hi, hlink⟩ := h.edge_param hl.edge_mem
+  have base : IsArcBetween (edgeArc drawing e) (drawing e 0) (drawing e 1) :=
+    ⟨drawing e, hc, hi, rfl, rfl, rfl⟩
+  rcases hl.eq_and_eq_or_eq_and_eq hlink with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
+  · exact base
+  · exact base.reverse
 
 theorem isArc_edgeArc (h : IsDrawing G drawing) {e : β} (he : e ∈ E(G)) :
     IsArc (edgeArc drawing e) := by

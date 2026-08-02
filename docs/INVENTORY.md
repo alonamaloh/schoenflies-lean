@@ -478,6 +478,10 @@ checker under proof irrelevance.
 
 `Schoenflies.CellStructure.Realization.cell_subset_sdiff`, `Schoenflies.CellStructure.Realization.biUnion_faces_eq`, `Schoenflies.CellStructure.Realization.cell_isComponent`, `Schoenflies.CellStructure.Realization.cells_isComponent_in`, `Schoenflies.CellStructure.Realization.mem_edgeSet_outerGraph_of_cell_meets_outerSet`, `Schoenflies.CellStructure.Realization.frontier_cell_subset_skeletonSet`, `Schoenflies.CellStructure.Realization.cellsAbsorb`, `Schoenflies.sdiff_outer_eq_inside`, `Schoenflies.isOpen_sdiff_outer_of_isSeparating`, `Schoenflies.frontier_sdiff_outer_of_isSeparating`
 
+## Schoenflies/StageRecursion.lean  (561 lines)
+
+`Schoenflies.StagePair`, `Schoenflies.IsRefinementStep`, `Schoenflies.IsRefinementStep.skeletonSet_subset`, `Schoenflies.IsRefinementStep.trans`, `Schoenflies.IsRefinementStep.diam_star_carrier_le`, `Schoenflies.IsTransferOfTgt.isRefinementStep`, `Schoenflies.IsTransferOf.isRefinementStep`, `Schoenflies.GridStepData`, `Schoenflies.MeshStepData`, `Schoenflies.HasGridSteps`, `Schoenflies.HasMeshSteps`, `Schoenflies.diam_closedSquare_le_four`, `Schoenflies.diam_tgt_star_le_four`, `Schoenflies.AdmissibleStage`, `Schoenflies.stageCenter`, `Schoenflies.stageCenter_mem`, `Schoenflies.stageCenter_eq`, `Schoenflies.gridStage`, `Schoenflies.meshStage`, `Schoenflies.nextStage`, `Schoenflies.stepPar`, `Schoenflies.nextStage_step`, `Schoenflies.nextStage_diam_star_le`, `Schoenflies.stages`, `Schoenflies.stages_zero`, `Schoenflies.stages_succ`, `Schoenflies.diam_stages_star_anti`, `Schoenflies.stageSequence`, `Schoenflies.stageSequence_of_isJordanCurve`
+
 ## Schoenflies/StageTower.lean  (197 lines)
 
 `Schoenflies.isBounded_union_inside`, `Schoenflies.isOpen_union_inside_sdiff`, `Schoenflies.isOpen_closedSquare_sdiff_modelCurve`, `Schoenflies.StageSequence`, `Schoenflies.StageSequence.limitTower`, `Schoenflies.StageSequence.limitTower_region`, `Schoenflies.StageSequence.limitTower_region'`, `Schoenflies.StageSequence.isHomeoOn_F`, `Schoenflies.StageSequence.F_eq_skelHomeo`

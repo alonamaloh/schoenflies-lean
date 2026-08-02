@@ -306,4 +306,121 @@ theorem exists_simpleChain_to_base {r : Plane} {ε : ℝ} (hr : r ∈ Plane.open
   rw [overlayGraph_pointSet, hcov]
   exact husub
 
+/-! ### A simple chain subdivides to a path of the overlay
+
+`Schoenflies.SubdividesToPath` — a theorem, by `Schoenflies.subdividesToPath_of_overlay` —
+turns each segment of the chain into a path of the overlay between its two ends. The chain
+being simple is exactly what lets the segments' paths concatenate: each hands over at the
+junction vertex and meets the rest of the chain nowhere else. -/
+
+/-- The two ends of a chain with at least one segment are ends of listed segments. This is
+what makes them cut points of any overlay whose source list contains the chain's segments. -/
+theorem ends_of_segsOf : ∀ (vs : List Plane) (h : vs ≠ []), IsSimpleChain vs →
+    vs.head h ≠ vs.getLast h →
+    (∃ Q ∈ segsOf vs, vs.head h = Q.1) ∧ ∃ Q ∈ segsOf vs, vs.getLast h = Q.2 := by
+  intro vs
+  induction vs with
+  | nil => exact fun h => absurd rfl h
+  | cons u tl ih =>
+    intro h hSC hne
+    cases tl with
+    | nil => simp at hne
+    | cons v rest =>
+      obtain ⟨huv, -, hSC'⟩ := hSC
+      rw [segsOf_cons_cons, if_neg huv]
+      have hlast : (u :: v :: rest).getLast h = (v :: rest).getLast (by simp) :=
+        List.getLast_cons (by simp)
+      refine ⟨⟨(u, v), List.mem_cons_self .., rfl⟩, ?_⟩
+      by_cases hveq : v = (v :: rest).getLast (by simp)
+      · exact ⟨(u, v), List.mem_cons_self .., by rw [hlast, ← hveq]⟩
+      · obtain ⟨-, Q, hQ, hQ2⟩ := ih (by simp) hSC' hveq
+        exact ⟨Q, List.mem_cons_of_mem _ hQ, by rw [hlast]; exact hQ2⟩
+
+/-- **A simple chain of source segments subdivides to a path of the overlay.** The path runs
+from the chain's head to its last vertex, its edges stay on the chain, and it visits every
+overlay vertex lying on the chain. -/
+theorem simpleChain_isPath_overlay (hnd : ∀ P ∈ pieces, P.Nondeg)
+    (hEnds : EndsAreCut pieces points) (hMeets : MeetsAreCut pieces points) :
+    ∀ (vs : List Plane) (hvs : vs ≠ []), IsSimpleChain vs →
+      (∀ Q ∈ segsOf vs, Q ∈ pieces) →
+      vs.getLast hvs ∈ V(overlayGraph pieces points) →
+      ∃ W : List Piece,
+        (overlayGraph pieces points).IsPath (vs.head hvs) W (vs.getLast hvs) ∧
+        (∀ Q ∈ W, Q.seg ⊆ poly vs) ∧
+        ∀ x ∈ V(overlayGraph pieces points), x ∈ poly vs →
+          x ∈ (overlayGraph pieces points).walkVertices (vs.head hvs) W := by
+  intro vs
+  induction vs with
+  | nil => exact fun h => absurd rfl h
+  | cons u tl ih =>
+    intro hvs hSC hsub hlastV
+    cases tl with
+    | nil =>
+      refine ⟨[], .nil (by simpa using hlastV), by simp, ?_⟩
+      intro x _ hx2
+      rw [poly_singleton, Set.mem_singleton_iff] at hx2
+      subst hx2
+      exact Graph.mem_walkVertices_self
+    | cons v rest =>
+      obtain ⟨huv, hmeet, hSC'⟩ := hSC
+      have hlist : (u, v) :: segsOf (v :: rest) = segsOf (u :: v :: rest) := by
+        rw [segsOf_cons_cons, if_neg huv]
+      have hQmem : (u, v) ∈ pieces := hsub _ (hlist ▸ List.mem_cons_self ..)
+      have hsub' : ∀ Q ∈ segsOf (v :: rest), Q ∈ pieces := fun Q hQ =>
+        hsub Q (hlist ▸ List.mem_cons_of_mem _ hQ)
+      have hlast : (u :: v :: rest).getLast hvs = (v :: rest).getLast (by simp) :=
+        List.getLast_cons (by simp)
+      rw [hlast] at hlastV
+      -- The segment's own subdivision path, and the rest of the chain's by induction.
+      obtain ⟨W₁, hW₁path, hW₁mem⟩ :=
+        subdividesToPath_of_overlay hnd hEnds hMeets (u, v) hQmem huv
+      obtain ⟨W₂, hW₂path, hW₂sub, hW₂cov⟩ := ih (by simp) hSC' hsub' hlastV
+      have hW₁seg : ∀ Q ∈ W₁, Q.seg ⊆ segment ℝ u v := fun Q hQ => ((hW₁mem Q).1 hQ).2
+      have hverts₁ : ∀ x ∈ (overlayGraph pieces points).walkVertices u W₁,
+          x ∈ segment ℝ u v := fun x hx =>
+        walkVertices_subset_of_edges (left_mem_segment ℝ u v) hW₁seg hx
+      have hverts₂ : ∀ x ∈ (overlayGraph pieces points).walkVertices v W₂,
+          x ∈ poly (v :: rest) := fun x hx =>
+        walkVertices_subset_of_edges (mem_poly_of_mem (List.mem_cons_self ..)) hW₂sub hx
+      -- The two paths meet only at the junction, so they concatenate to a path.
+      have hpath : (overlayGraph pieces points).IsPath u (W₁ ++ W₂)
+          ((v :: rest).getLast (by simp)) :=
+        hW₁path.append_of_disjoint hW₂path fun x hx1 hx2 =>
+          hmeet x (hverts₁ x hx1) (hverts₂ x hx2)
+      refine ⟨W₁ ++ W₂, by rw [List.head_cons, hlast]; exact hpath, ?_, ?_⟩
+      · intro Q hQ
+        rw [poly_cons_cons]
+        rcases List.mem_append.1 hQ with hQ | hQ
+        · exact (hW₁seg Q hQ).trans subset_union_left
+        · exact (hW₂sub Q hQ).trans subset_union_right
+      · intro x hxV hxpoly
+        rw [List.head_cons]
+        rw [poly_cons_cons] at hxpoly
+        have hleft : (overlayGraph pieces points).walkVertices u W₁ ⊆
+            (overlayGraph pieces points).walkVertices u (W₁ ++ W₂) := by
+          intro y hy
+          rcases Graph.mem_walkVertices_iff.1 hy with rfl | hcov
+          · exact Graph.mem_walkVertices_self
+          · exact Graph.mem_walkVertices_of_mem_covered
+              (Graph.coveredVertices_mono (List.subset_append_left _ _) hcov)
+        rcases hxpoly with hx | hx
+        · -- On the segment: the vertex is a cut point, hence an end of the covering edge.
+          have hxpts : x ∈ points := by
+            obtain ⟨eP, heP, hend⟩ := hxV
+            exact overlayPieces_ends_cut hEnds eP heP x hend
+          have hx' : x ∈ Graph.edgesCover segmentDrawing W₁ := by
+            rw [edgesCover_eq_seg hQmem hW₁mem]
+            exact hx
+          obtain ⟨f, hfW, hxf⟩ := Graph.mem_edgesCover_iff.1 hx'
+          rw [edgeArc_segmentDrawing] at hxf
+          have hfE : f ∈ overlayPieces pieces points := ((hW₁mem f).1 hfW).1
+          exact hleft (Graph.mem_walkVertices_of_mem_covered
+            (end_mem_coveredVertices hfW hfE (end_of_mem_points hnd hfE hxf hxpts)))
+        · -- On the rest of the chain: covered by induction, lifted along the append.
+          have hx2 := hW₂cov x hxV hx
+          rcases Graph.mem_walkVertices_iff.1 hx2 with rfl | hcov
+          · exact hleft hW₁path.isWalk.target_mem_walkVertices
+          · exact Graph.mem_walkVertices_of_mem_covered
+              (Graph.coveredVertices_mono (List.subset_append_right _ _) hcov)
+
 end Schoenflies

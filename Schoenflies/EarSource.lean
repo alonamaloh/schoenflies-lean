@@ -6,12 +6,15 @@ Authors: Álvaro Begué
 import Schoenflies.EarDraw
 
 /-!
-# Where the ear lies, and the source-side crosscut
+# Where the ear lies, and the crosscut it becomes
 
 `Schoenflies/EarDraw.lean` draws the ear; this module says **where the drawn ear is** with
-respect to the current stage, and assembles the source-side `SplitData.EarCrosscut` out of that.
+respect to the current stage, and assembles the `SplitData.EarCrosscut` out of that. It is
+stated for either realization of the stage: direction (a) of `thm:finite-transfer` is handed its
+ear on the source side and (b) on the target side, and the placement argument does not know the
+difference — see the docstring of `Schoenflies.exists_earCrosscut`.
 
-Three facts, in the order they are proved.
+Four facts, in the order they are proved.
 
 * `Graph.disjoint_walkPointSet_diff` — **the ear's interior misses the current subgraph.** The
   hypotheses of `Schoenflies.EarStep` say only that the ear's interior *vertices* are new; that
@@ -30,9 +33,9 @@ Three facts, in the order they are proved.
 
 ## Blueprint
 
-* `Schoenflies.exists_source_earCrosscut` — the source half of the fourth paragraph of the proof
-  of `thm:finite-transfer`(a): "the interior of each ear lies in one current face", turned into
-  the geometric input `SplitData.EarCrosscut` that `SplitData.realize` consumes.
+* `Schoenflies.exists_earCrosscut` — the fourth paragraph of the proof of
+  `thm:finite-transfer`: "the interior of each ear lies in one current face", turned into the
+  geometric input `SplitData.EarCrosscut` that `SplitData.realize` consumes.
 -/
 
 open Set
@@ -155,6 +158,28 @@ theorem notMem_of_mem_edgeArc_diff (hH : IsDrawing H Hdraw) {e : β} {p q x : Pl
   rintro rfl
   exact hx.2 (hH.vertex_mem_edgeArc hl hy hx.1)
 
+/-- **No ear edge is an outer edge.** The outer curve is already occupied by `B`, and the ear's
+interior is not; an ear edge drawn inside the outer curve would put an interior point of its own
+arc in `|B|`, which `Graph.disjoint_walkPointSet_diff` forbids.
+
+Both consumers of the ear need this. `Schoenflies.exists_earCrosscut` spends it on polygonality,
+through `IsSourceExtension.edge_dichotomy`; the assembly of one ear insertion spends it on the
+anchor clause of the transfer invariant, which asks that the ear really does bring a nonboundary
+edge to each of its two ends. -/
+theorem notSubset_of_mem_ear {outer : Set Plane} (hH : IsDrawing H Hdraw) (hBH : B ≤ H)
+    {a b : Plane} {D : List β} (hD : H.IsPath a D b)
+    (hdisj : Disjoint (walkPointSet H Hdraw a D \ {a, b}) (pointSet B Hdraw))
+    (houter : outer ⊆ pointSet B Hdraw) (ha : a ∈ V(B)) (hb : b ∈ V(B))
+    {e : β} (he : e ∈ D) : ¬ edgeArc Hdraw e ⊆ outer := by
+  intro hout
+  obtain ⟨p, q, hl⟩ := exists_isLink_of_mem_edgeSet (hD.edge_mem he)
+  obtain ⟨x, hx⟩ := (hH.edge_isArcBetween hl).nonempty_diff
+  refine Set.disjoint_left.1 hdisj ⟨Or.inr (Set.mem_biUnion he hx.1), ?_⟩ (houter (hout hx.1))
+  simp only [Set.mem_insert_iff, Set.mem_singleton_iff]
+  push Not
+  exact ⟨notMem_of_mem_edgeArc_diff hH hl hx (hBH.vertexSet_mono ha),
+    notMem_of_mem_edgeArc_diff hH hl hx (hBH.vertexSet_mono hb)⟩
+
 end Plane
 
 end Graph
@@ -165,39 +190,48 @@ open CellStructure Graph
 
 variable {γ : Type*} {S₀ : CellStructure γ} {srcOuter srcDom tgtOuter tgtDom : Set Plane}
 
-/-- **The source half of one ear insertion.**
+/-- **The geometric half of one ear insertion.**
 
 From the data `Schoenflies.EarStep` is handed — the current subgraph `B`, the ear as a path `D`
 of `H` between two vertices of `B`, and the freshness of its interior — this produces the
 abstract `CellStructure.SplitData` of the insertion together with the drawing that makes it a
-polygonal crosscut of the current source 2-cell it lands in.
+polygonal crosscut of the current 2-cell it lands in.
 
-Everything geometric happens here. The two ends are already drawn 0-cells
-(`IsPartialTransferOf.exists_cell_of_mem_vertexSet`), so no subdivision is needed; the ear's
-interior is connected, misses the current skeleton (`Graph.disjoint_walkPointSet_diff`) and lies
-in the closed domain, so `GeneratedPair.exists_face_and_boundary_paths` places it in a unique
-2-cell and cuts that 2-cell's boundary cycle into the two paths; and no ear edge can be an outer
-edge, because the outer curve is already occupied by `B`, which the ear's interior is not — so
-every ear edge is polygonal and the drawn ear is a polygonal set.
+Everything geometric happens here. The two ends are already drawn 0-cells, so no subdivision is
+needed; the ear's interior is connected, misses the current skeleton
+(`Graph.disjoint_walkPointSet_diff`) and lies in the closed domain, so
+`GeneratedPair.exists_face_and_boundary_paths` places it in a unique 2-cell and cuts that
+2-cell's boundary cycle into the two paths; and no ear edge can be an outer edge
+(`Graph.notSubset_of_mem_ear`), so every ear edge is polygonal and the drawn ear is a polygonal
+set.
+
+**It is stated for either realization of the stage.** Direction (a) is handed its ear on the
+source side and (b) on the target side, and nothing in the argument knows the difference: the
+five clauses that used to name `T.src` are the realization's cell decomposition, its outer set,
+what it occupies, which of its 0-cells are drawn, and the absorption family. `hH` is likewise
+`IsSourceExtension` of *some* realization — only `isDrawing`, `pointSet_subset` and
+`edge_dichotomy` are read, and those are about `H` and the two ambient sets.
 
 `hfresh` is the one hypothesis not literally among `EarStep`'s: it says the ear brings new
 edges. `Graph.IsPath.eq_singleton_of_inc` shows the only ear that fails it is a single edge `B`
 already has, for which `B ∪ ear = B` and `EarStep` is trivial. -/
-theorem exists_source_earCrosscut [Infinite γ]
-    {P T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom}
-    {H B : Graph Plane γ} {Hdraw : γ → ℝ → Plane} {par : γ → γ}
-    (hH : IsSourceExtension P.src srcOuter srcDom H Hdraw)
-    (hT : IsPartialTransferOf T P B Hdraw par)
+theorem exists_earCrosscut [Infinite γ]
+    {T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom}
+    {S' : CellStructure γ} {R₀ : S'.Realization} {outer dom : Set Plane}
+    {R : T.str.Realization} {H B : Graph Plane γ} {Hdraw : γ → ℝ → Plane}
+    (hH : IsSourceExtension R₀ outer dom H Hdraw)
     (hS : T.str.CombInvariants)
-    (hcells : CellsAbsorb T.src.skeletonSet {A | ∃ F ∈ T.str.faces, A = T.src.cell F})
+    (hcd : R.IsCellDecomposition dom) (houterR : R.outerSet = outer)
+    (hskel : R.skeletonSet = pointSet B Hdraw) (hVB : V(B) ⊆ V(R.graph))
+    (hcells : CellsAbsorb R.skeletonSet {A | ∃ F ∈ T.str.faces, A = R.cell F})
     (hBH : B ≤ H) {a b : Plane} {D : List γ} (hD : H.IsPath a D b) (hab : a ≠ b)
     (ha : a ∈ V(B)) (hb : b ∈ V(B))
     (hint : ∀ y ∈ H.walkVertices a D, y ≠ a → y ≠ b → y ∉ V(B))
     (hfresh : ∀ e ∈ D, e ∉ E(B)) :
     ∃ (d : T.str.SplitData) (earPos : γ → Plane) (earDraw : γ → ℝ → Plane),
-      d.EarCrosscut T.src earPos earDraw ∧
+      d.EarCrosscut R earPos earDraw ∧
         d.earSet earPos earDraw = walkPointSet H Hdraw a D ∧
-        T.src.pos d.source = a ∧ T.src.pos d.target = b ∧
+        R.pos d.source = a ∧ R.pos d.target = b ∧
         earPos '' V(d.ear) = H.walkVertices a D := by
   have hdrawH : IsDrawing H Hdraw := hH.isDrawing
   -- The ear's interior is disjoint from what the current stage occupies.
@@ -206,25 +240,15 @@ theorem exists_source_earCrosscut [Infinite γ]
   have harc : IsArcBetween (walkPointSet H Hdraw a D) a b :=
     hdrawH.isArcBetween_walkPointSet hD hab
   -- The outer curve is already occupied, so no ear edge is an outer edge.
-  have houter : srcOuter ⊆ pointSet B Hdraw := by
-    have h1 : T.src.outerSet ⊆ T.src.skeletonSet := T.src.outerSet_subset_skeletonSet
-    rwa [T.src_isWeaklyAdmissible.outerSet_eq, hT.skeletonSet_eq] at h1
-  have hpolyD : ∀ e ∈ D, IsPolygonal (edgeArc Hdraw e) := by
-    intro e he
-    rcases hH.edge_dichotomy (hD.edge_mem he) with hout | hp
-    · exfalso
-      obtain ⟨p, q, hl⟩ := exists_isLink_of_mem_edgeSet (hD.edge_mem he)
-      obtain ⟨x, hx⟩ := (hdrawH.edge_isArcBetween hl).nonempty_diff
-      refine Set.disjoint_left.1 hdisj ⟨Or.inr (Set.mem_biUnion he hx.1), ?_⟩
-        (houter (hout hx.1))
-      simp only [Set.mem_insert_iff, Set.mem_singleton_iff]
-      push Not
-      exact ⟨notMem_of_mem_edgeArc_diff hdrawH hl hx (hBH.vertexSet_mono ha),
-        notMem_of_mem_edgeArc_diff hdrawH hl hx (hBH.vertexSet_mono hb)⟩
-    · exact hp.1
+  have houter : outer ⊆ pointSet B Hdraw := by
+    have h1 : R.outerSet ⊆ R.skeletonSet := R.outerSet_subset_skeletonSet
+    rwa [houterR, hskel] at h1
+  have hpolyD : ∀ e ∈ D, IsPolygonal (edgeArc Hdraw e) := fun e he =>
+    ((hH.edge_dichotomy (hD.edge_mem he)).resolve_left
+      (notSubset_of_mem_ear hdrawH hBH hD hdisj houter ha hb he)).1
   -- The two ends are drawn 0-cells of the current structure.
-  obtain ⟨z, hzV, hza⟩ := hT.exists_cell_of_mem_vertexSet ha
-  obtain ⟨w, hwV, hwb⟩ := hT.exists_cell_of_mem_vertexSet hb
+  obtain ⟨z, hzV, hza⟩ := (Realization.vertexSet_graph R) ▸ hVB ha
+  obtain ⟨w, hwV, hwb⟩ := (Realization.vertexSet_graph R) ▸ hVB hb
   have hzw : z ≠ w := fun h => hab (by rw [← hza, ← hwb, h])
   have hzc : z ∈ T.str.cells := T.str.mem_cells_of_mem_vertexSet hzV
   have hwc : w ∈ T.str.cells := T.str.mem_cells_of_mem_vertexSet hwV
@@ -244,14 +268,14 @@ theorem exists_source_earCrosscut [Infinite γ]
     · rintro c (rfl | rfl)
       exacts [⟨hpath.source_mem, hzV⟩, ⟨hpath.target_mem, hwV⟩]
   -- Where it lies: one current 2-cell, whose boundary cycle cuts into the two paths.
-  have hNsub : walkPointSet H Hdraw a D \ {a, b} ⊆ srcDom := by
+  have hNsub : walkPointSet H Hdraw a D \ {a, b} ⊆ dom := by
     refine Set.Subset.trans (Set.Subset.trans Set.diff_subset ?_) hH.pointSet_subset
     rw [← pointSet_pathGraphOf hD.isWalk]
     exact pointSet_mono (pathGraphOf_le hD.isWalk)
   obtain ⟨F, hF, hNF, -, P₁, P₂, hp₁, hp₂, hsub, hmeet⟩ :=
-    T.exists_face_and_boundary_paths hS T.src_isCellDecomposition hcells
+    T.exists_face_and_boundary_paths hS hcd hcells
       harc.isPreconnected_diff harc.nonempty_diff
-      hNsub (by rw [hT.skeletonSet_eq]; exact hdisj) hab hzV hwV hza hwb
+      hNsub (by rw [hskel]; exact hdisj) hab hzV hwV hza hwb
       harc.left_mem_closure_diff harc.right_mem_closure_diff
   obtain ⟨d, hdface, hdsrc, hdtgt, hdear, -, -, -⟩ :=
     T.exists_splitDataOfEar hF hzw hpath hdisjear hinter hefresh hvfresh hp₁ hp₂ hsub hmeet
@@ -267,7 +291,7 @@ theorem exists_source_earCrosscut [Infinite γ]
   · rw [hdearSet, hdsrc, hdtgt, hza, hwb, hdface]
     exact hNF
   · rw [hdface]
-    exact T.src.disjoint_cell_skeletonSet T.src_isCellDecomposition hF
+    exact R.disjoint_cell_skeletonSet hcd hF
   · rw [hdearSet]
     exact hdrawH.isPolygonal_walkPointSet hD.isWalk hpolyD
 
@@ -276,7 +300,7 @@ both its ends lie in `V(B)`, so both are among the two prescribed ends, and
 `Graph.IsPath.eq_singleton_of_inc` makes the ear that one edge. The ear then adds nothing —
 `B ∪ ear = B` — and the partial transfer carries over unchanged.
 
-This is the branch `Schoenflies.exists_source_earCrosscut` excludes with its hypothesis
+This is the branch `Schoenflies.exists_earCrosscut` excludes with its hypothesis
 `∀ e ∈ D, e ∉ E(B)`; together the two cover every ear `Schoenflies.EarStep` is handed. -/
 theorem isPartialTransferOf_union_of_mem_edgeSet
     {T P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom} {H B : Graph Plane γ}

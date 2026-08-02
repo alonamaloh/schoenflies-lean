@@ -110,11 +110,11 @@ checker under proof irrelevance.
 
 `Schoenflies.IsPartialTransferOf.exists_cell_of_mem_vertexSet`, `Schoenflies.exists_fresh_list`, `Schoenflies.exists_fresh_pair`, `Schoenflies.exists_abstract_ear`, `Schoenflies.GeneratedPair.exists_face_and_boundary_paths`, `Schoenflies.GeneratedPair.splitDataOfEar`, `Schoenflies.GeneratedPair.exists_splitDataOfEar`
 
-## Schoenflies/EarSource.lean  (327 lines)
+## Schoenflies/EarSource.lean  (351 lines)
 
-`Graph.union_eq_left_of_le`, `Graph.IsPath.eq_singleton_of_inc`, `Graph.pointSet_pathGraphOf`, `Graph.IsDrawing.isPolygonal_walkPointSet`, `Graph.disjoint_walkPointSet_diff`, `Graph.notMem_of_mem_edgeArc_diff`, `Schoenflies.exists_source_earCrosscut`, `Schoenflies.isPartialTransferOf_union_of_mem_edgeSet`
+`Graph.union_eq_left_of_le`, `Graph.IsPath.eq_singleton_of_inc`, `Graph.pointSet_pathGraphOf`, `Graph.IsDrawing.isPolygonal_walkPointSet`, `Graph.disjoint_walkPointSet_diff`, `Graph.notMem_of_mem_edgeArc_diff`, `Graph.notSubset_of_mem_ear`, `Schoenflies.exists_earCrosscut`, `Schoenflies.isPartialTransferOf_union_of_mem_edgeSet`
 
-## Schoenflies/EarStep.lean  (160 lines)
+## Schoenflies/EarStep.lean  (161 lines)
 
 `Schoenflies.earStep`, `Schoenflies.finite_transfer_toward_square_of_commonSubdivision`
 

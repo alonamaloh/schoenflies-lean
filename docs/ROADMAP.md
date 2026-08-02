@@ -235,7 +235,8 @@ all that is left of the phase.
     0-cell. Out of it: `Graph.IsEarChart.isDrawing` (the drawn ear is a plane graph — every
     clause of `IsDrawing` is the corresponding clause for `H`) and `.pointSet_eq` (it occupies
     exactly `|H.pathGraphOf a D|`), packaged as `Graph.exists_drawn_ear`.
-  * `EarSource.lean` — `Schoenflies.exists_source_earCrosscut`: from exactly what `EarStep` is
+  * `EarSource.lean` — `Schoenflies.exists_earCrosscut` (then named `exists_source_earCrosscut`):
+    from exactly what `EarStep` is
     handed, the `SplitData` *and* the source `EarCrosscut`, all seven fields. The two facts
     worth naming are `Graph.disjoint_walkPointSet_diff` (the ear's interior misses `|B|` —
     `EarStep` only says the interior *vertices* are new, and that the interior *points* are is
@@ -429,7 +430,7 @@ untouched.
 
 Geometry and assembly, in three pieces, with no combinatorial content left in any of them.
 
-* **Place the given ear on the target side.** A twin of `Schoenflies.exists_source_earCrosscut`
+* **Place the given ear on the target side.** `Schoenflies.exists_earCrosscut`
   producing `d.EarCrosscut T.tgt`. The obstacle is removed:
   `GeneratedPair.exists_face_and_boundary_paths` is now stated for **either** realization of the
   stage, since only assertion (i) and the two endpoint positions were ever about one — the
@@ -458,8 +459,7 @@ Geometry and assembly, in three pieces, with no combinatorial content left in an
   is the fifth clause of `IsPartialTransferOfTgt`, for which
   `CellStructure.SplitData.uniqueFaceAt` and `.notMem_earCells_of_mem_vertexSet` are ready; the
   missing input is that an ear edge is never an outer edge, which
-  `exists_source_earCrosscut` already establishes internally (`hpolyD`) and which should be
-  exported rather than reproved.
+  `Graph.notSubset_of_mem_ear` supplies.
 
 **Phase 3 — the stage recursion.** Where `GridAttach.lean`, `SquareMeshClosed.lean` and
 `Windows.lean` are spent, giving `lem:grid-star-estimate` and `prop:shrinking-stars`. This is

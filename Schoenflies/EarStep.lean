@@ -20,7 +20,7 @@ both ends among the two prescribed ones; a path with an edge joining its own two
 one edge, so `B ∪ ear = B` and there is nothing to do
 (`Schoenflies.isPartialTransferOf_union_of_mem_edgeSet`).
 
-Otherwise `Schoenflies.exists_source_earCrosscut` places the ear: it is drawn where `H` draws
+Otherwise `Schoenflies.exists_earCrosscut` places the ear: it is drawn where `H` draws
 it, its interior misses the current skeleton and so lies in a single current 2-cell, whose
 boundary cycle cuts at the ear's two ends into the two boundary paths. That gives the abstract
 `CellStructure.SplitData` and the source `SplitData.EarCrosscut`. On the target side,
@@ -87,7 +87,8 @@ theorem earStep [Infinite γ] {P : GeneratedPair S₀ srcOuter srcDom tgtOuter t
     rwa [T.tgt_isWeaklyAdmissible.outerSet_eq] at h1
   -- The source side: the split data and the drawn ear.
   obtain ⟨d, earPos₁, earDraw₁, hE₁, hearSet, hposa, hposb, himg⟩ :=
-    exists_source_earCrosscut hH hT hS
+    exists_earCrosscut hH hS T.src_isCellDecomposition T.src_isWeaklyAdmissible.outerSet_eq
+      hT.skeletonSet_eq hT.vertexSet_subset
       (T.src.cellsAbsorb T.src_isCellDecomposition T.src_isFaceJordan hsrcOut hsrcQ hsrcFr)
       hBH hpath hab ha hb hint hdeg
   -- The target side: the crosscut of the corresponding 2-cell.

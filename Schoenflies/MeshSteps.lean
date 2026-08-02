@@ -324,4 +324,15 @@ sentence of the recursion step is proved, not assumed. -/
 theorem hasMeshSteps (hM : HasMeshTransfers S₀ C) : HasMeshSteps S₀ C :=
   fun P hsrc htgt _ε hε => (hM P hsrc htgt hε).elim fun M => ⟨M.meshStepData hε⟩
 
+/-! ### The interface, exercised
+
+A machine-checked statement that the reduction composes with the stage recursion: over the
+concrete base, the two remaining obligations of Phase 3 are the source-grid chooser and the
+mesh transfer chooser, and together they produce the Phase 3 deliverable. -/
+
+example {C : Set Plane} (hC : IsJordanCurve C) (hg : HasGridSteps initialStructure C)
+    (hm : HasMeshTransfers initialStructure C) :
+    Nonempty (StageSequence InitialCell initialStructure C) :=
+  ⟨stageSequence_of_isJordanCurve hC hg (hasMeshSteps hm)⟩
+
 end Schoenflies

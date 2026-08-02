@@ -319,4 +319,17 @@ theorem hasMeshTransfers [Infinite γ] (h₀ : S₀.CombInvariants) (hsep : IsSe
   exact meshTransfer_of_extension h₀ hsep (hdense.mono (min_le_left ε 3))
     (fun z hz => ⟨(hfresh' z hz).2.1, (hfresh' z hz).2.2.2⟩) M'
 
+/-! ### The interface, exercised
+
+Over the concrete base, the Phase 3 deliverable now rests on the source-grid chooser and the
+polygonal overlay of the anchored mesh — the transfer, the fresh points and the edge renaming
+are no longer obligations. -/
+
+example {C : Set Plane} (hC : IsJordanCurve C) (hg : HasGridSteps initialStructure C)
+    (hov : HasMeshOverlays initialStructure C) :
+    Nonempty (StageSequence InitialCell initialStructure C) :=
+  ⟨stageSequence_of_isJordanCurve hC hg
+    (hasMeshSteps (hasMeshTransfers combInvariants_initialStructure
+      (jordan_curve_theorem hC) hov))⟩
+
 end Schoenflies

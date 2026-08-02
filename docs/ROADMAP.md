@@ -53,7 +53,7 @@ realization constructors, and the skeleton homeomorphism transports across both:
 | 2-cell split | `SplitData.realize`, `isCrosscutSplit_realize` (`RealizeSplit.lean`) | `SplitData.splitHomeo` (`MatchedSplit.lean`) |
 
 All four are unconditional: no hypothesis beyond the geometric input each takes, and nothing left
-for a later module to discharge. Stage 0 is built (`InitialData.generatedPair`, all nine
+for a later module to discharge. Stage 0 is built (`InitialData.generatedPair`, all twelve
 `GeneratedPair` fields, zero hypotheses), and `StageTower.lean` turns a sequence of stages into a
 `LimitTower` with no free hypotheses at all.
 
@@ -156,7 +156,7 @@ and 1c are done and `sorry`-free; 1d is blocked on one interface change, describ
   `BoundaryWalks`. It cannot be recovered from `generated` either — a derivation may contain
   `SubdivData`s whose `boundaryStart` has nothing to do with any invariant, so there is no
   closure theorem over the raw inductive, only the two step *constructions* a consumer applies
-  while building a stage. So `GeneratedPair` now has a tenth field, `walks : str.BoundaryWalks`,
+  while building a stage. So `GeneratedPair` grew a `walks : str.BoundaryWalks` field,
   discharged at stage 0 by `Schoenflies.initialBoundaryWalks` (which moved into
   `InitialGenerated.lean`, since it cannot sit above the pair it feeds).
 

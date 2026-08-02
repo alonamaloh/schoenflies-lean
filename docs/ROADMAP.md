@@ -123,7 +123,8 @@ The payoff a consumer sees is `CellStructure.subdivideEdge_isWalk_boundary`: a b
 Four phases. Everything that *consumes* them is done, so each one is the whole of what is left
 at its level.
 
-**Phase 1 — face boundary cycles, hence `EarStep`.** The one piece with real content.
+**Phase 1 — face boundary cycles, hence `EarStep`.** The one piece with real content. 1a, 1b
+and 1c are done and `sorry`-free; 1d is blocked on one interface change, described below.
 
 * **1a. The boundary-walk invariant — done.** `BoundaryWalks.lean`: for every 2-cell `F`,
   `boundary F` is a closed walk of the skeleton based at `start F`, and the cells it runs
@@ -132,21 +133,41 @@ at its level.
   packaging `isWalk_initBoundary_*` and `mem_faceCells_iff`. Two things fell out: **no 2-cell is
   strictly below another** (`eq_of_sub_of_mem_faces`) — which the blueprint asserts of its
   update lists and which is now a theorem — and `mem_boundary_iff_sub`.
-* **1b. Strengthen "closed walk" to "cycle".** `EarStep` needs `SplitData.paths_meet`: the two
-  boundary paths share *nothing but their two ends*. That does not follow from 1a — a closed
-  walk may repeat a vertex, and then the two pieces meet in more than two points. The invariant
-  therefore needs a third clause, that the boundary walk is vertex-simple. Present it the way
-  `Graph/Cycle.lean` presents every cycle, through an edge: `boundary F = e :: D` with
-  `IsCycleThrough e u v D`, so that `Graph.IsPath` does the ruling-out. Both preservation proofs
-  have to be redone for the new clause; neither looks hard (a subdivision inserts a fresh
-  vertex, and `SplitData.vertexSet_inter` says the ear meets the old skeleton exactly at its two
-  ends), but this is where the work is.
-* **1c. Cut a cycle at two of its 0-cells.** Given the cycle of 1b and two vertices on it, the
-  two arcs between them, with `pathCells` covering the cycle and meeting exactly at the two.
-  `Graph.IsPath.split` and `IsPath.nodup` are the tools; both are on `main`.
-* **1d. `EarStep`.** Assemble the `SplitData`: `path₁`, `path₂` and `paths_meet` from 1c,
-  `sub_face` from `BoundaryWalks.pathCells_eq`, every other field routine. `[Infinite γ]` is
-  already recorded as the fix for the fresh-name defect.
+* **1b. The invariant is a cycle, not a closed walk — done.** `EarStep` needs
+  `SplitData.paths_meet`: the two boundary paths share *nothing but their two ends*. That does
+  not follow from a closed walk — one that repeats a vertex cuts into pieces meeting in more
+  than two points. `BoundaryWalks.isCycle` says the boundary datum is a cycle, presented through
+  its first edge the way `Graph.IsCycleThrough` presents every cycle here, so `Graph.IsPath`
+  does the ruling-out. Both preservation proofs were redone for it: the subdivision case rests
+  on `SubdivData.SubstWalk.isPath` (the new vertex is fresh, so an old path cannot already have
+  visited it) and on `IsSubstWalk.cons_inv`, whose three cases *are* the three constructors;
+  the split case on `SplitData.vertexSet_inter`. `isWalk` is now a theorem, not a field.
+* **1c. Cut a cycle at two of its 0-cells — done.**
+  `BoundaryWalks.exists_boundary_paths`: two distinct 0-cells below a 2-cell give two paths
+  between them carrying exactly the cells below it and meeting in nothing but the two — which
+  are `SplitData.isPath₁`, `isPath₂`, `sub_face`, `paths_meet`. The graph-level cut was already
+  on `main` (`Graph.IsCycleThrough.split_at`, in `FaceCyclesProof.lean`, a module no cell-
+  structure file had ever imported); what 1c adds is the bridge from the abstract invariant to
+  it. Carries `CombInvariants`, because `sub_face` quantifies over every `σ ≼ F` and nothing
+  else says such a `σ` is a cell.
+* **1d. `EarStep`, and the interface change it needs first.** The `SplitData` fields are now
+  available, but **`EarStep` as stated on `main` cannot reach them**: its hypothesis is
+  `IsPartialTransferOf T P B Hdraw par`, and neither that nor `GeneratedPair` carries a
+  `BoundaryWalks`. It cannot be recovered either — a `GeneratedStructure` derivation may contain
+  `SubdivData`s whose `boundaryStart` has nothing to do with any invariant, so there is no
+  closure theorem over the raw inductive, only the two step *constructions*. So `GeneratedPair`
+  should gain a field `walks : str.BoundaryWalks`, discharged at stage 0 by
+  `Schoenflies.initialBoundaryWalks` and propagated by `BoundaryWalks.subdivideEdge` /
+  `.splitFace`. That is the same shape of change as `SubdivData.newBoundary`, and the same
+  argument for it — but it is *not* free this time: `InitialData.generatedPair` already
+  constructs one, so the field has to be discharged there, and `InitialBoundaryWalks.lean` has
+  to move below `InitialGenerated.lean` in the import order (it uses `initSub_iff_face`, which
+  is a fifteen-line case analysis to inline).
+  After that, `EarStep` itself is the assembly: at most two subdivisions to make the ear's ends
+  0-cells, then the split, with `SubdivData.realize`/`realizeHomeo` and
+  `SplitData.realize`/`splitHomeo` supplying the realizations, and every `GeneratedPair` field
+  rebuilt. `[Infinite γ]` is already recorded as the fix for the fresh-name defect. This is the
+  largest single module in phase 1.
 * **1e. `CommonSubdivision`.** Independent of 1b–1d and pure assembly:
   `exists_overlay_of_biUnion_finite` gives the overlay, `SubdivData.realizeHomeo` transports one
   subdivision to the other realization, and the induction over the overlay's finitely many new

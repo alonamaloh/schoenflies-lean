@@ -399,4 +399,113 @@ theorem pos_mem_cover_skeletonSegs (hW : R.IsWeaklyAdmissible outer dom) {v : γ
   · exact h0 ▸ ⟨0, zero_mem_I, rfl⟩
   · exact h0 ▸ ⟨1, one_mem_I, rfl⟩
 
+/-! ## The joining arcs
+
+`prop:local-grid-attachment`'s component loop joins every representative to a fixed hub by a
+simple polygonal arc in the open Jordan domain (`lem:polygonal-connectedness`,
+`Schoenflies.exists_simple_poly_of_isPreconnected`). The hub is a corner of the local grid,
+and the degenerate join — from the hub to itself — is the grid edge at the hub, which the
+overlay deduplicates away. -/
+
+open scoped Classical in
+/-- **The joining-arc chooser.** For a point `r` of the open domain other than the hub, the
+segment chain of a chosen simple polygonal arc from the hub to `r` inside the domain; at the
+hub itself (and off the domain, where it is never read), the fallback piece `E₀`. -/
+noncomputable def gridJoin (C : Set Plane) (hub : Plane) (E₀ : Piece) (r : Plane) :
+    List Piece :=
+  if h : IsSeparating C ∧ hub ∈ inside C ∧ r ∈ inside C ∧ r ≠ hub then
+    segsOf (exists_simple_poly_of_isPreconnected h.1.isOpen_inside
+      h.1.isConnected_inside.isPreconnected h.2.1 h.2.2.1 (Ne.symm h.2.2.2)).choose
+  else [E₀]
+
+variable {C : Set Plane} {hub : Plane} {E₀ : Piece} {r : Plane}
+
+/-- The chosen arc, read back. -/
+theorem gridJoin_spec (hsep : IsSeparating C) (hhub : hub ∈ inside C) (hr : r ∈ inside C)
+    (hne : r ≠ hub) :
+    ∃ vs, ∃ h : vs ≠ [], vs.head h = hub ∧ vs.getLast h = r ∧ poly vs ⊆ inside C ∧
+      IsArcBetween (poly vs) hub r ∧ gridJoin C hub E₀ r = segsOf vs := by
+  rw [gridJoin, dif_pos ⟨hsep, hhub, hr, hne⟩]
+  obtain ⟨hvs, h1, h2, h3, h4⟩ := (exists_simple_poly_of_isPreconnected hsep.isOpen_inside
+    hsep.isConnected_inside.isPreconnected hhub hr (Ne.symm hne)).choose_spec
+  exact ⟨_, hvs, h1, h2, h3, h4, rfl⟩
+
+theorem gridJoin_self : gridJoin C hub E₀ hub = [E₀] := by
+  rw [gridJoin, dif_neg]
+  rintro ⟨-, -, -, h⟩
+  exact h rfl
+
+/-- Every joining piece is nondegenerate. -/
+theorem gridJoin_nondeg (hE₀ : E₀.Nondeg) : ∀ P ∈ gridJoin C hub E₀ r, P.Nondeg := by
+  rw [gridJoin]
+  split_ifs
+  · exact segsOf_nondeg _
+  · intro P hP
+    rw [List.mem_singleton] at hP
+    exact hP ▸ hE₀
+
+/-- **The four properties the joining loop asks of an arc**, plus the domain containment:
+connected, through the hub, through its representative, inside the open domain. -/
+theorem gridJoin_props (hsep : IsSeparating C) (hhub : hub ∈ inside C)
+    (hE₀ : E₀.seg ⊆ inside C) (hE₀hub : hub ∈ E₀.seg) (hr : r ∈ inside C) :
+    IsPreconnected (cover (gridJoin C hub E₀ r)) ∧ hub ∈ cover (gridJoin C hub E₀ r) ∧
+      r ∈ cover (gridJoin C hub E₀ r) ∧ cover (gridJoin C hub E₀ r) ⊆ inside C := by
+  rcases eq_or_ne r hub with rfl | hne
+  · rw [gridJoin_self]
+    have hcov : cover [E₀] = E₀.seg := by rw [cover_cons, cover_nil, Set.union_empty]
+    rw [hcov]
+    exact ⟨(convex_segment E₀.1 E₀.2).isPreconnected, hE₀hub, hE₀hub, hE₀⟩
+  · obtain ⟨vs, hvs, hhead, hlast, hsub, -, heq⟩ := gridJoin_spec hsep hhub hr hne
+    rw [heq, cover_segsOf_eq (hhead ▸ head_mem_poly hvs) (hlast ▸ getLast_mem_poly hvs)
+      hne.symm]
+    exact ⟨(isConnected_poly hvs).isPreconnected, hhead ▸ head_mem_poly hvs,
+      hlast ▸ getLast_mem_poly hvs, hsub⟩
+
+/-! ## Two helpers on the overlay -/
+
+/-- **A prescribed extra point lying on the pieces is a vertex of the overlay** —
+`rem:polygonal-overlay-convention` read back off `Schoenflies.attachGraph`. -/
+theorem mem_vertexSet_attachGraph_of_mem_extra {pieces : List Piece} {extra : List Plane}
+    {z : Plane} (hnd : ∀ P ∈ pieces, P.Nondeg) (hz : z ∈ extra) (hzc : z ∈ cover pieces) :
+    z ∈ V(attachGraph pieces extra) := by
+  have hend : z ∈ endSet (subdivide pieces (attachPoints pieces extra)) :=
+    mem_endSet_subdivide_of_mem_cover hnd (mem_attachPoints_of_mem hz) hzc
+  show z ∈ V(overlayGraph pieces (attachPoints pieces extra))
+  rw [← (sameLinks_overlayGraph pieces (attachPoints pieces extra)).vertexSet,
+    pieceListGraph_vertexSet]
+  exact hend
+
+/-- An overlay edge runs on the cover of the source pieces. -/
+theorem seg_subset_cover_of_mem_overlayPieces {pieces : List Piece} {points : List Plane}
+    {Q : Piece} (hQ : Q ∈ overlayPieces pieces points) : Q.seg ⊆ cover pieces := by
+  intro z hz
+  rw [← overlayPieces_cover pieces points]
+  exact mem_cover hQ hz
+
+/-! ## The extension graph -/
+
+/-- **The proposed extension `H` at a stage**: the outer part of the stage's own graph — drawn
+by the stage's own drawing, occupying exactly the outer curve — unioned over `γ ⊕ Piece` with
+the polygonal attached-grid part of `prop:local-grid-attachment`. -/
+noncomputable def gridExtGraph (R : S.Realization) (gsegs : List Piece) (reps : List Plane)
+    (Jarc : Plane → List Piece) (p : Plane) (s ε : ℝ) (extra : List Plane) :
+    Graph Plane (γ ⊕ Piece) :=
+  (S.outerGraph.map R.pos).sumUnion (gridAttachGraph gsegs reps Jarc p s ε extra)
+
+/-- Its drawing: the stage's drawing on the outer names, straight segments on the pieces. -/
+noncomputable def gridExtDraw (R : S.Realization) : γ ⊕ Piece → ℝ → Plane :=
+  Graph.sumDraw R.drawing segmentDrawing
+
+/-- The outer part is a subgraph of the stage's drawn graph. -/
+theorem outerPart_le (R : S.Realization) : S.outerGraph.map R.pos ≤ R.graph :=
+  S.outerGraph_le.map R.pos
+
+instance outerPart_finite (R : S.Realization) : (S.outerGraph.map R.pos).Finite where
+  finite_vertexSet := by
+    rw [Graph.vertexSet_map]
+    exact (S.finite_vertexSet.subset S.outerGraph_le.vertexSet_mono).image R.pos
+  finite_edgeSet := by
+    rw [Graph.edgeSet_map]
+    exact S.finite_edgeSet.subset S.outerGraph_le.edgeSet_mono
+
 end Schoenflies

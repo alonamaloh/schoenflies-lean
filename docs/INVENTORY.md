@@ -106,11 +106,11 @@ checker under proof irrelevance.
 
 `Graph.setOf_mem_cons`, `Graph.IsEarChart`, `Graph.exists_isEarChart`, `Graph.IsEarChart.vertexSet_eq`, `Graph.IsEarChart.isPathGraph`, `Graph.IsEarChart.disjoint_vertexSet_edgeSet`, `Graph.IsEarChart.fresh_of_mem_vertexSet`, `Graph.IsEarChart.fresh_of_mem_edgeSet`, `Graph.IsEarChart.injOn_earPos`, `Graph.IsEarChart.image_earPos`, `Graph.IsEarChart.isLink_map`, `Graph.IsEarChart.name_mem_edgeSet`, `Graph.IsEarChart.injOn_name`, `Graph.IsEarChart.isDrawing`, `Graph.IsEarChart.pointSet_eq`, `Graph.exists_drawn_ear`
 
-## Schoenflies/EarPaths.lean  (278 lines)
+## Schoenflies/EarPaths.lean  (285 lines)
 
 `Schoenflies.IsPartialTransferOf.exists_cell_of_mem_vertexSet`, `Schoenflies.exists_fresh_list`, `Schoenflies.exists_fresh_pair`, `Schoenflies.exists_abstract_ear`, `Schoenflies.GeneratedPair.exists_face_and_boundary_paths`, `Schoenflies.GeneratedPair.splitDataOfEar`, `Schoenflies.GeneratedPair.exists_splitDataOfEar`
 
-## Schoenflies/EarSource.lean  (326 lines)
+## Schoenflies/EarSource.lean  (327 lines)
 
 `Graph.union_eq_left_of_le`, `Graph.IsPath.eq_singleton_of_inc`, `Graph.pointSet_pathGraphOf`, `Graph.IsDrawing.isPolygonal_walkPointSet`, `Graph.disjoint_walkPointSet_diff`, `Graph.notMem_of_mem_edgeArc_diff`, `Schoenflies.exists_source_earCrosscut`, `Schoenflies.isPartialTransferOf_union_of_mem_edgeSet`
 

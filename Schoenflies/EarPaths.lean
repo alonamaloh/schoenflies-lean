@@ -176,21 +176,28 @@ two paths that carry exactly the cells below it and meet only at the two ends.
 
 The last two conclusions are `SplitData.sub_face` and `SplitData.paths_meet` verbatim; the two
 before them are `isPath₁` and `isPath₂`. What a `SplitData` still needs beyond this is the ear
-graph itself and fresh names for the two new 2-cells. -/
+graph itself and fresh names for the two new 2-cells.
+
+**It is stated for either realization of the stage**, because the ear of
+`thm:finite-transfer`(b) is given on the *target* side and has to be placed there. Only the
+boundary cut is about the stage itself — `T.walks` is a field of the abstract structure, which
+both realizations realize — so the realization enters only through assertion (i) and through
+where the ear's two ends are drawn. -/
 theorem exists_face_and_boundary_paths (T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom)
-    (hS : T.str.CombInvariants)
-    (hcells : CellsAbsorb T.src.skeletonSet {A | ∃ F ∈ T.str.faces, A = T.src.cell F})
-    {N : Set Plane} (hN : IsPreconnected N) (hNne : N.Nonempty) (hND : N ⊆ srcDom)
-    (hNdisj : Disjoint N T.src.skeletonSet) {a b : Plane} (hab : a ≠ b)
+    (hS : T.str.CombInvariants) {R : T.str.Realization} {dom : Set Plane}
+    (hcd : R.IsCellDecomposition dom)
+    (hcells : CellsAbsorb R.skeletonSet {A | ∃ F ∈ T.str.faces, A = R.cell F})
+    {N : Set Plane} (hN : IsPreconnected N) (hNne : N.Nonempty) (hND : N ⊆ dom)
+    (hNdisj : Disjoint N R.skeletonSet) {a b : Plane} (hab : a ≠ b)
     {z w : γ} (hz : z ∈ V(T.str.skel)) (hw : w ∈ V(T.str.skel))
-    (hza : T.src.pos z = a) (hwb : T.src.pos w = b)
+    (hza : R.pos z = a) (hwb : R.pos w = b)
     (hacl : a ∈ closure N) (hbcl : b ∈ closure N) :
-    ∃ F ∈ T.str.faces, N ⊆ T.src.cell F ∧ (∀ F' ∈ T.str.faces, N ⊆ T.src.cell F' → F' = F) ∧
+    ∃ F ∈ T.str.faces, N ⊆ R.cell F ∧ (∀ F' ∈ T.str.faces, N ⊆ R.cell F' → F' = F) ∧
       ∃ P₁ P₂, T.str.skel.IsPath z P₁ w ∧ T.str.skel.IsPath z P₂ w ∧
         (∀ ⦃σ⦄, T.str.sub σ F ↔ σ = F ∨ σ ∈ T.str.pathCells z P₁ ∪ T.str.pathCells z P₂) ∧
         T.str.pathCells z P₁ ∩ T.str.pathCells z P₂ = {z, w} := by
   have hzw : z ≠ w := fun hh => hab (hza ▸ hwb ▸ hh ▸ rfl)
-  obtain ⟨F, hF, hNF, hsz, hsw, huniq⟩ := T.src_isCellDecomposition.exists_face_of_ear hcells
+  obtain ⟨F, hF, hNF, hsz, hsw, huniq⟩ := hcd.exists_face_of_ear hcells
     hN hNne hND hNdisj hz hw (hza ▸ hacl) (hwb ▸ hbcl)
   obtain ⟨P₁, P₂, hp₁, hp₂, hsub, hmeet⟩ :=
     T.walks.exists_boundary_paths hS hF hz hw hsz hsw hzw

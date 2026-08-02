@@ -206,6 +206,36 @@ section Assemble
 
 variable {S₀ : CellStructure γ}
 
+/-- **The anchor clause is never the obstruction.** The hub's own grid edge is nondegenerate,
+lies in the open Jordan domain, and its two ends lie on the grid — so a discharger of
+`Schoenflies.HasGridAnchoredCores` that appends this one piece to its auxiliary segments and
+its two ends to its cut points meets the anchor clause outright. What the hypothesis really
+asks is the *core*: the 2-connected spanning subgraph off the grid. -/
+theorem gridHubEdge_anchors {C : Set Plane} (hsep : IsSeparating C) {ε : ℝ} (hε : 0 < ε)
+    {b : Plane} (hb : b ∈ inside C) :
+    (gridHubEdge b (windowRadius C ε b) (localGridCount (windowRadius C ε b) ε)).Nondeg ∧
+    (gridHubEdge b (windowRadius C ε b)
+      (localGridCount (windowRadius C ε b) ε)).seg ⊆ inside C ∧
+    (gridHubEdge b (windowRadius C ε b) (localGridCount (windowRadius C ε b) ε)).1 ∈
+      cover (localGridEdges b (windowRadius C ε b)
+        (localGridCount (windowRadius C ε b) ε)) ∧
+    (gridHubEdge b (windowRadius C ε b) (localGridCount (windowRadius C ε b) ε)).2 ∈
+      cover (localGridEdges b (windowRadius C ε b)
+        (localGridCount (windowRadius C ε b) ε)) := by
+  set s := windowRadius C ε b with hs_def
+  set k := localGridCount s ε with hk_def
+  have hC : IsCompact C := hsep.isJordanCurve.isCompact
+  have hCne : C.Nonempty := hsep.isJordanCurve.nonempty
+  have hbC : b ∉ C := fun h => inside_subset_compl hb h
+  have hs : 0 < s := windowRadius_pos hC hCne hbC
+  have hk1 : 1 ≤ k := one_le_localGridCount s ε
+  have hmem := gridHubEdge_mem (p := b) (s := s) hk1
+  have hgridin : cover (localGridEdges b s k) ⊆ inside C :=
+    (cover_localGridEdges_subset_window hC hCne hbC hk1).trans
+      (window_subset_inside hC hCne hsep hb hε)
+  exact ⟨localGridEdges_nondeg hs hk1 _ hmem,
+    fun z hz => hgridin (mem_cover hmem hz), left_mem_cover hmem, right_mem_cover hmem⟩
+
 /-- **NAMED HYPOTHESIS — the anchored skeleton core of the grid union.**
 
 At every admissible stage, mesh and window centre: auxiliary segments `xsegs` and cut points

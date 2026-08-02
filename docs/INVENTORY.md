@@ -286,9 +286,9 @@ checker under proof irrelevance.
 
 `Schoenflies.exists_injOn_of_finite`, `Schoenflies.IsSourceExtensionOver`, `Schoenflies.IsSourceExtensionOver.renameEdges`, `Schoenflies.GridExtensionData`, `Schoenflies.nonempty_gridExtensionData_of_over`, `Schoenflies.HasGridExtensions`, `Schoenflies.GridExtensionData.nonempty_gridStepData`, `Schoenflies.hasGridSteps`, `Schoenflies.abs_localGridX_sub_le`, `Schoenflies.abs_localGridY_sub_le`, `Schoenflies.gridPt_mem_closedSquare`, `Schoenflies.cover_localGridEdges_subset`, `Schoenflies.cover_localGridEdges_subset_window`, `Schoenflies.disjoint_cover_localGridEdges`, `Schoenflies.MeetsFinitely.of_diff_subset_compl`
 
-## Schoenflies/GridTwoConnected.lean  (380 lines)
+## Schoenflies/GridTwoConnected.lean  (410 lines)
 
-`Graph.renameEdges_mono`, `Graph.renameEdges_inr_le_sumUnion`, `Schoenflies.endSet_map_orientPiece`, `Schoenflies.sameLinks_pieceListGraph_orientPiece`, `Schoenflies.gridPartGraph`, `Schoenflies.gridPartGraph_isTwoConnected`, `Schoenflies.gridPartGraph_le`, `Schoenflies.mem_gridPartGraph_of_mem_cover`, `Schoenflies.vertexSet_inter_grid_subset`, `Schoenflies.HasGridAnchoredCores`, `Schoenflies.hasGridUnionTwoConnected_of`, `Schoenflies.hasGridSteps_of_anchoredCores`
+`Graph.renameEdges_mono`, `Graph.renameEdges_inr_le_sumUnion`, `Schoenflies.endSet_map_orientPiece`, `Schoenflies.sameLinks_pieceListGraph_orientPiece`, `Schoenflies.gridPartGraph`, `Schoenflies.gridPartGraph_isTwoConnected`, `Schoenflies.gridPartGraph_le`, `Schoenflies.mem_gridPartGraph_of_mem_cover`, `Schoenflies.vertexSet_inter_grid_subset`, `Schoenflies.gridHubEdge_anchors`, `Schoenflies.HasGridAnchoredCores`, `Schoenflies.hasGridUnionTwoConnected_of`, `Schoenflies.hasGridSteps_of_anchoredCores`
 
 ## Schoenflies/InitialGenerated.lean  (1005 lines)
 

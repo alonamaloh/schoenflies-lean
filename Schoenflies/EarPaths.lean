@@ -38,6 +38,8 @@ So one ear insertion is one split, and the subdivision constructor is needed by
   of `thm:finite-transfer`(a) on the source side: "the interior of the ear lies in one current
   face `F`, and its endpoints lie on the boundary cycle of `F`", together with the cut of that
   cycle into the two boundary paths `B₁`, `B₂` of `def:generated-structure`, operation 2.
+* `Schoenflies.GeneratedPair.splitDataOfEar` — the abstract data of operation 2, assembled. What
+  `EarStep` still owes past this is the ear graph on fresh names and the two realizations.
 -/
 
 open Set
@@ -91,6 +93,52 @@ theorem exists_face_and_boundary_paths (T : GeneratedPair S₀ srcOuter srcDom t
   obtain ⟨P₁, P₂, hp₁, hp₂, hsub, hmeet⟩ :=
     T.walks.exists_boundary_paths hS hF hz hw hsz hsw hzw
   exact ⟨F, hF, hNF, huniq, P₁, P₂, hp₁, hp₂, hsub, hmeet⟩
+
+/-- **The abstract `SplitData` of one ear insertion.** Everything the split constructor needs,
+from the ear graph and two fresh 2-cell names together with the output of
+`exists_face_and_boundary_paths`. Nothing here is geometric: the caller supplies the ear as an
+abstract path graph on fresh names, and this checks it into the structure.
+
+What `Schoenflies.EarStep` still owes after this is the ear graph itself — the fresh names for
+the drawn ear's interior vertices and edges — and the two realizations. -/
+def splitDataOfEar (T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom) {F z w : γ}
+    (hF : F ∈ T.str.faces) (hzw : z ≠ w) {ear : Graph γ γ} {earWalk P₁ P₂ : List γ}
+    (hear : ear.IsPathGraph z earWalk w)
+    (hdisj : Disjoint V(ear) E(ear))
+    (hinter : V(ear) ∩ V(T.str.skel) = {z, w})
+    (hedge : ∀ ⦃f⦄, f ∈ E(ear) → f ∉ T.str.cells)
+    (hvert : ∀ ⦃c⦄, c ∈ V(ear) → c ≠ z → c ≠ w → c ∉ T.str.cells)
+    {face₁ face₂ : γ} (h₁ : face₁ ∉ T.str.cells) (h₂ : face₂ ∉ T.str.cells)
+    (h₁ear : face₁ ∉ V(ear) ∪ E(ear)) (h₂ear : face₂ ∉ V(ear) ∪ E(ear)) (hne : face₁ ≠ face₂)
+    (hp₁ : T.str.skel.IsPath z P₁ w) (hp₂ : T.str.skel.IsPath z P₂ w)
+    (hsub : ∀ ⦃σ⦄, T.str.sub σ F ↔ σ = F ∨ σ ∈ T.str.pathCells z P₁ ∪ T.str.pathCells z P₂)
+    (hmeet : T.str.pathCells z P₁ ∩ T.str.pathCells z P₂ = {z, w}) :
+    T.str.SplitData where
+  face := F
+  face₁ := face₁
+  face₂ := face₂
+  ear := ear
+  source := z
+  target := w
+  earWalk := earWalk
+  path₁ := P₁
+  path₂ := P₂
+  isPathGraph := hear
+  isPath₁ := hp₁
+  isPath₂ := hp₂
+  ear_disjoint := hdisj
+  source_ne_target := hzw
+  face_mem := hF
+  vertexSet_inter := hinter
+  edge_fresh := hedge
+  vertex_fresh := hvert
+  face₁_notMem := h₁
+  face₂_notMem := h₂
+  face₁_notMem_ear := h₁ear
+  face₂_notMem_ear := h₂ear
+  face_ne := hne
+  sub_face := hsub
+  paths_meet := hmeet
 
 end GeneratedPair
 

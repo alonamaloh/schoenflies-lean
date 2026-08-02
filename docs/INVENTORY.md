@@ -90,9 +90,9 @@ checker under proof irrelevance.
 
 `Schoenflies.Plane.IsDirection`, `Schoenflies.Plane.IsDirection.ne_zero`, `Schoenflies.Plane.IsDirection.norm`, `Schoenflies.Plane.dir`, `Schoenflies.Plane.isDirection_dir`, `Schoenflies.Plane.dir_ne_zero`, `Schoenflies.Plane.dir_eq_smul`, `Schoenflies.Plane.ne_zero_left_of_det_ne_zero`, `Schoenflies.Plane.ne_zero_right_of_det_ne_zero`, `Schoenflies.Plane.det_ne_zero_iff`, `Schoenflies.Plane.arcCCW`, `Schoenflies.Plane.mem_arcCCW_iff`, `Schoenflies.Plane.mem_arcCCW_rev_iff`, `Schoenflies.Plane.arcCCW_disjoint`, `Schoenflies.Plane.smul_mem_arcCCW`, `Schoenflies.Plane.dir_mem_arcCCW_iff`, `Schoenflies.Plane.mem_ray_or_mem_arcCCW`, `Schoenflies.Plane.mem_arcCCW_rev_of_det_neg`, `Schoenflies.Plane.mem_arcCCW_rev_of_det_pos`, `Schoenflies.Plane.same_arc_of_det_neg_of_det_pos`, `Schoenflies.Plane.mem_arcCCW_of_det_pos_of_det_neg`, `Schoenflies.Plane.det_germ_self`, `Schoenflies.Plane.det_germ_self'`, `Schoenflies.Plane.det_germ`, `Schoenflies.Plane.det_germ'`, `Schoenflies.Plane.germ_mem_arcCCW_rev_of_left`, `Schoenflies.Plane.germ_mem_arcCCW_rev_of_right`, `Schoenflies.Plane.germ_mem_arcCCW_of_left`, `Schoenflies.Plane.germ_mem_arcCCW_of_right`, `Schoenflies.Plane.germs_split`, `Schoenflies.Plane.exists_germ_threshold`, `Schoenflies.Plane.exists_isDirection_det_ne_zero`, `Schoenflies.Plane.exists_isDirection_det_and_inner_ne_zero`, `Schoenflies.Plane.continuous_det_right`, `Schoenflies.Plane.continuous_det_left`, `Schoenflies.Plane.isOpen_arcCCW`
 
-## Schoenflies/EarPaths.lean  (97 lines)
+## Schoenflies/EarPaths.lean  (145 lines)
 
-`Schoenflies.IsPartialTransferOf.exists_cell_of_mem_vertexSet`, `Schoenflies.GeneratedPair.exists_face_and_boundary_paths`
+`Schoenflies.IsPartialTransferOf.exists_cell_of_mem_vertexSet`, `Schoenflies.GeneratedPair.exists_face_and_boundary_paths`, `Schoenflies.GeneratedPair.splitDataOfEar`
 
 ## Schoenflies/Endgame.lean  (507 lines)
 

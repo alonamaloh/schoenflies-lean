@@ -37,7 +37,7 @@ Schoenflies.CellStructure.LimitTower.isHomeoOn_F      ← the fields of LimitTow
 | `Schoenflies.HasLimitHomeomorphism` | `BoundaryContinuity2.lean` | `thm:square-extension` | four conjuncts: a dense anchor set, the interior homeomorphism, `HasAnchorCrosscuts`, `HasSpokes`. **`LimitTower` supplies the second; the other three need the construction.** |
 | the fields of `CellStructure.LimitTower` | `LimitMap.lean` | the interior homeomorphism | ~14 fields, each an obligation on whoever builds the nested sequence: the cell decompositions, the shared parent maps, the two halves of `prop:shrinking-stars`, and the nesting of the skeleton maps. See the module docstring |
 | `Schoenflies.CommonSubdivision` | `FiniteTransfer.lean` | `thm:finite-transfer`(a) | step 1. The overlay itself is proved (`exists_overlay_of_biUnion_finite`); what is missing is carrying each new subdivision point through the chosen edge parametrization to the *other* realization. `RealizeSubdivHomeo.lean` now supplies exactly that transport for one subdivision (`SubdivData.targetParam`, `realizeHomeo`), so this is assembly, not new mathematics |
-| `Schoenflies.EarStep` | `FiniteTransfer.lean` | `thm:finite-transfer`(a) | step 3, one ear. Carries `[Infinite γ]` — see below. Every geometric ingredient now exists; what is missing is **the two boundary paths**: see "the one piece with real content left" below |
+| `Schoenflies.EarStep` | `FiniteTransfer.lean` | `thm:finite-transfer`(a) | step 3, one ear. Carries `[Infinite γ]` — see below. Every geometric ingredient exists, and the two boundary paths are now produced by `BoundaryWalks.exists_boundary_paths`; what is missing is **the invariant on the bundle** (`GeneratedPair` must carry a `BoundaryWalks`) and then the assembly. See phase 1d below |
 | `Schoenflies.CellsAbsorb` | `SkeletonAccess.lean`, `FiniteTransfer.lean`, `FreshAccess.lean` | `lem:polygonal-side-accessibility`, ear placement | one clause of `lem:cellulation-invariants`; `cellsAbsorb_of_isComponent_in` discharges it when the cells are the components |
 
 ### The atom is closed
@@ -65,8 +65,8 @@ endpoints*, together with `sub_face` (they carry exactly the cells below the 2-c
 `paths_meet` (they share nothing but their two ends).
 
 Producing them means knowing that **the cells below a 2-cell form a cycle**, and that two of its
-0-cells cut that cycle into two paths. Nothing states this, and `CellStructure.CombInvariants`
-does not carry it.
+0-cells cut that cycle into two paths. `CellStructure.CombInvariants` does not carry it;
+`BoundaryWalks.lean` now carries half of it (see the plan below).
 
 **`lem:face-cycles` is not the route, and this is the trap to avoid.** `Graph.face_cycles'`
 takes `hpoly : ∀ g ∈ E(G), IsPolygonal (edgeArc drawing g)` — *every* edge polygonal. A source
@@ -86,48 +86,149 @@ one field of `CellStructure` on which no axiom is imposed. The route is therefor
   `mem_faceCells_iff` in `InitialPairFixed.lean`, which were written for exactly this;
 * preserve it under the two constructors. The split constructor is where the two paths come
   from and where they go: `SplitData` already carries `path₁`, `path₂` as data, so the new
-  2-cells' walks are built from them and the ear. The subdivision constructor needs the repair
-  `CellulationInvariants.lean` already built and explains at length —
-  `SubdivData.SubstWalk`, because `subdivideEdge`'s current update replaces the subdivided edge
-  by the fixed list `[newEdge₁, newEdge₂]`, which is **orientation-blind and wrong**: an
-  interior edge lies on the boundary of two 2-cells whose walks cross it in opposite
-  directions, and `SubdivData.not_isWalk_boundary_of_head` is that failure, machine-checked.
+  2-cells' walks are built from them and the ear. **The subdivision constructor is done** — see
+  the next paragraph.
 
-So `SubstWalk` was built for precisely this, and this is the first consumer that needs it.
+**The design point, decided and written in Lean.** `subdivideEdge` used to replace the
+subdivided edge in every boundary walk by the fixed list `[newEdge₁, newEdge₂]`, which is
+**orientation-blind and wrong**: an interior edge lies on the boundary of two 2-cells whose
+walks cross it in opposite directions, and one of them needs `[newEdge₂, newEdge₁]`. The
+correction is a *relation*, not a function of the list — which order is right is determined by
+the walk, which the list does not record — so it could not be another closed form, and the
+corrected walks now **arrive as data**. Of the two shapes on the table, the field won over an
+extra argument to `subdivideEdge`, for the reason recorded here: `SubdivData` is already the
+bundle of everything one subdivision chooses, and this keeps `subdivideEdge` a function of its
+data alone. What the write-up did not foresee is that it takes **three** fields, not one:
 
-**The design point, worked out but not yet written in Lean.** `SubstWalk` is a *relation*, not a
-function of the list — which of `[newEdge₁, newEdge₂]` and `[newEdge₂, newEdge₁]` is correct is
-determined by the walk, and the list alone does not record it. So the corrected boundary update
-cannot simply replace `subdivideEdge`'s current
+* `Schoenflies.IsSubstWalk` had to be restated for a bare graph, because a field's type may name
+  only *earlier* fields — `d.SubstWalk` does not exist inside the declaration of `d`.
+  `SubdivData.SubstWalk` survives as the specialization.
+* `boundaryStart : γ → γ` is a field of its own. A `newBoundary` constrained at *every* vertex
+  its boundary list happens to walk from would be **unsatisfiable**: the one-edge walk `[e]`
+  walks from both ends of `e`, and demands both orders of `e₁, e₂` at once
+  (`Schoenflies.eq_of_isSubstWalk_singleton`). The departure vertex is exactly what the closed
+  form could not see, so it is exactly what the data has to carry.
+* the constraint is conditional on the old list being a walk at all, since `CellStructure`
+  imposes no axiom on `boundary`, and `Schoenflies.substWalk` builds the witness — so the three
+  fields cost a constructor nothing.
 
-```
-boundary F := (S.boundary F).flatMap fun f => if f = d.edge then [e₁, e₂] else [f]
-```
+The payoff a consumer sees is `CellStructure.subdivideEdge_isWalk_boundary`: a boundary walk of
+`S` is still a walk, with the same ends, after a subdivision. The record of the defect stays in
+`CellulationInvariants.lean` as `SubdivData.flatBoundary` and
+`SubdivData.not_isWalk_flatBoundary_of_head`. Done in the window nothing constructed a
+`SubdivData` — the same window that made the `SplitData.paths_meet` repair cheap.
 
-by another closed-form expression. The corrected walks have to *arrive as data*: either
-`SubdivData` gains a field `newBoundary : γ → List γ` together with the property that it is a
-`SubstWalk`-image of `S.boundary`, or `subdivideEdge` takes that function as an extra argument.
-The first is the better fit — `SubdivData` is already the bundle of everything one subdivision
-chooses, `exists_substWalk` shows the data always exists, and it keeps `subdivideEdge` a
-function of its data alone. Either way it is a change to `GeneratedStructure.lean` that ripples
-into `CellulationInvariants.lean`, so it is worth doing before anything else is built on the
-current update. Nothing yet constructs a `SubdivData`, so it is still cheap — the same window
-that made the `SplitData.paths_meet` repair cheap, and it will close.
+### The plan to finish, and where it stands
 
-That is the next thing to build, and everything downstream is assembly on top of it:
+Four phases. Everything that *consumes* them is done, so each one is the whole of what is left
+at its level.
 
-1. face boundary cycles, hence `EarStep`; `CommonSubdivision` alongside it;
-2. `thm:finite-transfer` (a) unconditional, and (b) — whose one extra ingredient, accessibility
-   at a fresh anchor on the wild curve, is closed in `FreshAccess.lean`;
-3. the stage recursion, which is where `GridAttach.lean`, `SquareMeshClosed.lean` and
-   `Windows.lean` are spent, giving `lem:grid-star-estimate` and `prop:shrinking-stars`;
-4. `HasAnchorCrosscuts` and `HasSpokes` from the stages, and `thm:main` becomes unconditional.
+**Phase 1 — face boundary cycles, hence `EarStep`.** The one piece with real content. 1a, 1b
+and 1c are done and `sorry`-free; 1d is blocked on one interface change, described below.
 
-Everything that *consumes* those is done.
+* **1a. The boundary-walk invariant — done.** `BoundaryWalks.lean`: for every 2-cell `F`,
+  `boundary F` is a closed walk of the skeleton based at `start F`, and the cells it runs
+  through are exactly the cells strictly below `F`. Both elementary operations preserve it
+  (`BoundaryWalks.subdivideEdge`, `.splitFace`) and `initialBoundaryWalks` is the base case,
+  packaging `isWalk_initBoundary_*` and `mem_faceCells_iff`. Two things fell out: **no 2-cell is
+  strictly below another** (`eq_of_sub_of_mem_faces`) — which the blueprint asserts of its
+  update lists and which is now a theorem — and `mem_boundary_iff_sub`.
+* **1b. The invariant is a cycle, not a closed walk — done.** `EarStep` needs
+  `SplitData.paths_meet`: the two boundary paths share *nothing but their two ends*. That does
+  not follow from a closed walk — one that repeats a vertex cuts into pieces meeting in more
+  than two points. `BoundaryWalks.isCycle` says the boundary datum is a cycle, presented through
+  its first edge the way `Graph.IsCycleThrough` presents every cycle here, so `Graph.IsPath`
+  does the ruling-out. Both preservation proofs were redone for it: the subdivision case rests
+  on `SubdivData.SubstWalk.isPath` (the new vertex is fresh, so an old path cannot already have
+  visited it) and on `IsSubstWalk.cons_inv`, whose three cases *are* the three constructors;
+  the split case on `SplitData.vertexSet_inter`. `isWalk` is now a theorem, not a field.
+* **1c. Cut a cycle at two of its 0-cells — done.**
+  `BoundaryWalks.exists_boundary_paths`: two distinct 0-cells below a 2-cell give two paths
+  between them carrying exactly the cells below it and meeting in nothing but the two — which
+  are `SplitData.isPath₁`, `isPath₂`, `sub_face`, `paths_meet`. The graph-level cut was already
+  on `main` (`Graph.IsCycleThrough.split_at`, in `FaceCyclesProof.lean`, a module no cell-
+  structure file had ever imported); what 1c adds is the bridge from the abstract invariant to
+  it. Carries `CombInvariants`, because `sub_face` quantifies over every `σ ≼ F` and nothing
+  else says such a `σ` is a cell.
+* **1d. The bundle carries the invariant — done; `EarStep` itself is next.** The `SplitData`
+  fields were available after 1c but **`EarStep` could not reach them**: its hypothesis is
+  `IsPartialTransferOf T P B Hdraw par`, and neither that nor `GeneratedPair` carried a
+  `BoundaryWalks`. It cannot be recovered from `generated` either — a derivation may contain
+  `SubdivData`s whose `boundaryStart` has nothing to do with any invariant, so there is no
+  closure theorem over the raw inductive, only the two step *constructions* a consumer applies
+  while building a stage. So `GeneratedPair` now has a tenth field, `walks : str.BoundaryWalks`,
+  discharged at stage 0 by `Schoenflies.initialBoundaryWalks` (which moved into
+  `InitialGenerated.lean`, since it cannot sit above the pair it feeds).
+
+  What is left of 1d is the assembly: at most two subdivisions to make the ear's ends 0-cells,
+  then the split, rebuilding every `GeneratedPair` field. `[Infinite γ]` is already recorded as
+  the fix for the fresh-name defect. **One ingredient of that assembly does not exist on
+  `main`**, and it is not the boundary paths any more:
+
+  > **weak admissibility is not known to be preserved by either elementary operation.**
+  > `IsWeaklyAdmissible` occurs in exactly two modules — `FiniteTransfer.lean`, which defines
+  > it, and `InitialGenerated.lean`, which discharges it at stage 0. Nothing subdivides or
+  > splits it. Its five clauses are unequal: `outerSet_eq`, `isPolygonal`, `cell_subset` and
+  > `skeletonSet_subset` should be routine from the realization constructors, but
+  > `isTwoConnected` needs *a subdivision of a 2-connected graph is 2-connected*, and
+  > `Schoenflies/Graph/TwoConnected.lean` says nothing about subdivisions —
+  > `IsTwoConnected.union` needs both sides 2-connected, which an ear is not. That is a
+  > self-contained graph-theory lemma and the natural next module.
+* **1d′. Weak admissibility across the two operations — the graph half is now closed.**
+  `Graph.IsSubdivisionOf.isTwoConnected` (`Graph/Subdivision.lean`) is the subdivision half,
+  and the ear half was already on `main` as `Graph.IsTwoConnected.ear` (`Graph/Ear.lean`),
+  which `relative_grows_by_ear` uses internally and which applies verbatim to a given ear. Both
+  are stated for an arbitrary `Graph α β`, so they apply to the *drawn* graph, which is the one
+  `def:admissible-graph` constrains; `SubdivData.isSubdivisionOf_realizeGraph` is the bridge on
+  the subdivision side, and the split side needs its analogue (the realized split skeleton is
+  the old one union the drawn ear as a path graph).
+
+  Note what `isTwoConnected` needs and what it does not: **`x ≠ y`, because the theorem is false
+  for a loop** — a loop subdivides into a pendant pair, and deleting its base vertex strands the
+  new vertex, while 2-connectedness on its own permits loops. Consumers get looplessness from
+  `Graph.IsDrawing.not_isLoopAt`, which `transfer_of_ears` already passes around.
+
+  The `isPolygonal` clause looked like the next gap and is now closed too:
+  `IsArcBetween.isPolygonal_of_subset` (`PolygonalCut.lean`) — an arc inside a polygonal arc is
+  polygonal, which is what the two halves of a subdivided edge and each edge arc of a drawn ear
+  need. It is *not* list surgery on polylines: `exists_simple_poly_of_isPolygonal` already
+  produces some polygonal arc between the two points inside the ambient one, and the content is
+  that there is only one such arc (`subarc_subset_of_isPreconnected`, where the parametrisation
+  being a closed map does the work).
+
+  What is left of 1d′ is `outerSet_eq`, `cell_subset` and `skeletonSet_subset` for both
+  operations — read off the realization constructors, with `skeletonSet_realize` already there
+  — and then `GeneratedPair.subdivideEdge` / `.splitFace` themselves.
+
+  **An interface reading worth checking before writing `EarStep`.** The blueprint's step 3 is
+  "at most two edge subdivisions followed by one split", the subdivisions being what turns the
+  ear's endpoints into 0-cells. In the Lean formulation they may be unnecessary:
+  `IsPartialTransferOf.vertexSet_subset` says `V(B) ⊆ V(T.src.graph)`, and `EarStep` hypothesises
+  `a ∈ V(B)`, `b ∈ V(B)` — so both ends are *already* drawn 0-cells of the current stage, and
+  `Realization.injOn_pos` names the 0-cells they are. If that reading holds, `EarStep` is one
+  split with no subdivision, and the subdivision half of everything above is needed only by
+  `CommonSubdivision` (1e), not by the ear induction. Not formalised — it is a reading of two
+  fields, and the first thing to test when 1d is written.
+* **1e. `CommonSubdivision`.** Independent of 1b–1d and pure assembly:
+  `exists_overlay_of_biUnion_finite` gives the overlay, `SubdivData.realizeHomeo` transports one
+  subdivision to the other realization, and the induction over the overlay's finitely many new
+  points is the whole of it.
+
+**Phase 2 — `thm:finite-transfer`.** (a) becomes unconditional the moment 1d and 1e land; (b)
+needs one further ingredient, accessibility at a fresh anchor on the wild curve, which
+`FreshAccess.lean` already closes.
+
+**Phase 3 — the stage recursion.** Where `GridAttach.lean`, `SquareMeshClosed.lean` and
+`Windows.lean` are spent, giving `lem:grid-star-estimate` and `prop:shrinking-stars`. This is
+the largest phase by far and the only one whose geometry is not yet assembled anywhere.
+
+**Phase 4 — `thm:main` unconditional.** `HasAnchorCrosscuts` and `HasSpokes` from the stages.
+The limit map and everything after it is already built and waiting.
 
 ### What the standing rules caught
 
-Five things, all worth the cost of the rules that found them.
+Five things, all worth the cost of the rules that found them — and one of the same kind that a
+rule did not have to catch, because writing the field caught it first.
 
 **A false hypothesis.** `Graph.CrosscutEncloses` stood on `main` as an assumed hypothesis for a
 whole wave, and is **false**. Nothing in its hypotheses stopped the crosscut from being drawn
@@ -189,6 +290,16 @@ stages. `def:admissible-graph` says it correctly ("its edges *not contained in `
 polygonal arcs") and the Lean statement had dropped the restriction. Nothing was lost by the
 repair: both proofs in the module already applied the field only to nonboundary edges. It had
 not been hit because nothing had ever constructed an `IsStageOn`.
+
+**A field that would have been unsatisfiable, caught while writing it.** The `newBoundary` field
+of `SubdivData` was to say "the corrected boundary walk, for whichever vertex the old one walks
+from". Quantified that way it cannot be filled: the walk `[e]` consisting of the subdivided edge
+alone walks from *both* ends of `e`, and the two corrections are the two orders of `e₁, e₂`, so
+the field would demand a single list equal to both. The repair is the extra field
+`boundaryStart`, and the obstruction is machine-checked as
+`Schoenflies.eq_of_isSubstWalk_singleton`. Not a standing-rules catch — it was found by writing
+the field rather than by a review — but the same failure mode as the two above, and the same
+window: nothing constructs a `SubdivData`.
 
 **And one claimed gap that was not one.** `SquareMeshFixed.lean` carried a hypothesis
 `SubdividesToPath` and its docstring — and `SquareMeshConnected.lean`'s — asserted that

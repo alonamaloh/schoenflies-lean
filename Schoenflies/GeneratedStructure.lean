@@ -59,6 +59,13 @@ is the `SplitData` analogue of `IsRefinement` — a relation between a realizati
 of assertion (vii). Assertions (ii), (viii) and (ix) are stated here against `(i)` as a
 hypothesis, so they become unconditional the moment that step lands.
 
+* `Schoenflies.IsSubstWalk`, `Schoenflies.exists_isSubstWalk`, `Schoenflies.substWalk` — how a
+  walk that crosses the subdivided edge is rewritten, and the construction that supplies the
+  rewrite. Not a blueprint statement: the blueprint's operation 1 does not spell the boundary
+  update out, and this is what it has to be.
+* `Schoenflies.CellStructure.subdivideEdge_isWalk_boundary` — the boundary walk of a 2-cell is
+  still a walk after a subdivision, with the same ends.
+
 Two general graph facts are proved here for want of a home: `Schoenflies.subdivGraph` (with
 `Schoenflies.subdivGraph_mono` and `Schoenflies.subdivGraph_eq_self`) and
 `Schoenflies.isLink_of_le_of_mem_edgeSet`. The second belongs in `Schoenflies/Graph/`; nothing
@@ -75,6 +82,19 @@ at every stage.
 **`rem:intermediate-disconnection` is honoured by omission.** Nothing in this module mentions
 `Realization.nonboundary`, let alone its connectedness: an intermediate stage really can have
 disconnected open nonboundary part, and every statement here is proved without that hypothesis.
+
+**The corrected boundary walks arrive as data.** `CellStructure.boundary` is a bare edge list,
+and subdividing an edge rewrites it in a way the list does not determine: `newEdge₁` runs
+`left — newVertex` and `newEdge₂` runs `newVertex — right`, so a walk reaching the subdivided
+edge at `right` must be repaired with `[newEdge₂, newEdge₁]`, and an interior edge lies on two
+2-cell boundaries that cross it once each way. `Schoenflies.IsSubstWalk` is therefore a
+*relation*, and `SubdivData` carries three extra fields — `boundaryStart` (the vertex each
+walk departs from, the datum a closed form cannot see), `newBoundary`, and the constraint tying
+them together. The alternative, an extra argument to `subdivideEdge`, was rejected: `SubdivData`
+is already the bundle of everything one subdivision chooses, and this keeps `subdivideEdge` a
+function of its data alone. Filling the fields costs a constructor nothing —
+`Schoenflies.substWalk` is the witness, and `Schoenflies.eq_of_isSubstWalk_singleton` is why
+`boundaryStart` cannot be quantified away.
 
 **`≼_abs` stays a raw datum.** `CellStructure.sub` is not made a preorder. The reflexivity and
 transitivity facts that the blueprint uses are fields of `CombInvariants`, established for the
@@ -209,6 +229,129 @@ theorem isLink_of_le_of_mem_edgeSet (hHK : H ≤ K) (he : e ∈ E(H)) (h : K.IsL
   rcases (hHK.isLink_mono hab).eq_and_eq_or_eq_and_eq h with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
   exacts [hab, hab.symm]
 
+/-! ### Rewriting a walk that crosses a subdivided edge
+
+Subdividing `e : x — y` rewrites every walk that crosses it, and the rewrite is **not** a
+function of the edge list alone: `e₁` runs `x — v` and `e₂` runs `v — y`, so a walk that reaches
+`e` at `x` is repaired by `[e₁, e₂]` and one that reaches it at `y` by `[e₂, e₁]`. An edge list
+records neither direction — an interior edge lies on the boundary of two 2-cells whose walks
+cross it once each way — so `IsSubstWalk` is a *relation*, carrying the vertex the walk departs
+from as an extra argument. That vertex is exactly what a closed-form update cannot see.
+
+It is stated for a bare graph, like `subdivGraph`, and for the same reason and one more: the
+field of `CellStructure.SubdivData` that carries the corrected boundary walks has to name this
+relation *inside* the structure declaration, where no `SubdivData` exists yet to specialize it
+to. -/
+
+/-- **The orientation-aware replacement of a subdivided edge in a walk.**
+`IsSubstWalk H e x y e₁ e₂ u W W'` says that `W'` is the edge list `W` — read as a walk of `H`
+departing from `u` — with every traversal of `e` replaced by the two subedges *in the order the
+walk crosses them*. -/
+inductive IsSubstWalk (H : Graph γ γ) (e x y e₁ e₂ : γ) : γ → List γ → List γ → Prop
+  /-- The empty walk is unchanged. -/
+  | nil (u : γ) : IsSubstWalk H e x y e₁ e₂ u [] []
+  /-- Crossing the subdivided edge from `x` to `y`. -/
+  | forward {W W' : List γ} (h : IsSubstWalk H e x y e₁ e₂ y W W') :
+      IsSubstWalk H e x y e₁ e₂ x (e :: W) (e₁ :: e₂ :: W')
+  /-- Crossing it from `y` to `x` — the case no fixed replacement list can also serve. -/
+  | backward {W W' : List γ} (h : IsSubstWalk H e x y e₁ e₂ x W W') :
+      IsSubstWalk H e x y e₁ e₂ y (e :: W) (e₂ :: e₁ :: W')
+  /-- Any other edge is kept. -/
+  | other {u w f : γ} {W W' : List γ} (hl : H.IsLink f u w) (hf : f ≠ e)
+      (h : IsSubstWalk H e x y e₁ e₂ w W W') : IsSubstWalk H e x y e₁ e₂ u (f :: W) (f :: W')
+
+/-- Every walk of `H` has an orientation-aware replacement, so the data the repair needs exists
+for every graph, every walk and every choice of new names. -/
+theorem exists_isSubstWalk (hlink : H.IsLink e x y) {u w : γ} {W : List γ}
+    (h : H.IsWalk u W w) : ∃ W', IsSubstWalk H e x y e₁ e₂ u W W' := by
+  induction h with
+  | nil hx => exact ⟨[], .nil _⟩
+  | @cons a b c f W hl _ ih =>
+    obtain ⟨W', hW'⟩ := ih
+    by_cases hf : f = e
+    · subst hf
+      rcases hlink.eq_and_eq_or_eq_and_eq hl with ⟨h₁, h₂⟩ | ⟨h₁, h₂⟩
+      · subst h₁; subst h₂; exact ⟨_, .forward hW'⟩
+      · subst h₁; subst h₂; exact ⟨_, .backward hW'⟩
+    · exact ⟨_, .other hl hf hW'⟩
+
+open scoped Classical in
+/-- **The replacement as a construction, not an existential.** A caller that has to *supply* a
+corrected walk — the `newBoundary` field of a `SubdivData` — takes this one and discharges its
+obligation with `isSubstWalk_substWalk`. Off the walks of `H` it is the identity, which is
+harmless: `CellStructure.boundary` is a raw datum, and where it does not walk there is nothing
+to correct. -/
+noncomputable def substWalk (H : Graph γ γ) (e x y e₁ e₂ u : γ) (W : List γ) : List γ :=
+  if h : ∃ W', IsSubstWalk H e x y e₁ e₂ u W W' then h.choose else W
+
+theorem isSubstWalk_substWalk (hlink : H.IsLink e x y) {u w : γ} {W : List γ}
+    (h : H.IsWalk u W w) : IsSubstWalk H e x y e₁ e₂ u W (substWalk H e x y e₁ e₂ u W) := by
+  have hex : ∃ W', IsSubstWalk H e x y e₁ e₂ u W W' := exists_isSubstWalk hlink h
+  rw [substWalk, dif_pos hex]
+  exact hex.choose_spec
+
+/-- Where the subdivided edge does not occur there is nothing to replace: the corrected walk is
+the old one. -/
+theorem IsSubstWalk.eq_of_notMem {u : γ} {W W' : List γ}
+    (hsub : IsSubstWalk H e x y e₁ e₂ u W W') (h : e ∉ W) : W' = W := by
+  induction hsub with
+  | nil u => rfl
+  | forward hs ih => exact absurd (List.mem_cons_self ..) h
+  | backward hs ih => exact absurd (List.mem_cons_self ..) h
+  | other hl hf hs ih => rw [ih fun hh => h (List.mem_cons_of_mem _ hh)]
+
+/-- A walk that starts by crossing the subdivided edge departs from one of its two ends, and the
+corrected list begins with the two new edges in the corresponding order. -/
+theorem IsSubstWalk.eq_cons_of_head {u : γ} {V W W' : List γ}
+    (hsub : IsSubstWalk H e x y e₁ e₂ u V W') (hV : V = e :: W) :
+    (u = x ∧ ∃ L, W' = e₁ :: e₂ :: L) ∨ (u = y ∧ ∃ L, W' = e₂ :: e₁ :: L) := by
+  cases hsub with
+  | nil u => exact absurd hV (by simp)
+  | forward h => exact Or.inl ⟨rfl, _, rfl⟩
+  | backward h => exact Or.inr ⟨rfl, _, rfl⟩
+  | other hl hf h =>
+    rw [List.cons.injEq] at hV
+    exact absurd hV.1 hf
+
+/-- **Inversion at the head.** A corrected walk whose first step is `g` either replaced the
+subdivided edge — in the order the walk crossed it — or kept `g` and went on. The equation
+hypothesis is what lets `cases` see through the index. -/
+theorem IsSubstWalk.cons_inv {u g : γ} {V W L : List γ}
+    (hsub : IsSubstWalk H e x y e₁ e₂ u V L) (hV : V = g :: W) :
+    (g = e ∧ ((u = x ∧ ∃ L', L = e₁ :: e₂ :: L' ∧ IsSubstWalk H e x y e₁ e₂ y W L') ∨
+        (u = y ∧ ∃ L', L = e₂ :: e₁ :: L' ∧ IsSubstWalk H e x y e₁ e₂ x W L'))) ∨
+      (g ≠ e ∧ ∃ w L', L = g :: L' ∧ H.IsLink g u w ∧ IsSubstWalk H e x y e₁ e₂ w W L') := by
+  cases hsub with
+  | nil u => exact absurd hV (by simp)
+  | forward h =>
+    rw [List.cons.injEq] at hV
+    obtain ⟨rfl, rfl⟩ := hV
+    exact Or.inl ⟨rfl, Or.inl ⟨rfl, _, rfl, h⟩⟩
+  | backward h =>
+    rw [List.cons.injEq] at hV
+    obtain ⟨rfl, rfl⟩ := hV
+    exact Or.inl ⟨rfl, Or.inr ⟨rfl, _, rfl, h⟩⟩
+  | other hl hf h =>
+    rw [List.cons.injEq] at hV
+    obtain ⟨rfl, rfl⟩ := hV
+    exact Or.inr ⟨hf, _, _, rfl, hl, h⟩
+
+/-- **One corrected list cannot serve both directions.** The walk consisting of the subdivided
+edge alone is a walk from `x` and a walk from `y`, and its two corrections are the two orders of
+`e₁, e₂`; they coincide only if the edge is a loop. This is why the departure vertex has to be
+carried as data: a `newBoundary` field quantified over *every* vertex the boundary list happens
+to walk from would be unsatisfiable, not merely awkward. -/
+theorem eq_of_isSubstWalk_singleton (hne : e₁ ≠ e₂) {W' : List γ}
+    (h₁ : IsSubstWalk H e x y e₁ e₂ x [e] W') (h₂ : IsSubstWalk H e x y e₁ e₂ y [e] W') :
+    x = y := by
+  by_contra hxy
+  rcases h₁.eq_cons_of_head rfl with ⟨-, L, hL⟩ | ⟨h, -⟩
+  · rcases h₂.eq_cons_of_head rfl with ⟨h, -⟩ | ⟨-, L', hL'⟩
+    · exact hxy h.symm
+    · rw [hL, List.cons.injEq] at hL'
+      exact hne hL'.1
+  · exact hxy h
+
 /-! ### The cells of an abstract structure -/
 
 namespace CellStructure
@@ -283,6 +426,19 @@ structure SubdivData (S : CellStructure γ) where
   newVertex_ne₂ : newVertex ≠ newEdge₂
   /-- The three new names are distinct. -/
   newEdge_ne : newEdge₁ ≠ newEdge₂
+  /-- The vertex the boundary walk of each 2-cell departs from. `CellStructure.boundary` is a
+  bare edge list, and the direction in which it crosses the subdivided edge — the very thing
+  that decides the order of the two new edges — cannot be read off a list. So it is data. -/
+  boundaryStart : γ → γ
+  /-- The boundary walks of the subdivided structure. -/
+  newBoundary : γ → List γ
+  /-- They are the orientation-aware corrections of the old ones. The hypothesis is vacuous for
+  a 2-cell whose `boundary` does not walk from `boundaryStart` at all — nothing in
+  `CellStructure` forces it to walk anywhere — and `Schoenflies.substWalk` supplies a witness
+  whenever it does, so no `SubdivData` is obstructed by these three fields. -/
+  newBoundary_isSubstWalk : ∀ F v, S.skel.IsWalk (boundaryStart F) (S.boundary F) v →
+    IsSubstWalk S.skel edge left right newEdge₁ newEdge₂
+      (boundaryStart F) (S.boundary F) (newBoundary F)
 
 namespace SubdivData
 
@@ -355,6 +511,52 @@ theorem skeleton_isLink {f a b : γ} :
         (f = d.newEdge₂ ∧ s(a, b) = s(d.newVertex, d.right)) := by
   simp only [skeleton, subdivGraph_isLink, d.isLink, true_and]
 
+theorem newVertex_mem_skeleton_vertexSet : d.newVertex ∈ V(d.skeleton) := by
+  rw [d.skeleton_vertexSet]; exact Set.mem_insert _ _
+
+/-- `Schoenflies.IsSubstWalk` for this subdivision: the walks of `S.skel`, rewritten for
+`d.skeleton`. -/
+abbrev SubstWalk : γ → List γ → List γ → Prop :=
+  IsSubstWalk S.skel d.edge d.left d.right d.newEdge₁ d.newEdge₂
+
+/-- Every walk of the old skeleton has a corrected replacement. -/
+theorem exists_substWalk {u v : γ} {W : List γ} (h : S.skel.IsWalk u W v) :
+    ∃ W', d.SubstWalk u W W' := exists_isSubstWalk d.isLink h
+
+/-- **The corrected replacement really is a walk of the subdivided skeleton** — the property no
+closed-form update of the edge list has. -/
+theorem SubstWalk.isWalk {d : S.SubdivData} {u v : γ} {W W' : List γ}
+    (hsub : d.SubstWalk u W W') (h : S.skel.IsWalk u W v) : d.skeleton.IsWalk u W' v := by
+  induction hsub generalizing v with
+  | nil u =>
+    cases h with
+    | nil hx =>
+      exact .nil (by rw [d.skeleton_vertexSet]; exact Set.mem_insert_of_mem _ hx)
+  | forward hs ih =>
+    cases h with
+    | cons hl hW =>
+      have hlink₁ : d.skeleton.IsLink d.newEdge₁ d.left d.newVertex :=
+        d.skeleton_isLink.2 (Or.inr (Or.inl ⟨rfl, rfl⟩))
+      have hlink₂ : d.skeleton.IsLink d.newEdge₂ d.newVertex d.right :=
+        d.skeleton_isLink.2 (Or.inr (Or.inr ⟨rfl, rfl⟩))
+      exact .cons hlink₁ (.cons hlink₂ (ih (d.isLink.right_unique hl ▸ hW)))
+  | backward hs ih =>
+    cases h with
+    | cons hl hW =>
+      have hlink₂ : d.skeleton.IsLink d.newEdge₂ d.right d.newVertex :=
+        d.skeleton_isLink.2 (Or.inr (Or.inr ⟨rfl, Sym2.eq_swap⟩))
+      have hlink₁ : d.skeleton.IsLink d.newEdge₁ d.newVertex d.left :=
+        d.skeleton_isLink.2 (Or.inr (Or.inl ⟨rfl, Sym2.eq_swap⟩))
+      exact .cons hlink₂ (.cons hlink₁ (ih (d.isLink.symm.right_unique hl ▸ hW)))
+  | other hl hf hs ih =>
+    cases h with
+    | cons hl' hW =>
+      have hlink : d.skeleton.IsLink _ _ _ :=
+        d.skeleton_isLink.2 (Or.inl ⟨hl, hf,
+          fun hh => d.newEdge₁_notMem_edgeSet (hh ▸ hl.edge_mem),
+          fun hh => d.newEdge₂_notMem_edgeSet (hh ▸ hl.edge_mem)⟩)
+      exact .cons hlink (ih (hl.right_unique hl' ▸ hW))
+
 /-- The outer cycle is untouched when the subdivided edge is not outer. -/
 theorem outer_eq (he : d.edge ∉ E(S.outerGraph)) : d.outer = S.outerGraph :=
   subdivGraph_eq_self he
@@ -386,21 +588,23 @@ def subRel : γ → γ → Prop := fun σ τ =>
 
 end SubdivData
 
-open scoped Classical in
 /-- **Elementary operation 1: edge subdivision.** The abstract-data update of
 `def:generated-structure`, operation 1.
 
-The boundary walks are updated by replacing every occurrence of the subdivided edge by the two
-new edges. `boundary` is a raw datum of `CellStructure` and the blueprint's update list does
-not spell out its behaviour under a subdivision; the orientation of the replacement is
-therefore *not* guaranteed to make the walk a walk, and nothing below reads it. -/
+The boundary walks are the ones the data carries. The blueprint's update list does not spell
+out what a subdivision does to them, and the obvious closed form — replace every occurrence of
+`d.edge` by `[d.newEdge₁, d.newEdge₂]` — is wrong, because it is blind to the direction in
+which a walk crosses the edge (`CellulationInvariants.lean`, `SubdivData.flatBoundary` and
+`SubdivData.not_isWalk_flatBoundary_of_head`, where that failure is machine-checked). The
+correction cannot be computed from the old list, so it *arrives as data*: `d.newBoundary`,
+constrained to be an `IsSubstWalk`-image of `S.boundary`. `subdivideEdge_isWalk_boundary` is
+what that buys — a boundary walk of `S` stays a boundary walk here. -/
 noncomputable def subdivideEdge (S : CellStructure γ) (d : S.SubdivData) : CellStructure γ where
   skel := d.skeleton
   faces := S.faces
   outerGraph := d.outer
   outerGraph_le := d.outer_le_skeleton
-  boundary F := (S.boundary F).flatMap fun f =>
-    if f = d.edge then [d.newEdge₁, d.newEdge₂] else [f]
+  boundary := d.newBoundary
   sub := d.subRel
   finite_vertexSet := by
     rw [d.skeleton_vertexSet]; exact S.finite_vertexSet.insert _
@@ -445,6 +649,19 @@ variable {S : CellStructure γ} (d : S.SubdivData)
 @[simp] theorem subdivideEdge_faces : (S.subdivideEdge d).faces = S.faces := rfl
 
 @[simp] theorem subdivideEdge_outerGraph : (S.subdivideEdge d).outerGraph = d.outer := rfl
+
+@[simp] theorem subdivideEdge_boundary : (S.subdivideEdge d).boundary = d.newBoundary := rfl
+
+/-- **A boundary walk survives an edge subdivision.** This is the whole point of carrying
+`newBoundary` as data: the invariant "the boundary of every 2-cell is a closed walk of the
+skeleton", which the initial structure satisfies (`isWalk_initBoundary_false`, `.._true`) and
+which the ear construction consumes, is preserved by the first elementary operation. A consumer
+maintaining it builds its `SubdivData` with `boundaryStart` the vertex its own invariant
+supplies. -/
+theorem subdivideEdge_isWalk_boundary {F v : γ}
+    (h : S.skel.IsWalk (d.boundaryStart F) (S.boundary F) v) :
+    (S.subdivideEdge d).skel.IsWalk (d.boundaryStart F) ((S.subdivideEdge d).boundary F) v :=
+  SubdivData.SubstWalk.isWalk (d.newBoundary_isSubstWalk F v h) h
 
 @[simp] theorem subdivideEdge_sub {σ τ : γ} :
     (S.subdivideEdge d).sub σ τ ↔ d.subRel σ τ := Iff.rfl

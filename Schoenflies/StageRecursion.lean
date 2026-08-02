@@ -73,16 +73,14 @@ quantitative glue is proved here, not assumed:
   and monotonicity of stars under refinement (`Realization.Refines.star_carrier_subset`) to
   carry the bound to every later stage.
 
-## The one interface gap, and how it is carried
+## The interface gap that closed while this module was being written
 
 `StageSequence.skelHomeo_succ` needs the stage-`n+1` skeleton map to agree with the stage-`n`
-one on the old skeleton, *in both transfer directions*. Direction (b) carries it
-(`IsPartialTransferOfTgt.homeo_eqOn`); direction (a) does not — `IsPartialTransferOf` has four
-fields and that is not one of them (`docs/ROADMAP.md`, Phase 3, item 4). Until the clause lands
-in `FiniteTransfer.lean`, `Schoenflies.IsTransferOf.isRefinementStep` takes it as an explicit
-hypothesis `hhomeo`, and `HasGridSteps` demands it through the `homeo_eqOn` field of
-`IsRefinementStep`. When the clause lands, the discharger of `HasGridSteps` reads it off the
-transfer and `hhomeo` disappears at that call site; nothing in this module changes.
+one on the old skeleton, *in both transfer directions*. Direction (b) always carried it
+(`IsPartialTransferOfTgt.homeo_eqOn`); direction (a) gained the mirror clause — Phase 3 item 4
+of `docs/ROADMAP.md` — in the same wave that wrote this module, so
+`Schoenflies.IsTransferOf.isRefinementStep` reads every field, `homeo_eqOn` included, off the
+transfer, and `HasGridSteps` demands it through the `homeo_eqOn` field of `IsRefinementStep`.
 
 ## Blueprint
 
@@ -200,21 +198,14 @@ theorem IsTransferOfTgt.isRefinementStep (hT : IsTransferOfTgt T P H Hdraw par) 
   tgt_isAdmissible := hT.tgt_isAdmissible
 
 omit [Nonempty γ] in
-/-- **A direction-(a) transfer is a refinement step — modulo one clause.**
-
-`hhomeo` is item 4 of the Phase 3 list in `docs/ROADMAP.md`: `IsPartialTransferOf` does not yet
-record that the transferred skeleton map extends the old one, though both elementary operations
-build it that way (`SplitData.splitHomeo_eqOn`, and a subdivision leaves the point map
-unchanged). A `homeo_eqOn` clause mirroring `IsPartialTransferOfTgt.homeo_eqOn` is being added
-to `IsPartialTransferOf`; when it lands, a caller holding `hT` reads `hhomeo` off it and this
-hypothesis is discharged verbatim. Until then it is carried explicitly, so that nothing in this
-module silently claims what direction (a) does not yet provide. -/
-theorem IsTransferOf.isRefinementStep (hT : IsTransferOf T P H Hdraw par)
-    (hhomeo : Set.EqOn T.homeo.toFun P.homeo.toFun P.src.skeletonSet) :
+/-- **A direction-(a) transfer is a refinement step.** `homeo_eqOn` was item 4 of the Phase 3
+list in `docs/ROADMAP.md` and is now a clause of `IsPartialTransferOf`, so the step relation
+reads every field off the transfer. -/
+theorem IsTransferOf.isRefinementStep (hT : IsTransferOf T P H Hdraw par) :
     IsRefinementStep T P par where
   refines_src := hT.refines_src
   refines_tgt := hT.refines_tgt
-  homeo_eqOn := hhomeo
+  homeo_eqOn := hT.homeo_eqOn
   src_isAdmissible := hT.src_isAdmissible
   tgt_isAdmissible := hT.tgt_isAdmissible
 

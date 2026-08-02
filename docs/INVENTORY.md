@@ -10,7 +10,7 @@ checker under proof irrelevance.
 
 `Schoenflies.StronglyAccessible`, `Schoenflies.StronglyAccessible.mono`, `Schoenflies.StronglyAccessible.exists_ne`, `Schoenflies.stronglyAccessible_of_isMinOn`, `Schoenflies.accessCone`, `Schoenflies.mem_accessCone_iff`, `Schoenflies.accessCone_subset_ball_self`, `Schoenflies.notMem_accessCone`, `Schoenflies.accessCone_mono`, `Schoenflies.isOpen_accessCone`, `Schoenflies.mem_accessCone`, `Schoenflies.accessCone_nonempty`, `Schoenflies.openSegment_subset_accessCone`, `Schoenflies.accessCone_subset_ball`, `Schoenflies.tangent_cone`, `Schoenflies.StronglyAccessible.exists_cone`, `Schoenflies.StronglyAccessible.openSegment_subset`, `Schoenflies.exists_countable_dense_stronglyAccessible`
 
-## Schoenflies/AccessibleJoin.lean  (429 lines)
+## Schoenflies/AccessibleJoin.lean  (430 lines)
 
 `Schoenflies.PolyAccessible`, `Schoenflies.polyAccessible_of_mem`, `Schoenflies.PolyAccessible.mono`, `Schoenflies.PolyAccessible.of_openSegment`, `Schoenflies.StronglyAccessible.polyAccessible`, `Schoenflies.polyAccessible_of_poly`, `Schoenflies.polyAccessible_of_poly'`, `Schoenflies.PolyAccessible.exists_simple`, `Schoenflies.biUnion_list_map`, `Schoenflies.exists_simple_poly_of_biUnion_finite`, `Schoenflies.exists_simple_poly_pinned`, `Schoenflies.exists_simple_poly_of_isPolygonal_pinned`, `Schoenflies.exists_simple_arc_of_biUnion_finite`, `Schoenflies.exists_crosscut_of_biUnion_finite`, `Schoenflies.exists_crosscut_arc_of_biUnion_finite`, `Schoenflies.exists_simple_poly_of_polyAccessible`, `Schoenflies.exists_simple_arc_of_polyAccessible`, `Schoenflies.exists_crosscut_of_polyAccessible`, `Graph.pointSet_eq_biUnion`, `Graph.exists_simple_poly_of_pointSet`
 
@@ -482,7 +482,7 @@ checker under proof irrelevance.
 
 `Schoenflies.CellStructure.Realization.cell_subset_sdiff`, `Schoenflies.CellStructure.Realization.biUnion_faces_eq`, `Schoenflies.CellStructure.Realization.cell_isComponent`, `Schoenflies.CellStructure.Realization.cells_isComponent_in`, `Schoenflies.CellStructure.Realization.mem_edgeSet_outerGraph_of_cell_meets_outerSet`, `Schoenflies.CellStructure.Realization.frontier_cell_subset_skeletonSet`, `Schoenflies.CellStructure.Realization.cellsAbsorb`, `Schoenflies.sdiff_outer_eq_inside`, `Schoenflies.isOpen_sdiff_outer_of_isSeparating`, `Schoenflies.frontier_sdiff_outer_of_isSeparating`
 
-## Schoenflies/StageRecursion.lean  (561 lines)
+## Schoenflies/StageRecursion.lean  (552 lines)
 
 `Schoenflies.StagePair`, `Schoenflies.IsRefinementStep`, `Schoenflies.IsRefinementStep.skeletonSet_subset`, `Schoenflies.IsRefinementStep.trans`, `Schoenflies.IsRefinementStep.diam_star_carrier_le`, `Schoenflies.IsTransferOfTgt.isRefinementStep`, `Schoenflies.IsTransferOf.isRefinementStep`, `Schoenflies.GridStepData`, `Schoenflies.MeshStepData`, `Schoenflies.HasGridSteps`, `Schoenflies.HasMeshSteps`, `Schoenflies.diam_closedSquare_le_four`, `Schoenflies.diam_tgt_star_le_four`, `Schoenflies.AdmissibleStage`, `Schoenflies.stageCenter`, `Schoenflies.stageCenter_mem`, `Schoenflies.stageCenter_eq`, `Schoenflies.gridStage`, `Schoenflies.meshStage`, `Schoenflies.nextStage`, `Schoenflies.stepPar`, `Schoenflies.nextStage_step`, `Schoenflies.nextStage_diam_star_le`, `Schoenflies.stages`, `Schoenflies.stages_zero`, `Schoenflies.stages_succ`, `Schoenflies.diam_stages_star_anti`, `Schoenflies.stageSequence`, `Schoenflies.stageSequence_of_isJordanCurve`
 

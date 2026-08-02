@@ -29,13 +29,17 @@ Keep this file honest. A "done" that is really a "conditional" costs the next ag
 Schoenflies.jordan_schoenflies   thm:main            ← SquareExtension
 Schoenflies.square_extension     thm:square-extension ← HasLimitHomeomorphism
 Schoenflies.CellStructure.LimitTower.isHomeoOn_F      ← the fields of LimitTower
+Schoenflies.stageSequence        the fields of LimitTower ← HasGridSteps, HasMeshSteps
 ```
 
 | Assumed | Declared in | Blocks | Notes |
 |---|---|---|---|
 | `Schoenflies.SquareExtension` | `Endgame.lean` | `thm:main` | discharged by `square_extension` below, so not really open |
-| `Schoenflies.HasLimitHomeomorphism` | `BoundaryContinuity2.lean` | `thm:square-extension` | four conjuncts: a dense anchor set, the interior homeomorphism, `HasAnchorCrosscuts`, `HasSpokes`. **`LimitTower` supplies the second; the other three need the construction.** |
-| the fields of `CellStructure.LimitTower` | `LimitMap.lean` | the interior homeomorphism | ~14 fields, each an obligation on whoever builds the nested sequence: the cell decompositions, the shared parent maps, the two halves of `prop:shrinking-stars`, and the nesting of the skeleton maps. See the module docstring |
+| `Schoenflies.HasLimitHomeomorphism` | `BoundaryContinuity2.lean` | `thm:square-extension` | four conjuncts: a dense anchor set, the interior homeomorphism, `HasAnchorCrosscuts`, `HasSpokes`. **`stageSequence` + `limitTower` supply the second given the two choosers below; the other three need `lem:anchor-density` and the `SkeletonCrosscuts.lean` handoff.** |
+| the fields of `CellStructure.LimitTower` | `LimitMap.lean` | the interior homeomorphism | **supplied**: `Schoenflies.stageSequence` (`StageRecursion.lean`) builds the `StageSequence`, and `StageSequence.limitTower` the tower, conditional only on the two choosers below. `prop:shrinking-stars` is proved inside the recursion, not assumed |
+| `Schoenflies.HasGridSteps` | `StageRecursion.lean` | the interior homeomorphism | the source-grid enlargement chooser: `prop:local-grid-attachment` (conditional on `hΓ`, `hcov`) + `thm:finite-transfer`(a) + `lem:grid-star-estimate`. See Phase 3 |
+| `Schoenflies.HasMeshSteps` | `StageRecursion.lean` | the interior homeomorphism | the target-mesh enlargement chooser: `prop:anchored-square-mesh` (done) + overlay + `thm:finite-transfer`(b). The nearest of the choosers to closable |
+| `Schoenflies.Realization.HasPolygonalArcs`, anchor incidence | `SkeletonCrosscuts.lean` | `HasAnchorCrosscuts`, `HasSpokes` | the two conditions of `lem:skeleton-crosscuts` as assembled: an arc in a polygonal-edged skeleton is polygonal (honest graph-geometry work), and each anchor has an incident nonboundary edge (a clause of `lem:anchor-density`) |
 | `Schoenflies.CellsAbsorb` | `SkeletonAccess.lean`, `FreshAccess.lean` | `lem:polygonal-side-accessibility` | one clause of `lem:cellulation-invariants`. **Discharged at a stage** by `Realization.cellsAbsorb` (`StageCells.lean`) — assertions (i) and (vii) make the 2-cells a partition of the open domain minus the skeleton into open connected pieces, which is the decomposition into components. It remains a hypothesis only where the realization is *not* a stage of a `GeneratedPair` |
 
 **Neither direction of `thm:finite-transfer` is on this list any more.** (b)'s ear step is
@@ -477,21 +481,36 @@ assembly, which is the cheap defence this file has recommended four times.
 
 **Phase 3 — the stage recursion.** Where `GridAttach.lean`, `SquareMeshClosed.lean` and
 `Windows.lean` are spent, giving `lem:grid-star-estimate` and `prop:shrinking-stars`. This is
-the largest phase by far and the only one whose geometry is not yet assembled anywhere.
+the largest phase by far.
 
-**The deliverable is one term: a `Schoenflies.StageSequence γ S₀ C`** (`StageTower.lean`). Its
-fields *are* the obligation list, and `StageSequence.limitTower` then supplies the second
-conjunct of `HasLimitHomeomorphism` with nothing further to prove. Stage 0 is free
-(`InitialData.generatedPair`, thirteen fields, zero hypotheses) and each step is *propose an
-enlarged graph on one side and transfer it to the other*, which is what
-`finite_transfer_toward_square'` and `finite_transfer_back'` now do unconditionally. `par`,
-`refines_src` and `refines_tgt` come straight out of `IsTransferOf`; `skeletonSet_mono` follows
-from it by `Realization.Refines.skeletonSet_subset`.
+**The recursion itself is now written.** `Schoenflies.stageSequence` (`StageRecursion.lean`) is
+a `def` producing the `Schoenflies.StageSequence γ S₀ C` (`StageTower.lean`) whose
+`limitTower` supplies the second conjunct of `HasLimitHomeomorphism`, and
+`stageSequence_of_isJordanCurve` instantiates it at stage 0 = `(initialData hC).generatedPair`.
+All fourteen fields have suppliers; `prop:shrinking-stars` itself — the dense-recurrence
+argument, `mem_openWindow_of_supDist_lt`, the catch-index bound, and monotonicity of stars
+under refinement — is **proved inside it**, not assumed. What it takes is exactly two named
+hypotheses, the two enlargement choosers:
 
-What the transfer theorems do **not** do is choose the enlargement, and the choice is the whole
-of `prop:shrinking-stars`: a source grid (`prop:local-grid-attachment`) to shrink the source
-stars, a target mesh (`prop:anchored-square-mesh`, done) to shrink the target stars uniformly,
-alternating. Four things are missing, and they are the phase:
+* **`Schoenflies.HasGridSteps S₀ C`** — at every strongly admissible stage, for every `ε > 0`
+  and window centre, a refined stage one `IsRefinementStep` away whose new source stars have
+  diameter `≤ 2ε` inside the open window. This is `prop:local-grid-attachment` +
+  `thm:finite-transfer`(a) + `lem:grid-star-estimate` in one bundle.
+* **`Schoenflies.HasMeshSteps S₀ C`** — the same minus the centre, with every closed target
+  2-cell of diameter `≤ ε`. This is `prop:anchored-square-mesh` (done) + overlay +
+  `thm:finite-transfer`(b), whose `HasFreshAnchors` is the mesh's clauses 3–4.
+
+Two findings from writing it, recorded so the dischargers do not trip on them: the choosers
+need **strong admissibility of their input stage** — the grid attachment uses connectedness of
+`|Γ| ∖ C` — which `StageSequence` does not carry, so the recursion's state is an
+`AdmissibleStage` (pair + both admissibilities), replenished each step by the transfer
+conclusions; and stage 0 needs its own target-star bound since no mesh step precedes it, hence
+`eps 0 = 4` via `diam_tgt_star_le_four`. The choosers quantify over *arbitrary* admissible
+stages, not the recursion's own — both intended dischargers need no history (anchor
+accessibility is domain-level; mesh freshness avoids only the current finite vertex set), but
+if a future discharger does need recursion-specific facts, the hypotheses must be re-cut.
+
+What is left of the phase is discharging the two choosers, and the missing pieces are:
 
 1. **`hΓ`** of `gridAttachGraph_isTwoConnected` — 2-connectivity of `Γ` with the case's crosscut
    and the loop's joining arcs appended and everything subdivided at the crossings. Not provable
@@ -774,7 +793,9 @@ unconditional — so the critical path is no longer any of those. **It is the st
 nothing else.** Everything below `thm:square-extension` in this table is proved against
 `Schoenflies.SquareExtension`; `square_extension` proves that from
 `Schoenflies.HasLimitHomeomorphism`; and all four conjuncts of *that* come from one term, a
-`Schoenflies.StageSequence`. Phase 3 above is the list of what building one still needs.
+`Schoenflies.StageSequence` — which `Schoenflies.stageSequence` (`StageRecursion.lean`) now
+builds from the two chooser hypotheses `HasGridSteps` and `HasMeshSteps`. Phase 3 above is the
+list of what discharging those still needs.
 
 | Statement | Status | Where |
 |---|---|---|
@@ -795,7 +816,7 @@ nothing else.** Everything below `thm:square-extension` in this table is proved 
 | `thm:finite-transfer` (a) | **done** | `FiniteTransfer.lean` for steps 2 and 4, the induction scheme and the last paragraph; **step 3** is `Schoenflies.earStep` (`EarStep.lean`, on `EarDraw.lean` / `EarSource.lean` / `EarTarget.lean` / `SplitStage.lean` / `StageCells.lean`); **step 1** is `Schoenflies.commonSubdivision` (`CommonSubdiv.lean`, on `SubdivStage.lean` / `SubdivPoints.lean` / `Graph/PlaneEdges.lean` / `Graph/AdjCongr.lean`). `Schoenflies.finite_transfer_toward_square'` is the headline, assuming nothing but the four ambient-domain facts |
 | `thm:finite-transfer` (b) | **done** | `Schoenflies.finite_transfer_back` (`FiniteTransferBack.lean`) is the theorem with only the ear step assumed. **Step 1 is done** — `Schoenflies.commonSubdivisionTgt` (`CommonSubdivTgt.lean`), on `GeneratedPair.exists_subdivide_finite_tgt`; steps 2 and 4 and the final admissibility are `transfer_of_ears_tgt` and `finite_transfer_back`. **The combinatorial paragraph of step 3 is done** — `AnchorFace.lean` (`CellStructure.UniqueFaceAt` and the two elementary operations), carried through the induction as the `anchor_uniqueFaceAt` clause of `IsPartialTransferOfTgt` and discharged at the base by `commonSubdivisionTgt`; **and so are both geometric halves of step 3** — `Schoenflies.exists_earCrosscut` (`EarSource.lean`) places the given target ear, and `GeneratedPair.exists_source_ear` (`SourceEar.lean`) produces the source crosscut. **And step 3 is closed**: `Schoenflies.earStepTgt` (`EarStepTgt.lean`, on `SourceEar.lean`), whose `HasFreshAnchors` is the statement's own second sentence. `Schoenflies.finite_transfer_back'` is the headline, assuming nothing but that and the four ambient-domain facts |
 | `prop:local-grid-attachment` | conditional (`hΓ`, `hcov`) | `LocalGrid.lean` (`localGrid`, the diameter clause) + `GridAttach.lean` (the overlay, the crosscut factory, the component-joining loop, and the construction as `def`s). The blueprint's three cases collapse to one; the joining loop is done by representatives rather than by a decreasing component count. `hΓ` is 2-connectivity of `Γ` with the auxiliary arcs appended — not provable there, because `C` is not drawn by segments so `Γ` is not a `pieceListGraph`; `hcov` is "finitely many representatives meet every component of `|L| ∖ C`", where the blueprint's finiteness lives |
-| `lem:grid-star-estimate`, `prop:shrinking-stars`, `lem:anchor-density` | open | quantitative refinement; they consume the stage recursion, which does not exist yet. The metric half is ready: `Windows.lean` has `supRadius` (the ℓ^∞ distance to a compact set, with attainment, positivity and the 1-Lipschitz property), `windowRadius` / `window` / `openWindow` with the blueprint's three inequalities and `W_n(p) ⊆ D`, the arithmetic of `prop:shrinking-stars` (`mem_openWindow_of_supDist_lt`), and the two sequences (`recur`, `tendsto_two_pow_neg`) |
+| `lem:grid-star-estimate`, `prop:shrinking-stars`, `lem:anchor-density` | `prop:shrinking-stars` **done** conditional on the two choosers; the other two open | the stage recursion now exists (`Schoenflies.stageSequence`, `StageRecursion.lean`) and `prop:shrinking-stars` is proved inside it — the dense recurrence (`recur` on `denseSeq`), `mem_openWindow_of_supDist_lt`, the catch-index bound, and star monotonicity under refinement. `lem:grid-star-estimate` survives as the `diam_star_le` field of `HasGridSteps`, and `lem:anchor-density` is unchanged: open, consumed by `HasAnchorCrosscuts`/`HasSpokes` through `SkeletonCrosscuts.lean`. The metric half stays where it was: `Windows.lean` has `supRadius`, `windowRadius` / `window` / `openWindow` with the blueprint's three inequalities and `W_n(p) ⊆ D`, and the two sequences (`recur`, `tendsto_two_pow_neg`) |
 | the passage from stages to `LimitTower` | done | `StageTower.lean` — `StageSequence` and `StageSequence.limitTower`, with no free hypotheses; `isHomeoOn_F` is `prop:interior-homeomorphism` in exactly the shape `HasLimitHomeomorphism`'s second conjunct asks for, and `F_eq_skelHomeo` is the bridge that will discharge `HasAnchorCrosscuts` |
 | arc monotonicity | done | `ArcMonotone.lean` — not a blueprint statement; one of the facts the manuscript uses silently. A homeomorphism between two arcs induces a strictly monotone map of parameters, so it carries subarcs to subarcs |
 | `prop:skeleton-agreement`, `prop:F-continuous`, `prop:image-interior`, `prop:F-injective`, `prop:target-skeleton-dense`, `prop:F-surjective`, `lem:exact-cell-correspondence`, `prop:inverse-continuous`, `prop:interior-homeomorphism` | **done**, against `CellStructure.LimitTower` | `LimitMap.lean`, with **no free hypotheses at all**: every one takes `L : LimitTower γ` and nothing else, so every obligation is a *field* of the structure. See "The limit section, and why it needed no construction" below for the statement-by-statement map. (`lem:cell-neighborhood` used to be listed here too; it is `RefinementStars.lean`, as the row above says) |

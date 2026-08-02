@@ -6,6 +6,7 @@ Authors: Álvaro Begué
 import Schoenflies.CellulationInvariants
 import Schoenflies.JordanClosed
 import Schoenflies.Graph.PathGraph
+import Schoenflies.Graph.Ear
 
 /-!
 # Realizing a 2-cell split
@@ -777,6 +778,19 @@ theorem isPathGraph_earGraph :
     (d.earGraph earPos).IsPathGraph (R.pos d.source) d.earWalk (R.pos d.target) := by
   have := d.isPathGraph.map hE.injOn
   rwa [hE.pos_source, hE.pos_target] at this
+
+/-- **A 2-cell split keeps the drawn skeleton 2-connected** — the clause
+`def:admissible-graph` imposes, across the second elementary operation. Immediate from
+`Graph.IsTwoConnected.ear` once the drawn ear is known to be a path graph between two old
+0-cells; the subdivision half is `Graph.IsSubdivisionOf.isTwoConnected`. -/
+theorem isTwoConnected_splitGraph (hR : R.graph.IsTwoConnected) :
+    ((S.splitFace d).skel.map (d.splitPos R earPos)).IsTwoConnected := by
+  rw [hE.splitGraph_eq]
+  refine hR.ear ?_ hE.isPathGraph_earGraph source_ne_target_pos
+    (by rw [Realization.vertexSet_graph]; exact ⟨_, d.source_mem_skel, rfl⟩)
+    (by rw [Realization.vertexSet_graph]; exact ⟨_, d.target_mem_skel, rfl⟩)
+  exact Graph.Compatible.of_disjoint_edgeSet (by
+    rw [Realization.edgeSet_graph, d.edgeSet_earGraph]; exact d.disjoint_edgeSet)
 
 /-- **The drawn ear is a simple arc between the two old 0-cells it is glued to.** -/
 theorem isArcBetween_earSet :

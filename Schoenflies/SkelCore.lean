@@ -214,6 +214,8 @@ end Graph
 
 namespace Schoenflies
 
+open CellStructure Graph
+
 /-! ### The parameter interval of a segment inside an arc
 
 An overlay edge lying inside a drawn 1-cell arc occupies, in the arc's own parameter, a closed
@@ -612,5 +614,172 @@ theorem exists_arcPath_overlay {pieces : List Piece} {points : List Plane}
         by_cases h : R = Q
         · exact Or.inl h
         · exact Or.inr ⟨hR, h⟩
+
+/-! ### The discharge
+
+Per 1-cell of the stage, `Schoenflies.exists_arcPath_overlay` runs on the drawn arc's own
+parametrization (its source pieces are the chain pieces of `Schoenflies.skelChain`, its two
+ends the drawn 0-cells). The union of the resulting path graphs is the core `K`;
+`Graph.IsTwoConnected.of_edge_paths` makes it 2-connected from admissibility's
+2-connectivity of the drawn skeleton, with the drawing conditions supplying exactly its
+interior clauses: a drawn vertex on an arc is an end of it (`vertex_mem_edgeArc`), and two
+arcs meet only in drawn vertices (`edge_inter`). -/
+
+variable {γ : Type*} {S₀ : CellStructure γ} {C : Set Plane}
+
+/-- **The skeleton side of the mesh-overlay core, discharged.** At every admissible stage,
+mesh size, valid fresh list and `JoinsFor` list, the overlay has a 2-connected subgraph
+containing every overlay vertex on the old drawn skeleton. -/
+theorem hasTwoConnectedSkelCores (S₀ : CellStructure γ) (C : Set Plane) :
+    HasTwoConnectedSkelCores S₀ C := by
+  intro P hsrc htgt ε hε fresh hfresh hne2 joins hjoins
+  classical
+  have hfresh' : ∀ z ∈ fresh, z ∈ modelCurve := fun z hz => (hfresh z hz).1
+  have hnd := meshOverlayPieces_nondeg (P := P) (ε := ε) hfresh' hjoins.nondeg
+  have hEnds := meshOverlayPoints_endsAreCut P ε fresh joins
+  have hMeets := meshOverlayPoints_meetsAreCut P ε fresh joins
+  -- one path of the overlay per 1-cell, along the drawn arc, visiting every vertex on it
+  have harc : ∀ e ∈ E(P.str.skel), ∃ W : List Piece,
+      (meshOverlayGraph P ε fresh joins).IsPath (P.tgt.drawing e 0) W (P.tgt.drawing e 1) ∧
+      (∀ Q ∈ W, Q ∈ E(meshOverlayGraph P ε fresh joins) ∧
+        Q.seg ⊆ Graph.edgeArc P.tgt.drawing e) ∧
+      ∀ v ∈ V(meshOverlayGraph P ε fresh joins), v ∈ Graph.edgeArc P.tgt.drawing e →
+        v ∈ (meshOverlayGraph P ε fresh joins).walkVertices (P.tgt.drawing e 0) W := by
+    intro e he
+    have hemap : e ∈ E(P.str.skel.map P.tgt.pos) := by rwa [edgeSet_map]
+    obtain ⟨hc, hi, hlk⟩ := P.tgt.isDrawing.edge_param hemap
+    have hsrc' : ∀ z ∈ P.tgt.drawing e '' I, ∃ R ∈ meshOverlayPieces P ε fresh joins,
+        z ∈ R.seg ∧ R.seg ⊆ P.tgt.drawing e '' I := by
+      intro z hz
+      have hz' : z ∈ cover (segsOf (skelChain P e)) := by
+        rw [cover_skelSegs P he]; exact hz
+      obtain ⟨R, hR, hzR⟩ := mem_cover_iff.1 hz'
+      exact ⟨R, skelSeg_mem_meshOverlayPieces he hR, hzR, seg_subset_edgeArc P he hR⟩
+    have h1V : P.tgt.drawing e 1 ∈ V(meshOverlayGraph P ε fresh joins) := by
+      have hlink : (P.tgt.graph).IsLink e (P.tgt.drawing e 0) (P.tgt.drawing e 1) := hlk
+      exact meshOverlayGraph_vertexSet_subset htgt hlink.right_mem
+    exact exists_arcPath_overlay hnd hEnds hMeets hc hi hsrc' h1V
+  -- fix one path per 1-cell
+  set Wf : γ → List Piece :=
+    fun e => if h : e ∈ E(P.str.skel) then (harc e h).choose else [] with hWf
+  have hWspec : ∀ e (he : e ∈ E(P.str.skel)),
+      (meshOverlayGraph P ε fresh joins).IsPath (P.tgt.drawing e 0) (Wf e)
+        (P.tgt.drawing e 1) ∧
+      (∀ Q ∈ Wf e, Q ∈ E(meshOverlayGraph P ε fresh joins) ∧
+        Q.seg ⊆ Graph.edgeArc P.tgt.drawing e) ∧
+      ∀ v ∈ V(meshOverlayGraph P ε fresh joins), v ∈ Graph.edgeArc P.tgt.drawing e →
+        v ∈ (meshOverlayGraph P ε fresh joins).walkVertices (P.tgt.drawing e 0) (Wf e) := by
+    intro e he
+    rw [hWf]
+    simp only [dif_pos he]
+    exact (harc e he).choose_spec
+  -- the core: the union of the path graphs, one per 1-cell
+  set O := meshOverlayGraph P ε fresh joins with hO
+  set K : Graph Plane Piece :=
+    { vertexSet := ⋃ e ∈ E(P.str.skel), O.walkVertices (P.tgt.drawing e 0) (Wf e)
+      IsLink := fun Q a b => (∃ e ∈ E(P.str.skel), Q ∈ Wf e) ∧ O.IsLink Q a b
+      edgeSet := {Q | ∃ e ∈ E(P.str.skel), Q ∈ Wf e}
+      isLink_symm := fun _ _ => ⟨fun _ _ h => ⟨h.1, h.2.symm⟩⟩
+      eq_or_eq_of_isLink_of_isLink := fun _ _ _ _ _ h1 h2 => h1.2.left_eq_or_eq h2.2
+      edge_mem_iff_exists_isLink := by
+        intro Q
+        constructor
+        · rintro ⟨e, he, hQe⟩
+          obtain ⟨a, b, hl⟩ := Graph.exists_isLink_of_mem_edgeSet
+            ((hWspec e he).1.isWalk.edge_mem hQe)
+          exact ⟨a, b, ⟨e, he, hQe⟩, hl⟩
+        · rintro ⟨a, b, h⟩
+          exact h.1
+      left_mem_of_isLink := by
+        rintro Q a b ⟨⟨e, he, hQe⟩, hl⟩
+        exact mem_iUnion₂.2 ⟨e, he,
+          Graph.mem_walkVertices_of_mem_covered ⟨Q, hQe, b, hl⟩⟩ } with hK
+  -- the interface of `K`, spelled out once so nothing downstream unfolds the literal
+  have hVK : ∀ e ∈ E(P.str.skel), ∀ ⦃v : Plane⦄,
+      v ∈ O.walkVertices (P.tgt.drawing e 0) (Wf e) → v ∈ V(K) := by
+    intro e he v hv
+    rw [hK]
+    exact mem_iUnion₂.2 ⟨e, he, hv⟩
+  have hVK' : ∀ ⦃v : Plane⦄, v ∈ V(K) →
+      ∃ e ∈ E(P.str.skel), v ∈ O.walkVertices (P.tgt.drawing e 0) (Wf e) := by
+    intro v hv
+    rw [hK] at hv
+    obtain ⟨e, he, h⟩ := mem_iUnion₂.1 hv
+    exact ⟨e, he, h⟩
+  have hEK : ∀ e ∈ E(P.str.skel), ∀ ⦃Q : Piece⦄, Q ∈ Wf e → Q ∈ E(K) := by
+    intro e he Q hQ
+    rw [hK]
+    exact ⟨e, he, hQ⟩
+  have hLK : ∀ ⦃Q a b⦄, K.IsLink Q a b → O.IsLink Q a b := by
+    intro Q a b h
+    rw [hK] at h
+    exact h.2
+  have hIncK : ∀ e ∈ E(P.str.skel), ∀ ⦃Q : Piece⦄, Q ∈ Wf e → ∀ ⦃a b⦄, O.IsLink Q a b →
+      K.IsLink Q a b := by
+    intro e he Q hQ a b h
+    rw [hK]
+    exact ⟨⟨e, he, hQ⟩, h⟩
+  have hKle : K ≤ O := by
+    constructor
+    · intro v hv
+      obtain ⟨e, he, hv'⟩ := hVK' hv
+      exact (hWspec e he).1.isWalk.walkVertices_subset hv'
+    · exact fun Q a b h => hLK h
+  have hKpath : ∀ e ∈ E(P.str.skel),
+      K.IsPath (P.tgt.drawing e 0) (Wf e) (P.tgt.drawing e 1) := fun e he =>
+    ((hWspec e he).1).anti hKle (hVK e he Graph.mem_walkVertices_self)
+      fun Q hQ => hEK e he hQ
+  have hKwv : ∀ e ∈ E(P.str.skel), O.walkVertices (P.tgt.drawing e 0) (Wf e) ⊆
+      K.walkVertices (P.tgt.drawing e 0) (Wf e) := by
+    intro e he v hv
+    rcases Graph.mem_walkVertices_iff.1 hv with rfl | ⟨Q, hQ, b, hl⟩
+    · exact Graph.mem_walkVertices_self
+    · exact Graph.mem_walkVertices_of_mem_covered ⟨Q, hQ, b, hIncK e he hQ hl⟩
+  -- the drawn skeleton is 2-connected, and the paths satisfy the transport's clauses
+  have hG2 : (P.tgt.graph).IsTwoConnected := htgt.isTwoConnected
+  have hEg : ∀ {e : γ}, e ∈ E(P.tgt.graph) → e ∈ E(P.str.skel) := fun {e} h => by
+    rwa [Realization.edgeSet_graph] at h
+  have hlink' : ∀ e ∈ E(P.tgt.graph),
+      (P.tgt.graph).IsLink e (P.tgt.drawing e 0) (P.tgt.drawing e 1) := fun e he =>
+    (P.tgt.isDrawing.edge_param (show e ∈ E(P.str.skel.map P.tgt.pos) by
+      rw [edgeSet_map]; exact hEg he)).2.2
+  have hOwv : ∀ e ∈ E(P.tgt.graph),
+      ∀ ⦃v⦄, v ∈ K.walkVertices (P.tgt.drawing e 0) (Wf e) →
+        v ∈ Graph.edgeArc P.tgt.drawing e := by
+    intro e he v hv
+    have hv' : v ∈ O.walkVertices (P.tgt.drawing e 0) (Wf e) :=
+      Graph.walkVertices_mono_of_le hKle hv
+    exact walkVertices_subset_of_edges (A := Graph.edgeArc P.tgt.drawing e)
+      ⟨0, zero_mem_I, rfl⟩ (fun Q hQ => ((hWspec e (hEg he)).2.1 Q hQ).2) hv'
+  have hK2 : K.IsTwoConnected := by
+    refine hG2.of_edge_paths (x := fun e => P.tgt.drawing e 0)
+      (y := fun e => P.tgt.drawing e 1) (W := Wf) hlink' ?_ ?_ ?_ ?_
+    · exact fun e he => hKpath e (hEg he)
+    · intro v hv
+      obtain ⟨e, he, hv'⟩ := hVK' hv
+      exact ⟨e, by rwa [Realization.edgeSet_graph], hKwv e he hv'⟩
+    · intro e he v hv hvG
+      exact P.tgt.isDrawing.vertex_mem_edgeArc (hlink' e he) hvG (hOwv e he hv)
+    · intro e he e' he' hne v hv hv'
+      refine (P.tgt.isDrawing.edge_inter (show e ∈ E(P.str.skel.map P.tgt.pos) by
+        rw [edgeSet_map]; exact hEg he) (show e' ∈ E(P.str.skel.map P.tgt.pos) by
+        rw [edgeSet_map]; exact hEg he') hne (hOwv e he hv) (hOwv e' he' hv')).1
+  refine ⟨K, hKle, hK2, ?_⟩
+  -- coverage: an overlay vertex on the skeleton lies on some 1-cell's path
+  intro v hvO hvcov
+  obtain ⟨R, hR, hvR⟩ := mem_cover_iff.1 hvcov
+  obtain ⟨e, he, hRe⟩ := mem_skelPieces.1 hR
+  exact hVK e he ((hWspec e he).2.2 v hvO (seg_subset_edgeArc P he hRe hvR))
+
+/-- The acceptance check: combined with the mesh side (still a hypothesis), the two per-side
+cores glue to `Schoenflies.HasTwoConnectedCores` and Phase 3's stage sequence follows through
+`Schoenflies.hasMeshSteps_of_cores`, with only the source-grid chooser and the mesh core left
+open. -/
+example {C : Set Plane} (hC : IsJordanCurve C) (hg : HasGridSteps initialStructure C)
+    (hmesh : HasTwoConnectedMeshCores initialStructure C) :
+    Nonempty (StageSequence InitialCell initialStructure C) :=
+  ⟨stageSequence_of_isJordanCurve hC hg
+    (hasMeshSteps_of_cores combInvariants_initialStructure (jordan_curve_theorem hC)
+      (hasTwoConnectedCores_of hmesh (hasTwoConnectedSkelCores initialStructure C)))⟩
 
 end Schoenflies

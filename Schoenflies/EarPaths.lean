@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Álvaro Begué
 -/
 import Schoenflies.FiniteTransfer
+import Schoenflies.Graph.PathOn
 
 /-!
 # The abstract half of one ear insertion
@@ -73,6 +74,85 @@ theorem exists_fresh_list [Infinite γ] {s : Set γ} (hs : s.Finite) (n : ℕ) :
   obtain ⟨t, hts, hcard⟩ := hs.infinite_compl.exists_subset_card_eq n
   exact ⟨t.toList, by simp [hcard], t.nodup_toList,
     fun z hz => hts (Finset.mem_toList.1 hz)⟩
+
+/-- **The abstract ear on fresh names.** Between two distinct 0-cells there is, for every
+length, a path graph whose edges and interior vertices are cells of no current structure — the
+four freshness fields of `CellStructure.SplitData`, discharged. The names come from
+`exists_fresh_list` and the graph from `Graph.pathOn`. -/
+theorem exists_abstract_ear [Infinite γ] (S : CellStructure γ) {z w : γ}
+    (hz : z ∈ V(S.skel)) (hw : w ∈ V(S.skel)) (hzw : z ≠ w) (k : ℕ) :
+    ∃ (ear : Graph γ γ) (earWalk : List γ), ear.IsPathGraph z earWalk w ∧
+      earWalk.length = k + 1 ∧ Disjoint V(ear) E(ear) ∧
+      V(ear) ∩ V(S.skel) = {z, w} ∧ (∀ ⦃f⦄, f ∈ E(ear) → f ∉ S.cells) ∧
+      (∀ ⦃c⦄, c ∈ V(ear) → c ≠ z → c ≠ w → c ∉ S.cells) := by
+  classical
+  obtain ⟨l, hlen, hnd, hfresh⟩ := exists_fresh_list S.finite_cells (2 * k + 1)
+  set fs := l.take (k + 1) with hfs
+  set vs := l.drop (k + 1) with hvs
+  have hfslen : fs.length = k + 1 := by simp [hfs, hlen]; omega
+  have hvslen : vs.length = k := by simp [hvs, hlen]; omega
+  have hfsnd : fs.Nodup := hnd.sublist (List.take_sublist _ _)
+  have hvsnd : vs.Nodup := hnd.sublist (List.drop_sublist _ _)
+  have hdisj : fs.Disjoint vs := List.disjoint_take_drop hnd le_rfl
+  have hfsfresh : ∀ f ∈ fs, f ∉ S.cells := fun f hf => hfresh f (List.mem_of_mem_take hf)
+  have hvsfresh : ∀ c ∈ vs, c ∉ S.cells := fun c hc => hfresh c (List.mem_of_mem_drop hc)
+  -- The steps: each fresh edge takes us to the next fresh vertex, the last one to `w`.
+  set steps := fs.zip (vs ++ [w]) with hsteps
+  have hlen₂ : (vs ++ [w]).length = k + 1 := by simp [hvslen]
+  have hmapfst : steps.map Prod.fst = fs := List.map_fst_zip (by omega)
+  have hmapsnd : steps.map Prod.snd = vs ++ [w] := List.map_snd_zip (by omega)
+  have hlast : ∀ (d : γ) (l : List γ), (l ++ [w]).getLastD d = w := by
+    intro d l
+    induction l generalizing d with
+    | nil => rfl
+    | cons a t ih => rw [List.cons_append, List.getLastD_cons]; exact ih a
+  have hwvs : w ∉ vs := fun hh => hvsfresh w hh (S.mem_cells_of_mem_vertexSet hw)
+  have hzvs : z ∉ vs := fun hh => hvsfresh z hh (S.mem_cells_of_mem_vertexSet hz)
+  have hnodupv : (z :: steps.map Prod.snd).Nodup := by
+    rw [hmapsnd]
+    refine List.nodup_cons.2 ⟨?_, ?_⟩
+    · simp only [List.mem_append, List.mem_singleton]
+      exact fun hh => hh.elim hzvs hzw
+    · refine List.nodup_append.2 ⟨hvsnd, List.nodup_singleton _, ?_⟩
+      intro a ha b hb
+      rw [List.mem_singleton] at hb
+      rintro rfl
+      exact hwvs (hb ▸ ha)
+  have hpath := Graph.isPathGraph_pathOn hnodupv (hmapfst ▸ hfsnd)
+  rw [hmapfst, hmapsnd, hlast z vs] at hpath
+  have hV : V(Graph.pathOn z steps) = insert z {c | c ∈ vs ++ [w]} := by
+    rw [Graph.vertexSet_pathOn, hmapsnd]
+  have hE : E(Graph.pathOn z steps) = {g | g ∈ fs} := by
+    rw [Graph.edgeSet_pathOn, hmapfst]
+  refine ⟨Graph.pathOn z steps, fs, hpath, hfslen, ?_, ?_, ?_, ?_⟩
+  · rw [hV, hE, Set.disjoint_left]
+    rintro c (rfl | hc) hcE
+    · exact hfsfresh c hcE (S.mem_cells_of_mem_vertexSet hz)
+    · rcases List.mem_append.1 hc with hc' | hc'
+      · exact hdisj hcE hc'
+      · rw [List.mem_singleton] at hc'
+        exact hfsfresh c hcE (hc' ▸ S.mem_cells_of_mem_vertexSet hw)
+  · rw [hV]
+    ext c
+    simp only [Set.mem_inter_iff, Set.mem_insert_iff, Set.mem_setOf_eq, List.mem_append,
+      List.mem_singleton, Set.mem_insert_iff, Set.mem_singleton_iff]
+    constructor
+    · rintro ⟨rfl | hc | hc, hcV⟩
+      · exact Or.inl rfl
+      · exact absurd (S.mem_cells_of_mem_vertexSet hcV) (hvsfresh c hc)
+      · exact Or.inr hc
+    · rintro (rfl | rfl)
+      exacts [⟨Or.inl rfl, hz⟩, ⟨Or.inr (Or.inr rfl), hw⟩]
+  · intro f hf
+    rw [hE] at hf
+    exact hfsfresh f hf
+  · intro c hc hcz hcw
+    rw [hV] at hc
+    rcases hc with rfl | hc
+    · exact absurd rfl hcz
+    · rcases List.mem_append.1 hc with hc' | hc'
+      · exact hvsfresh c hc'
+      · exact absurd (List.mem_singleton.1 hc') hcw
 
 namespace GeneratedPair
 

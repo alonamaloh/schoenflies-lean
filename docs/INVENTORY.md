@@ -234,6 +234,10 @@ checker under proof irrelevance.
 
 `Graph.mem_vertexSet_of_inc_of_mem_edgeSet`, `Graph.eq_of_le_of_subset_subset`, `Graph.IsTwoConnected.relative_ear_exists`, `Graph.IsTwoConnected.relative_grows_by_ear`, `Graph.vertexSet_union_pathGraphOf`, `Graph.edgeSet_union_pathGraphOf`, `Graph.IsTwoConnected.ear_decomposition`
 
+## Schoenflies/Graph/RenameEdges.lean  (185 lines)
+
+`Graph.renameEdges`, `Graph.renameEdges_vertexSet`, `Graph.renameEdges_edgeSet`, `Graph.renameEdges_isLink`, `Graph.IsLink.renameEdges`, `Graph.renameEdges_adj`, `Graph.renameEdges_finite`, `Graph.IsTwoConnected.renameEdges`, `Graph.renameDrawing`, `Graph.renameDrawing_apply`, `Graph.edgeArc_renameDrawing`, `Graph.exists_rep_of_mem_renameEdges`, `Graph.IsDrawing.renameEdges`, `Graph.pointSet_renameEdges`, `Graph.exists_injOn_notMem`
+
 ## Schoenflies/Graph/Subdivision.lean  (259 lines)
 
 `Graph.IsSubdivisionOf`, `Graph.IsSubdivisionOf.mem_vertexSet_of_mem`, `Graph.IsSubdivisionOf.newVertex_mem`, `Graph.IsSubdivisionOf.left_mem`, `Graph.IsSubdivisionOf.right_mem`, `Graph.IsSubdivisionOf.isLink_newEdge₁`, `Graph.IsSubdivisionOf.isLink_newEdge₂`, `Graph.IsSubdivisionOf.isLink_of_isLink`, `Graph.IsSubdivisionOf.reaches`, `Graph.IsSubdivisionOf.connected`, `Graph.IsSubdivisionOf.deleteVerts_newVertex`, `Graph.IsSubdivisionOf.deleteVerts`, `Graph.IsSubdivisionOf.deleteVerts_le_of_mem`, `Graph.IsSubdivisionOf.isTwoConnected`
@@ -325,6 +329,10 @@ checker under proof irrelevance.
 ## Schoenflies/MeshSteps.lean  (833 lines)
 
 `Schoenflies.frontier_closedSquare_sdiff_modelCurve`, `Schoenflies.edgeArc_subset_outer_of_strong_hypotheses`, `Schoenflies.not_nonboundaryAt_of_strong_hypotheses`, `Schoenflies.edge_subset_clause_of_inter_subset_vertexSet`, `Schoenflies.IsLoop.not_meets_both_arcs`, `Schoenflies.IsLoop.exists_param_modulus`, `Schoenflies.freshDense_of_param_dense`, `Schoenflies.IsLoop.exists_param_window_of_dense`, `Schoenflies.exists_freshDense_of_dense`, `Schoenflies.IsLoop.exists_ne_near`, `Schoenflies.IsLoop.closure_sdiff_singleton`, `Schoenflies.IsLoop.closure_sdiff_finite`, `Schoenflies.exists_fresh_anchor_supply`, `Schoenflies.diam_closure_cell_le_of_mesh_subset`, `Schoenflies.MeshTransfer`, `Schoenflies.HasMeshTransfers`, `Schoenflies.MeshTransfer.meshStepData`, `Schoenflies.hasMeshSteps`
+
+## Schoenflies/MeshTransfer.lean  (345 lines)
+
+`Schoenflies.FreshDense.mono`, `Schoenflies.MeshOverlayExtension`, `Schoenflies.MeshOverlayExtension.isSourceExtension`, `Schoenflies.MeshOverlayExtension.hasFreshAnchors`, `Schoenflies.MeshOverlayExtension.rename`, `Schoenflies.meshTransfer_of_extension`, `Schoenflies.HasMeshOverlays`, `Schoenflies.hasMeshTransfers`
 
 ## Schoenflies/ModelCurve.lean  (492 lines)
 

@@ -459,6 +459,14 @@ structure IsPartialTransferOf (T P : GeneratedPair S₀ srcOuter srcDom tgtOuter
   /-- Every vertex of the current subgraph is a 0-cell of the new structure: the new structure
   realizes a subdivision of `B`, so it has at least `B`'s vertices. -/
   vertexSet_subset : V(B) ⊆ V(T.src.graph)
+  /-- **The skeleton map is an extension of the base pair's.**
+
+  Both elementary operations build the new skeleton homeomorphism by *extending* the old one — a
+  subdivision does not change it at all and a split adds the ear map — so this holds all along
+  and is nowhere derivable from the other clauses, since `Realization.Refines` says nothing about
+  the two homeomorphisms. It is what `StageSequence.skelHomeo_succ` reads off a stage: without
+  it, chaining stages loses all control of the skeleton maps. -/
+  homeo_eqOn : Set.EqOn T.homeo.toFun P.homeo.toFun P.src.skeletonSet
 
 /-- **The conclusion of `thm:finite-transfer`(a).** -/
 structure IsTransferOf (T P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom)

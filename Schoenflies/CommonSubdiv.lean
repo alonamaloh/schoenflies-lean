@@ -161,7 +161,7 @@ theorem commonSubdivision_of_adj_match [Infinite γ] (h₀ : S₀.CombInvariants
   -- The vertices of `H` on the old skeleton: finitely many points of `|Γ|`.
   have hQfin : (V(H) ∩ P.src.skeletonSet).Finite :=
     (Graph.finite_vertexSet H).inter_of_left _
-  obtain ⟨T, par, hrs, hrt, hK, hVold, hVQ, hVsub⟩ :=
+  obtain ⟨T, par, hrs, hrt, hK, hVold, hVQ, hVsub, hg⟩ :=
     GeneratedPair.exists_subdivide_finite h₀ hQfin P Set.inter_subset_right
   -- Every old 0-cell was already a vertex of `H` on the skeleton, so the new 0-cells are
   -- exactly the vertices of the part.
@@ -169,7 +169,8 @@ theorem commonSubdivision_of_adj_match [Infinite γ] (h₀ : S₀.CombInvariants
     ⟨hH.vertexSet_subset hz, Graph.vertexSet_subset_pointSet hz⟩
   have hVeq : V(T.src.graph) = V(sourcePart P.src H Hdraw) :=
     Set.Subset.antisymm (hVsub.trans (Set.union_subset hPQ subset_rfl)) hVQ
-  refine ⟨sourcePart P.src H Hdraw, T, par, ?_, sourcePart_le, hrs, hrt, ?_, hVeq.ge⟩
+  refine ⟨sourcePart P.src H Hdraw, T, par, ?_, sourcePart_le, hrs, hrt, ?_, hVeq.ge,
+    fun x _ => by rw [hg]⟩
   · exact Graph.IsTwoConnected.of_adj_congr hVeq (hmatch T hK hVeq)
       T.src_isWeaklyAdmissible.isTwoConnected
   · rw [hK, pointSet_sourcePart hH]

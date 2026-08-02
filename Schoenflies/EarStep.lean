@@ -27,7 +27,7 @@ boundary cycle cuts at the ear's two ends into the two boundary paths. That give
 `Schoenflies.exists_target_ear` produces the polygonal crosscut of the corresponding 2-cell and
 `Schoenflies.exists_target_earCrosscut` draws the ear along it, together with the chosen
 homeomorphism between the two drawn ears. `Schoenflies.GeneratedPair.splitFace` then produces
-the next stage, and the four clauses of `Schoenflies.IsPartialTransferOf` are read off it.
+the next stage, and the five clauses of `Schoenflies.IsPartialTransferOf` are read off it.
 
 ## What is assumed, and why it is not about the stage
 
@@ -119,7 +119,7 @@ theorem earStep [Infinite γ] {P : GeneratedPair S₀ srcOuter srcDom tgtOuter t
     exists_target_earCrosscut hE₁ hPpoly hParc hPsub
       (T.tgt.disjoint_cell_skeletonSet T.tgt_isCellDecomposition d.face_mem)
   -- The next stage.
-  refine ⟨T.splitFace hS d hE₁ hE₂ m hsrcOut htgtOut, par ∘ d.parent, ?_, ?_, ?_, ?_⟩
+  refine ⟨T.splitFace hS d hE₁ hE₂ m hsrcOut htgtOut, par ∘ d.parent, ?_, ?_, ?_, ?_, ?_⟩
   · exact (T.refines_splitFace hS d hE₁ hE₂ m hsrcOut htgtOut).1.trans hT.refines_src
   · exact (T.refines_splitFace hS d hE₁ hE₂ m hsrcOut htgtOut).2.trans hT.refines_tgt
   · have h1 : (T.splitFace hS d hE₁ hE₂ m hsrcOut htgtOut).src.skeletonSet
@@ -138,6 +138,15 @@ theorem earStep [Infinite γ] {P : GeneratedPair S₀ srcOuter srcDom tgtOuter t
     intro x hx
     rw [Realization.vertexSet_graph]
     exact hkey hx
+  · -- **the skeleton map still extends the base pair's**
+    refine fun x hx => ?_
+    have h1 : (T.splitFace hS d hE₁ hE₂ m hsrcOut htgtOut).homeo.toFun x
+        = T.homeo.toFun x :=
+      SplitData.splitHomeo_eqOn hE₁ hE₂
+        (hT.refines_src.skeletonSet_subset P.src_isCellDecomposition
+          T.src_isCellDecomposition hx)
+    rw [h1]
+    exact hT.homeo_eqOn hx
 
 /-- **`thm:finite-transfer`, direction (a), with step 3 discharged.**
 

@@ -174,9 +174,24 @@ and 1c are done and `sorry`-free; 1d is blocked on one interface change, describ
   > `Schoenflies/Graph/TwoConnected.lean` says nothing about subdivisions —
   > `IsTwoConnected.union` needs both sides 2-connected, which an ear is not. That is a
   > self-contained graph-theory lemma and the natural next module.
-* **1d′. Weak admissibility across the two operations.** The above, as its own piece: it is
-  what `GeneratedPair.subdivideEdge` and `GeneratedPair.splitFace` — the two atoms `EarStep`
-  is built from — are missing, and it is independent of everything else in phase 1.
+* **1d′. Weak admissibility across the two operations — the graph half is now closed.**
+  `Graph.IsSubdivisionOf.isTwoConnected` (`Graph/Subdivision.lean`) is the subdivision half,
+  and the ear half was already on `main` as `Graph.IsTwoConnected.ear` (`Graph/Ear.lean`),
+  which `relative_grows_by_ear` uses internally and which applies verbatim to a given ear. Both
+  are stated for an arbitrary `Graph α β`, so they apply to the *drawn* graph, which is the one
+  `def:admissible-graph` constrains; `SubdivData.isSubdivisionOf_realizeGraph` is the bridge on
+  the subdivision side, and the split side needs its analogue (the realized split skeleton is
+  the old one union the drawn ear as a path graph).
+
+  Note what `isTwoConnected` needs and what it does not: **`x ≠ y`, because the theorem is false
+  for a loop** — a loop subdivides into a pendant pair, and deleting its base vertex strands the
+  new vertex, while 2-connectedness on its own permits loops. Consumers get looplessness from
+  `Graph.IsDrawing.not_isLoopAt`, which `transfer_of_ears` already passes around.
+
+  What is left of 1d′ is the other four clauses of `IsWeaklyAdmissible` — `outerSet_eq`,
+  `isPolygonal`, `cell_subset`, `skeletonSet_subset` — for both operations, which should be
+  read off the realization constructors, and then `GeneratedPair.subdivideEdge` /
+  `.splitFace` themselves.
 * **1e. `CommonSubdivision`.** Independent of 1b–1d and pure assembly:
   `exists_overlay_of_biUnion_finite` gives the overlay, `SubdivData.realizeHomeo` transports one
   subdivision to the other realization, and the induction over the overlay's finitely many new

@@ -270,4 +270,57 @@ theorem exists_source_earCrosscut [Infinite γ]
   · rw [hdearSet]
     exact hdrawH.isPolygonal_walkPointSet hD.isWalk hpolyD
 
+/-- **The degenerate ear, disposed of.** If some edge of the ear is already an edge of `B` then
+both its ends lie in `V(B)`, so both are among the two prescribed ends, and
+`Graph.IsPath.eq_singleton_of_inc` makes the ear that one edge. The ear then adds nothing —
+`B ∪ ear = B` — and the partial transfer carries over unchanged.
+
+This is the branch `Schoenflies.exists_source_earCrosscut` excludes with its hypothesis
+`∀ e ∈ D, e ∉ E(B)`; together the two cover every ear `Schoenflies.EarStep` is handed. -/
+theorem isPartialTransferOf_union_of_mem_edgeSet
+    {T P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom} {H B : Graph Plane γ}
+    {Hdraw : γ → ℝ → Plane} {par : γ → γ}
+    (hT : IsPartialTransferOf T P B Hdraw par)
+    (hH : IsDrawing H Hdraw) (hBH : B ≤ H) {a b : Plane} {D : List γ}
+    (hD : H.IsPath a D b) (hab : a ≠ b) (ha : a ∈ V(B))
+    (hint : ∀ y ∈ H.walkVertices a D, y ≠ a → y ≠ b → y ∉ V(B))
+    {e : γ} (heD : e ∈ D) (heB : e ∈ E(B)) :
+    IsPartialTransferOf T P (B.union (H.pathGraphOf a D)) Hdraw par := by
+  obtain ⟨p, q, hl⟩ := exists_isLink_of_mem_edgeSet (hD.edge_mem heD)
+  have hpq : p ≠ q := fun h => hH.not_isLoopAt e p (by rw [← h] at hl; exact hl)
+  have hpV : p ∈ V(B) := mem_vertexSet_of_inc_of_mem_edgeSet hBH heB hl.inc_left
+  have hqV : q ∈ V(B) := mem_vertexSet_of_inc_of_mem_edgeSet hBH heB hl.inc_right
+  have hends : ∀ {x : Plane}, x ∈ H.walkVertices a D → x ∈ V(B) → x = a ∨ x = b := by
+    intro x hx hxB
+    by_contra hcon
+    push Not at hcon
+    exact hint x hx hcon.1 hcon.2 hxB
+  have hp' := hends (mem_walkVertices_of_mem_covered ⟨e, heD, hl.inc_left⟩) hpV
+  have hq' := hends (mem_walkVertices_of_mem_covered ⟨e, heD, hl.inc_right⟩) hqV
+  have hkey : H.Inc e a ∧ H.Inc e b := by
+    rcases hp' with hp | hp <;> rcases hq' with hq | hq
+    · exact absurd (hp.trans hq.symm) hpq
+    · exact ⟨by rw [← hp]; exact hl.inc_left, by rw [← hq]; exact hl.inc_right⟩
+    · exact ⟨by rw [← hq]; exact hl.inc_right, by rw [← hp]; exact hl.inc_left⟩
+    · exact absurd (hp.trans hq.symm) hpq
+  obtain rfl : D = [e] := hD.eq_singleton_of_inc hab heD hkey.1 hkey.2
+  have hle : H.pathGraphOf a [e] ≤ B := by
+    constructor
+    · intro x hx
+      rw [pathGraphOf_vertexSet] at hx
+      rcases mem_walkVertices_iff.1 hx with rfl | ⟨f, hf, hinc⟩
+      · exact ha
+      · rw [List.mem_singleton] at hf
+        subst hf
+        rcases hinc.eq_or_eq_of_isLink hl with rfl | rfl
+        exacts [hpV, hqV]
+    · intro f x y hlk
+      rw [pathGraphOf_isLink] at hlk
+      obtain ⟨hf, hxy, -, -⟩ := hlk
+      rw [List.mem_singleton] at hf
+      subst hf
+      exact (hBH.isLink_iff heB).2 hxy
+  rw [union_eq_left_of_le hle]
+  exact hT
+
 end Schoenflies

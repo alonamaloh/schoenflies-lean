@@ -36,7 +36,7 @@ Schoenflies.CellStructure.LimitTower.isHomeoOn_F      ← the fields of LimitTow
 | `Schoenflies.SquareExtension` | `Endgame.lean` | `thm:main` | discharged by `square_extension` below, so not really open |
 | `Schoenflies.HasLimitHomeomorphism` | `BoundaryContinuity2.lean` | `thm:square-extension` | four conjuncts: a dense anchor set, the interior homeomorphism, `HasAnchorCrosscuts`, `HasSpokes`. **`LimitTower` supplies the second; the other three need the construction.** |
 | the fields of `CellStructure.LimitTower` | `LimitMap.lean` | the interior homeomorphism | ~14 fields, each an obligation on whoever builds the nested sequence: the cell decompositions, the shared parent maps, the two halves of `prop:shrinking-stars`, and the nesting of the skeleton maps. See the module docstring |
-| `Schoenflies.EarStepTgt` | `FiniteTransferBack.lean` | `thm:finite-transfer`(b) | step 3 of direction (b), one ear insertion. Everything else of (b) is proved. The half that is not routine is `hunique` — see below |
+| `Schoenflies.EarStepTgt` | `FiniteTransferBack.lean` | `thm:finite-transfer`(b) | step 3 of direction (b), one ear insertion. Everything else of (b) is proved, and so is the accessibility of an endpoint off the wild curve (`Realization.polyAccessible_of_notMem_outer`, `SourceAccess.lean`). What is not is `hunique` — see below |
 | `Schoenflies.CellsAbsorb` | `SkeletonAccess.lean`, `FreshAccess.lean` | `lem:polygonal-side-accessibility` | one clause of `lem:cellulation-invariants`. **Discharged at a stage** by `Realization.cellsAbsorb` (`StageCells.lean`) — assertions (i) and (vii) make the 2-cells a partition of the open domain minus the skeleton into open connected pieces, which is the decomposition into components. It remains a hypothesis only where the realization is *not* a stage of a `GeneratedPair` |
 
 **`thm:finite-transfer`(a) is no longer on this list.** Both of its named hypotheses are
@@ -375,8 +375,14 @@ inverse parameter — `SkeletonHomeo.image_cell` supplies the corresponding sour
 `SubdivData.drawing_targetParam` says the target cut lands on the nose. What is left of (b) is
 the ear step, `Schoenflies.EarStepTgt`; `Schoenflies.finite_transfer_back` is (b) with only
 that assumed. Its two halves are of very different sizes. An endpoint off `C` is accessible from
-the corresponding source face by `lem:polygonal-side-accessibility`, both halves of which are in
-`SkeletonAccess.lean`. An endpoint *on* `C` is the anchor `a` of a fresh point `u(a)`, and
+the corresponding source face — that is
+`CellStructure.Realization.polyAccessible_of_notMem_outer` (`SourceAccess.lean`), **done**. It
+is not `polygonal_side_accessibility_target`, which asks every edge polygonal and which a source
+realization never satisfies; the general `Graph.polygonal_side_accessibility` applies, because
+it already carries a compact wild set to be adjoined, and the whole content is choosing the
+graph — `Realization.nonboundaryGraph`, the drawn skeleton with the outer edges deleted, whose
+point set together with the outer curve is the whole skeleton. An endpoint *on* `C` is the
+anchor `a` of a fresh point `u(a)`, and
 `Schoenflies.polyAccessible_of_stronglyAccessible` (`FreshAccess.lean`) is that paragraph,
 proved — but carrying `hunique`, *the only current source 2-cell whose closure contains `a` is
 the one corresponding to the target face*. `hunique` is the blueprint's combinatorial paragraph

@@ -230,6 +230,18 @@ on it. Wave 1 built the first two layers of that, in `Schoenflies/Graph/`:
 1. **Namespace.** Graph declarations live in the ROOT `Graph` namespace, extending Mathlib's —
    NOT under `Schoenflies`. Without that, `G.IsWalk u W v` and `hW.append h₂` do not resolve by
    dot notation. Keep doing this in every `Schoenflies/Graph/*.lean` module.
+
+   **And close `namespace Schoenflies` before you open `namespace Graph`.** Writing
+   `theorem Graph.foo` — or `namespace Graph` — while `namespace Schoenflies` is still open
+   creates `Schoenflies.Graph.foo`, and with it a `Schoenflies.Graph` *namespace*. From then on,
+   in your module and in **every module downstream of it**, `open Graph` under `open Schoenflies`
+   resolves to `Schoenflies.Graph` instead of the root one, and the whole root `Graph` API
+   silently vanishes. The errors land in files you never touched and name lemmas you never
+   mentioned, with no hint that a namespace is the cause. Both spellings are already in the
+   library and are correct where they appear — `Graph`-namespace blocks sit *outside*
+   `namespace Schoenflies`, and the `Schoenflies`-namespace blocks after them reopen it — so
+   copy the file layout of `EarSource.lean`: `namespace Graph … end Graph`, then
+   `namespace Schoenflies … end Schoenflies`, never nested.
 2. **The empty walk requires `x ∈ V(G)`.** That makes `IsWalk.left_mem`, `.right_mem` and
    `.walkVertices_subset` hypothesis-free. The cost is that `Reaches.refl` takes `u ∈ V(G)`.
 3. **Loops are tolerated by walks and excluded from paths by the definition.** Do NOT add a

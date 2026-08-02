@@ -318,6 +318,13 @@ theorem union_le (hGK : G ≤ K) (hHK : H ≤ K) : G.union H ≤ K where
     rintro g p q (h | ⟨-, h⟩)
     exacts [hGK.isLink_mono h, hHK.isLink_mono h]
 
+/-- A union with a subgraph is the graph. The degenerate ear of `thm:finite-transfer` — one
+edge, already present — reduces to this. -/
+theorem union_eq_left_of_le (h : H ≤ G) : G.union H = G := by
+  refine Graph.ext (by simp [h.vertexSet_mono]) fun e x y => ?_
+  rw [union_isLink]
+  exact ⟨fun hh => hh.elim id fun hh => absurd (h.edgeSet_mono hh.2.edge_mem) hh.1, Or.inl⟩
+
 /-- The right-hand graph is a subgraph of the union only when the two agree about their shared
 edges — without that, no graph has both as subgraphs. -/
 theorem Compatible.right_le_union (h : G.Compatible H) : H ≤ G.union H where

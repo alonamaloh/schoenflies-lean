@@ -142,14 +142,8 @@ theorem IsTwoConnected.exists_adj_ne (h : G.IsTwoConnected)
 
 "Take a maximal simple path" is `Graph.exists_longest_path`, already in
 `Schoenflies/Graph/Tree.lean` — it is what the three-leaf lemma runs on — so nothing here
-rebuilds it. -/
-
-/-- **A path from a vertex back to itself is empty.** The first step would depart from the
-vertex the rest of the path arrives at, which the freshness clause forbids. -/
-theorem IsPath.eq_nil_of_eq (h : G.IsPath u W u) : W = [] := by
-  cases h with
-  | nil => rfl
-  | cons _ hT hfresh => exact absurd hT.target_mem_walkVertices hfresh
+rebuilds it. `Graph.IsPath.eq_nil_of_eq` — a path from a vertex back to itself is empty — is in
+`Schoenflies/Graph/Walk.lean` with the rest of the `IsPath` basics. -/
 
 /-- A cycle with at least three vertices — the blueprint's "cycle of length at least three".
 The third vertex is named rather than counted, because that is what both consumers want. -/

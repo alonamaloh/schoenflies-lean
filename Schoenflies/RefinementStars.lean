@@ -254,6 +254,32 @@ theorem closure_cell_subset (h : R'.Refines R par) {σ : γ} (hσ : σ ∈ S'.ce
     closure (R'.cell σ) ⊆ closure (R.cell (par σ)) :=
   closure_mono (h.cell_subset hσ)
 
+/-- **A refinement occupies at least what it refines.** The realized skeleton only grows, and
+this is a consequence of the interface rather than a fact about how the refinement was built: a
+point of the old skeleton lies in the open cell of some old 0-cell or 1-cell
+(`Realization.exists_cell_of_mem_skeletonSet`); it also lies in some new open cell, whose parent
+must be that old cell, by disjointness; and the parent of a 2-cell is a 2-cell, so the new cell
+is not one either, and its open cell is part of the new skeleton.
+
+`thm:finite-transfer`(b) needs it to restrict `SplitData.splitHomeo_eqOn` — which says the
+transported skeleton map agrees with the old one on the *current* skeleton — to the skeleton of
+the base pair. -/
+theorem skeletonSet_subset (h : R'.Refines R par) (hcd : R.IsCellDecomposition D)
+    (hcd' : R'.IsCellDecomposition D) : R.skeletonSet ⊆ R'.skeletonSet := by
+  intro x hx
+  obtain ⟨σ, hσ, hxσ⟩ := exists_cell_of_mem_skeletonSet hx
+  have hxD : x ∈ D := by
+    rw [← hcd.iUnion_eq]; exact Set.mem_biUnion (Or.inl hσ) hxσ
+  obtain ⟨τ, hτ, hxτ⟩ := hcd'.exists_cell hxD
+  have hpar : par τ = σ := by
+    by_contra hne
+    exact Set.disjoint_left.1 (hcd.disjoint (h.parent_mem_cells hτ) (Or.inl hσ) hne)
+      (h.cell_subset hτ hxτ) hxσ
+  refine cell_subset_skeletonSet (hτ.resolve_right fun hf => ?_) hxτ
+  have hfσ : σ ∈ S.faces := hpar ▸ h.parent_mem_faces hf
+  rcases hσ with h1 | h1
+  exacts [S.faces_ne_vertexSet hfσ h1 rfl, S.faces_ne_edgeSet hfσ h1 rfl]
+
 /-- **`lem:refinement-compatibility`(a)**: the parent of the carrier of `x` at the finer stage is
 its carrier at the coarser stage. -/
 theorem parent_carrier [Nonempty γ] (href : R'.Refines R par) (h : R.IsCellDecomposition D)

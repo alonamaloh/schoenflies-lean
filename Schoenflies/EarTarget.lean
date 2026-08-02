@@ -5,7 +5,6 @@ Authors: Álvaro Begué
 -/
 import Schoenflies.EarSource
 import Schoenflies.MatchedSplit
-import Schoenflies.InitialPair
 
 /-!
 # The ear on the target side
@@ -39,15 +38,8 @@ Two things fall out that the parameter route would have had to prove.
 * `Schoenflies.exists_arc_homeo` — a homeomorphism between two arcs matching their prescribed
   ends. Not a blueprint statement; it is what "let `F*, v*, w*` be the corresponding face and
   endpoints in the other realization" needs to become a drawing.
-* `Graph.IsDrawing.map_of_injOn`, `Graph.pointSet_map` — a drawn graph pushed forward.
-
-## One import that is in the wrong place
-
-`Schoenflies.continuousOn_invFunOn_image` — *a continuous injection of a compact set has a
-continuous inverse on its image* — is a general topology fact and lives in
-`Schoenflies/InitialPair.lean`, where it was first needed. It is the only thing this module
-takes from there, and the import is otherwise dead weight. The honest fix is for the integrator
-to hoist it into `Schoenflies/Topology.lean` and drop the import; it is not restated here.
+* `Graph.IsDrawing.map_of_injOn`, `Graph.pointSet_map` — a drawn graph pushed forward, in
+  `Schoenflies/Graph/Drawing.lean`.
 -/
 
 open Set unitInterval
@@ -94,63 +86,6 @@ theorem exists_arc_homeo {A B : Set Plane} {p q p' q' : Plane}
   · rw [Set.image_comp, himf]
   · rw [← hf0, ← hg0, Function.comp_apply, hfi.leftInvOn_invFunOn zero_mem_I]
   · rw [← hf1, ← hg1, Function.comp_apply, hfi.leftInvOn_invFunOn one_mem_I]
-
-end Schoenflies
-
-namespace Graph
-
-open Schoenflies
-
-variable {β : Type*} {G : Graph Plane β} {drw : β → ℝ → Plane} {φ : Plane → Plane}
-
-theorem edgeArc_map (e : β) : edgeArc (fun f => φ ∘ drw f) e = φ '' edgeArc drw e := by
-  rw [edgeArc, edgeArc, Set.image_comp]
-
-/-- A drawn graph pushed forward occupies the image of what it occupied. -/
-theorem pointSet_map : pointSet (G.map φ) (fun f => φ ∘ drw f) = φ '' pointSet G drw := by
-  rw [pointSet, pointSet, vertexSet_map, edgeSet_map, Set.image_union, Set.image_iUnion₂]
-  exact congrArg _ (Set.iUnion₂_congr fun e _ => edgeArc_map e)
-
-/-- **A plane graph pushed forward along an injection continuous on its point set is a plane
-graph.** Every clause is the old clause pulled back through the injection: two points of the
-image coincide only if their preimages do, which is what turns each of the three conditions
-into its own image. -/
-theorem IsDrawing.map_of_injOn (h : IsDrawing G drw) (hcont : ContinuousOn φ (pointSet G drw))
-    (hinj : InjOn φ (pointSet G drw)) : IsDrawing (G.map φ) (fun f => φ ∘ drw f) where
-  edge_param := by
-    intro e he
-    rw [edgeSet_map] at he
-    obtain ⟨hc, hi, hl⟩ := h.edge_param he
-    have hsub : MapsTo (drw e) I (pointSet G drw) := fun t ht =>
-      edgeArc_subset_pointSet he ⟨t, ht, rfl⟩
-    exact ⟨hcont.comp hc hsub, hinj.comp hi hsub, hl.map φ⟩
-  vertex_mem_edgeArc := by
-    intro e x y vv hlk hv hmem
-    obtain ⟨p, q, hpq, rfl, rfl⟩ := hlk
-    rw [vertexSet_map] at hv
-    obtain ⟨v', hv', rfl⟩ := hv
-    rw [edgeArc_map] at hmem
-    obtain ⟨u, hu, heq⟩ := hmem
-    obtain rfl : v' = u := hinj (vertexSet_subset_pointSet hv')
-      (edgeArc_subset_pointSet hpq.edge_mem hu) heq.symm
-    rcases h.vertex_mem_edgeArc hpq hv' hu with rfl | rfl
-    exacts [Or.inl rfl, Or.inr rfl]
-  edge_inter := by
-    intro e f he hf hef p hpe hpf
-    rw [edgeSet_map] at he hf
-    rw [edgeArc_map] at hpe hpf
-    obtain ⟨x, hx, rfl⟩ := hpe
-    obtain ⟨y, hy, heq⟩ := hpf
-    have hxf : x ∈ edgeArc drw f := by
-      have hyx : y = x := hinj (edgeArc_subset_pointSet hf hy)
-        (edgeArc_subset_pointSet he hx) heq
-      rwa [hyx] at hy
-    obtain ⟨hxV, hIe, hIf⟩ := h.edge_inter he hf hef hx hxf
-    exact ⟨by rw [vertexSet_map]; exact ⟨x, hxV, rfl⟩, hIe.map φ, hIf.map φ⟩
-
-end Graph
-
-namespace Schoenflies
 
 open CellStructure Graph
 

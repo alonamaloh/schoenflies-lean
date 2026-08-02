@@ -14,22 +14,23 @@ stated for either realization of the stage: direction (a) of `thm:finite-transfe
 ear on the source side and (b) on the target side, and the placement argument does not know the
 difference — see the docstring of `Schoenflies.exists_earCrosscut`.
 
-Four facts, in the order they are proved.
+Four facts, in the order they are used.
 
 * `Graph.disjoint_walkPointSet_diff` — **the ear's interior misses the current subgraph.** The
   hypotheses of `Schoenflies.EarStep` say only that the ear's interior *vertices* are new; that
   its interior *points* are new is the plane-graph condition on `H`, spent twice: a point on an
   ear edge that is a vertex of `B` is an end of that ear edge, and a point on both an ear edge
   and an edge of `B` is a vertex shared by the two.
-* `Graph.IsPath.eq_singleton_of_inc` — **the one case that is not covered**: an ear edge that is
-  already an edge of `B` has both its ends in `V(B)`, hence both equal to the two prescribed
-  ends, and a path whose edge joins its own two ends is that one edge. `Schoenflies.EarStep` is
-  then trivial on such an ear, since `B ∪ ear = B`; every other ear satisfies
+* `Graph.IsPath.eq_singleton_of_inc` (`Schoenflies/Graph/Walk.lean`) — **the one case that is not
+  covered**: an ear edge that is already an edge of `B` has both its ends in `V(B)`, hence both
+  equal to the two prescribed ends, and a path whose edge joins its own two ends is that one
+  edge. `Schoenflies.EarStep` is then trivial on such an ear, since `B ∪ ear = B`
+  (`Graph.union_eq_left_of_le`, `Schoenflies/Graph/TwoConnected.lean`); every other ear satisfies
   `∀ e ∈ D, e ∉ E(B)`, which is what the disjointness above asks for.
-* `Graph.IsDrawing.isPolygonal_walkPointSet` — a drawn walk whose edges are polygonal arcs is a
-  polygonal set, by `Schoenflies.IsPolygonal.union` along the walk. With the disjointness this
-  gives `EarCrosscut.polygonal`: no ear edge can be an *outer* edge, because the outer curve is
-  already occupied by `B` and the ear's interior is not.
+* `Graph.IsDrawing.isPolygonal_walkPointSet` (`Schoenflies/Graph/DrawnWalk.lean`) — a drawn walk
+  whose edges are polygonal arcs is a polygonal set, by `Schoenflies.IsPolygonal.union` along the
+  walk. With the disjointness this gives `EarCrosscut.polygonal`: no ear edge can be an *outer*
+  edge, because the outer curve is already occupied by `B` and the ear's interior is not.
 
 ## Blueprint
 
@@ -43,64 +44,11 @@ open scoped Graph
 
 namespace Graph
 
-/-! ### Three general facts -/
-
-section General
-
-variable {α β : Type*} {G K : Graph α β}
-
-/-- A union with a subgraph is the graph. The degenerate ear — one edge, already present —
-reduces to this. -/
-theorem union_eq_left_of_le (h : K ≤ G) : G.union K = G := by
-  refine Graph.ext (by simp [h.vertexSet_mono]) fun e x y => ?_
-  rw [union_isLink]
-  exact ⟨fun hh => hh.elim id fun hh => absurd (h.edgeSet_mono hh.2.edge_mem) hh.1, Or.inl⟩
-
-/-- **A path with an edge joining its own two ends is that one edge.** The middle vertex of the
-first step would otherwise be revisited, and the path's freshness clause forbids it. -/
-theorem IsPath.eq_singleton_of_inc {u v : α} {W : List β} (h : G.IsPath u W v) (huv : u ≠ v)
-    {e : β} (he : e ∈ W) (hu : G.Inc e u) (hv : G.Inc e v) : W = [e] := by
-  cases h with
-  | nil => simp at he
-  | cons hl₀ hW hfresh =>
-    rcases List.mem_cons.1 he with rfl | he'
-    · rcases hv.eq_or_eq_of_isLink hl₀ with rfl | rfl
-      · exact absurd rfl huv
-      · rw [hW.eq_nil_of_eq]
-    · exact absurd (mem_walkVertices_of_mem_covered ⟨e, he', hu⟩) hfresh
-
-end General
-
 section Plane
 
 open Schoenflies
 
 variable {β : Type*} {H B : Graph Plane β} {Hdraw : β → ℝ → Plane}
-
-/-- The point set a walk occupies is the point set of the subgraph it spans. -/
-theorem pointSet_pathGraphOf {u v : Plane} {W : List β} (h : H.IsWalk u W v) :
-    pointSet (H.pathGraphOf u W) Hdraw = walkPointSet H Hdraw u W := by
-  rw [walkPointSet, pointSet, pathGraphOf_vertexSet, pathGraphOf_edgeSet h]
-
-/-- **A drawn walk with polygonal edges is a polygonal set.** Each step glues one more edge arc
-on at a point both pieces contain, which is exactly the hypothesis of
-`Schoenflies.IsPolygonal.union`. -/
-theorem IsDrawing.isPolygonal_walkPointSet (hD : IsDrawing H Hdraw) :
-    ∀ {u v : Plane} {W : List β}, H.IsWalk u W v → (∀ e ∈ W, IsPolygonal (edgeArc Hdraw e)) →
-      IsPolygonal (walkPointSet H Hdraw u W) := by
-  intro u v W h
-  induction h with
-  | @nil x hx =>
-    intro _
-    rw [walkPointSet_nil]
-    exact ⟨[x], (poly_singleton x).symm⟩
-  | @cons u m v e W hl hW ih =>
-    intro hpoly
-    rw [walkPointSet_cons hD hl]
-    refine (hpoly e (List.mem_cons_self ..)).union
-      (ih fun f hf => hpoly f (List.mem_cons_of_mem _ hf)) ⟨m, ?_, ?_⟩
-    · exact (hD.edge_isArcBetween hl).right_mem
-    · exact Or.inl mem_walkVertices_self
 
 /-- **The ear's interior misses the current subgraph.**
 
@@ -215,30 +163,6 @@ theorem union_pathGraphOf_eq_left (hH : IsDrawing H Hdraw) (hBH : B ≤ H) {a b 
       subst hf
       exact (hBH.isLink_iff heB).2 hxy
   exact union_eq_left_of_le hle
-
-/-- **What a finite plane graph leaves outside a set accumulates only on its own pieces.**
-
-The part of `|G|` outside `A` is contained in the vertices outside `A` together with the arcs of
-the edges that are not inside `A`, and that is a *closed* set — finitely many points and finitely
-many arcs — so the closure is contained in it too.
-
-`thm:finite-transfer`(b) spends it on the blueprint's `K`, "the union of all old closed
-nonboundary edges and the finitely many source ears already inserted", which is what the access
-cone at a fresh anchor is shrunk away from: `a ∉ K` reduces by this to "no nonboundary edge of
-the current subgraph passes through `a`", which is the anchor clause of the transfer invariant. -/
-theorem closure_pointSet_diff_subset [B.Finite] (hB : IsDrawing B Hdraw) (A : Set Plane) :
-    closure (pointSet B Hdraw \ A) ⊆
-      (V(B) \ A) ∪ ⋃ e ∈ {e | e ∈ E(B) ∧ ¬ edgeArc Hdraw e ⊆ A}, edgeArc Hdraw e := by
-  refine closure_minimal (fun x hx => ?_) ?_
-  · rcases hx.1 with hv | hedge
-    · exact Or.inl ⟨hv, hx.2⟩
-    obtain ⟨e, he, hxe⟩ := Set.mem_iUnion₂.1 hedge
-    exact Or.inr (Set.mem_iUnion₂.2 ⟨e, ⟨he, fun hsub => hx.2 (hsub hxe)⟩, hxe⟩)
-  refine IsClosed.union (Graph.finite_vertexSet B).diff.isClosed ?_
-  refine Set.Finite.isClosed_biUnion ((Graph.finite_edgeSet B).subset fun e he => he.1)
-    fun e he => ?_
-  obtain ⟨p, q, hl⟩ := exists_isLink_of_mem_edgeSet he.1
-  exact (hB.edge_isArcBetween hl).isArc.isClosed
 
 /-- **No ear edge is an outer edge.** The outer curve is already occupied by `B`, and the ear's
 interior is not; an ear edge drawn inside the outer curve would put an interior point of its own

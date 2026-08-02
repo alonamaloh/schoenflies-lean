@@ -28,6 +28,9 @@ This module collects the few that are not stated in the form the development use
   recognize that a region's frontier sits on the curve.
 * `continuousOn_union_of_isClosed` — Appendix C item 6, the pasting lemma, in the two-piece
   form the development pastes with.
+* `continuousOn_invFunOn_image` — Appendix C item 3, the compact-to-Hausdorff criterion, in the
+  form a *parametrized* arc has to be inverted with: `Function.invFunOn` on the image of a set,
+  rather than `Homeomorph` on a subtype.
 -/
 
 open Metric Set
@@ -79,5 +82,22 @@ theorem continuousOn_union_of_isClosed {f : Plane → Plane} {s t : Set Plane}
   (continuousOn_union_iff_of_isClosed hs ht).2 ⟨hfs, hft⟩
 
 end Plane
+
+/-- A continuous injection of a compact set has a continuous inverse on its image. Stated for
+the set-level `Function.invFunOn`, which is what a parametrized arc has to be inverted with. -/
+theorem continuousOn_invFunOn_image {f : ℝ → Plane} {s : Set ℝ} (hs : IsCompact s)
+    (hf : ContinuousOn f s) (hinj : InjOn f s) :
+    ContinuousOn (Function.invFunOn f s) (f '' s) := by
+  rw [continuousOn_iff_isClosed]
+  intro F hF
+  refine ⟨f '' (F ∩ s), (hs.inter_left hF).image_of_continuousOn (hf.mono inter_subset_right)
+    |>.isClosed, ?_⟩
+  ext y
+  constructor
+  · rintro ⟨hy, x, hx, rfl⟩
+    rw [mem_preimage, hinj.leftInvOn_invFunOn hx] at hy
+    exact ⟨⟨x, ⟨hy, hx⟩, rfl⟩, ⟨x, hx, rfl⟩⟩
+  · rintro ⟨⟨x, ⟨hxF, hxs⟩, rfl⟩, -⟩
+    exact ⟨by rw [mem_preimage, hinj.leftInvOn_invFunOn hxs]; exact hxF, ⟨x, hxs, rfl⟩⟩
 
 end Schoenflies

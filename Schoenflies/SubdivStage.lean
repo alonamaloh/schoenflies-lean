@@ -43,13 +43,6 @@ thirteen fields across one edge subdivision.
 * `cell_subset`, `skeletonSet_subset` — the two halves sit inside the old open edge
   (`realizeCell_edge_eq`) and the skeleton does not move at all (`skeletonSet_realize`).
 
-## An integrator note
-
-`SubdivData.outer_vertexSet_of_mem` is the outer-cycle twin of `SubdivData.skeleton_vertexSet`
-and belongs beside it in `Schoenflies/GeneratedStructure.lean`, next to
-`SubdivData.outer_edgeSet_of_mem`, which is already there. It is here only because hoisting it
-rebuilds everything below `GeneratedStructure.lean`.
-
 ## Blueprint
 
 * `Schoenflies.GeneratedPair.subdivideEdge` — `def:generated-structure`, operation 1, as an
@@ -75,17 +68,10 @@ variable {γ : Type*} {S : CellStructure γ} {d : S.SubdivData} {R : S.Realizati
 /-! ### The outer cycle of the subdivided structure
 
 `SubdivData.outer` is `S.outerGraph` when the subdivided edge is not an outer edge and the
-subdivided outer cycle when it is. `outer_edgeSet_of_mem` is on `main`; what the geometric
-clauses need beside it is the vertex set, and the three ways of reading "this edge is not an
-outer edge of the new structure". -/
-
-/-- The subdivided outer cycle gains the new 0-cell, and nothing else. -/
-theorem outer_vertexSet_of_mem (he : d.edge ∈ E(S.outerGraph)) :
-    V(d.outer) = insert d.newVertex V(S.outerGraph) := by
-  ext z
-  simp only [SubdivData.outer, subdivGraph_vertexSet, Set.mem_union, Set.mem_setOf_eq,
-    Set.mem_insert_iff, d.outer_isLink he, and_true]
-  tauto
+subdivided outer cycle when it is. Its vertex and edge sets are `outer_vertexSet_of_mem` and
+`outer_edgeSet_of_mem`, in `Schoenflies/GeneratedStructure.lean`; what the geometric clauses
+need beside them is the three ways of reading "this edge is not an outer edge of the new
+structure". -/
 
 /-- If the first half is a nonboundary edge of the new structure then the edge it was cut from
 was a nonboundary edge of the old one — the two halves of an *outer* edge are outer. -/

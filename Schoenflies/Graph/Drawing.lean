@@ -7,6 +7,7 @@ import Schoenflies.Curve
 import Schoenflies.Topology
 import Schoenflies.Bounded
 import Schoenflies.Graph.Degree
+import Mathlib.Combinatorics.Graph.Maps
 
 /-!
 # Plane graphs
@@ -43,8 +44,14 @@ only that are unaffected.
   shared vertices; away from the vertices, a point lies on exactly one edge.
 * `pointSet`, `IsDrawing.isCompact_pointSet`, `exterior`, `isOpen_exterior` — what a plane
   graph occupies, and the open set its faces live in.
+* `closure_pointSet_diff_subset` — what a finite plane graph leaves outside a set accumulates
+  only on its own vertices and arcs. Not a blueprint statement; it is how
+  `thm:finite-transfer`(b) reads the blueprint's `K` off the transfer invariant.
 * `face` — the component of the exterior through a point off the drawing. Named by a point
   rather than indexed, so no face has to be produced before it is spoken about.
+* `edgeArc_map`, `pointSet_map`, `IsDrawing.map_of_injOn` — a plane graph pushed forward along
+  an injection continuous on what it occupies. Not a blueprint statement; it is what lets the
+  target ear of `thm:finite-transfer` be *transported* rather than cut at parameters.
 -/
 
 open Metric Set Schoenflies unitInterval
@@ -142,6 +149,88 @@ theorem IsDrawing.isCompact_pointSet [G.Finite] (h : IsDrawing G drawing) :
 
 theorem IsDrawing.isClosed_pointSet [G.Finite] (h : IsDrawing G drawing) :
     IsClosed (pointSet G drawing) := h.isCompact_pointSet.isClosed
+
+/-- **What a finite plane graph leaves outside a set accumulates only on its own pieces.**
+
+The part of `|G|` outside `A` is contained in the vertices outside `A` together with the arcs of
+the edges that are not inside `A`, and that is a *closed* set — finitely many points and finitely
+many arcs — so the closure is contained in it too.
+
+`thm:finite-transfer`(b) spends it on the blueprint's `K`, "the union of all old closed
+nonboundary edges and the finitely many source ears already inserted", which is what the access
+cone at a fresh anchor is shrunk away from: `a ∉ K` reduces by this to "no nonboundary edge of
+the current subgraph passes through `a`", which is the anchor clause of the transfer invariant. -/
+theorem closure_pointSet_diff_subset [G.Finite] (h : IsDrawing G drawing) (A : Set Plane) :
+    closure (pointSet G drawing \ A) ⊆
+      (V(G) \ A) ∪ ⋃ e ∈ {e | e ∈ E(G) ∧ ¬ edgeArc drawing e ⊆ A}, edgeArc drawing e := by
+  refine closure_minimal (fun x hx => ?_) ?_
+  · rcases hx.1 with hv | hedge
+    · exact Or.inl ⟨hv, hx.2⟩
+    obtain ⟨e, he, hxe⟩ := Set.mem_iUnion₂.1 hedge
+    exact Or.inr (Set.mem_iUnion₂.2 ⟨e, ⟨he, fun hsub => hx.2 (hsub hxe)⟩, hxe⟩)
+  refine IsClosed.union (Graph.finite_vertexSet G).sdiff.isClosed ?_
+  refine Set.Finite.isClosed_biUnion ((Graph.finite_edgeSet G).subset fun e he => he.1)
+    fun e he => ?_
+  obtain ⟨p, q, hl⟩ := exists_isLink_of_mem_edgeSet he.1
+  exact (h.edge_isArcBetween hl).isArc.isClosed
+
+/-! ### A plane graph pushed forward
+
+`Graph.map` relabels the vertices; the drawing that goes with the relabelled graph is the old
+drawing composed with the same map. Everything a drawing asks for survives an injection that is
+continuous on what the graph occupies. -/
+
+section Map
+
+variable {φ : Plane → Plane}
+
+theorem edgeArc_map (e : β) : edgeArc (fun f => φ ∘ drawing f) e = φ '' edgeArc drawing e := by
+  rw [edgeArc, edgeArc, Set.image_comp]
+
+/-- A drawn graph pushed forward occupies the image of what it occupied. -/
+theorem pointSet_map : pointSet (G.map φ) (fun f => φ ∘ drawing f) = φ '' pointSet G drawing := by
+  rw [pointSet, pointSet, vertexSet_map, edgeSet_map, Set.image_union, Set.image_iUnion₂]
+  exact congrArg _ (Set.iUnion₂_congr fun e _ => edgeArc_map e)
+
+/-- **A plane graph pushed forward along an injection continuous on its point set is a plane
+graph.** Every clause is the old clause pulled back through the injection: two points of the
+image coincide only if their preimages do, which is what turns each of the three conditions
+into its own image. -/
+theorem IsDrawing.map_of_injOn (h : IsDrawing G drawing)
+    (hcont : ContinuousOn φ (pointSet G drawing)) (hinj : InjOn φ (pointSet G drawing)) :
+    IsDrawing (G.map φ) (fun f => φ ∘ drawing f) where
+  edge_param := by
+    intro e he
+    rw [edgeSet_map] at he
+    obtain ⟨hc, hi, hl⟩ := h.edge_param he
+    have hsub : MapsTo (drawing e) I (pointSet G drawing) := fun t ht =>
+      edgeArc_subset_pointSet he ⟨t, ht, rfl⟩
+    exact ⟨hcont.comp hc hsub, hinj.comp hi hsub, hl.map φ⟩
+  vertex_mem_edgeArc := by
+    intro e x y vv hlk hv hmem
+    obtain ⟨p, q, hpq, rfl, rfl⟩ := hlk
+    rw [vertexSet_map] at hv
+    obtain ⟨v', hv', rfl⟩ := hv
+    rw [edgeArc_map] at hmem
+    obtain ⟨u, hu, heq⟩ := hmem
+    obtain rfl : v' = u := hinj (vertexSet_subset_pointSet hv')
+      (edgeArc_subset_pointSet hpq.edge_mem hu) heq.symm
+    rcases h.vertex_mem_edgeArc hpq hv' hu with rfl | rfl
+    exacts [Or.inl rfl, Or.inr rfl]
+  edge_inter := by
+    intro e f he hf hef p hpe hpf
+    rw [edgeSet_map] at he hf
+    rw [edgeArc_map] at hpe hpf
+    obtain ⟨x, hx, rfl⟩ := hpe
+    obtain ⟨y, hy, heq⟩ := hpf
+    have hxf : x ∈ edgeArc drawing f := by
+      have hyx : y = x := hinj (edgeArc_subset_pointSet hf hy)
+        (edgeArc_subset_pointSet he hx) heq
+      rwa [hyx] at hy
+    obtain ⟨hxV, hIe, hIf⟩ := h.edge_inter he hf hef hx hxf
+    exact ⟨by rw [vertexSet_map]; exact ⟨x, hxV, rfl⟩, hIe.map φ, hIf.map φ⟩
+
+end Map
 
 /-- The exterior of a plane graph: everything the drawing does not occupy. -/
 def exterior (G : Graph Plane β) (drawing : β → ℝ → Plane) : Set Plane :=

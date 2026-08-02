@@ -146,7 +146,7 @@ checker under proof irrelevance.
 
 `Schoenflies.IsTransferOfTgt`, `Schoenflies.EarStepTgt`, `Schoenflies.transfer_of_ears_tgt`, `Schoenflies.finite_transfer_back`
 
-## Schoenflies/FreshAccess.lean  (229 lines)
+## Schoenflies/FreshAccess.lean  (251 lines)
 
 `Schoenflies.convex_accessCone`, `Schoenflies.isPreconnected_accessCone`, `Schoenflies.mem_closure_accessCone`, `Schoenflies.polyAccessible_accessCone`, `Schoenflies.exists_accessCone_disjoint`, `Schoenflies.accessCone_subset_cell`, `Schoenflies.polyAccessible_of_stronglyAccessible`
 

@@ -458,4 +458,61 @@ theorem meshOverlayGraph_pointSet_subset
   exact iUnion₂_subset fun e he =>
     (arc_subset_skeletonSet P he).trans htgt.skeletonSet_subset
 
+/-! ### The subdivision clause
+
+An overlay edge meeting an old open 1-cell at a non-vertex runs inside that 1-cell. The point
+is interior to the overlay edge (its ends are vertices) and interior to the overlay piece
+through it inside the 1-cell (its ends are cut points, hence vertices), so by separation the
+two pieces are the same segment. -/
+
+/-- The ends of an overlay edge are vertices. -/
+theorem end_mem_vertexSet_meshOverlayGraph {f : Piece}
+    (hf : f ∈ E(meshOverlayGraph P ε fresh joins)) {q : Plane} (hq : q = f.1 ∨ q = f.2) :
+    q ∈ V(meshOverlayGraph P ε fresh joins) := ⟨f, hf, hq⟩
+
+/-- A point of an overlay edge that is not a vertex is interior to the edge. -/
+theorem mem_interior_of_mem_edge_not_vertex {f : Piece}
+    (hf : f ∈ E(meshOverlayGraph P ε fresh joins)) {q : Plane} (hq : q ∈ f.seg)
+    (hqV : q ∉ V(meshOverlayGraph P ε fresh joins)) : q ∈ f.interior := by
+  by_contra hcon
+  refine hqV (end_mem_vertexSet_meshOverlayGraph hf ?_)
+  by_contra hend
+  push Not at hend
+  exact hcon (mem_openSegment_of_ne_left_right (Ne.symm hend.1) (Ne.symm hend.2) hq)
+
+/-- **The overlay subdivides the old skeleton rather than crossing it** — the `edge_subset`
+clause of `Schoenflies.MeshOverlayExtension`. -/
+theorem meshOverlayGraph_edge_subset (hfresh : ∀ z ∈ fresh, z ∈ modelCurve)
+    (hj : ∀ Q ∈ joins, Q.Nondeg) :
+    ∀ ⦃e⦄, e ∈ E(P.str.skel) → ∀ ⦃f⦄, f ∈ E(meshOverlayGraph P ε fresh joins) → ∀ ⦃q⦄,
+      q ∈ Graph.edgeArc segmentDrawing f → q ∈ P.tgt.cell e →
+      q ∉ V(meshOverlayGraph P ε fresh joins) →
+      Graph.edgeArc segmentDrawing f ⊆ Graph.edgeArc P.tgt.drawing e := by
+  intro e he f hf q hqf hqcell hqV
+  rw [edgeArc_segmentDrawing] at hqf ⊢
+  have hnd := meshOverlayPieces_nondeg (P := P) (ε := ε) hfresh hj
+  have hEnds := meshOverlayPoints_endsAreCut P ε fresh joins
+  have hMeets := meshOverlayPoints_meetsAreCut P ε fresh joins
+  -- `q` lies on the drawn 1-cell, hence on one of its chain pieces
+  obtain ⟨a, b, hl⟩ := exists_isLink_of_mem_edgeSet he
+  have hqarc : q ∈ Graph.edgeArc P.tgt.drawing e := by
+    rw [P.tgt.cell_edge hl] at hqcell
+    exact hqcell.1
+  have hqcov : q ∈ cover (segsOf (skelChain P e)) := by rwa [cover_skelSegs P he]
+  obtain ⟨R, hR, hqR⟩ := mem_cover_iff.1 hqcov
+  -- the overlay piece through `q` inside that chain piece
+  obtain ⟨Q, hQ, hqQ, hQR⟩ := subdivide_covers_source (meshOverlayPoints P ε fresh joins)
+    (meshOverlayPieces P ε fresh joins) R (skelSeg_mem_meshOverlayPieces he hR) q hqR
+  have hoQ : orientPiece Q ∈ E(meshOverlayGraph P ε fresh joins) :=
+    mem_overlayPieces.2 ⟨Q, hQ, rfl⟩
+  have hqQ' : q ∈ (orientPiece Q).seg := by rwa [orientPiece_seg]
+  -- `q` is interior to both pieces, so they are the same edge
+  have hqQi : q ∈ (orientPiece Q).interior := mem_interior_of_mem_edge_not_vertex hoQ hqQ' hqV
+  have hqfi : q ∈ f.interior := mem_interior_of_mem_edge_not_vertex hf hqf hqV
+  have hfQ : f = orientPiece Q := by
+    by_contra hne
+    exact overlayPieces_disjoint_interiors hnd hEnds hMeets hf hoQ hne hqfi hqQi
+  rw [hfQ, orientPiece_seg]
+  exact hQR.trans (seg_subset_edgeArc P he hR)
+
 end Schoenflies

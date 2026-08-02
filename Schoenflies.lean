@@ -141,3 +141,4 @@ import Schoenflies.MeshTransfer
 import Schoenflies.MeshOverlay
 import Schoenflies.GridExtension
 import Schoenflies.AnchorDensity
+import Schoenflies.MeshTwoConnected

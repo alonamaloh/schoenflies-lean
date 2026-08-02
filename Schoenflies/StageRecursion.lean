@@ -143,12 +143,13 @@ namespace IsRefinementStep
 
 variable {T' T P : StagePair S₀ C} {par' par : γ → γ}
 
-/-- The realized source skeleton grows across a step — `StageSequence.skeletonSet_mono`. -/
 omit [Nonempty γ] in
+/-- The realized source skeleton grows across a step — `StageSequence.skeletonSet_mono`. -/
 theorem skeletonSet_subset (h : IsRefinementStep T P par) :
     P.src.skeletonSet ⊆ T.src.skeletonSet :=
   h.refines_src.skeletonSet_subset P.src_isCellDecomposition T.src_isCellDecomposition
 
+omit [Nonempty γ] in
 /-- **Steps compose.** The two halves of one recursion step — grid attachment toward the
 square, mesh pulled back from it — combine into one step along the composed parent map, which
 is the `par n` the `StageSequence` records. -/
@@ -186,10 +187,10 @@ section Bridges
 
 variable {T P : StagePair S₀ C} {H : Graph Plane γ} {Hdraw : γ → ℝ → Plane} {par : γ → γ}
 
+omit [Nonempty γ] in
 /-- **A direction-(b) transfer is a refinement step.** Every field of `IsRefinementStep` is a
 field of `IsTransferOfTgt`, `homeo_eqOn` included — the target-side invariant already carries
 the skeleton-map extension clause. -/
-omit [Nonempty γ] in
 theorem IsTransferOfTgt.isRefinementStep (hT : IsTransferOfTgt T P H Hdraw par) :
     IsRefinementStep T P par where
   refines_src := hT.refines_src
@@ -198,6 +199,7 @@ theorem IsTransferOfTgt.isRefinementStep (hT : IsTransferOfTgt T P H Hdraw par) 
   src_isAdmissible := hT.src_isAdmissible
   tgt_isAdmissible := hT.tgt_isAdmissible
 
+omit [Nonempty γ] in
 /-- **A direction-(a) transfer is a refinement step — modulo one clause.**
 
 `hhomeo` is item 4 of the Phase 3 list in `docs/ROADMAP.md`: `IsPartialTransferOf` does not yet
@@ -207,7 +209,6 @@ unchanged). A `homeo_eqOn` clause mirroring `IsPartialTransferOfTgt.homeo_eqOn` 
 to `IsPartialTransferOf`; when it lands, a caller holding `hT` reads `hhomeo` off it and this
 hypothesis is discharged verbatim. Until then it is carried explicitly, so that nothing in this
 module silently claims what direction (a) does not yet provide. -/
-omit [Nonempty γ] in
 theorem IsTransferOf.isRefinementStep (hT : IsTransferOf T P H Hdraw par)
     (hhomeo : Set.EqOn T.homeo.toFun P.homeo.toFun P.src.skeletonSet) :
     IsRefinementStep T P par where

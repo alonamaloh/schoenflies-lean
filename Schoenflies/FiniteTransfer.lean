@@ -291,6 +291,33 @@ structure GeneratedPair (S₀ : CellStructure γ) (srcOuter srcDom tgtOuter tgtD
   src_isCellDecomposition : src.IsCellDecomposition srcDom
   /-- **Assertion (i)** on the target side. -/
   tgt_isCellDecomposition : tgt.IsCellDecomposition tgtDom
+  /-- **Assertion (vii)** on the source side: every open 2-cell is the bounded complementary
+  region of a Jordan curve, namely its own frontier.
+
+  Like `walks` below it travels with the bundle rather than being derived from `generated`. The
+  reason is the same: `SplitData.isCellDecomposition_and_isFaceJordan_realize` *consumes* it at
+  the current stage and reproduces it at the next, so there is no closure theorem over the raw
+  inductive, only the two step constructions a consumer applies while building a stage. And
+  `EarStep` needs it on **both** sides — on the target because
+  `SplitData.isCutPair_of_inter`, which produces the `IsCutPair` that
+  `Schoenflies.exists_target_ear` consumes, is stated against it. -/
+  src_isFaceJordan : src.IsFaceJordan
+  /-- **Assertion (vii)** on the target side. -/
+  tgt_isFaceJordan : tgt.IsFaceJordan
+  /-- **Every target edge is a polygonal arc — the outer ones included.**
+
+  This is the one place where the two sides of a matched cellulation are genuinely *not*
+  mirror images, and the reason it has to be a field. `IsWeaklyAdmissible.isPolygonal` restricts
+  polygonality to the **nonboundary** edges, and that restriction is not slack:
+  `def:admissible-graph` states it that way because the outer edges of a *source* stage are
+  subarcs of the wild Jordan curve `C`, which is in general nowhere polygonal. (`IsStageOn`
+  once dropped the restriction and was unsatisfiable in consequence — see `docs/ROADMAP.md`.)
+
+  On the target side the outer cycle is the boundary of the square, so *every* edge is
+  polygonal — and that is what `Schoenflies.exists_target_ear` needs, through
+  `Graph.polygonal_side_accessibility_target`, which quantifies over all of `E(G)`. Nothing
+  weaker will do, and nothing already in the bundle implies it. -/
+  tgt_isPolygonal : ∀ ⦃e⦄, e ∈ E(str.skel) → IsPolygonal (Graph.edgeArc tgt.drawing e)
   /-- The source realization is weakly admissible. -/
   src_isWeaklyAdmissible : src.IsWeaklyAdmissible srcOuter srcDom
   /-- The target realization is weakly admissible. -/

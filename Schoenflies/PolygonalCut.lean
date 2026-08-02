@@ -50,9 +50,9 @@ variable {f : ℝ → Plane} {A B C : Set Plane} {p q r : Plane} {t : ℝ}
 it.** The parametrisation restricted to `I` is a continuous injection from a compact space to a
 Hausdorff one, hence a closed map, so the part of `I` that lands in `C` is connected — and a
 connected subset of `ℝ` containing `0` and `t` contains `uIcc 0 t`. -/
-theorem subarc_subset_of_isPreconnected (hc : ContinuousOn f I) (hi : InjOn f I)
-    (hC : IsPreconnected C) (hCA : C ⊆ f '' I) (ht : t ∈ I) (h0 : f 0 ∈ C) (htC : f t ∈ C) :
-    f '' uIcc 0 t ⊆ C := by
+theorem subarc_subset_of_isPreconnected_of_mem (hc : ContinuousOn f I) (hi : InjOn f I)
+    (hC : IsPreconnected C) (hCA : C ⊆ f '' I) {s : ℝ} (hs : s ∈ I) (ht : t ∈ I) (h0 : f s ∈ C)
+    (htC : f t ∈ C) : f '' uIcc s t ⊆ C := by
   -- Restrict the parametrisation to `I`, where it is a closed injection.
   have hcs : Continuous (Set.restrict I f) := continuousOn_iff_continuous_restrict.1 hc
   have hinj : Function.Injective (Set.restrict I f) := fun a b hab =>
@@ -68,13 +68,20 @@ theorem subarc_subset_of_isPreconnected (hc : ContinuousOn f I) (hi : InjOn f I)
     hC.preimage_of_isClosedMap hinj hclosed hrange
   have himg : IsPreconnected (Subtype.val '' (Set.restrict I f ⁻¹' C)) :=
     hpre.image _ continuous_subtype_val.continuousOn
-  have h0mem : (0 : ℝ) ∈ Subtype.val '' (Set.restrict I f ⁻¹' C) := ⟨⟨0, zero_mem_I⟩, h0, rfl⟩
+  have h0mem : s ∈ Subtype.val '' (Set.restrict I f ⁻¹' C) := ⟨⟨s, hs⟩, h0, rfl⟩
   have htmem : t ∈ Subtype.val '' (Set.restrict I f ⁻¹' C) := ⟨⟨t, ht⟩, htC, rfl⟩
-  have hsub : uIcc 0 t ⊆ Subtype.val '' (Set.restrict I f ⁻¹' C) :=
+  have hsub : uIcc s t ⊆ Subtype.val '' (Set.restrict I f ⁻¹' C) :=
     himg.ordConnected.uIcc_subset h0mem htmem
   rintro z ⟨s, hs, rfl⟩
   obtain ⟨⟨s', hs'⟩, hs'C, rfl⟩ := hsub hs
   exact hs'C
+
+/-- The special case based at the parametrization's own start, which is the one
+`IsArcBetween.eq_of_subset_of_isArcBetween` runs on. -/
+theorem subarc_subset_of_isPreconnected (hc : ContinuousOn f I) (hi : InjOn f I)
+    (hC : IsPreconnected C) (hCA : C ⊆ f '' I) (ht : t ∈ I) (h0 : f 0 ∈ C) (htC : f t ∈ C) :
+    f '' uIcc 0 t ⊆ C :=
+  subarc_subset_of_isPreconnected_of_mem hc hi hC hCA zero_mem_I ht h0 htC
 
 /-- **Two arcs with the same ends inside one arc are the same arc.** Each contains the ambient
 arc's own sub-arc between those ends, and an arc containing an arc with the same ends is it. -/
@@ -107,5 +114,56 @@ theorem IsArcBetween.isPolygonal_of_subset (hA : IsArcBetween A p q) (hpoly : Is
       (hBA hB.right_mem)
   rw [hA.eq_of_subset_of_isArcBetween hB harc hBA hsub hpr]
   exact ⟨ws, rfl⟩
+
+/-- **An arc inside a polygonal arc is polygonal, wherever inside it sits.**
+
+`IsArcBetween.isPolygonal_of_subset` asks the sub-arc to *start where the ambient one does*.
+That is enough for the two halves of a subdivided edge, which share an end with the edge, and
+not enough for the interior edges of a drawn ear, which touch neither end of the crosscut they
+were cut out of. Two applications remove the restriction: the ambient arc's initial piece up to
+the sub-arc's *far* parameter is polygonal by the special case, and the sub-arc is then an
+initial piece of that one, read backwards.
+
+Identifying the sub-arc with `f '' uIcc a b` is where `subarc_subset_of_isPreconnected_of_mem`
+is spent: a connected subset of an arc containing two of its points contains everything the arc
+traverses between them, and an arc containing an arc with the same ends is it. -/
+theorem IsArcBetween.isPolygonal_of_subset' (hA : IsArcBetween A p q) (hpoly : IsPolygonal A)
+    {r s : Plane} (hB : IsArcBetween B r s) (hBA : B ⊆ A) (hrs : r ≠ s) : IsPolygonal B := by
+  obtain ⟨f, hc, hi, rfl, hf0, hf1⟩ := hA
+  obtain ⟨a, ha, hfa⟩ : ∃ a ∈ I, f a = r := hBA hB.left_mem
+  obtain ⟨b, hb, hfb⟩ : ∃ b ∈ I, f b = s := hBA hB.right_mem
+  have hab : a ≠ b := fun h => hrs (by rw [← hfa, ← hfb, h])
+  have hfull : IsArcBetween (f '' I) (f 0) (f 1) := ⟨f, hc, hi, rfl, rfl, rfl⟩
+  -- `B` is exactly what the ambient arc traverses between the two parameters.
+  have hBeq : f '' uIcc a b = B :=
+    hB.eq_of_subset (by rw [← hfa, ← hfb]; exact isArcBetween_subarc_of_injOn_I hc hi ha hb hab)
+      (subarc_subset_of_isPreconnected_of_mem hc hi hB.isArc.isConnected.isPreconnected hBA ha hb
+        (by rw [hfa]; exact hB.left_mem) (by rw [hfb]; exact hB.right_mem))
+  -- The far parameter, and the ambient arc's initial piece up to it.
+  have hcI : max a b ∈ I := ⟨le_trans ha.1 (le_max_left a b), max_le ha.2 hb.2⟩
+  have hc0 : (0 : ℝ) ≠ max a b := by
+    intro h
+    have ha0 : a = 0 := le_antisymm (by rw [h]; exact le_max_left a b) ha.1
+    have hb0 : b = 0 := le_antisymm (by rw [h]; exact le_max_right a b) hb.1
+    exact hab (ha0.trans hb0.symm)
+  have harc1 : IsArcBetween (f '' uIcc 0 (max a b)) (f 0) (f (max a b)) :=
+    isArcBetween_subarc_of_injOn_I hc hi zero_mem_I hcI hc0
+  have hne1 : f 0 ≠ f (max a b) := fun h => hc0 (hi zero_mem_I hcI h)
+  have hpoly1 : IsPolygonal (f '' uIcc 0 (max a b)) :=
+    hfull.isPolygonal_of_subset hpoly harc1 (Set.image_mono (uIcc_subset_I zero_mem_I hcI)) hne1
+  -- and `B` is an initial piece of *that*, read from the far end.
+  have hBsub : B ⊆ f '' uIcc 0 (max a b) := by
+    rw [← hBeq]
+    refine Set.image_mono (Set.uIcc_subset_uIcc ?_ ?_)
+    · exact Set.mem_uIcc.2 (Or.inl ⟨ha.1, le_max_left a b⟩)
+    · exact Set.mem_uIcc.2 (Or.inl ⟨hb.1, le_max_right a b⟩)
+  rcases max_cases a b with ⟨hmax, -⟩ | ⟨hmax, -⟩
+  · have hcf : f (max a b) = r := by rw [hmax]; exact hfa
+    have hB' : IsArcBetween B (f (max a b)) s := by rw [hcf]; exact hB
+    exact harc1.reverse.isPolygonal_of_subset hpoly1 hB' hBsub (by rw [hcf]; exact hrs)
+  · have hcf : f (max a b) = s := by rw [hmax]; exact hfb
+    have hB' : IsArcBetween B (f (max a b)) r := by rw [hcf]; exact hB.reverse
+    exact harc1.reverse.isPolygonal_of_subset hpoly1 hB' hBsub
+      (by rw [hcf]; exact Ne.symm hrs)
 
 end Schoenflies

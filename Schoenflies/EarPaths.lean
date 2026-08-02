@@ -39,8 +39,9 @@ So one ear insertion is one split, and the subdivision constructor is needed by
   of `thm:finite-transfer`(a) on the source side: "the interior of the ear lies in one current
   face `F`, and its endpoints lie on the boundary cycle of `F`", together with the cut of that
   cycle into the two boundary paths `B₁`, `B₂` of `def:generated-structure`, operation 2.
-* `Schoenflies.GeneratedPair.splitDataOfEar` — the abstract data of operation 2, assembled. What
-  `EarStep` still owes past this is the ear graph on fresh names and the two realizations.
+* `Schoenflies.GeneratedPair.splitDataOfEar`, `Schoenflies.GeneratedPair.exists_splitDataOfEar` —
+  the abstract data of operation 2, assembled, the second drawing the two fresh 2-cell names as
+  well. What `EarStep` still owes past this is the *drawn* ear and the two realizations.
 -/
 
 open Set
@@ -74,6 +75,17 @@ theorem exists_fresh_list [Infinite γ] {s : Set γ} (hs : s.Finite) (n : ℕ) :
   obtain ⟨t, hts, hcard⟩ := hs.infinite_compl.exists_subset_card_eq n
   exact ⟨t.toList, by simp [hcard], t.nodup_toList,
     fun z hz => hts (Finset.mem_toList.1 hz)⟩
+
+/-- **Two fresh names, for the two 2-cells the split creates.** They have to avoid the current
+cells *and* the ear's own names, so the set to dodge is not `S.cells` but that union — which is
+why this is a second draw rather than two more entries of `exists_fresh_list`'s list. Both are
+finite, and that is all the statement needs. -/
+theorem exists_fresh_pair [Infinite γ] {s : Set γ} (hs : s.Finite) :
+    ∃ x y : γ, x ∉ s ∧ y ∉ s ∧ x ≠ y := by
+  classical
+  obtain ⟨t, hts, hcard⟩ := hs.infinite_compl.exists_subset_card_eq 2
+  obtain ⟨x, y, hxy, ht⟩ := Finset.card_eq_two.1 hcard
+  exact ⟨x, y, hts (by simp [ht]), hts (by simp [ht]), hxy⟩
 
 /-- **The abstract ear on fresh names.** Between two distinct 0-cells there is, for every
 length, a path graph whose edges and interior vertices are cells of no current structure — the
@@ -229,6 +241,37 @@ def splitDataOfEar (T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom) {F z
   face_ne := hne
   sub_face := hsub
   paths_meet := hmeet
+
+/-- **The abstract `SplitData` of one ear insertion, with its two 2-cell names supplied.**
+
+`splitDataOfEar` asks the caller for the two fresh 2-cell names; this draws them. Everything
+they must avoid — the current cells and the ear's own vertex and edge names — is finite: the
+cells by three fields of `CellStructure`, the ear's names because a path graph carries exactly
+the names of one finite walk.
+
+The seven equations are what a consumer needs downstream: the split's realization is built from
+`d.face`, `d.ear` and `d.earWalk`, and the geometry that produced them has to be readable off
+the `SplitData` afterwards. -/
+theorem exists_splitDataOfEar [Infinite γ] (T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom)
+    {F z w : γ} (hF : F ∈ T.str.faces) (hzw : z ≠ w) {ear : Graph γ γ}
+    {earWalk P₁ P₂ : List γ} (hear : ear.IsPathGraph z earWalk w)
+    (hdisj : Disjoint V(ear) E(ear))
+    (hinter : V(ear) ∩ V(T.str.skel) = {z, w})
+    (hedge : ∀ ⦃f⦄, f ∈ E(ear) → f ∉ T.str.cells)
+    (hvert : ∀ ⦃c⦄, c ∈ V(ear) → c ≠ z → c ≠ w → c ∉ T.str.cells)
+    (hp₁ : T.str.skel.IsPath z P₁ w) (hp₂ : T.str.skel.IsPath z P₂ w)
+    (hsub : ∀ ⦃σ⦄, T.str.sub σ F ↔ σ = F ∨ σ ∈ T.str.pathCells z P₁ ∪ T.str.pathCells z P₂)
+    (hmeet : T.str.pathCells z P₁ ∩ T.str.pathCells z P₂ = {z, w}) :
+    ∃ d : T.str.SplitData, d.face = F ∧ d.source = z ∧ d.target = w ∧ d.ear = ear ∧
+      d.earWalk = earWalk ∧ d.path₁ = P₁ ∧ d.path₂ = P₂ := by
+  have hVfin : V(ear).Finite := hear.vertexSet_eq ▸ hear.isWalk.finite_walkVertices
+  have hEfin : E(ear).Finite := hear.edgeSet_eq ▸ earWalk.finite_toSet
+  obtain ⟨f₁, f₂, h₁, h₂, hne⟩ :=
+    exists_fresh_pair (T.str.finite_cells.union (hVfin.union hEfin))
+  exact ⟨T.splitDataOfEar hF hzw hear hdisj hinter hedge hvert
+    (fun h => h₁ (Or.inl h)) (fun h => h₂ (Or.inl h))
+    (fun h => h₁ (Or.inr h)) (fun h => h₂ (Or.inr h)) hne hp₁ hp₂ hsub hmeet,
+    rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
 
 end GeneratedPair
 

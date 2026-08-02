@@ -79,11 +79,12 @@ version and belongs beside `Schoenflies.exists_simple_poly_of_union` in
   step: a connected finite polygonal union meeting `C` in exactly two points carries a simple
   polygonal crosscut between them.
 
-`lem:skeleton-crosscuts` has two further halves that are **not** here, because the objects they
-speak about are not yet in Lean: the construction of the connected union `Y = e_a ∪ |Λ| ∪ e_b`
-from a finite stage of the skeleton, and the transport of the crosscut through the finite
-skeleton homeomorphism. Both need the stage/anchor machinery of §"Continuity at the Jordan
-curve"; the extraction between them is what this module supplies.
+`lem:skeleton-crosscuts` has two further halves that are **not** here; the extraction between
+them is what this module supplies. The construction of the connected union `Y = e_a ∪ |Λ| ∪ e_b`
+at the graph level is `Graph.IsStageOn.exists_crosscut` (`BoundaryContinuity.lean`) — an earlier
+revision of this paragraph claimed it existed nowhere, which cost a rediscovery — and the
+passage from an admissible realization to that presentation, together with the transport of the
+crosscut through the finite skeleton homeomorphism, is `SkeletonCrosscuts.lean`.
 -/
 
 open Metric Set

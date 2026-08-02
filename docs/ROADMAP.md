@@ -504,33 +504,36 @@ alternating. Four things are missing, and they are the phase:
    the one place the finiteness the joining loop terminates on has no Lean statement at all.
 3. **`lem:grid-star-estimate`**, tying the grid mesh to a star diameter bound. The metric half is
    ready in `Windows.lean`; what is missing is the geometry.
-4. **`skelHomeo_succ` on the source side.** `IsPartialTransferOfTgt` carries `homeo_eqOn` — the
-   stage's skeleton map agrees with its predecessor's on the old skeleton — and
-   `IsPartialTransferOf` does **not**: it has four fields and that is not one of them. It is not
-   derivable, for the reason recorded under "How the ear step went": `Realization.Refines` says
-   nothing about the two homeomorphisms. So a direction-(a) step currently gives a consumer no
-   way to know the map did not move, and `StageSequence.skelHomeo_succ` needs it at every step.
-   The proof is already written on the other side — identity at a subdivision,
-   `SplitData.splitHomeo_eqOn` restricted along `Realization.Refines.skeletonSet_subset` at a
-   split — so this is a clause to add to `IsPartialTransferOf`, not a theorem to find.
+4. **`skelHomeo_succ` on the source side — done.** `IsPartialTransferOf` now carries
+   `homeo_eqOn`, the exact mirror of `IsPartialTransferOfTgt.homeo_eqOn`: the stage's skeleton
+   map agrees with the base pair's on the base source skeleton. It went exactly as predicted —
+   identity at a subdivision (`exists_subdivide_at` / `exists_subdivide_finite` now return the
+   conjunct their `_tgt` twins always had), and `SplitData.splitHomeo_eqOn` restricted along
+   `Realization.Refines.skeletonSet_subset` at the ear step, chained with the stage's own
+   clause. No consumer outside the four construction sites changed.
 
-Item 4 is the fifth instance of the shape this file has now recorded four times: the bundle that
-carries a construction is one invariant short of its consumer. It was found here by writing out
+Item 4 was the fifth instance of the shape this file has now recorded four times: the bundle
+that carries a construction is one invariant short of its consumer. It was found by writing out
 the fourteen `StageSequence` fields and naming a supplier for each **before** building the
-recursion — which is the cheap defence, and it is cheapest at exactly this moment, because
-nothing yet constructs a `StageSequence`.
+recursion — which is the cheap defence, and it was cheapest at exactly that moment, because
+nothing yet constructed a `StageSequence`.
 
 **Phase 4 — `thm:main` unconditional.** `HasAnchorCrosscuts` and `HasSpokes` from the stages.
 The limit map and everything after it is already built and waiting.
 
-The bridges are written. `StageSequence.F_eq_skelHomeo` says `F` agrees with each stage's
-*finite* skeleton homeomorphism wherever that stage's skeleton reaches; two anchors are 0-cells
-at some stage, `lem:skeleton-crosscuts` joins them inside that stage's skeleton (**partial** —
-`AccessibleJoin.lean` has all of it but the final extraction paragraph), the finite map carries
-the crosscut to a crosscut of the square, and `IsCrosscut.image_of_injOn` together with
-`image_sdiff_eq_of_eqOn` — both in `BoundaryContinuity2.lean`, both written for this handoff —
-close `HasAnchorCrosscuts`. `HasSpokes` uses the same bridge on an initial subarc of the
-nonboundary edge `lem:anchor-density` attaches at the anchor. The dense anchor set `𝒜` is
+The bridges are written, and `lem:skeleton-crosscuts` is now assembled at the cell-structure
+level. `StageSequence.F_eq_skelHomeo` says `F` agrees with each stage's *finite* skeleton
+homeomorphism wherever that stage's skeleton reaches; two anchors are 0-cells at some stage, and
+`GeneratedPair.exists_anchor_crosscut_stage` (`SkeletonCrosscuts.lean`) joins them by a crosscut
+in that stage's skeleton **and** carries it through the stage homeomorphism to a crosscut of the
+square, with the endpoint bookkeeping `HasAnchorCrosscuts` wants — conditional on
+`Realization.HasPolygonalArcs` for the target stage (an arc in a polygonal-edged skeleton is
+polygonal; honest later-module work) and on the anchor-incidence clause of `lem:anchor-density`
+(each anchor has a nonboundary edge attached). What remains for `HasAnchorCrosscuts` itself is
+the identification of `u` (the boundary map) with the drawn target 0-cells at the anchors —
+clause 2 of `def:matched-pair`, which whoever builds the stage tower must carry — plus
+`F_eq_skelHomeo` to replace `g` by `F`. `HasSpokes` uses the same bridge on an initial subarc of
+the nonboundary edge `lem:anchor-density` attaches at the anchor. The dense anchor set `𝒜` is
 `lem:anchor-density` itself.
 
 `Schoenflies.CellsAbsorb`, the one live obligation outside these two phases, retires itself:
@@ -782,7 +785,7 @@ nothing else.** Everything below `thm:square-extension` in this table is proved 
 | `lem:square-point-mover` | done | `SquareMover.lean` |
 | `lem:local-skeleton-structure` | partial | `SkeletonLocal.lean` + `SkeletonSectors.lean` — open only at points with fewer than two local directions; the two missing cases are closed in `SkeletonAccess.lean` |
 | `prop:anchored-square-mesh` | **done** | `SquareMesh.lean`, `SquareMeshConnected.lean`, `SquareMeshFixed.lean`, `LocalGrid.lean` for clauses 1, 2, 3, 4, 6; `SquareMeshClosed.lean` for clause 5 (`squareMesh_isTwoConnected`, on `FreshDense fresh δ` and `δ < 4`, both free at the call site since the blueprint uses `δ = 2⁻ⁿ`) and for the outer cycle as a genuine cycle of the graph, exported as data |
-| `lem:skeleton-crosscuts` | partial | `AccessibleJoin.lean` — the final extraction paragraph only |
+| `lem:skeleton-crosscuts` | conditional (`Realization.HasPolygonalArcs`, anchor incidence) | the extraction is `AccessibleJoin.lean`; the graph-level clause 1 was already on `main` as `Graph.IsStageOn.exists_crosscut` (`BoundaryContinuity.lean`) — the `AccessibleJoin` docstring used to deny this; the cell-structure assembly and the transport through the stage homeomorphism are `SkeletonCrosscuts.lean` (`IsAdmissible.isStageOn`, `IsAdmissible.exists_crosscut`, `SkeletonHomeo.isCrosscut_image`, `GeneratedPair.exists_anchor_crosscut_stage`). Conditional on `HasPolygonalArcs` (an arc in a polygonal-edged skeleton is polygonal) and on the anchor-incidence clause of `lem:anchor-density` |
 | `lem:tangent-dense` | done | `Inversion.lean` |
 | `prop:initial-pair` | **done**, and packaged as a `GeneratedPair` in `InitialGenerated.lean` | `InitialPair.lean` (`initialStructure`, both realizations, `InitialData`) completed in `InitialPairFixed.lean`: the anchor clause (`AnchorSet`, `AnchoredInitialData`, `stronglyAccessible_initialData_a`), the matched labelling (`tgt_arcOf_eq_image`, `closure_cell_face_link`), the polygonal target edges, the boundary-walk check, and both hypotheses `harc` / `hcollars` discharged — `initial_pair'` is unconditional |
 | `def:generated-structure`, `rem:intermediate-disconnection` | **done** | `GeneratedStructure.lean` for the two operations and the inductive closure; `RealizeSubdiv.lean` / `RealizeSplit.lean` for the realization constructors; `RealizeSubdivHomeo.lean` / `MatchedSplit.lean` for the skeleton map across each. All four unconditional |

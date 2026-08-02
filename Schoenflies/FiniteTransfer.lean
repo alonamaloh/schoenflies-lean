@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Álvaro Begué
 -/
 import Schoenflies.RefinementStars
+import Schoenflies.BoundaryWalks
 import Schoenflies.OverlayGraph
 import Schoenflies.SkeletonAccess
 import Schoenflies.Graph.RelativeEar
@@ -294,6 +295,18 @@ structure GeneratedPair (S₀ : CellStructure γ) (srcOuter srcDom tgtOuter tgtD
   src_isWeaklyAdmissible : src.IsWeaklyAdmissible srcOuter srcDom
   /-- The target realization is weakly admissible. -/
   tgt_isWeaklyAdmissible : tgt.IsWeaklyAdmissible tgtOuter tgtDom
+  /-- **The boundary-walk invariant**: every 2-cell's `boundary` datum is a cycle of the
+  skeleton whose cells are exactly the cells below it.
+
+  It travels with the bundle rather than being derived from `generated`, and it has to: a
+  `GeneratedStructure` derivation may contain `SubdivData`s whose `boundaryStart` has nothing
+  to do with any invariant, so there is no closure theorem over the raw inductive — only the two
+  step constructions `BoundaryWalks.subdivideEdge` and `BoundaryWalks.splitFace`, which a
+  consumer *building* a stage applies. `EarStep` is what needs it: the two boundary paths of the
+  2-cell an ear is inserted into come from `BoundaryWalks.exists_boundary_paths`, and there is
+  nowhere else to get them (`lem:face-cycles` is unavailable on the source side — see
+  `docs/ROADMAP.md`). -/
+  walks : str.BoundaryWalks
 
 namespace GeneratedPair
 

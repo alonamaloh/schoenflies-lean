@@ -13,7 +13,7 @@ import Schoenflies.FaceCyclesProof
 "the cyclic boundary walk of each 2-cell", a bare list of edge names. This module states what
 it is *supposed* to be and carries that statement across both elementary operations:
 
-> for every 2-cell `F`, `boundary F` is a closed walk of the skeleton, and the cells it runs
+> for every 2-cell `F`, `boundary F` is a **cycle** of the skeleton, and the cells it runs
 > through are exactly the cells strictly below `F`.
 
 That is `Schoenflies.CellStructure.BoundaryWalks`. It is what the ear construction needs and
@@ -34,8 +34,13 @@ On the source side the boundary cycle is maintained as data, and this is the mai
   ("no 2-cell is below another"); here it is a theorem, because a boundary walk runs through
   0-cells and 1-cells only.
 * `Schoenflies.CellStructure.BoundaryWalks.mem_boundary_iff_sub` — the tie between the two
-  fields the invariant asserts: an edge lies on the boundary walk of `F` exactly when it is a
+  clauses the invariant asserts: an edge lies on the boundary walk of `F` exactly when it is a
   subcell of `F`.
+* `Schoenflies.CellStructure.BoundaryWalks.exists_boundary_paths` — **what the invariant is
+  for**: two distinct 0-cells below a 2-cell cut its boundary into two paths between them, which
+  carry exactly the cells below the 2-cell and meet in nothing but the two 0-cells. Those are
+  `CellStructure.SplitData.isPath₁`, `isPath₂`, `sub_face` and `paths_meet`, which is the whole
+  of what `Schoenflies.EarStep` could not previously produce.
 
 ## Design
 
@@ -44,6 +49,14 @@ edge list does not determine one (an edge list that walks from `u` may also walk
 end of its first edge). `BoundaryWalks.start` is therefore a field, not an existential — which
 is also what `SubdivData.boundaryStart` needs to be filled with, so the two fit together with no
 choice principle at the seam.
+
+**Why a cycle and not a closed walk.** `SplitData.paths_meet` asks the two boundary paths to
+share nothing but their two ends, and a closed walk that repeats a vertex cuts into pieces that
+meet in more than two points. The cycle is presented through its first edge — `boundary F =
+e :: D.reverse` with `Graph.IsCycleThrough e (start F) v D` — because that is how
+`Schoenflies/Graph/Cycle.lean` presents every cycle in this development, and because it makes
+`Graph.IsCycleThrough.split_at` (already on `main`, in `FaceCyclesProof.lean`) directly
+applicable.
 
 **Preservation at the subdivision is where `IsSubstWalk` is spent.** `SubdivData.newBoundary`
 was made data precisely so that this step exists; `SubstWalk.pathCells` is the second half of

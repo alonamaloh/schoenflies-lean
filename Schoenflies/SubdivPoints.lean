@@ -224,10 +224,11 @@ theorem GeneratedPair.exists_subdivide_at_tgt [Infinite γ] (h₀ : S₀.CombInv
         T'.tgt.skeletonSet = T.tgt.skeletonSet ∧
         V(T.tgt.graph) ⊆ V(T'.tgt.graph) ∧ q ∈ V(T'.tgt.graph) ∧
         V(T'.tgt.graph) ⊆ insert q V(T.tgt.graph) ∧
-        CellStructure.PropagatesUniqueFace T'.str T.str par := by
+        CellStructure.PropagatesUniqueFace T'.str T.str par ∧
+        T'.homeo.toFun = T.homeo.toFun := by
   rcases Realization.mem_vertexSet_or_exists_cell hq with hv | ⟨e, he, hqe⟩
   · exact ⟨T, id, .refl _, .refl _, rfl, subset_rfl, hv, subset_insert _ _,
-      CellStructure.propagatesUniqueFace_id _⟩
+      CellStructure.propagatesUniqueFace_id _, rfl⟩
   -- The corresponding source point of the same open 1-cell.
   have hqim : q ∈ T.homeo.toFun '' T.src.cell e := by
     rw [T.homeo.image_cell (Set.mem_union_right _ he)]; exact hqe
@@ -241,7 +242,7 @@ theorem GeneratedPair.exists_subdivide_at_tgt [Infinite γ] (h₀ : S₀.CombInv
   have hgraph : (T.subdivideEdge (T.combInvariants h₀) d hds ht).tgt.graph
       = d.realizeGraph T.tgt (d.targetParam T.homeo t) := rfl
   refine ⟨T.subdivideEdge (T.combInvariants h₀) d hds ht, d.parent, ?_, ?_, ?_, ?_, ?_, ?_,
-    d.propagatesUniqueFace⟩
+    d.propagatesUniqueFace, rfl⟩
   · exact (T.refines_subdivideEdge (T.combInvariants h₀) d hds ht).1
   · exact (T.refines_subdivideEdge (T.combInvariants h₀) d hds ht).2
   · exact CellStructure.SubdivData.skeletonSet_realize (d.targetParam_mem_Ioo T.homeo ht)
@@ -261,20 +262,21 @@ theorem GeneratedPair.exists_subdivide_finite_tgt [Infinite γ] (h₀ : S₀.Com
           T'.tgt.skeletonSet = T.tgt.skeletonSet ∧
           V(T.tgt.graph) ⊆ V(T'.tgt.graph) ∧ Q ⊆ V(T'.tgt.graph) ∧
           V(T'.tgt.graph) ⊆ V(T.tgt.graph) ∪ Q ∧
-          CellStructure.PropagatesUniqueFace T'.str T.str par := by
+          CellStructure.PropagatesUniqueFace T'.str T.str par ∧
+          T'.homeo.toFun = T.homeo.toFun := by
   induction Q, hQ using Set.Finite.induction_on with
   | empty =>
     exact fun T _ => ⟨T, id, .refl _, .refl _, rfl, subset_rfl, empty_subset _, subset_union_left,
-      CellStructure.propagatesUniqueFace_id _⟩
+      CellStructure.propagatesUniqueFace_id _, rfl⟩
   | @insert a s ha hs ih =>
     intro T hQK
-    obtain ⟨T₁, par₁, hr₁, hr₁', hK₁, hV₁, haV, hV₁', hp₁⟩ :=
+    obtain ⟨T₁, par₁, hr₁, hr₁', hK₁, hV₁, haV, hV₁', hp₁, hg₁⟩ :=
       T.exists_subdivide_at_tgt h₀ (hQK (mem_insert a s))
-    obtain ⟨T₂, par₂, hr₂, hr₂', hK₂, hV₂, hsV, hV₂', hp₂⟩ :=
+    obtain ⟨T₂, par₂, hr₂, hr₂', hK₂, hV₂, hsV, hV₂', hp₂, hg₂⟩ :=
       ih T₁ (hK₁ ▸ (subset_insert a s).trans hQK)
     refine ⟨T₂, par₁ ∘ par₂, hr₂.trans hr₁, hr₂'.trans hr₁', hK₂.trans hK₁, hV₁.trans hV₂,
       insert_subset (hV₂ haV) hsV, hV₂'.trans (union_subset ?_ ?_),
-      hp₂.trans hp₁ fun _ hσ => hr₂'.parent_mem_cells hσ⟩
+      hp₂.trans hp₁ fun _ hσ => hr₂'.parent_mem_cells hσ, hg₂.trans hg₁⟩
     · exact hV₁'.trans (insert_subset (mem_union_right _ (mem_insert a s)) subset_union_left)
     · exact subset_union_of_subset_right (subset_insert a s) _
 

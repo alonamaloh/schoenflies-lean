@@ -115,6 +115,34 @@ theorem cells_isComponent_in (hcd : R.IsCellDecomposition dom) (hJ : R.IsFaceJor
   ⟨(cell_subset_sdiff hcd houter hF).trans Set.diff_subset,
     (hJ.nonempty hF).choose, (cell_isComponent hcd hJ houter hF (hJ.nonempty hF).choose_spec).symm⟩
 
+/-- **A refinement occupies at least what it refines.** The realized skeleton only grows, and
+this is a consequence of the interface rather than a fact about how the refinement was built: a
+point of the old skeleton lies in the open cell of some old 0-cell or 1-cell
+(`skeletonSet_subset_cellUnion`); it also lies in some new open cell, whose parent must be that
+old cell, by disjointness; and the parent of a 2-cell is a 2-cell, so the new cell is not one
+either, and its open cell is part of the new skeleton.
+
+`thm:finite-transfer`(b) needs it to restrict `SplitData.splitHomeo_eqOn` — which says the
+transported skeleton map agrees with the old one on the *current* skeleton — to the skeleton of
+the base pair. It belongs beside `Realization.Refines` in `Schoenflies/RefinementStars.lean`, and
+is here only because `disjoint_cell_skeletonSet` and `skeletonSet_subset_cellUnion` are. -/
+theorem Refines.skeletonSet_subset {S' : CellStructure γ} {R' : S'.Realization} {par : γ → γ}
+    (h : R'.Refines R par) (hcd : R.IsCellDecomposition dom) (hcd' : R'.IsCellDecomposition dom) :
+    R.skeletonSet ⊆ R'.skeletonSet := by
+  intro x hx
+  obtain ⟨σ, hσ, hxσ⟩ := mem_cellUnion_iff.1 (R.skeletonSet_subset_cellUnion hx)
+  have hxD : x ∈ dom := by
+    rw [← hcd.iUnion_eq]; exact Set.mem_biUnion (Or.inl hσ) hxσ
+  obtain ⟨τ, hτ, hxτ⟩ := hcd'.exists_cell hxD
+  have hpar : par τ = σ := by
+    by_contra hne
+    exact Set.disjoint_left.1 (hcd.disjoint (h.parent_mem_cells hτ) (Or.inl hσ) hne)
+      (h.cell_subset hτ hxτ) hxσ
+  refine cell_subset_skeletonSet (hτ.resolve_right fun hf => ?_) hxτ
+  have hfσ : σ ∈ S.faces := hpar ▸ h.parent_mem_faces hf
+  rcases hσ with h1 | h1
+  exacts [S.faces_ne_vertexSet hfσ h1 rfl, S.faces_ne_edgeSet hfσ h1 rfl]
+
 /-- **An open 1-cell that meets the outer curve is an outer edge.**
 
 The realized outer cycle is its own 0-cells together with the arcs of its own edges. A point of

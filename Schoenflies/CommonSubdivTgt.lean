@@ -83,6 +83,19 @@ structure IsPartialTransferOfTgt (T P : GeneratedPair S₀ srcOuter srcDom tgtOu
     (∀ ⦃f⦄, f ∈ E(B) → T.tgt.pos z ∈ Graph.edgeArc Hdraw f →
       Graph.edgeArc Hdraw f ⊆ tgtOuter) →
     T.str.UniqueFaceAt z
+  /-- **The skeleton map is an extension of the base pair's.**
+
+  Both elementary operations build the new skeleton homeomorphism by *extending* the old one — a
+  subdivision does not change it at all and a split adds the ear map — so this holds all along
+  and is nowhere derivable from the other clauses, since `Realization.Refines` says nothing about
+  the two homeomorphisms.
+
+  It is what lets the fresh-anchor hypothesis be spent. That hypothesis is about the *base*
+  pair's correspondence: `a ∈ 𝒜` is a property of the source point `P.homeo` matches with the
+  fresh target point `u(a)`. Without this clause there is no way to know that the intermediate
+  stage matches the same two points, and the strong accessibility of `a` cannot be transported to
+  `T.src.pos z`. -/
+  homeo_eqOn : Set.EqOn T.homeo.toFun P.homeo.toFun P.src.skeletonSet
 
 /-- **Step 1 of `thm:finite-transfer`(b)**, as an interface, in the shape the ear induction of
 direction (b) will consume. -/
@@ -147,13 +160,14 @@ theorem commonSubdivisionTgt [Infinite γ] (h₀ : S₀.CombInvariants)
     CommonSubdivisionTgt P H Hdraw := by
   haveI := hH.finite
   have hQfin : (V(H) ∩ P.tgt.skeletonSet).Finite := (Graph.finite_vertexSet H).inter_of_left _
-  obtain ⟨T, par, hrs, hrt, hK, hVold, hVQ, hVsub, hprop⟩ :=
+  obtain ⟨T, par, hrs, hrt, hK, hVold, hVQ, hVsub, hprop, hg⟩ :=
     GeneratedPair.exists_subdivide_finite_tgt h₀ hQfin P Set.inter_subset_right
   have hPQ : V(P.tgt.graph) ⊆ V(H) ∩ P.tgt.skeletonSet := fun z hz =>
     ⟨hH.vertexSet_subset hz, Graph.vertexSet_subset_pointSet hz⟩
   have hVeq : V(T.tgt.graph) = V(sourcePart P.tgt H Hdraw) :=
     Set.Subset.antisymm (hVsub.trans (Set.union_subset hPQ subset_rfl)) hVQ
-  refine ⟨sourcePart P.tgt H Hdraw, T, par, ?_, sourcePart_le, hrs, hrt, ?_, hVeq.ge, ?_⟩
+  refine ⟨sourcePart P.tgt H Hdraw, T, par, ?_, sourcePart_le, hrs, hrt, ?_, hVeq.ge, ?_,
+    fun x _ => by rw [hg]⟩
   · exact Graph.IsTwoConnected.of_adj_congr hVeq (adj_match_tgt hH T hK hVeq)
       T.tgt_isWeaklyAdmissible.isTwoConnected
   · rw [hK, pointSet_sourcePart hH]

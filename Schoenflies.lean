@@ -144,3 +144,5 @@ import Schoenflies.AnchorDensity
 import Schoenflies.MeshTwoConnected
 import Schoenflies.MeshCore
 import Schoenflies.GridTwoConnected
+import Schoenflies.SkelCore
+import Schoenflies.MeshStepsClosed

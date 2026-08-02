@@ -63,6 +63,26 @@ structure IsPartialTransferOfTgt (T P : GeneratedPair S₀ srcOuter srcDom tgtOu
   skeletonSet_eq : T.tgt.skeletonSet = pointSet B Hdraw
   /-- Every vertex of the current subgraph is a 0-cell of the new structure. -/
   vertexSet_subset : V(B) ⊆ V(T.tgt.graph)
+  /-- **The combinatorial paragraph of the proof.** A 0-cell whose ancestor in the base pair is an
+  outer edge — a *fresh point* `u(a)`, inserted into the outer cycle by the common subdivision —
+  is incident with at most one 2-cell, as long as the current subgraph still has no nonboundary
+  edge there.
+
+  Both conditions are needed and neither is decoration. Without the first the clause would have to
+  hold at an old 0-cell of the outer cycle, which is a different statement, about the base pair.
+  Without the second it is *false* from the moment the ear at `u(a)` is inserted, since an ear
+  ending at a 0-cell puts it on both new boundary paths and leaves both descendants incident with
+  it. What makes the pair work is that the two move together: the ear at `u(a)` is the *unique*
+  new nonboundary edge there — the second sentence of `thm:finite-transfer`(b) — so the clause
+  survives exactly as long as `Schoenflies.EarStepTgt` needs it and no longer.
+
+  `Schoenflies.CellStructure.SplitData.uniqueFaceAt` is what carries it across an ear insertion,
+  and `Schoenflies.CellStructure.Realization.unique_cell_of_uniqueFaceAt` turns it into the
+  `hunique` of `Schoenflies.polyAccessible_of_stronglyAccessible`. -/
+  anchor_uniqueFaceAt : ∀ ⦃z⦄, z ∈ V(T.str.skel) → par z ∈ E(P.str.outerGraph) →
+    (∀ ⦃f⦄, f ∈ E(B) → T.tgt.pos z ∈ Graph.edgeArc Hdraw f →
+      Graph.edgeArc Hdraw f ⊆ tgtOuter) →
+    T.str.UniqueFaceAt z
 
 /-- **Step 1 of `thm:finite-transfer`(b)**, as an interface, in the shape the ear induction of
 direction (b) will consume. -/
@@ -127,15 +147,19 @@ theorem commonSubdivisionTgt [Infinite γ] (h₀ : S₀.CombInvariants)
     CommonSubdivisionTgt P H Hdraw := by
   haveI := hH.finite
   have hQfin : (V(H) ∩ P.tgt.skeletonSet).Finite := (Graph.finite_vertexSet H).inter_of_left _
-  obtain ⟨T, par, hrs, hrt, hK, hVold, hVQ, hVsub⟩ :=
+  obtain ⟨T, par, hrs, hrt, hK, hVold, hVQ, hVsub, hprop⟩ :=
     GeneratedPair.exists_subdivide_finite_tgt h₀ hQfin P Set.inter_subset_right
   have hPQ : V(P.tgt.graph) ⊆ V(H) ∩ P.tgt.skeletonSet := fun z hz =>
     ⟨hH.vertexSet_subset hz, Graph.vertexSet_subset_pointSet hz⟩
   have hVeq : V(T.tgt.graph) = V(sourcePart P.tgt H Hdraw) :=
     Set.Subset.antisymm (hVsub.trans (Set.union_subset hPQ subset_rfl)) hVQ
-  refine ⟨sourcePart P.tgt H Hdraw, T, par, ?_, sourcePart_le, hrs, hrt, ?_, hVeq.ge⟩
+  refine ⟨sourcePart P.tgt H Hdraw, T, par, ?_, sourcePart_le, hrs, hrt, ?_, hVeq.ge, ?_⟩
   · exact Graph.IsTwoConnected.of_adj_congr hVeq (adj_match_tgt hH T hK hVeq)
       T.tgt_isWeaklyAdmissible.isTwoConnected
   · rw [hK, pointSet_sourcePart hH]
+  -- Nothing has been split yet, so the third antecedent is not needed: a 0-cell inserted into an
+  -- outer edge of `P` inherits `lem:cellulation-invariants`(vi) from that edge.
+  · exact fun z hz hpar _ => hprop (T.str.mem_cells_of_mem_vertexSet hz)
+      (CellStructure.uniqueFaceAt_of_mem_outerGraph (P.combInvariants h₀).outerEdge_unique hpar)
 
 end Schoenflies

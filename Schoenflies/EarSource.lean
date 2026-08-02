@@ -249,7 +249,8 @@ theorem exists_source_earCrosscut [Infinite γ]
     rw [← pointSet_pathGraphOf hD.isWalk]
     exact pointSet_mono (pathGraphOf_le hD.isWalk)
   obtain ⟨F, hF, hNF, -, P₁, P₂, hp₁, hp₂, hsub, hmeet⟩ :=
-    T.exists_face_and_boundary_paths hS hcells harc.isPreconnected_diff harc.nonempty_diff
+    T.exists_face_and_boundary_paths hS T.src_isCellDecomposition hcells
+      harc.isPreconnected_diff harc.nonempty_diff
       hNsub (by rw [hT.skeletonSet_eq]; exact hdisj) hab hzV hwV hza hwb
       harc.left_mem_closure_diff harc.right_mem_closure_diff
   obtain ⟨d, hdface, hdsrc, hdtgt, hdear, -, -, -⟩ :=

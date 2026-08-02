@@ -120,6 +120,7 @@ import Schoenflies.EarStep
 import Schoenflies.SubdivStage
 import Schoenflies.Graph.AdjCongr
 import Schoenflies.Graph.PlaneEdges
+import Schoenflies.AnchorFace
 import Schoenflies.SubdivPoints
 import Schoenflies.CommonSubdiv
 import Schoenflies.CommonSubdivTgt

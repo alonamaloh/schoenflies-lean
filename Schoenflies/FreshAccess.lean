@@ -52,10 +52,15 @@ hypothesis `Schoenflies/SkeletonAccess.lean` carries, discharged by
 `Schoenflies.cellsAbsorb_of_isComponent` or `.cellsAbsorb_of_isComponent_in` — together with a
 covering clause. That the cell is the *prescribed* one is the separate combinatorial paragraph
 of the blueprint ("each of the resulting outer subedges is incident with exactly one source
-2-cell … hence exactly one descendant 2-cell remains incident with `a`"), an induction over the
-ear sequence, and it enters here as the hypothesis `hunique`: *the only cell whose closure
-contains `a` is `F`*. That is a statement about the ear induction, not about the geometry of the
-cone, and the induction is what will discharge it.
+2-cell … hence exactly one descendant 2-cell remains incident with `a`"), and it enters here as
+the hypothesis `hunique`: *the only cell whose closure contains `a` is `F`*. That is a statement
+about the ear induction, not about the geometry of the cone.
+
+`Schoenflies/AnchorFace.lean` is that paragraph, and
+`CellStructure.Realization.unique_cell_of_uniqueFaceAt` is `hunique` in exactly this shape: the
+invariant it needs is the `anchor_uniqueFaceAt` clause of `Schoenflies.IsPartialTransferOfTgt`,
+established at the common subdivision and carried across each ear by
+`CellStructure.SplitData.uniqueFaceAt`.
 
 ## Blueprint
 
@@ -76,7 +81,7 @@ open Metric Set
 
 namespace Schoenflies
 
-variable {D K F N : Set Plane} {cells : Set (Set Plane)} {p v a z : Plane} {r s t ε : ℝ}
+variable {D K K' F N : Set Plane} {cells : Set (Set Plane)} {p v a z : Plane} {r s t ε : ℝ}
 
 /-! ### The cone is convex
 
@@ -190,11 +195,11 @@ cell; the closure clause then names it.
 the skeleton is in an open cell — and `habs` is the absorption half, `Schoenflies.CellsAbsorb`.
 `hunique` is the combinatorial paragraph of `thm:finite-transfer`(b), not a geometric fact: it
 says that exactly one current 2-cell is incident with `a`. -/
-theorem accessCone_subset_cell (habs : CellsAbsorb K cells)
-    (hcover : ∀ x ∈ D, x ∉ K → ∃ R ∈ cells, x ∈ R)
+theorem accessCone_subset_cell (habs : CellsAbsorb K' cells)
+    (hcover : ∀ x ∈ D, x ∉ K' → ∃ R ∈ cells, x ∈ R)
     (hunique : ∀ R ∈ cells, a ∈ closure R → R = F)
     (hv : ‖v‖ = 1) (hs : 0 < s) (hD : accessCone a v s ⊆ D)
-    (hdisj : Disjoint (accessCone a v s) K) :
+    (hdisj : Disjoint (accessCone a v s) K') :
     accessCone a v s ⊆ F := by
   -- Some point of the cone lies in some cell, and absorption carries the whole cone into it.
   obtain ⟨x, hx⟩ := accessCone_nonempty hv hs
@@ -216,14 +221,31 @@ drawn, is polygonally accessible from the current source 2-cell `F` incident wit
 useless here precisely because `a ∈ C`.
 
 `lem:accessible-endpoints` (`Schoenflies.exists_crosscut_of_polyAccessible`) turns this, together
-with the accessibility of the other endpoint, into the polygonal crosscut the ear needs. -/
+with the accessibility of the other endpoint, into the polygonal crosscut the ear needs.
+
+## The two sets, and why they cannot be one
+
+`K` is what the cone is shrunk away from and `K'` is what the cells are read against, and an
+earlier version of this theorem used one set for both. That version is **vacuous**: take the
+2-cell `F` itself, which a stage supplies with `F ∈ cells`, `a ∈ closure F` and `Disjoint F K'`.
+Then `insert a F` is preconnected — `F` is, and `insert a F ⊆ closure F` — disjoint from `K'`,
+and meets `F`, so `CellsAbsorb K' cells` forces `a ∈ F`; but `a` is on the outer curve and an
+open 2-cell is not. So `a ∈ K'` always, and `a ∉ K'` is unsatisfiable.
+
+Nothing was wrong with the argument, only with the conflation: the absorption and the covering
+want the whole skeleton, while "shrink that cone until it misses `K`" wants the blueprint's
+compact `K`, *the union of all old closed nonboundary edges and the source ears already
+inserted*, which is exactly what does not contain `a`. `hKK'` is all the proof needs to relate
+them, and it holds for that pair because an outer edge lies on the curve and so misses the open
+region, while a 0-cell strictly inside is an end of some nonboundary edge. -/
 theorem polyAccessible_of_stronglyAccessible (h : StronglyAccessible D a) (hK : IsCompact K)
-    (ha : a ∉ K) (habs : CellsAbsorb K cells)
-    (hcover : ∀ x ∈ D, x ∉ K → ∃ R ∈ cells, x ∈ R)
+    (ha : a ∉ K) (hKK' : ∀ ⦃x⦄, x ∈ D → x ∈ K' → x ∈ K) (habs : CellsAbsorb K' cells)
+    (hcover : ∀ x ∈ D, x ∉ K' → ∃ R ∈ cells, x ∈ R)
     (hunique : ∀ R ∈ cells, a ∈ closure R → R = F) :
     PolyAccessible F a := by
   obtain ⟨v, s, hv, hs, hD, hdisj⟩ := exists_accessCone_disjoint h hK ha
-  exact polyAccessible_accessCone hv hs
-    (accessCone_subset_cell habs hcover hunique hv hs hD hdisj)
+  refine polyAccessible_accessCone hv hs
+    (accessCone_subset_cell habs hcover hunique hv hs hD ?_)
+  exact Set.disjoint_left.2 fun x hx hxK' => Set.disjoint_left.1 hdisj hx (hKK' (hD hx) hxK')
 
 end Schoenflies

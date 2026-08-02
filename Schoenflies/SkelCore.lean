@@ -371,4 +371,246 @@ theorem exists_arc_param_Icc (hc : ContinuousOn f I) (hi : InjOn f I)
     · exact Or.inr ⟨h1, h2⟩
     · exact absurd (h1.trans h2.symm) hfst
 
+/-! ### The overlay edges inside an arc, walked in order of the arc parameter -/
+
+/-- **The overlay piece leaving the current parameter.** Among finitely many overlay pieces
+inside the arc covering everything at and beyond parameter `p` (short of the far end), some
+piece's parameter interval starts at or before `p` and ends strictly beyond it: take a
+parameter just short of the first piece-end parameter beyond `p` and look at the piece
+covering it. -/
+theorem exists_arcPiece_beyond {pieces : List Piece} {points : List Plane}
+    (hnd : ∀ P ∈ pieces, P.Nondeg) (hc : ContinuousOn f I) (hi : InjOn f I)
+    {E : Set Piece} (hEov : ∀ Q ∈ E, Q ∈ overlayPieces pieces points)
+    (hEsub : ∀ Q ∈ E, Q.seg ⊆ f '' I)
+    {p : ℝ} (hpI : p ∈ I) (hp1 : p ≠ 1)
+    (hcov : ∀ r ∈ Icc p (1 : ℝ), r ≠ 1 → ∃ Q ∈ E, f r ∈ Q.seg) :
+    ∃ Q ∈ E, ∃ s t : ℝ, s ∈ I ∧ t ∈ I ∧ s < t ∧ I ∩ f ⁻¹' Q.seg = Icc s t ∧
+      f '' Icc s t = Q.seg ∧
+      ((f s = Q.1 ∧ f t = Q.2) ∨ (f s = Q.2 ∧ f t = Q.1)) ∧ s ≤ p ∧ p < t := by
+  have hEfin : E.Finite := (List.finite_toSet _).subset fun Q hQ => hEov Q hQ
+  -- the parameters of piece ends beyond `p`, together with the far end of the arc
+  set D : Set ℝ := {r | r ∈ I ∧ p < r ∧ (r = 1 ∨ ∃ Q ∈ E, f r = Q.1 ∨ f r = Q.2)} with hD
+  have hDfin : D.Finite := by
+    have hsub : D ⊆ insert (1 : ℝ)
+        (⋃ Q ∈ E, {r | r ∈ I ∧ f r = Q.1} ∪ {r | r ∈ I ∧ f r = Q.2}) := by
+      rintro r ⟨hrI, -, h1 | ⟨Q, hQ, hend⟩⟩
+      · exact Or.inl h1
+      · refine Or.inr (mem_iUnion₂.2 ⟨Q, hQ, ?_⟩)
+        rcases hend with h | h
+        exacts [Or.inl ⟨hrI, h⟩, Or.inr ⟨hrI, h⟩]
+    refine Finite.subset (Finite.insert _ (Finite.biUnion hEfin fun Q _ => ?_)) hsub
+    refine Finite.union ?_ ?_ <;>
+      exact Set.Subsingleton.finite fun r₁ h₁ r₂ h₂ => hi h₁.1 h₂.1 (h₁.2.trans h₂.2.symm)
+  have hp1' : p < 1 := lt_of_le_of_ne hpI.2 hp1
+  have h1D : (1 : ℝ) ∈ D := ⟨one_mem_I, hp1', Or.inl rfl⟩
+  obtain ⟨m, hmD, hmmin⟩ := Set.exists_min_image D id hDfin ⟨1, h1D⟩
+  have hpm : p < m := hmD.2.1
+  have hm1 : m ≤ 1 := by simpa using hmmin 1 h1D
+  -- a parameter strictly between `p` and the first end beyond it
+  set r : ℝ := (p + m) / 2 with hr
+  have hpr : p < r := by rw [hr]; linarith
+  have hrm : r < m := by rw [hr]; linarith
+  have hrI : r ∈ I := ⟨hpI.1.trans hpr.le, hrm.le.trans hm1⟩
+  have hr1 : r ≠ 1 := ne_of_lt (lt_of_lt_of_le hrm hm1)
+  obtain ⟨Q, hQE, hrQ⟩ := hcov r ⟨hpr.le, hrI.2⟩ hr1
+  have hQN : Q.Nondeg := overlayPieces_nondeg points hnd Q (hEov Q hQE)
+  obtain ⟨s, t, hsI, htI, hst, hT, hfIcc, hends⟩ :=
+    exists_arc_param_Icc hc hi hQN (hEsub Q hQE)
+  have hrT : r ∈ Icc s t := by rw [← hT]; exact ⟨hrI, hrQ⟩
+  -- the piece's near end is at or before `p`: it is short of `m`, the least end beyond `p`
+  have hsp : s ≤ p := by
+    by_contra hcon
+    have hsD : s ∈ D := by
+      refine ⟨hsI, not_le.1 hcon, Or.inr ⟨Q, hQE, ?_⟩⟩
+      rcases hends with ⟨h, -⟩ | ⟨h, -⟩
+      exacts [Or.inl h, Or.inr h]
+    have h1 : m ≤ s := by simpa using hmmin s hsD
+    have h2 : s ≤ r := hrT.1
+    linarith
+  exact ⟨Q, hQE, s, t, hsI, htI, hst, hT, hfIcc, hends, hsp, lt_of_lt_of_le hpr hrT.2⟩
+
+/-- **The overlay edges inside an arc are a path from one end of the arc to the other**,
+taking every overlay edge inside the arc exactly once, in increasing arc parameter, and
+visiting every overlay vertex on the arc. This is the arc analogue of
+`Schoenflies.exists_incWalk_insideEdges`, with the distance-from-an-end coordinate replaced by
+the parameter of the arc's own parametrization. -/
+theorem exists_arcPath_overlay {pieces : List Piece} {points : List Plane}
+    (hnd : ∀ P ∈ pieces, P.Nondeg) (hEnds : EndsAreCut pieces points)
+    (hMeets : MeetsAreCut pieces points)
+    (hc : ContinuousOn f I) (hi : InjOn f I)
+    (hsrc : ∀ z ∈ f '' I, ∃ R ∈ pieces, z ∈ R.seg ∧ R.seg ⊆ f '' I)
+    (h1V : f 1 ∈ V(overlayGraph pieces points)) :
+    ∃ W : List Piece, (overlayGraph pieces points).IsPath (f 0) W (f 1) ∧
+      (∀ Q ∈ W, Q ∈ E(overlayGraph pieces points) ∧ Q.seg ⊆ f '' I) ∧
+      ∀ v ∈ V(overlayGraph pieces points), v ∈ f '' I →
+        v ∈ (overlayGraph pieces points).walkVertices (f 0) W := by
+  classical
+  -- the family: the overlay edges lying inside the arc; every point short of the far end is
+  -- on one of them
+  have hcovA : ∀ r ∈ I, r ≠ 1 →
+      ∃ Q, (Q ∈ overlayPieces pieces points ∧ Q.seg ⊆ f '' I) ∧ f r ∈ Q.seg := by
+    intro r hrI _
+    obtain ⟨R, hR, hfrR, hRsub⟩ := hsrc (f r) (mem_image_of_mem f hrI)
+    obtain ⟨Q, hQov, hfrQ, hQR⟩ := exists_overlayPiece_mem_subset (points := points) hR hfrR
+    exact ⟨Q, ⟨hQov, hQR.trans hRsub⟩, hfrQ⟩
+  suffices key : ∀ n : ℕ, ∀ p, p ∈ I → ∀ E : Set Piece, E.ncard = n →
+      (∀ Q ∈ E, Q ∈ overlayPieces pieces points) →
+      (∀ Q ∈ E, Q.seg ⊆ f '' Icc p 1) →
+      (∀ r ∈ Icc p (1 : ℝ), r ≠ 1 → ∃ Q ∈ E, f r ∈ Q.seg) →
+      ∃ W : List Piece, (∀ Q, Q ∈ W ↔ Q ∈ E) ∧
+        (overlayGraph pieces points).IsIncWalk (Function.invFunOn f I) (f p) W (f 1) by
+    obtain ⟨W, hWmem, hWwalk⟩ := key
+      {Q | Q ∈ overlayPieces pieces points ∧ Q.seg ⊆ f '' I}.ncard 0 zero_mem_I
+      {Q | Q ∈ overlayPieces pieces points ∧ Q.seg ⊆ f '' I} rfl
+      (fun Q hQ => hQ.1) (fun Q hQ => hQ.2)
+      (fun r hr hr1 => by
+        obtain ⟨Q, hQ, hfrQ⟩ := hcovA r hr hr1
+        exact ⟨Q, hQ, hfrQ⟩)
+    refine ⟨W, hWwalk.isPath, fun Q hQ => (hWmem Q).1 hQ, ?_⟩
+    intro v hvV hvA
+    obtain ⟨tv, htvI, rfl⟩ := hvA
+    by_cases htv1 : tv = 1
+    · subst htv1
+      exact hWwalk.isWalk.target_mem_walkVertices
+    · obtain ⟨Q, hQA, hfQ⟩ := hcovA tv htvI htv1
+      have hQW : Q ∈ W := (hWmem Q).2 hQA
+      -- an overlay vertex is a cut point, hence an end of the edge covering it
+      obtain ⟨eP, hePov, hend⟩ := overlayGraph_mem_vertexSet.1 hvV
+      have hvpts : f tv ∈ points := overlayPieces_ends_cut hEnds eP hePov _ hend
+      have hvend : f tv = Q.1 ∨ f tv = Q.2 := by
+        by_contra hcon
+        push Not at hcon
+        exact overlayPieces_avoids hnd _ hvpts Q hQA.1
+          (mem_openSegment_of_ne_left_right (Ne.symm hcon.1) (Ne.symm hcon.2) hfQ)
+      exact Graph.mem_walkVertices_of_mem_covered (end_mem_coveredVertices hQW hQA.1 hvend)
+  intro n
+  induction n using Nat.strong_induction_on with
+  | _ n ih =>
+    intro p hpI E hcard hEov hEsub hcov
+    by_cases hp1 : p = 1
+    · -- nothing lies beyond the far end: the family is empty and the walk is over
+      subst hp1
+      have hE : E = ∅ := by
+        rw [eq_empty_iff_forall_notMem]
+        intro Q hQ
+        have h1 := hEsub Q hQ
+        rw [Icc_self, image_singleton] at h1
+        refine overlayPieces_nondeg points hnd Q (hEov Q hQ) ?_
+        have e1 : Q.1 ∈ ({f 1} : Set Plane) := h1 (left_mem_segment ℝ Q.1 Q.2)
+        have e2 : Q.2 ∈ ({f 1} : Set Plane) := h1 (right_mem_segment ℝ Q.1 Q.2)
+        rw [mem_singleton_iff] at e1 e2
+        rw [e1, e2]
+      exact ⟨[], by simp [hE], .nil h1V⟩
+    · have hEfin : E.Finite := (List.finite_toSet _).subset fun Q hQ => hEov Q hQ
+      have hEsubI : ∀ Q ∈ E, Q.seg ⊆ f '' I := fun Q hQ =>
+        (hEsub Q hQ).trans (image_mono fun u hu => ⟨hpI.1.trans hu.1, hu.2⟩)
+      -- the parameter interval of any family member sits inside `[p, 1]`
+      have hIccP : ∀ R ∈ E, ∀ s' t', I ∩ f ⁻¹' R.seg = Icc s' t' → Icc s' t' ⊆ Icc p 1 := by
+        intro R hRE s' t' hT' u hu
+        have hmem : u ∈ I ∩ f ⁻¹' R.seg := by rw [hT']; exact hu
+        obtain ⟨u', hu', he⟩ := hEsub R hRE hmem.2
+        exact (hi (⟨hpI.1.trans hu'.1, hu'.2⟩ : u' ∈ I) hmem.1 he) ▸ hu'
+      -- a parameter strictly inside a member's interval maps into its interior
+      have hintP : ∀ R ∈ E, ∀ s' t', s' ∈ I → t' ∈ I → I ∩ f ⁻¹' R.seg = Icc s' t' →
+          ((f s' = R.1 ∧ f t' = R.2) ∨ (f s' = R.2 ∧ f t' = R.1)) →
+          ∀ u, s' < u → u < t' → f u ∈ R.interior := by
+        intro R hRE s' t' hs'I ht'I hT' hends' u hsu hut
+        have huIcc : u ∈ Icc s' t' := ⟨hsu.le, hut.le⟩
+        have hmem : u ∈ I ∩ f ⁻¹' R.seg := by rw [hT']; exact huIcc
+        have hne1 : f u ≠ f s' := fun h => absurd (hi hmem.1 hs'I h) (ne_of_gt hsu)
+        have hne2 : f u ≠ f t' := fun h => absurd (hi hmem.1 ht'I h) (ne_of_lt hut)
+        have hR12 : R.1 ≠ f u ∧ R.2 ≠ f u := by
+          rcases hends' with ⟨h1, h2⟩ | ⟨h1, h2⟩
+          · exact ⟨by rw [← h1]; exact fun h => hne1 h.symm,
+              by rw [← h2]; exact fun h => hne2 h.symm⟩
+          · exact ⟨by rw [← h2]; exact fun h => hne2 h.symm,
+              by rw [← h1]; exact fun h => hne1 h.symm⟩
+        exact mem_openSegment_of_ne_left_right hR12.1 hR12.2 hmem.2
+      obtain ⟨Q, hQE, s, t, hsI, htI, hst, hT, hfIcc, hends, hsp, hpt⟩ :=
+        exists_arcPiece_beyond hnd hc hi hEov hEsubI hpI hp1 hcov
+      have hps : p ≤ s := (hIccP Q hQE s t hT (mem_Icc.2 ⟨le_rfl, hst.le⟩)).1
+      have hsp2 : s = p := le_antisymm hsp hps
+      have hQov := hEov Q hQE
+      have hlinkQ : (overlayGraph pieces points).IsLink Q Q.1 Q.2 := ⟨hQov, Or.inl ⟨rfl, rfl⟩⟩
+      -- the step from `f p` to the far end of the leaving piece
+      have hstep : (overlayGraph pieces points).IsLink Q (f p) (f t) := by
+        rw [← hsp2]
+        rcases hends with ⟨h1, h2⟩ | ⟨h1, h2⟩
+        · rw [h1, h2]; exact hlinkQ
+        · rw [h1, h2]; exact hlinkQ.symm
+      have hcoord : Function.invFunOn f I (f p) < Function.invFunOn f I (f t) := by
+        rw [hi.leftInvOn_invFunOn hpI, hi.leftInvOn_invFunOn htI]
+        exact hpt
+      -- every other member lies beyond `t`: overlapping intervals would overlap interiors
+      have hbeyond : ∀ R ∈ E, R ≠ Q → ∀ s' t', s' ∈ I → t' ∈ I → s' < t' →
+          I ∩ f ⁻¹' R.seg = Icc s' t' →
+          ((f s' = R.1 ∧ f t' = R.2) ∨ (f s' = R.2 ∧ f t' = R.1)) → t ≤ s' := by
+        intro R hRE hRQ s' t' hs'I ht'I hst' hT' hends'
+        by_contra hcon
+        have hs't : s' < t := not_le.1 hcon
+        have hps' : p ≤ s' := (hIccP R hRE s' t' hT' (mem_Icc.2 ⟨le_rfl, hst'.le⟩)).1
+        set u := (s' + min t' t) / 2 with hu
+        have humin : s' < min t' t := lt_min hst' hs't
+        have hu1 : s' < u := by rw [hu]; linarith
+        have hu2 : u < min t' t := by rw [hu]; linarith
+        have hut' : u < t' := lt_of_lt_of_le hu2 (min_le_left _ _)
+        have hut : u < t := lt_of_lt_of_le hu2 (min_le_right _ _)
+        have hsu : s < u := by rw [hsp2]; exact lt_of_le_of_lt hps' hu1
+        exact overlayPieces_disjoint_interiors hnd hEnds hMeets (hEov R hRE) hQov hRQ
+          (hintP R hRE s' t' hs'I ht'I hT' hends' u hu1 hut')
+          (hintP Q hQE s t hsI htI hT hends u hsu hut)
+      -- the pruned family covers from `t` on
+      have hcov' : ∀ r ∈ Icc t (1 : ℝ), r ≠ 1 → ∃ R ∈ E \ {Q}, f r ∈ R.seg := by
+        intro r hr hr1
+        have hrI : r ∈ I := ⟨htI.1.trans hr.1, hr.2⟩
+        have hpt' : p ≤ t := hps.trans hst.le
+        obtain ⟨R, hRE, hfrR⟩ := hcov r ⟨hpt'.trans hr.1, hr.2⟩ hr1
+        by_cases hRQ : R = Q
+        · -- the point is the junction `f t` itself; the piece beyond it is a different one
+          rw [hRQ] at hfrR
+          have hrT : r ∈ Icc s t := by rw [← hT]; exact ⟨hrI, hfrR⟩
+          have hrt : r = t := le_antisymm hrT.2 hr.1
+          have ht1 : t ≠ 1 := by rw [← hrt]; exact hr1
+          obtain ⟨R₂, hR₂E, s₂, t₂, hs₂I, ht₂I, hst₂, hT₂, hfIcc₂, hends₂, hs₂r, hrt₂⟩ :=
+            exists_arcPiece_beyond hnd hc hi hEov hEsubI htI ht1
+              (fun r' hr' hr'1 => hcov r' ⟨hpt'.trans hr'.1, hr'.2⟩ hr'1)
+          have hR₂Q : R₂ ≠ Q := by
+            rintro rfl
+            have hII : Icc s t = Icc s₂ t₂ := by rw [← hT, ← hT₂]
+            have h2 : t = t₂ := by
+              have e1 : sSup (Icc s t) = t := csSup_Icc hst.le
+              have e2 : sSup (Icc s₂ t₂) = t₂ := csSup_Icc hst₂.le
+              rw [← e1, ← e2, hII]
+            rw [← h2] at hrt₂
+            exact lt_irrefl _ hrt₂
+          refine ⟨R₂, ⟨hR₂E, by simpa using hR₂Q⟩, ?_⟩
+          have hmem : t ∈ I ∩ f ⁻¹' R₂.seg := by
+            rw [hT₂]; exact ⟨hs₂r, hrt₂.le⟩
+          rw [hrt]
+          exact hmem.2
+        · exact ⟨R, ⟨hRE, by simpa using hRQ⟩, hfrR⟩
+      have hsub' : ∀ R ∈ E \ {Q}, R.seg ⊆ f '' Icc t 1 := by
+        rintro R ⟨hRE, hRQ⟩
+        have hRQ' : R ≠ Q := by simpa using hRQ
+        have hRN : R.Nondeg := overlayPieces_nondeg points hnd R (hEov R hRE)
+        obtain ⟨s', t', hs'I, ht'I, hst', hT', hfIcc', hends'⟩ :=
+          exists_arc_param_Icc hc hi hRN (hEsubI R hRE)
+        have hts' : t ≤ s' := hbeyond R hRE hRQ' s' t' hs'I ht'I hst' hT' hends'
+        rw [← hfIcc']
+        exact image_mono fun u hu => ⟨hts'.trans hu.1, hu.2.trans ht'I.2⟩
+      have hEov' : ∀ R ∈ E \ {Q}, R ∈ overlayPieces pieces points := fun R hR => hEov R hR.1
+      have hcard' : (E \ {Q}).ncard < n := by
+        rw [← hcard]
+        exact Set.ncard_sdiff_singleton_lt_of_mem hQE hEfin
+      obtain ⟨W', hW'mem, hW'walk⟩ := ih _ hcard' t htI (E \ {Q}) rfl hEov' hsub' hcov'
+      refine ⟨Q :: W', fun R => ?_, .cons hstep hcoord hW'walk⟩
+      simp only [List.mem_cons, hW'mem, Set.mem_sdiff, Set.mem_singleton_iff]
+      constructor
+      · rintro (rfl | ⟨h, -⟩)
+        exacts [hQE, h]
+      · intro hR
+        by_cases h : R = Q
+        · exact Or.inl h
+        · exact Or.inr ⟨hR, h⟩
+
 end Schoenflies

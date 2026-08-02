@@ -200,4 +200,159 @@ theorem vertexSet_inter_grid_subset (hs : 0 < s) {x : Plane}
   exact mem_gridPartGraph_of_mem_cover hs
     (overlayPieces_ends_cut (attachPoints_endsAreCut _ _) Q hQ x hxQ) hxc
 
+/-! ## The named hypothesis, and the reduction -/
+
+section Assemble
+
+variable {S₀ : CellStructure γ}
+
+/-- **NAMED HYPOTHESIS — the anchored skeleton core of the grid union.**
+
+At every admissible stage, mesh and window centre: auxiliary segments `xsegs` and cut points
+`xtra` — among them two distinct *anchors* lying on both the auxiliary segments and the local
+grid — such that for any representative list on the cover off `C` and any joining family as
+`Schoenflies.IsJoinFamily` describes, the assembled union `Schoenflies.gridExtGraph` has a
+2-connected subgraph containing every vertex of the union that lies on a drawn 0-cell or on
+the pieces off the grid (the skeleton chains, the auxiliary segments and the joining arcs).
+
+This is the skeleton half of `lem:union-two-connected` at the stage, and its discharger's
+route is `lem:subdivision-ear-preserve`: the outer cycle together with the subdivided
+nonboundary skeleton chains is a subdivision of the stage's own graph, 2-connected by
+admissibility (the cross-edge-type transport of `Graph.IsSubdivisionOf.isTwoConnected`, as in
+the mesh side's `Schoenflies.HasTwoConnectedSkelCores`); the auxiliary segments — chosen by
+the discharger as a crosscut through the window with both ends on the nonboundary skeleton —
+enter by `Graph.IsTwoConnected.ear`, and their crossings with the grid supply the two anchors;
+each joining arc, whose carrier `Schoenflies.IsJoinFamily` makes a simple polygonal arc from
+the hub, enters as a chain of ears between consecutive vertices along the arc, ordered by the
+arc's parametrization. The grid's own interior is *not* the core's responsibility — the
+vertices it must contain lie on the grid only where the skeleton side crosses it — which is
+exactly the part `Schoenflies.hasGridUnionTwoConnected_of` absorbs. -/
+def HasGridAnchoredCores (S₀ : CellStructure γ) (C : Set Plane) : Prop :=
+  ∀ P : StagePair S₀ C, P.src.IsAdmissible C (C ∪ inside C) →
+    ∀ ⦃ε : ℝ⦄, 0 < ε → ∀ ⦃b : Plane⦄, b ∈ inside C →
+      ∃ (xsegs : List Piece) (xtra : List Plane),
+        (∀ Q ∈ xsegs, Q.Nondeg) ∧ cover xsegs ⊆ inside C ∧
+        (∃ a₁ a₂ : Plane, a₁ ≠ a₂ ∧ a₁ ∈ xtra ∧ a₂ ∈ xtra ∧
+          a₁ ∈ cover xsegs ∧ a₂ ∈ cover xsegs ∧
+          a₁ ∈ cover (localGridEdges b (windowRadius C ε b)
+            (localGridCount (windowRadius C ε b) ε)) ∧
+          a₂ ∈ cover (localGridEdges b (windowRadius C ε b)
+            (localGridCount (windowRadius C ε b) ε))) ∧
+        ∀ (reps : List Plane) (Jarc : Plane → List Piece),
+          (∀ r ∈ reps, r ∈ cover ((skeletonSegs P.src ++ xsegs) ++
+            localGridEdges b (windowRadius C ε b) (localGridCount (windowRadius C ε b) ε))
+              \ C) →
+          IsJoinFamily C
+            (gridHub b (windowRadius C ε b) (localGridCount (windowRadius C ε b) ε))
+            (gridHubEdge b (windowRadius C ε b) (localGridCount (windowRadius C ε b) ε))
+            reps Jarc →
+          ∃ K : Graph Plane (γ ⊕ Piece),
+            K ≤ gridExtGraph P.src (skeletonSegs P.src ++ xsegs) reps Jarc b
+              (windowRadius C ε b) ε (xtra ++ stageVerts P.src) ∧
+            K.IsTwoConnected ∧
+            ∀ x ∈ V(gridExtGraph P.src (skeletonSegs P.src ++ xsegs) reps Jarc b
+              (windowRadius C ε b) ε (xtra ++ stageVerts P.src)),
+              x ∈ P.src.pos '' V(P.str.skel) ∨
+                x ∈ cover ((skeletonSegs P.src ++ xsegs) ++ reps.flatMap Jarc) → x ∈ V(K)
+
+/-- **The reduction: an anchored skeleton core makes the whole union 2-connected** —
+`lem:union-two-connected` at the stage. The grid part of the overlay is 2-connected on its own
+(`Schoenflies.gridPartGraph_isTwoConnected`), the core and the grid part share the two
+anchors, `Graph.IsTwoConnected.union` glues them, and the union of the two spans every vertex
+of `Schoenflies.gridExtGraph`: a drawn 0-cell and a vertex on the skeleton side lie in the
+core, a vertex on the grid lies in the grid part. -/
+theorem hasGridUnionTwoConnected_of {C : Set Plane} (hsep : IsSeparating C)
+    (hcore : HasGridAnchoredCores S₀ C) : HasGridUnionTwoConnected S₀ C := by
+  intro P hsrc ε hε b hb
+  set s := windowRadius C ε b with hs_def
+  set k := localGridCount s ε with hk_def
+  have hC : IsCompact C := hsep.isJordanCurve.isCompact
+  have hCne : C.Nonempty := hsep.isJordanCurve.nonempty
+  have hbC : b ∉ C := fun h => inside_subset_compl hb h
+  have hs : 0 < s := windowRadius_pos hC hCne hbC
+  have hk1 : 1 ≤ k := one_le_localGridCount s ε
+  obtain ⟨xsegs, xtra, hxnd, hxin, ⟨a₁, a₂, ha12, ha₁x, ha₂x, ha₁s, ha₂s, ha₁g, ha₂g⟩, hK⟩ :=
+    hcore P hsrc hε hb
+  refine ⟨xsegs, xtra, hxnd, hxin, ?_⟩
+  intro reps Jarc hrmem hJF
+  obtain ⟨K, hKle, hK2, hKspan⟩ := hK reps Jarc hrmem hJF
+  set gsegs := skeletonSegs P.src ++ xsegs with hgsegs_def
+  set extra := xtra ++ stageVerts P.src with hextra_def
+  -- nondegeneracy of every piece in play
+  have hg1 : ∀ Q ∈ gsegs, Q.Nondeg := by
+    intro Q hQ
+    rcases List.mem_append.1 hQ with h | h
+    exacts [skeletonSegs_nondeg Q h, hxnd Q h]
+  have hE₀nd : (gridHubEdge b s k).Nondeg :=
+    localGridEdges_nondeg hs hk1 _ (gridHubEdge_mem hk1)
+  have hj1 : ∀ Q ∈ reps.flatMap Jarc, Q.Nondeg := by
+    intro Q hQ
+    obtain ⟨r, hr, hQr⟩ := List.mem_flatMap.1 hQ
+    rcases hJF r hr with ⟨-, hJr⟩ | ⟨-, vs, hvs, -, -, -, -, hJr⟩
+    · rw [hJr, List.mem_singleton] at hQr
+      exact hQr ▸ hE₀nd
+    · rw [hJr] at hQr
+      exact segsOf_nondeg _ Q hQr
+  have hndall : ∀ Q ∈ gridAttachPieces gsegs reps Jarc b s ε, Q.Nondeg :=
+    gridAttachPieces_nondeg hs hg1 hj1
+  -- the grid part, renamed into the union
+  set Ggrid := (gridPartGraph gsegs reps Jarc b s ε extra).renameEdges Sum.inr
+    Sum.inr_injective.injOn with hGgrid_def
+  have hGgrid2 : Ggrid.IsTwoConnected :=
+    (gridPartGraph_isTwoConnected hs).renameEdges _
+  have hGgridle : Ggrid ≤ gridExtGraph P.src gsegs reps Jarc b s ε extra :=
+    (Graph.renameEdges_mono gridPartGraph_le _ _).trans
+      (Graph.renameEdges_inr_le_sumUnion _ _)
+  -- the auxiliary segments lie on the pieces
+  have hxsub : cover xsegs ⊆ cover (gridAttachPieces gsegs reps Jarc b s ε) := by
+    rw [cover_gridAttachPieces]
+    intro z hz
+    exact Or.inl (Or.inl (by rw [hgsegs_def, cover_append]; exact Or.inr hz))
+  -- a cut point on the auxiliary segments is a vertex of the union
+  have haVH : ∀ a, a ∈ xtra → a ∈ cover xsegs →
+      a ∈ V(gridExtGraph P.src gsegs reps Jarc b s ε extra) := by
+    intro a hax has
+    have : a ∈ V(gridAttachGraph gsegs reps Jarc b s ε extra) :=
+      mem_vertexSet_attachGraph_of_mem_extra hndall
+        (List.mem_append_left _ hax) (hxsub has)
+    exact Or.inr this
+  -- the two anchors lie in the core
+  have hanchK : ∀ a, a ∈ xtra → a ∈ cover xsegs → a ∈ V(K) := by
+    intro a hax has
+    refine hKspan a (haVH a hax has) (Or.inr ?_)
+    rw [cover_append]
+    exact Or.inl (by rw [hgsegs_def, cover_append]; exact Or.inr has)
+  -- and in the grid part
+  have hanchG : ∀ a, a ∈ xtra → a ∈ cover (localGridEdges b s k) → a ∈ V(Ggrid) := by
+    intro a hax hag
+    exact mem_gridPartGraph_of_mem_cover hs
+      (mem_attachPoints_of_mem (List.mem_append_left _ hax)) hag
+  -- glue at the anchors
+  have hcompat := Graph.Compatible.of_le_le hKle hGgridle
+  have hKfull : (K.union Ggrid).IsTwoConnected :=
+    hK2.union hcompat hGgrid2 ha12 (hanchK a₁ ha₁x ha₁s) (hanchG a₁ ha₁x ha₁g)
+      (hanchK a₂ ha₂x ha₂s) (hanchG a₂ ha₂x ha₂g)
+  -- the union of the core and the grid part spans
+  refine hKfull.of_le_of_vertexSet_subset (Graph.union_le hKle hGgridle) ?_
+  intro x hx
+  rw [Graph.vertexSet_union]
+  rcases hx with hx | hx
+  · -- a vertex of the outer part is a drawn 0-cell, hence in the core
+    refine Or.inl (hKspan x (Or.inl hx) (Or.inl ?_))
+    rw [Graph.renameEdges_vertexSet, Graph.vertexSet_map] at hx
+    obtain ⟨v, hv, rfl⟩ := hx
+    exact ⟨v, P.str.outerGraph_le.vertexSet_mono hv, rfl⟩
+  · -- an overlay vertex lies on the pieces: skeleton side into the core, grid side
+    -- into the grid part
+    have hxcov : x ∈ cover (gridAttachPieces gsegs reps Jarc b s ε) :=
+      vertexSet_gridAttachGraph_subset_cover hx
+    rw [cover_gridAttachPieces] at hxcov
+    rcases hxcov with hx' | hx'
+    · refine Or.inl (hKspan x (Or.inr hx) (Or.inr ?_))
+      rw [cover_append, cover_flatMap']
+      exact hx'
+    · exact Or.inr (vertexSet_inter_grid_subset hs hx hx')
+
+end Assemble
+
 end Schoenflies

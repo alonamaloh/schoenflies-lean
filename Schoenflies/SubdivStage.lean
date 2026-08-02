@@ -335,6 +335,15 @@ noncomputable def GeneratedPair.subdivideEdge
     (T.subdivideEdge hS d hstart ht).tgt =
       d.realize T.tgt (d.targetParam T.homeo t) (d.targetParam_mem_Ioo T.homeo ht) := rfl
 
+/-- The drawn source skeleton of the new stage is the drawn skeleton of the old one with the
+subdivided edge cut in two — `SubdivData.realizeGraph`, whose vertex set
+(`realizeGraph_vertexSet`) is where "the new point is now a 0-cell" is read. -/
+theorem GeneratedPair.subdivideEdge_src_graph
+    (T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom) (hS : T.str.CombInvariants)
+    (d : T.str.SubdivData) (hstart : d.boundaryStart = T.walks.start) {t : ℝ}
+    (ht : t ∈ Ioo (0 : ℝ) 1) :
+    (T.subdivideEdge hS d hstart ht).src.graph = d.realizeGraph T.src t := rfl
+
 /-- **The new stage refines the old one along `SubdivData.parent`, on both sides and by the same
 map** — `lem:refinement-compatibility`(c) at a subdivision, which is what
 `Schoenflies.IsPartialTransferOf` asks of a step. -/

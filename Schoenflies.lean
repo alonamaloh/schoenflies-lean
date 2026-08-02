@@ -118,3 +118,4 @@ import Schoenflies.EarTarget
 import Schoenflies.SplitStage
 import Schoenflies.EarStep
 import Schoenflies.SubdivStage
+import Schoenflies.SubdivPoints

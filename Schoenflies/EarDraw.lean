@@ -266,4 +266,154 @@ theorem exists_isEarChart [Infinite γ] :
           if_neg (fun (h : q = z) => hzV' (by rw [← h]; exact hqV))]
         exact chart'.isLink hlink
 
+
+/-! ### What a chart delivers
+
+Everything `CellStructure.SplitData` and `SplitData.EarCrosscut` ask of the ear, read off the
+chart. The two that carry content are `IsEarChart.isDrawing` and `IsEarChart.pointSet_eq`: the
+drawn ear is a plane graph, and it occupies exactly what the concrete path occupies. -/
+
+namespace IsEarChart
+
+variable {a b : Plane} {D : List γ} {z w : γ} {avoid : Set γ} {steps : List (γ × γ)}
+  {earPos : γ → Plane} {name : γ → γ}
+
+variable (chart : IsEarChart H a b D z w avoid steps earPos name)
+
+include chart
+
+theorem vertexSet_eq : V(pathOn z steps) = {c | c ∈ z :: steps.map Prod.snd} := by
+  rw [vertexSet_pathOn, setOf_mem_cons]
+
+/-- The ear is the path graph it looks like, between the two prescribed old names. -/
+theorem isPathGraph : (pathOn z steps).IsPathGraph z (steps.map Prod.fst) w := by
+  have h := isPathGraph_pathOn chart.nodup_vertices chart.nodup_edges
+  rwa [chart.getLastD_eq] at h
+
+theorem disjoint_vertexSet_edgeSet : Disjoint V(pathOn z steps) E(pathOn z steps) := by
+  rw [chart.vertexSet_eq, edgeSet_pathOn, Set.disjoint_left]
+  exact fun c hc => chart.vertices_ne_edges c hc
+
+theorem fresh_of_mem_vertexSet ⦃c : γ⦄ (hc : c ∈ V(pathOn z steps)) (hcz : c ≠ z) (hcw : c ≠ w) :
+    c ∉ avoid := by
+  rw [chart.vertexSet_eq] at hc
+  rcases List.mem_cons.1 hc with h | h
+  · exact absurd h hcz
+  · exact chart.fresh_vertex c h hcw
+
+theorem fresh_of_mem_edgeSet ⦃g : γ⦄ (hg : g ∈ E(pathOn z steps)) : g ∉ avoid := by
+  rw [edgeSet_pathOn] at hg
+  exact chart.fresh_edge g hg
+
+theorem injOn_earPos : InjOn earPos V(pathOn z steps) := by
+  rw [chart.vertexSet_eq]; exact chart.injOn_pos
+
+theorem image_earPos : earPos '' V(pathOn z steps) = H.walkVertices a D := by
+  rw [chart.vertexSet_eq]; exact chart.image_pos
+
+/-- **A link of the drawn ear is the corresponding link of `H`.** This is `IsEarChart.isLink`
+pushed along the relabelling, and it is what every clause of `Graph.IsDrawing` below reduces
+to. -/
+theorem isLink_map ⦃g : γ⦄ ⦃p q : Plane⦄ (h : ((pathOn z steps).map earPos).IsLink g p q) :
+    H.IsLink (name g) p q := by
+  obtain ⟨x, y, hxy, rfl, rfl⟩ := h
+  exact chart.isLink hxy
+
+theorem name_mem_edgeSet (hD : H.IsPath a D b) ⦃g : γ⦄ (hg : g ∈ E(pathOn z steps)) :
+    name g ∈ E(H) := by
+  rw [edgeSet_pathOn] at hg
+  exact hD.edge_mem (chart.map_name ▸ List.mem_map_of_mem hg)
+
+/-- Distinct ear edges are matched with distinct edges of `H`: the concrete path's edge list is
+`Nodup`, and the ear's is its preimage. -/
+theorem injOn_name (hD : H.IsPath a D b) : InjOn name E(pathOn z steps) := by
+  have hnd : ((steps.map Prod.fst).map name).Nodup := by rw [chart.map_name]; exact hD.nodup
+  rw [edgeSet_pathOn]
+  exact fun _ h₁ _ h₂ h => List.inj_on_of_nodup_map hnd h₁ h₂ h
+
+/-- **The drawn ear is a plane graph.** Each clause is the corresponding clause for `H`, read
+through the chart: the ear's links are `H`'s links, its vertices are among `H`'s, and its edge
+arcs *are* `H`'s edge arcs. -/
+theorem isDrawing (hH : IsDrawing H Hdraw) (hD : H.IsPath a D b) :
+    IsDrawing ((pathOn z steps).map earPos) (fun g => Hdraw (name g)) where
+  edge_param := by
+    intro g hg
+    obtain ⟨hc, hi, hlk⟩ := hH.edge_param (chart.name_mem_edgeSet hD (by rwa [edgeSet_map] at hg))
+    refine ⟨hc, hi, ?_⟩
+    obtain ⟨p, q, hpq⟩ := exists_isLink_of_mem_edgeSet hg
+    rcases (chart.isLink_map hpq).eq_and_eq_or_eq_and_eq hlk with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
+    · exact hpq
+    · exact hpq.symm
+  vertex_mem_edgeArc := by
+    intro g p q vv hlk hv hmem
+    refine hH.vertex_mem_edgeArc (chart.isLink_map hlk) ?_ hmem
+    rw [vertexSet_map, chart.image_earPos] at hv
+    exact walkVertices_subset_vertexSet hD.left_mem hv
+  edge_inter := by
+    intro g₁ g₂ h₁ h₂ hne p hp₁ hp₂
+    have hg₁ : g₁ ∈ E(pathOn z steps) := by rwa [edgeSet_map] at h₁
+    have hg₂ : g₂ ∈ E(pathOn z steps) := by rwa [edgeSet_map] at h₂
+    obtain ⟨-, hInc₁, hInc₂⟩ := hH.edge_inter (chart.name_mem_edgeSet hD hg₁)
+      (chart.name_mem_edgeSet hD hg₂)
+      (fun h => hne (chart.injOn_name hD hg₁ hg₂ h)) hp₁ hp₂
+    have key : ∀ ⦃g x y⦄, ((pathOn z steps).map earPos).IsLink g x y → H.Inc (name g) p →
+        p ∈ V((pathOn z steps).map earPos) ∧ ((pathOn z steps).map earPos).Inc g p := by
+      intro g x y hl hinc
+      rcases hinc.eq_or_eq_of_isLink (chart.isLink_map hl) with rfl | rfl
+      exacts [⟨hl.left_mem, hl.inc_left⟩, ⟨hl.right_mem, hl.inc_right⟩]
+    obtain ⟨x₁, y₁, hl₁⟩ := exists_isLink_of_mem_edgeSet h₁
+    obtain ⟨x₂, y₂, hl₂⟩ := exists_isLink_of_mem_edgeSet h₂
+    exact ⟨(key hl₁ hInc₁).1, (key hl₁ hInc₁).2, (key hl₂ hInc₂).2⟩
+
+/-- **The drawn ear occupies exactly what the concrete path occupies.** The vertices agree by
+`image_pos` and the edge arcs are the same arcs, listed under different names. -/
+theorem pointSet_eq (hD : H.IsPath a D b) :
+    pointSet ((pathOn z steps).map earPos) (fun g => Hdraw (name g))
+      = pointSet (H.pathGraphOf a D) Hdraw := by
+  rw [pointSet, pointSet, vertexSet_map, chart.image_earPos, pathGraphOf_vertexSet,
+    edgeSet_map, edgeSet_pathOn, pathGraphOf_edgeSet hD.isWalk]
+  congr 1
+  ext x
+  simp only [Set.mem_iUnion, Set.mem_setOf_eq, exists_prop]
+  constructor
+  · rintro ⟨g, hg, hx⟩
+    exact ⟨name g, chart.map_name ▸ List.mem_map_of_mem hg, hx⟩
+  · rintro ⟨ee, hee, hx⟩
+    rw [← chart.map_name] at hee
+    obtain ⟨g, hg, rfl⟩ := List.mem_map.1 hee
+    exact ⟨g, hg, hx⟩
+
+end IsEarChart
+
+/-! ### The drawn ear -/
+
+/-- **The ear of `thm:finite-transfer`(a), step 3, on fresh names and drawn where `H` draws
+it.**
+
+A path `a --D--> b` of the extension graph, together with the two old cell names `z`, `w` of its
+endpoints, gives an abstract ear — a path graph on names outside the caller's finite `avoid` —
+together with a placement of its vertices and a parametrization of its edges under which the
+drawn ear is a plane graph occupying exactly `|H.pathGraphOf a D|`.
+
+The ten conclusions are, in order, the fields `SplitData.isPathGraph`, `.ear_disjoint`,
+`.vertex_fresh`, `.edge_fresh`, then `EarCrosscut.injOn`, `.pos_source`, `.pos_target`, the
+vertex correspondence, `EarCrosscut.isDrawing`, and the point-set identity that
+`EarCrosscut.subset_face` and `.polygonal` are checked against. -/
+theorem exists_drawn_ear [Infinite γ] (hH : IsDrawing H Hdraw)
+    {a b : Plane} {D : List γ} (hD : H.IsPath a D b) {z w : γ} (hzw : z = w ↔ a = b)
+    {avoid : Set γ} (hav : avoid.Finite) (hz : z ∈ avoid) (hw : w ∈ avoid) :
+    ∃ (ear : Graph γ γ) (earWalk : List γ) (earPos : γ → Plane) (earDraw : γ → ℝ → Plane),
+      ear.IsPathGraph z earWalk w ∧ Disjoint V(ear) E(ear) ∧
+        (∀ ⦃c⦄, c ∈ V(ear) → c ≠ z → c ≠ w → c ∉ avoid) ∧
+        (∀ ⦃g⦄, g ∈ E(ear) → g ∉ avoid) ∧
+        InjOn earPos V(ear) ∧ earPos z = a ∧ earPos w = b ∧
+        earPos '' V(ear) = H.walkVertices a D ∧
+        IsDrawing (ear.map earPos) earDraw ∧
+        pointSet (ear.map earPos) earDraw = pointSet (H.pathGraphOf a D) Hdraw := by
+  obtain ⟨steps, earPos, name, chart⟩ := exists_isEarChart hD z w avoid hav hz hw hzw
+  exact ⟨pathOn z steps, steps.map Prod.fst, earPos, fun g => Hdraw (name g),
+    chart.isPathGraph, chart.disjoint_vertexSet_edgeSet, chart.fresh_of_mem_vertexSet,
+    chart.fresh_of_mem_edgeSet, chart.injOn_earPos, chart.pos_source, chart.pos_target,
+    chart.image_earPos, chart.isDrawing hH hD, chart.pointSet_eq hD⟩
+
 end Graph

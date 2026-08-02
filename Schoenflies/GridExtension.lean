@@ -623,6 +623,84 @@ theorem exists_subpiece {l : List Piece} {pts : List Plane} {P : Piece} (hP : P 
   rw [show l₁ ++ P :: l₂ = l₁ ++ ([P] ++ l₂) from rfl, subdivide_append, subdivide_append]
   exact List.mem_append_right _ (List.mem_append_left _ hQ₁)
 
+/-! ## The union is a plane graph
+
+`Graph.IsDrawing.sumUnion` asks that the two sides meet only at shared endpoints. Every
+meeting point of the polygonal part with the outer part lies on `C`, hence is a drawn 0-cell
+by the placement lemmas; a drawn 0-cell is a vertex of the stage's own drawing on the outer
+side, and a prescribed cut point — hence a vertex — of the overlay on the polygonal side. -/
+
+/-- **Obligation 3 of the extension chooser: the union is drawn.** -/
+theorem gridExtGraph_isDrawing (hW : R.IsWeaklyAdmissible C (C ∪ inside C)) (hs : 0 < s)
+    (hg1 : ∀ P ∈ gsegs, P.Nondeg)
+    (hg2 : ∀ P ∈ gsegs, P.seg \ (R.pos '' V(S.skel)) ⊆ inside C)
+    (hj1 : ∀ P ∈ reps.flatMap Jarc, P.Nondeg)
+    (hj2 : ∀ r ∈ reps, cover (Jarc r) ⊆ inside C)
+    (hgridin : cover (localGridEdges p s (localGridCount s ε)) ⊆ inside C)
+    (hverts : ∀ v ∈ V(S.skel), R.pos v ∈ extra) :
+    Graph.IsDrawing (gridExtGraph R gsegs reps Jarc p s ε extra) (gridExtDraw R) := by
+  have h₂ := gridAttachGraph_isDrawing (p := p) (ε := ε) (extra := extra) hs hg1 hj1
+  show Graph.IsDrawing
+    ((S.outerGraph.map R.pos).sumUnion (gridAttachGraph gsegs reps Jarc p s ε extra))
+    (Graph.sumDraw R.drawing segmentDrawing)
+  refine Graph.IsDrawing.sumUnion (R.isDrawing.of_le (outerPart_le R)) h₂ ?_ ?_ ?_
+  · -- a vertex of the polygonal part on an outer arc: it lies on `C`, so it is a drawn
+    -- 0-cell, and a vertex on an arc of the stage's drawing is an end of it
+    rintro v hv e x y hl hvarc
+    have he : e ∈ E(S.outerGraph) := by
+      have := hl.edge_mem
+      rwa [Graph.edgeSet_map] at this
+    have hC : v ∈ C := hW.outerSet_eq ▸ R.edgeArc_subset_outerSet he hvarc
+    have hvcov := vertexSet_gridAttachGraph_subset_cover hv
+    have hvV : v ∈ V(R.graph) := by
+      obtain ⟨u, hu, rfl⟩ := cover_gridAttachPieces_inter_subset hg2 hj2 hgridin ⟨hvcov, hC⟩
+      rw [Realization.vertexSet_graph]
+      exact ⟨u, hu, rfl⟩
+    exact R.isDrawing.vertex_mem_edgeArc (hl.mono (outerPart_le R)) hvV hvarc
+  · -- a vertex of the outer part on a piece arc: it is drawn on `C`, hence a drawn 0-cell,
+    -- hence a prescribed vertex of the overlay, whose own drawing places it at an end
+    rintro v hv Q x y hl hvarc
+    have hC : v ∈ C := by
+      rw [Graph.vertexSet_map] at hv
+      obtain ⟨u, hu, rfl⟩ := hv
+      exact hW.outerSet_eq ▸ R.pos_mem_outerSet hu
+    have hQ' : Q ∈ overlayPieces (gridAttachPieces gsegs reps Jarc p s ε)
+        (attachPoints (gridAttachPieces gsegs reps Jarc p s ε) extra) := hl.edge_mem
+    have hvcov : v ∈ cover (gridAttachPieces gsegs reps Jarc p s ε) := by
+      refine seg_subset_cover_of_mem_overlayPieces hQ' ?_
+      rwa [edgeArc_segmentDrawing] at hvarc
+    have hvv := cover_gridAttachPieces_inter_subset hg2 hj2 hgridin ⟨hvcov, hC⟩
+    exact h₂.vertex_mem_edgeArc hl
+      (pos_mem_vertexSet_gridAttachGraph hs hg1 hj1 hverts hvv hvcov) hvarc
+  · -- a common point of an outer arc and a piece arc: on `C`, hence a drawn 0-cell, hence
+    -- an endpoint on both sides
+    rintro e he Q hQ q hqe hqQ
+    have he' : e ∈ E(S.outerGraph) := by rwa [Graph.edgeSet_map] at he
+    have hC : q ∈ C := hW.outerSet_eq ▸ R.edgeArc_subset_outerSet he' hqe
+    have hQ' : Q ∈ overlayPieces (gridAttachPieces gsegs reps Jarc p s ε)
+        (attachPoints (gridAttachPieces gsegs reps Jarc p s ε) extra) := hQ
+    have hqcov : q ∈ cover (gridAttachPieces gsegs reps Jarc p s ε) := by
+      refine seg_subset_cover_of_mem_overlayPieces hQ' ?_
+      rwa [edgeArc_segmentDrawing] at hqQ
+    have hqv := cover_gridAttachPieces_inter_subset hg2 hj2 hgridin ⟨hqcov, hC⟩
+    constructor
+    · -- incident on the outer side
+      have hqV : q ∈ V(R.graph) := by
+        obtain ⟨u, hu, rfl⟩ := hqv
+        rw [Realization.vertexSet_graph]
+        exact ⟨u, hu, rfl⟩
+      obtain ⟨a, b, hle⟩ := (S.outerGraph.map R.pos).exists_isLink_of_mem_edgeSet he
+      rcases R.isDrawing.vertex_mem_edgeArc (hle.mono (outerPart_le R)) hqV hqe with rfl | rfl
+      · exact ⟨b, hle⟩
+      · exact ⟨a, hle.symm⟩
+    · -- incident on the polygonal side
+      obtain ⟨x, y, hlQ⟩ :=
+        (gridAttachGraph gsegs reps Jarc p s ε extra).exists_isLink_of_mem_edgeSet hQ
+      rcases h₂.vertex_mem_edgeArc hlQ
+        (pos_mem_vertexSet_gridAttachGraph hs hg1 hj1 hverts hqv hqcov) hqQ with rfl | rfl
+      · exact ⟨y, hlQ⟩
+      · exact ⟨x, hlQ.symm⟩
+
 end Placement
 
 end Schoenflies

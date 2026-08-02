@@ -515,4 +515,161 @@ theorem meshOverlayGraph_edge_subset (hfresh : ∀ z ∈ fresh, z ∈ modelCurve
   rw [hfQ, orientPiece_seg]
   exact hQR.trans (seg_subset_edgeArc P he hR)
 
+/-! ### The dichotomy and the boundary clauses
+
+Every overlay edge is a subsegment of a listed segment, and the list is made of exactly four
+kinds: outer material (the outer ring and the outer 1-cells), inner rings, spokes, and
+material off `S` (nonboundary 1-cells away from their endpoints, joining arcs). The dichotomy
+and both fresh-point clauses are case splits over that classification. -/
+
+/-- **Each overlay edge is a boundary edge or a polygonal edge with interior off `S`.** -/
+theorem meshOverlayGraph_edge_dichotomy
+    (htgt : P.tgt.IsAdmissible modelCurve (Plane.closedSquare 0 1))
+    (hfresh : ∀ z ∈ fresh, z ∈ modelCurve) (hjoins : JoinsFor P ε joins) :
+    ∀ ⦃f⦄, f ∈ E(meshOverlayGraph P ε fresh joins) →
+      Graph.edgeArc segmentDrawing f ⊆ modelCurve ∨
+      (IsPolygonal (Graph.edgeArc segmentDrawing f) ∧
+        Graph.edgeArc segmentDrawing f \ V(meshOverlayGraph P ε fresh joins)
+          ⊆ Plane.closedSquare 0 1 \ modelCurve) := by
+  intro f hf
+  rw [edgeArc_segmentDrawing]
+  have hN := two_le_meshCount ε
+  obtain ⟨R, hR, hsub, -⟩ := meshOverlayGraph_edge_source hf
+  rcases List.mem_append.1 hR with hmesh | hrest
+  · rcases mem_meshSegments.1 hmesh with ⟨r, hr, hRr⟩ | ⟨z, hz, rfl⟩
+    · by_cases h1 : r = 1
+      · -- a piece of the outer ring lies on `S`
+        subst h1
+        exact Or.inl (hsub.trans (ringPieces_seg_subset zero_le_one hRr))
+      · -- a piece of an inner ring misses `S` outright
+        refine Or.inr ⟨isPolygonal_segment _ _, fun x hx => ?_⟩
+        have hxr : x ∈ ringSet r :=
+          (hsub.trans (ringPieces_seg_subset (meshRadii_pos hN hr).le hRr)) hx.1
+        exact ⟨mem_closedSquare_zero_one.2 (le_of_eq_of_le hxr (meshRadii_le_one hN hr)),
+          fun hS => h1 (hxr.symm.trans hS)⟩
+    · -- a piece of a spoke meets `S` only at its fresh point, which is a vertex
+      refine Or.inr ⟨isPolygonal_segment _ _, fun x hx => ?_⟩
+      refine ⟨spokePiece_subset_closedSquare hN (hfresh z hz) (hsub hx.1), fun hS => ?_⟩
+      have hxz : x ∈ ({z} : Set Plane) := by
+        rw [← spokePiece_inter_modelCurve hN (hfresh z hz)]
+        exact ⟨hsub hx.1, hS⟩
+      exact hx.2 (hxz ▸ fresh_mem_vertexSet_meshOverlayGraph hz)
+  · rcases List.mem_append.1 hrest with hskel | hjoin
+    · obtain ⟨e, he, hRe⟩ := mem_skelPieces.1 hskel
+      by_cases hout : e ∈ E(P.str.outerGraph)
+      · -- a piece of an outer 1-cell lies on the realized outer cycle, which is `S`
+        have houter : Graph.edgeArc P.tgt.drawing e ⊆ P.tgt.outerSet :=
+          Graph.edgeArc_subset_pointSet
+            (show e ∈ E(P.str.outerGraph.map P.tgt.pos) by rwa [edgeSet_map])
+        rw [htgt.outerSet_eq] at houter
+        exact Or.inl ((hsub.trans (seg_subset_edgeArc P he hRe)).trans houter)
+      · -- a piece of a nonboundary 1-cell, off the vertices, sits in the open 1-cell
+        refine Or.inr ⟨isPolygonal_segment _ _, fun x hx => ?_⟩
+        obtain ⟨a, b, hl⟩ := exists_isLink_of_mem_edgeSet he
+        have hxarc : x ∈ Graph.edgeArc P.tgt.drawing e :=
+          (hsub.trans (seg_subset_edgeArc P he hRe)) hx.1
+        have hxab : x ∉ ({P.tgt.pos a, P.tgt.pos b} : Set Plane) := by
+          intro hmem
+          refine hx.2 (meshOverlayGraph_vertexSet_subset htgt ?_)
+          rw [Realization.vertexSet_graph]
+          rcases hmem with h | h
+          · exact ⟨a, hl.left_mem, h.symm⟩
+          · exact ⟨b, hl.right_mem, h.symm⟩
+        refine htgt.cell_subset he hout ?_
+        rw [P.tgt.cell_edge hl]
+        exact ⟨hxarc, hxab⟩
+    · -- a joining piece is drawn in the open square, off `S` outright
+      exact Or.inr ⟨isPolygonal_segment _ _, fun x hx =>
+        openSquare_subset_closedSquare_diff
+          (hjoins.subset (mem_cover_iff.2 ⟨R, hjoin, hsub hx.1⟩))⟩
+
+/-- **An overlay edge reaching `S` off both `S` and the old skeleton is a spoke piece at a
+fresh point**, the point is that spoke's fresh point, and it is an end of the edge. -/
+theorem meshOverlayGraph_spoke_edge_at
+    (htgt : P.tgt.IsAdmissible modelCurve (Plane.closedSquare 0 1))
+    (hfresh : ∀ z ∈ fresh, z ∈ modelCurve) (hjoins : JoinsFor P ε joins)
+    {p : Plane} (hp : p ∈ modelCurve) {f : Piece}
+    (hf : f ∈ E(meshOverlayGraph P ε fresh joins)) (hpf : p ∈ f.seg)
+    (hnb : ¬ f.seg ⊆ modelCurve) (hnew : ¬ f.seg ⊆ P.tgt.skeletonSet) :
+    p ∈ fresh ∧ f.seg ⊆ (spokePiece (meshCount ε) p).seg ∧ (p = f.1 ∨ p = f.2) := by
+  have hN := two_le_meshCount ε
+  obtain ⟨R, hR, hsub, -⟩ := meshOverlayGraph_edge_source hf
+  rcases List.mem_append.1 hR with hmesh | hrest
+  · rcases mem_meshSegments.1 hmesh with ⟨r, hr, hRr⟩ | ⟨z, hz, rfl⟩
+    · by_cases h1 : r = 1
+      · exact absurd (hsub.trans (by subst h1; exact ringPieces_seg_subset zero_le_one hRr)) hnb
+      · exfalso
+        have hxr : p ∈ ringSet r :=
+          (hsub.trans (ringPieces_seg_subset (meshRadii_pos hN hr).le hRr)) hpf
+        exact h1 (hxr.symm.trans hp)
+    · -- the spoke case: `p` is the spoke's fresh point, a cut point, so an end of `f`
+      have hpz : p ∈ ({z} : Set Plane) := by
+        rw [← spokePiece_inter_modelCurve hN (hfresh z hz)]
+        exact ⟨hsub hpf, hp⟩
+      rw [mem_singleton_iff] at hpz
+      subst hpz
+      refine ⟨hz, hsub, ?_⟩
+      have hpts : p ∈ meshOverlayPoints P ε fresh joins :=
+        meshOverlayPoints_endsAreCut P ε fresh joins _
+          (List.mem_append_left _ (spokePiece_mem_meshSegments hz)) p (Or.inl rfl)
+      by_contra hcon
+      push Not at hcon
+      exact overlayPieces_avoids (meshOverlayPieces_nondeg hfresh hjoins.nondeg) p hpts f hf
+        (mem_openSegment_of_ne_left_right (Ne.symm hcon.1) (Ne.symm hcon.2) hpf)
+  · rcases List.mem_append.1 hrest with hskel | hjoin
+    · obtain ⟨e, he, hRe⟩ := mem_skelPieces.1 hskel
+      exact absurd (hsub.trans ((seg_subset_edgeArc P he hRe).trans
+        (arc_subset_skeletonSet P he))) hnew
+    · exact absurd hp (openSquare_subset_closedSquare_diff
+        (hjoins.subset (mem_cover_iff.2 ⟨R, hjoin, hsub hpf⟩))).2
+
+/-- **A new nonboundary edge reaches `S` only at a listed fresh point.** -/
+theorem meshOverlayGraph_nonboundaryAt_mem_fresh
+    (htgt : P.tgt.IsAdmissible modelCurve (Plane.closedSquare 0 1))
+    (hfresh : ∀ z ∈ fresh, z ∈ modelCurve) (hjoins : JoinsFor P ε joins) :
+    ∀ ⦃p⦄, p ∈ modelCurve →
+      NonboundaryAt (meshOverlayGraph P ε fresh joins) segmentDrawing modelCurve
+        P.tgt.skeletonSet p → p ∈ fresh := by
+  intro p hp hnb
+  obtain ⟨f, hf, hpf, hnbf, hnewf⟩ := hnb
+  rw [edgeArc_segmentDrawing] at hpf hnbf hnewf
+  exact (meshOverlayGraph_spoke_edge_at htgt hfresh hjoins hp hf hpf hnbf hnewf).1
+
+/-- **One new nonboundary edge per fresh boundary point.** Two such edges are subpieces of the
+spoke at the point with the point as an end, so their interiors overlap just inside `S`, and
+separation makes them the same edge. -/
+theorem meshOverlayGraph_unique_edge
+    (htgt : P.tgt.IsAdmissible modelCurve (Plane.closedSquare 0 1))
+    (hfresh : ∀ z ∈ fresh, z ∈ modelCurve) (hjoins : JoinsFor P ε joins) :
+    ∀ ⦃p⦄, p ∈ modelCurve → ∀ ⦃f g⦄, f ∈ E(meshOverlayGraph P ε fresh joins) →
+      g ∈ E(meshOverlayGraph P ε fresh joins) →
+      p ∈ Graph.edgeArc segmentDrawing f → p ∈ Graph.edgeArc segmentDrawing g →
+      ¬ Graph.edgeArc segmentDrawing f ⊆ modelCurve →
+      ¬ Graph.edgeArc segmentDrawing g ⊆ modelCurve →
+      ¬ Graph.edgeArc segmentDrawing f ⊆ P.tgt.skeletonSet →
+      ¬ Graph.edgeArc segmentDrawing g ⊆ P.tgt.skeletonSet → f = g := by
+  intro p hp f g hf hg hpf hpg hnbf hnbg hnewf hnewg
+  rw [edgeArc_segmentDrawing] at hpf hpg hnbf hnbg hnewf hnewg
+  have hN := two_le_meshCount ε
+  obtain ⟨-, hsubf, hendf⟩ :=
+    meshOverlayGraph_spoke_edge_at htgt hfresh hjoins hp hf hpf hnbf hnewf
+  obtain ⟨-, hsubg, hendg⟩ :=
+    meshOverlayGraph_spoke_edge_at htgt hfresh hjoins hp hg hpg hnbg hnewg
+  obtain ⟨tf, hltf, hintf⟩ := spoke_subpiece_interior hN
+    (meshOverlayGraph_edge_nondeg hfresh hjoins.nondeg hf) hsubf hendf
+  obtain ⟨tg, hltg, hintg⟩ := spoke_subpiece_interior hN
+    (meshOverlayGraph_edge_nondeg hfresh hjoins.nondeg hg) hsubg hendg
+  by_contra hne
+  -- both interiors contain every multiple `s • p` with `max tf tg < s < 1`
+  set s : ℝ := (max tf tg + 1) / 2 with hs
+  have hmax : max tf tg < 1 := max_lt hltf hltg
+  have hs1 : s < 1 := by rw [hs]; linarith
+  have hsf : tf < s := by rw [hs]; linarith [le_max_left tf tg]
+  have hsg : tg < s := by rw [hs]; linarith [le_max_right tf tg]
+  refine overlayPieces_disjoint_interiors (meshOverlayPieces_nondeg hfresh hjoins.nondeg)
+    (meshOverlayPoints_endsAreCut P ε fresh joins)
+    (meshOverlayPoints_meetsAreCut P ε fresh joins) hf hg hne (x := s • p) ?_ ?_
+  · rw [hintf]; exact ⟨s, ⟨hsf, hs1⟩, rfl⟩
+  · rw [hintg]; exact ⟨s, ⟨hsg, hs1⟩, rfl⟩
+
 end Schoenflies

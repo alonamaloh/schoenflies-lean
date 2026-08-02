@@ -220,4 +220,194 @@ theorem IsTransferOf.isRefinementStep (hT : IsTransferOf T P H Hdraw par)
 
 end Bridges
 
+/-! ### The two named hypotheses
+
+Each is *"at every stage there is an admissible enlargement whose transfer shrinks the stars"*,
+for one of the two directions, stated as the existence of a bundle of data rather than of a bare
+pair so that the recursion below can extract components by name after a single use of choice.
+
+Neither mentions the extension graph `H`: the recursion consumes a transfer only through
+`IsRefinementStep`, and keeping `H` out of the interface is what lets the discharger choose it
+freely (grid, crosscut, joining loops on one side; mesh and overlay on the other). -/
+
+/-- The data one source-grid step hands to the recursion: the refined stage, the parent map,
+the step relation, and the grid-star estimate on the window. -/
+structure GridStepData (P : StagePair S₀ C) (ε : ℝ) (b : Plane) where
+  /-- The refined stage. -/
+  next : StagePair S₀ C
+  /-- The shared parent map. -/
+  par : γ → γ
+  /-- The refined stage is one recursion step beyond `P`. -/
+  step : IsRefinementStep next P par
+  /-- **`lem:grid-star-estimate`**: inside the open window `W(b)` the new source stars have
+  diameter at most `2ε`. -/
+  diam_star_le : ∀ ⦃x⦄, x ∈ openWindow C ε b →
+    diam (next.src.star (next.src.carrier x)) ≤ 2 * ε
+
+/-- The data one target-mesh step hands to the recursion: the refined stage, the parent map,
+the step relation, and the mesh bound on the closed target 2-cells. -/
+structure MeshStepData (P : StagePair S₀ C) (ε : ℝ) where
+  /-- The refined stage. -/
+  next : StagePair S₀ C
+  /-- The shared parent map. -/
+  par : γ → γ
+  /-- The refined stage is one recursion step beyond `P`. -/
+  step : IsRefinementStep next P par
+  /-- **"Every closed target 2-cell has diameter `< ε_n`"** — the sentence of the recursion
+  step that the anchored mesh establishes. `lem:star-face-mesh`(a) turns it into the uniform
+  star bound below, so the star form is *not* part of the hypothesis. -/
+  diam_closure_cell_le : ∀ ⦃F⦄, F ∈ next.str.faces → diam (closure (next.tgt.cell F)) ≤ ε
+
+/-- **NAMED HYPOTHESIS — the source-grid chooser.**
+
+At every admissible stage, every mesh `ε > 0` and every window centre `b` in the open Jordan
+domain, some enlargement of the source skeleton transfers to a refinement step whose source
+stars inside `W(b)` have diameter at most `2ε`.
+
+Discharged by: `prop:local-grid-attachment` (`Schoenflies.localGrid` + `GridAttach.lean`,
+once `hΓ` and `hcov` are closed) building the extension `H_n` over the window `W(b)` —
+`Schoenflies.window_subset_inside` puts the window in the domain — then
+`Schoenflies.finite_transfer_toward_square'` with the four ambient facts
+(`Schoenflies.isOpen_sdiff_outer_of_isSeparating` and companions), then
+`lem:grid-star-estimate` for the bound, whose metric half is ready in `Windows.lean`. The
+`homeo_eqOn` field inside `step` is the pending direction-(a) clause; see
+`Schoenflies.IsTransferOf.isRefinementStep`. -/
+def HasGridSteps (S₀ : CellStructure γ) (C : Set Plane) : Prop :=
+  ∀ P : StagePair S₀ C, P.src.IsAdmissible C (C ∪ inside C) →
+    P.tgt.IsAdmissible modelCurve (Plane.closedSquare 0 1) →
+    ∀ ⦃ε : ℝ⦄, 0 < ε → ∀ ⦃b : Plane⦄, b ∈ inside C → Nonempty (GridStepData P ε b)
+
+/-- **NAMED HYPOTHESIS — the target-mesh chooser.**
+
+At every admissible stage and every `ε > 0`, some enlargement of the target skeleton — the
+anchored mesh of size `ε` overlaid with the current skeleton — transfers back to a refinement
+step all of whose closed target 2-cells have diameter at most `ε`.
+
+Discharged by: `prop:anchored-square-mesh` (done, `SquareMesh*.lean`) with `δ := ε`, the
+polygonal overlay with the current target skeleton and the joining arcs
+(`lem:polygonal-overlay`, `Graph.union` toolkit), then `Schoenflies.finite_transfer_back'`,
+whose `HasFreshAnchors` is exactly clauses 3–4 of the mesh proposition; the 2-cell bound is
+the mesh's clause 1 carried through the overlay ("every open target 2-cell of `Γ'_n` lies in
+an open 2-cell of `T_n`"), with `lem:diameter-closure` for the closures. -/
+def HasMeshSteps (S₀ : CellStructure γ) (C : Set Plane) : Prop :=
+  ∀ P : StagePair S₀ C, P.src.IsAdmissible C (C ∪ inside C) →
+    P.tgt.IsAdmissible modelCurve (Plane.closedSquare 0 1) →
+    ∀ ⦃ε : ℝ⦄, 0 < ε → Nonempty (MeshStepData P ε)
+
+/-! ### The recursion -/
+
+/-- One stage of the recursion: a stage pair together with the strong admissibility of both
+realizations, which is what the two choosers demand of their input and what their outputs
+restore. -/
+structure AdmissibleStage (S₀ : CellStructure γ) (C : Set Plane) where
+  /-- The stage pair. -/
+  pair : StagePair S₀ C
+  /-- The source realization is admissible. -/
+  src_isAdmissible : pair.src.IsAdmissible C (C ∪ inside C)
+  /-- The target realization is admissible. -/
+  tgt_isAdmissible : pair.tgt.IsAdmissible modelCurve (Plane.closedSquare 0 1)
+
+section Recursion
+
+variable (h₀ : S₀.CombInvariants) (hsep : IsSeparating C)
+  (hgrid : HasGridSteps S₀ C) (hmesh : HasMeshSteps S₀ C) (s₀ : AdmissibleStage S₀ C)
+
+/-- The window centre of stage `n`: the blueprint's `b_n`. The candidate is `recur` applied to a
+dense sequence of the plane, so that every plane point has arbitrarily nearby candidates at
+arbitrarily late stages; a candidate outside the open Jordan domain is replaced by a fixed
+interior point, so the grid chooser always receives a legal centre. -/
+noncomputable def stageCenter (hsep : IsSeparating C) (n : ℕ) : Plane :=
+  open scoped Classical in
+  if recur (TopologicalSpace.denseSeq Plane) n ∈ inside C
+  then recur (TopologicalSpace.denseSeq Plane) n
+  else hsep.isConnected_inside.nonempty.some
+
+theorem stageCenter_mem (n : ℕ) : stageCenter hsep n ∈ inside C := by
+  rw [stageCenter]
+  split
+  · assumption
+  · exact hsep.isConnected_inside.nonempty.some_mem
+
+theorem stageCenter_eq {n : ℕ}
+    (h : recur (TopologicalSpace.denseSeq Plane) n ∈ inside C) :
+    stageCenter hsep n = recur (TopologicalSpace.denseSeq Plane) n := by
+  rw [stageCenter]
+  split
+  · rfl
+  · exact absurd h ‹_›
+
+/-- The grid half of step `n`: the source-grid chooser invoked with mesh `2⁻ⁿ` and centre
+`b_n`. -/
+noncomputable def gridStage (s : AdmissibleStage S₀ C) (n : ℕ) :
+    GridStepData s.pair (((2 : ℝ) ^ n)⁻¹) (stageCenter hsep n) :=
+  (hgrid s.pair s.src_isAdmissible s.tgt_isAdmissible (two_pow_neg_pos n)
+    (stageCenter_mem hsep n)).some
+
+/-- The mesh half of step `n`, applied to the output of the grid half. -/
+noncomputable def meshStage (s : AdmissibleStage S₀ C) (n : ℕ) :
+    MeshStepData (gridStage hsep hgrid s n).next (((2 : ℝ) ^ n)⁻¹) :=
+  (hmesh (gridStage hsep hgrid s n).next
+    (gridStage hsep hgrid s n).step.src_isAdmissible
+    (gridStage hsep hgrid s n).step.tgt_isAdmissible (two_pow_neg_pos n)).some
+
+/-- One full recursion step: grid toward the square, mesh pulled back from it. -/
+noncomputable def nextStage (s : AdmissibleStage S₀ C) (n : ℕ) : AdmissibleStage S₀ C :=
+  ⟨(meshStage hsep hgrid hmesh s n).next,
+    (meshStage hsep hgrid hmesh s n).step.src_isAdmissible,
+    (meshStage hsep hgrid hmesh s n).step.tgt_isAdmissible⟩
+
+/-- The parent map of one full step: grid parent after mesh parent, the composition order
+`Realization.Refines.trans` fixes. -/
+noncomputable def stepPar (s : AdmissibleStage S₀ C) (n : ℕ) : γ → γ :=
+  (gridStage hsep hgrid s n).par ∘ (meshStage hsep hgrid hmesh s n).par
+
+/-- One full step is a refinement step along the composed parent map. -/
+theorem nextStage_step (s : AdmissibleStage S₀ C) (n : ℕ) :
+    IsRefinementStep (nextStage hsep hgrid hmesh s n).pair s.pair
+      (stepPar hsep hgrid hmesh s n) :=
+  (meshStage hsep hgrid hmesh s n).step.trans (gridStage hsep hgrid s n).step
+
+include h₀ in
+/-- **The catch estimate.** When the stage-`n` candidate centre lies in the open Jordan domain,
+a point of the corresponding open window has, at stage `n + 1`, a source star of diameter at
+most `2 · 2⁻ⁿ`: the grid half provides the bound and the mesh half only shrinks stars. -/
+theorem nextStage_diam_star_le (s : AdmissibleStage S₀ C) {n : ℕ}
+    (hb : recur (TopologicalSpace.denseSeq Plane) n ∈ inside C) {x : Plane}
+    (hx : x ∈ openWindow C (((2 : ℝ) ^ n)⁻¹) (recur (TopologicalSpace.denseSeq Plane) n))
+    (hxD : x ∈ C ∪ inside C) :
+    diam ((nextStage hsep hgrid hmesh s n).pair.src.star
+        ((nextStage hsep hgrid hmesh s n).pair.src.carrier x)) ≤ 2 * ((2 : ℝ) ^ n)⁻¹ := by
+  have hx' : x ∈ openWindow C (((2 : ℝ) ^ n)⁻¹) (stageCenter hsep n) := by
+    rwa [stageCenter_eq hsep hb]
+  exact le_trans
+    ((meshStage hsep hgrid hmesh s n).step.diam_star_carrier_le h₀ hsep hxD)
+    ((gridStage hsep hgrid s n).diam_star_le hx')
+
+/-- The stages of the recursion. -/
+noncomputable def stages : ℕ → AdmissibleStage S₀ C
+  | 0 => s₀
+  | n + 1 => nextStage hsep hgrid hmesh (stages n) n
+
+@[simp] theorem stages_zero : stages hsep hgrid hmesh s₀ 0 = s₀ := rfl
+
+theorem stages_succ (n : ℕ) :
+    stages hsep hgrid hmesh s₀ (n + 1) =
+      nextStage hsep hgrid hmesh (stages hsep hgrid hmesh s₀ n) n := rfl
+
+include h₀ in
+/-- **Once small, always small**: the source star of a fixed point is antitone along the
+stages, by iterating the one-step monotonicity. -/
+theorem diam_stages_star_anti {x : Plane} (hxD : x ∈ C ∪ inside C) {n m : ℕ} (hnm : n ≤ m) :
+    diam ((stages hsep hgrid hmesh s₀ m).pair.src.star
+        ((stages hsep hgrid hmesh s₀ m).pair.src.carrier x)) ≤
+      diam ((stages hsep hgrid hmesh s₀ n).pair.src.star
+        ((stages hsep hgrid hmesh s₀ n).pair.src.carrier x)) := by
+  induction hnm with
+  | refl => exact le_rfl
+  | step _ ih =>
+    exact le_trans
+      ((nextStage_step hsep hgrid hmesh _ _).diam_star_carrier_le h₀ hsep hxD) ih
+
+end Recursion
+
 end Schoenflies

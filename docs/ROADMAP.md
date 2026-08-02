@@ -46,6 +46,12 @@ Schoenflies.stageSequence        the fields of LimitTower ← HasGridSteps, HasM
 | anchor incidence | `SkeletonCrosscuts.lean` | `HasAnchorCrosscuts`, `HasSpokes` | the surviving condition of `lem:skeleton-crosscuts` as assembled: each anchor has an incident nonboundary edge — a clause of `lem:anchor-density`. Its former companion `Realization.HasPolygonalArcs` is **a theorem**: `Realization.hasPolygonalArcs_of_isPolygonal` (`PolygonalSkeletonArcs.lean`), with the hypothesis-free corollary `GeneratedPair.tgt_hasPolygonalArcs` that `exists_anchor_crosscut` takes directly |
 | `Schoenflies.CellsAbsorb` | `SkeletonAccess.lean`, `FreshAccess.lean` | `lem:polygonal-side-accessibility` | one clause of `lem:cellulation-invariants`. **Discharged at a stage** by `Realization.cellsAbsorb` (`StageCells.lean`) — assertions (i) and (vii) make the 2-cells a partition of the open domain minus the skeleton into open connected pieces, which is the decomposition into components. It remains a hypothesis only where the realization is *not* a stage of a `GeneratedPair` |
 
+**Live integrator debt, small.** `MeshOverlay.lean` wrote four general facts for want of a home,
+listed in its report for hoisting: `Graph.Connected.exists_isLink_left` (→ `Graph/Walk.lean`),
+`overlay_mem_vertexSet_of_cut` (→ `OverlayGraph.lean`), `cover_mono` (→ `Subdivide.lean`), and
+`openSquare_subset_closedSquare_diff` (near-duplicate of Endgame's `closedSquare_sdiff_modelCurve`,
+restated to avoid the import).
+
 **Neither direction of `thm:finite-transfer` is on this list any more.** (b)'s ear step is
 `Schoenflies.earStepTgt` (`EarStepTgt.lean`) and `Schoenflies.finite_transfer_back'` is (b)
 assuming nothing beyond its own statement — `IsSourceExtension` on `H`, `HasFreshAnchors` for its

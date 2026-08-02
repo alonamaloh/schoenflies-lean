@@ -586,7 +586,6 @@ theorem meshOverlayGraph_edge_dichotomy
 /-- **An overlay edge reaching `S` off both `S` and the old skeleton is a spoke piece at a
 fresh point**, the point is that spoke's fresh point, and it is an end of the edge. -/
 theorem meshOverlayGraph_spoke_edge_at
-    (htgt : P.tgt.IsAdmissible modelCurve (Plane.closedSquare 0 1))
     (hfresh : ∀ z ∈ fresh, z ∈ modelCurve) (hjoins : JoinsFor P ε joins)
     {p : Plane} (hp : p ∈ modelCurve) {f : Piece}
     (hf : f ∈ E(meshOverlayGraph P ε fresh joins)) (hpf : p ∈ f.seg)
@@ -625,7 +624,6 @@ theorem meshOverlayGraph_spoke_edge_at
 
 /-- **A new nonboundary edge reaches `S` only at a listed fresh point.** -/
 theorem meshOverlayGraph_nonboundaryAt_mem_fresh
-    (htgt : P.tgt.IsAdmissible modelCurve (Plane.closedSquare 0 1))
     (hfresh : ∀ z ∈ fresh, z ∈ modelCurve) (hjoins : JoinsFor P ε joins) :
     ∀ ⦃p⦄, p ∈ modelCurve →
       NonboundaryAt (meshOverlayGraph P ε fresh joins) segmentDrawing modelCurve
@@ -633,13 +631,12 @@ theorem meshOverlayGraph_nonboundaryAt_mem_fresh
   intro p hp hnb
   obtain ⟨f, hf, hpf, hnbf, hnewf⟩ := hnb
   rw [edgeArc_segmentDrawing] at hpf hnbf hnewf
-  exact (meshOverlayGraph_spoke_edge_at htgt hfresh hjoins hp hf hpf hnbf hnewf).1
+  exact (meshOverlayGraph_spoke_edge_at hfresh hjoins hp hf hpf hnbf hnewf).1
 
 /-- **One new nonboundary edge per fresh boundary point.** Two such edges are subpieces of the
 spoke at the point with the point as an end, so their interiors overlap just inside `S`, and
 separation makes them the same edge. -/
 theorem meshOverlayGraph_unique_edge
-    (htgt : P.tgt.IsAdmissible modelCurve (Plane.closedSquare 0 1))
     (hfresh : ∀ z ∈ fresh, z ∈ modelCurve) (hjoins : JoinsFor P ε joins) :
     ∀ ⦃p⦄, p ∈ modelCurve → ∀ ⦃f g⦄, f ∈ E(meshOverlayGraph P ε fresh joins) →
       g ∈ E(meshOverlayGraph P ε fresh joins) →
@@ -652,9 +649,9 @@ theorem meshOverlayGraph_unique_edge
   rw [edgeArc_segmentDrawing] at hpf hpg hnbf hnbg hnewf hnewg
   have hN := two_le_meshCount ε
   obtain ⟨-, hsubf, hendf⟩ :=
-    meshOverlayGraph_spoke_edge_at htgt hfresh hjoins hp hf hpf hnbf hnewf
+    meshOverlayGraph_spoke_edge_at hfresh hjoins hp hf hpf hnbf hnewf
   obtain ⟨-, hsubg, hendg⟩ :=
-    meshOverlayGraph_spoke_edge_at htgt hfresh hjoins hp hg hpg hnbg hnewg
+    meshOverlayGraph_spoke_edge_at hfresh hjoins hp hg hpg hnbg hnewg
   obtain ⟨tf, hltf, hintf⟩ := spoke_subpiece_interior hN
     (meshOverlayGraph_edge_nondeg hfresh hjoins.nondeg hf) hsubf hendf
   obtain ⟨tg, hltg, hintg⟩ := spoke_subpiece_interior hN
@@ -881,5 +878,88 @@ theorem exists_joinsFor (htgt : P.tgt.IsAdmissible modelCurve (Plane.closedSquar
     rcases hA hw with hw' | hw'
     · exact ⟨Or.inl (Or.inr hw'), hjS w (Or.inl hw')⟩
     · exact ⟨Or.inr hw', hjS w (Or.inr hw')⟩
+
+/-! ### The assembly, and the reduction -/
+
+/-- **The extension, assembled.** Every clause of `Schoenflies.MeshOverlayExtension` is one of
+the theorems above; 2-connectivity is the argument. -/
+noncomputable def meshOverlayExtension_of_joins
+    (htgt : P.tgt.IsAdmissible modelCurve (Plane.closedSquare 0 1))
+    (hfresh : ∀ z ∈ fresh, z ∈ modelCurve) (hne : ∃ z, z ∈ fresh)
+    (hjoins : JoinsFor P ε joins)
+    (h2c : (meshOverlayGraph P ε fresh joins).IsTwoConnected) :
+    MeshOverlayExtension P ε fresh Piece where
+  H := meshOverlayGraph P ε fresh joins
+  Hdraw := segmentDrawing
+  finite := meshOverlayGraph_finite P ε fresh joins
+  isDrawing := meshOverlayGraph_isDrawing hfresh hjoins.nondeg
+  isTwoConnected := h2c
+  vertexSet_subset := meshOverlayGraph_vertexSet_subset htgt
+  skeletonSet_subset := meshOverlayGraph_skeletonSet_subset htgt
+  edge_subset := meshOverlayGraph_edge_subset hfresh hjoins.nondeg
+  pointSet_subset := meshOverlayGraph_pointSet_subset htgt hfresh hjoins.subset
+  edge_dichotomy := meshOverlayGraph_edge_dichotomy htgt hfresh hjoins
+  isConnected := by
+    obtain ⟨z₀, hz₀⟩ := hne
+    exact meshOverlayGraph_isConnected htgt hfresh hjoins hz₀
+  nonboundaryAt_mem_fresh := meshOverlayGraph_nonboundaryAt_mem_fresh hfresh hjoins
+  unique_edge := meshOverlayGraph_unique_edge hfresh hjoins
+  mesh_subset := mesh_cover_subset P ε fresh joins
+
+/-- **NAMED HYPOTHESIS — 2-connectivity of the mesh overlay.** At every admissible stage,
+mesh size and fresh list there are joining arcs satisfying `Schoenflies.JoinsFor` whose
+overlay `Schoenflies.meshOverlayGraph` is 2-connected. Every other clause of
+`Schoenflies.MeshOverlayExtension` is a theorem of this module, so this is all that separates
+`Schoenflies.HasMeshOverlays` from discharge.
+
+The existential over `joins` is at the discharger's disposal, and `Schoenflies.exists_joinsFor`
+shows it always has a `JoinsFor` witness — the hypothesis only adds that *some* witness can be
+taken 2-connected. The intended route (blueprint `lem:polygonal-overlay` +
+`prop:anchored-square-mesh` clause 5):
+
+* the overlay restricted to the pieces of the old skeleton is a **subdivision of `Γ'`**, which
+  is 2-connected by admissibility (`IsWeaklyAdmissible.isTwoConnected`,
+  `Graph.IsSubdivisionOf.isTwoConnected`);
+* the overlay restricted to the mesh pieces is a subdivision of
+  `Schoenflies.squareMesh ε fresh anchors`, 2-connected by
+  `Schoenflies.squareMesh_isTwoConnected` — the two distinct fresh points are supplied here as
+  a hypothesis;
+* the two share at least two vertices (any two of the four corners of the outer ring, which
+  are vertices of both), so `Graph.IsTwoConnected.union` glues them;
+* each joining arc, *chosen simple* — the freedom the existential grants — goes in as an ear
+  between two vertices of the union (`Graph.IsTwoConnected.ear` /
+  `Graph/RelativeEar.lean`). -/
+def HasTwoConnectedMeshOverlays (S₀ : CellStructure γ) (C : Set Plane) : Prop :=
+  ∀ P : StagePair S₀ C, P.src.IsAdmissible C (C ∪ inside C) →
+    P.tgt.IsAdmissible modelCurve (Plane.closedSquare 0 1) →
+    ∀ ⦃ε : ℝ⦄, 0 < ε → ∀ ⦃fresh : List Plane⦄,
+      (∀ z ∈ fresh, z ∈ modelCurve ∧ z ∉ V(P.tgt.graph)) →
+      (∃ z ∈ fresh, ∃ w ∈ fresh, z ≠ w) →
+      ∃ joins : List Piece, JoinsFor P ε joins ∧
+        (meshOverlayGraph P ε fresh joins).IsTwoConnected
+
+/-- **The discharge of `Schoenflies.HasMeshOverlays`, up to 2-connectivity.** The bad set is
+empty — the construction handles every fresh position. -/
+theorem hasMeshOverlays_of (hcore : HasTwoConnectedMeshOverlays S₀ C) :
+    HasMeshOverlays S₀ C := by
+  intro P hsrc htgt ε hε
+  refine ⟨∅, finite_empty, ?_⟩
+  intro fresh hfresh hne
+  obtain ⟨joins, hjoins, h2c⟩ := hcore P hsrc htgt hε
+    (fun z hz => ⟨(hfresh z hz).1, (hfresh z hz).2.1⟩) hne
+  obtain ⟨z, hz, -⟩ := hne
+  exact ⟨meshOverlayExtension_of_joins htgt (fun w hw => (hfresh w hw).1) ⟨z, hz⟩ hjoins h2c⟩
+
+/-! ### The interface, exercised
+
+Over the concrete base, Phase 3 now rests on the source-grid chooser and the overlay's
+2-connectivity — the extension's other nine clauses are no longer obligations. -/
+
+example {C : Set Plane} (hC : IsJordanCurve C) (hg : HasGridSteps initialStructure C)
+    (hcore : HasTwoConnectedMeshOverlays initialStructure C) :
+    Nonempty (StageSequence InitialCell initialStructure C) :=
+  ⟨stageSequence_of_isJordanCurve hC hg
+    (hasMeshSteps (hasMeshTransfers combInvariants_initialStructure
+      (jordan_curve_theorem hC) (hasMeshOverlays_of hcore)))⟩
 
 end Schoenflies

@@ -479,8 +479,63 @@ assembly, which is the cheap defence this file has recommended four times.
 `Windows.lean` are spent, giving `lem:grid-star-estimate` and `prop:shrinking-stars`. This is
 the largest phase by far and the only one whose geometry is not yet assembled anywhere.
 
+**The deliverable is one term: a `Schoenflies.StageSequence γ S₀ C`** (`StageTower.lean`). Its
+fields *are* the obligation list, and `StageSequence.limitTower` then supplies the second
+conjunct of `HasLimitHomeomorphism` with nothing further to prove. Stage 0 is free
+(`InitialData.generatedPair`, thirteen fields, zero hypotheses) and each step is *propose an
+enlarged graph on one side and transfer it to the other*, which is what
+`finite_transfer_toward_square'` and `finite_transfer_back'` now do unconditionally. `par`,
+`refines_src` and `refines_tgt` come straight out of `IsTransferOf`; `skeletonSet_mono` follows
+from it by `Realization.Refines.skeletonSet_subset`.
+
+What the transfer theorems do **not** do is choose the enlargement, and the choice is the whole
+of `prop:shrinking-stars`: a source grid (`prop:local-grid-attachment`) to shrink the source
+stars, a target mesh (`prop:anchored-square-mesh`, done) to shrink the target stars uniformly,
+alternating. Four things are missing, and they are the phase:
+
+1. **`hΓ`** of `gridAttachGraph_isTwoConnected` — 2-connectivity of `Γ` with the case's crosscut
+   and the loop's joining arcs appended and everything subdivided at the crossings. Not provable
+   in `GridAttach.lean`, which never sees `Γ`'s drawing; every ingredient exists
+   (`pieceListGraph_subdivide_isTwoConnected`, `Graph.IsTwoConnected.replace_edge_by_path`,
+   `Graph.IsTwoConnected.ear`, `pieceListGraph_append_crosscut`) and assembling them is the
+   caller's job.
+2. **`hcov`** of `gridAttachGraph_isConnected_diff` — finitely many representatives meet every
+   component of `|L| ∖ C`. The blueprint's *"since there are only finitely many components"*, and
+   the one place the finiteness the joining loop terminates on has no Lean statement at all.
+3. **`lem:grid-star-estimate`**, tying the grid mesh to a star diameter bound. The metric half is
+   ready in `Windows.lean`; what is missing is the geometry.
+4. **`skelHomeo_succ` on the source side.** `IsPartialTransferOfTgt` carries `homeo_eqOn` — the
+   stage's skeleton map agrees with its predecessor's on the old skeleton — and
+   `IsPartialTransferOf` does **not**: it has four fields and that is not one of them. It is not
+   derivable, for the reason recorded under "How the ear step went": `Realization.Refines` says
+   nothing about the two homeomorphisms. So a direction-(a) step currently gives a consumer no
+   way to know the map did not move, and `StageSequence.skelHomeo_succ` needs it at every step.
+   The proof is already written on the other side — identity at a subdivision,
+   `SplitData.splitHomeo_eqOn` restricted along `Realization.Refines.skeletonSet_subset` at a
+   split — so this is a clause to add to `IsPartialTransferOf`, not a theorem to find.
+
+Item 4 is the fifth instance of the shape this file has now recorded four times: the bundle that
+carries a construction is one invariant short of its consumer. It was found here by writing out
+the fourteen `StageSequence` fields and naming a supplier for each **before** building the
+recursion — which is the cheap defence, and it is cheapest at exactly this moment, because
+nothing yet constructs a `StageSequence`.
+
 **Phase 4 — `thm:main` unconditional.** `HasAnchorCrosscuts` and `HasSpokes` from the stages.
 The limit map and everything after it is already built and waiting.
+
+The bridges are written. `StageSequence.F_eq_skelHomeo` says `F` agrees with each stage's
+*finite* skeleton homeomorphism wherever that stage's skeleton reaches; two anchors are 0-cells
+at some stage, `lem:skeleton-crosscuts` joins them inside that stage's skeleton (**partial** —
+`AccessibleJoin.lean` has all of it but the final extraction paragraph), the finite map carries
+the crosscut to a crosscut of the square, and `IsCrosscut.image_of_injOn` together with
+`image_sdiff_eq_of_eqOn` — both in `BoundaryContinuity2.lean`, both written for this handoff —
+close `HasAnchorCrosscuts`. `HasSpokes` uses the same bridge on an initial subarc of the
+nonboundary edge `lem:anchor-density` attaches at the anchor. The dense anchor set `𝒜` is
+`lem:anchor-density` itself.
+
+`Schoenflies.CellsAbsorb`, the one live obligation outside these two phases, retires itself:
+`Realization.cellsAbsorb` discharges it at any stage of a `GeneratedPair`, so it survives only
+where no such sequence exists.
 
 ### The integrator debts, discharged
 
@@ -710,10 +765,13 @@ through a whole module for nothing.
 
 The abstract scaffolding was deliberately built first, because `lem:combinatorial-invariance`
 has no internal prerequisites and so could be proved while the Jordan curve theorem was still
-open. With Part I closed, assertions (i) and (vii) of `lem:cellulation-invariants` — the two that
-need `thm:general-crosscut` at every 2-cell split — are done, as step theorems. The critical
-path is now the two **realization constructors** they are stated against, and then
-`thm:finite-transfer`.
+open. With Part I closed, assertions (i) and (vii) of `lem:cellulation-invariants` are done, both
+realization constructors are built, and both directions of `thm:finite-transfer` are
+unconditional — so the critical path is no longer any of those. **It is the stage recursion, and
+nothing else.** Everything below `thm:square-extension` in this table is proved against
+`Schoenflies.SquareExtension`; `square_extension` proves that from
+`Schoenflies.HasLimitHomeomorphism`; and all four conjuncts of *that* come from one term, a
+`Schoenflies.StageSequence`. Phase 3 above is the list of what building one still needs.
 
 | Statement | Status | Where |
 |---|---|---|
@@ -737,13 +795,21 @@ path is now the two **realization constructors** they are stated against, and th
 | `lem:grid-star-estimate`, `prop:shrinking-stars`, `lem:anchor-density` | open | quantitative refinement; they consume the stage recursion, which does not exist yet. The metric half is ready: `Windows.lean` has `supRadius` (the ℓ^∞ distance to a compact set, with attainment, positivity and the 1-Lipschitz property), `windowRadius` / `window` / `openWindow` with the blueprint's three inequalities and `W_n(p) ⊆ D`, the arithmetic of `prop:shrinking-stars` (`mem_openWindow_of_supDist_lt`), and the two sequences (`recur`, `tendsto_two_pow_neg`) |
 | the passage from stages to `LimitTower` | done | `StageTower.lean` — `StageSequence` and `StageSequence.limitTower`, with no free hypotheses; `isHomeoOn_F` is `prop:interior-homeomorphism` in exactly the shape `HasLimitHomeomorphism`'s second conjunct asks for, and `F_eq_skelHomeo` is the bridge that will discharge `HasAnchorCrosscuts` |
 | arc monotonicity | done | `ArcMonotone.lean` — not a blueprint statement; one of the facts the manuscript uses silently. A homeomorphism between two arcs induces a strictly monotone map of parameters, so it carries subarcs to subarcs |
-| `lem:cell-neighborhood`, `prop:skeleton-agreement`, `prop:F-continuous`, `prop:image-interior`, `prop:F-injective`, `prop:target-skeleton-dense`, `prop:F-surjective`, `lem:exact-cell-correspondence`, `prop:inverse-continuous`, `prop:interior-homeomorphism` | open | the limit homeomorphism |
-| `lem:crosscut-side-correspondence`, `prop:boundary-continuity` | open | continuity at the curve |
-| `thm:square-extension`, `prop:square-reduction`, `thm:closed-interior-extension` | open | |
+| `prop:skeleton-agreement`, `prop:F-continuous`, `prop:image-interior`, `prop:F-injective`, `prop:target-skeleton-dense`, `prop:F-surjective`, `lem:exact-cell-correspondence`, `prop:inverse-continuous`, `prop:interior-homeomorphism` | **done**, against `CellStructure.LimitTower` | `LimitMap.lean`, with **no free hypotheses at all**: every one takes `L : LimitTower γ` and nothing else, so every obligation is a *field* of the structure. See "The limit section, and why it needed no construction" below for the statement-by-statement map. (`lem:cell-neighborhood` used to be listed here too; it is `RefinementStars.lean`, as the row above says) |
+| `lem:crosscut-side-correspondence`, `prop:boundary-continuity` | **done** | `BoundaryContinuity2.lean` — `crosscut_side_correspondence` and `boundary_continuity`. Both take the four conjuncts of `HasLimitHomeomorphism` as explicit arguments and assume nothing else; `isHomeoOn_extendByBoundary` is the two of them assembled into "the extended map is a homeomorphism of the closed domain onto the closed square" |
+| `thm:square-extension` | conditional (`Schoenflies.HasLimitHomeomorphism`) | `BoundaryContinuity2.lean` (`square_extension`). **This is the one root obligation of Part II** — every row below reduces to it, and so does `thm:main` |
+| `prop:square-reduction`, `thm:closed-interior-extension` | conditional (`Schoenflies.SquareExtension`) | `Endgame.lean` (`square_reduction`, `closed_interior_extension`) — the second is the first, once the target curve is charted to the model square |
 | `lem:inversion-sides` | done | `Inversion.lean` (`invert_image_outside`, `IsJordanCurve.invert`, `invertHomeo`) |
-| `prop:exterior-extension` | conditional (`Schoenflies.PointedInteriorExtension`) | `Inversion.lean` — the last statement before `thm:main`, waiting only on the interior half |
-| `prop:pointed-extension` | open | needs `thm:closed-interior-extension`; `lem:square-point-mover` is done |
-| `thm:main` | open | |
+| `prop:pointed-extension` | conditional (`Schoenflies.SquareExtension`) | `Endgame.lean` (`pointed_extension`), from `square_reduction` and `lem:square-point-mover` |
+| `prop:exterior-extension` | conditional (`Schoenflies.SquareExtension`) | `Inversion.lean` (`exterior_extension`) proves it from `PointedInteriorExtension` and `thm:arc-complement`; `Endgame.lean` (`exterior_extension_of_squareExtension`) discharges both, the second by `Schoenflies.arc_complement` |
+| `thm:main` | conditional (`Schoenflies.SquareExtension`) | `Endgame.lean` — `jordan_schoenflies`, with `jordan_schoenflies_homeomorph` and `jordan_schoenflies_of_homeomorph` as the bundled forms. Interior half from `closed_interior_extension`, exterior half from `exterior_extension_of_squareExtension`, pasted along `C` |
+
+These seven rows read **open** until 2026-08-02, which was wrong in the direction this file warns
+about least often and should warn about equally: an `open` that is really a `conditional` sends
+the next agent to rebuild a proof that is already on `main`. Everything from `thm:square-extension`
+down was written against `SquareExtension` as a hypothesis and has been for some time. What is
+actually missing is one predicate, `HasLimitHomeomorphism`, and the object that supplies all four
+of its conjuncts is a `StageSequence` — see Phase 3.
 
 ### The limit section, and why it needed no construction
 

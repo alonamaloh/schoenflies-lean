@@ -194,4 +194,76 @@ theorem GeneratedPair.exists_subdivide_finite [Infinite γ] (h₀ : S₀.CombInv
     · exact hV₁'.trans (insert_subset (mem_union_right _ (mem_insert a s)) subset_union_left)
     · exact subset_union_of_subset_right (subset_insert a s) _
 
+/-! ### The same, driven from the target side
+
+Direction (b) of `thm:finite-transfer` runs the whole argument the other way round: the given
+extension refines `Γ'`, so step 1 has to make prescribed *target* points into 0-cells. The
+subdivision itself is not symmetric — `GeneratedPair.subdivideEdge` cuts the source edge at a
+parameter `t` and the target edge at `SubdivData.targetParam`, the parameter the skeleton
+homeomorphism sends `t` to — so the target-driven statement needs its own proof.
+
+It needs no inverse parameter, though, and that is the only thing worth saying about it.
+`SkeletonHomeo.image_cell` turns a target point of an open 1-cell into a source point of the
+same 1-cell, `Realization.exists_param_of_mem_cell` reads off the source parameter, and
+`SubdivData.drawing_targetParam` — *the target edge at `targetParam g t` is where `g` sends the
+source edge at `t`* — says the target subdivision point is the prescribed one on the nose. -/
+
+/-- **One point of the target skeleton made a 0-cell.** The mirror of
+`GeneratedPair.exists_subdivide_at`, for direction (b). -/
+theorem GeneratedPair.exists_subdivide_at_tgt [Infinite γ] (h₀ : S₀.CombInvariants)
+    (T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom) {q : Plane}
+    (hq : q ∈ T.tgt.skeletonSet) :
+    ∃ (T' : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom) (par : γ → γ),
+      T'.src.Refines T.src par ∧ T'.tgt.Refines T.tgt par ∧
+        T'.tgt.skeletonSet = T.tgt.skeletonSet ∧
+        V(T.tgt.graph) ⊆ V(T'.tgt.graph) ∧ q ∈ V(T'.tgt.graph) ∧
+        V(T'.tgt.graph) ⊆ insert q V(T.tgt.graph) := by
+  rcases Realization.mem_vertexSet_or_exists_cell hq with hv | ⟨e, he, hqe⟩
+  · exact ⟨T, id, .refl _, .refl _, rfl, subset_rfl, hv, subset_insert _ _⟩
+  -- The corresponding source point of the same open 1-cell.
+  have hqim : q ∈ T.homeo.toFun '' T.src.cell e := by
+    rw [T.homeo.image_cell (Set.mem_union_right _ he)]; exact hqe
+  obtain ⟨p, hp, hpq⟩ := hqim
+  obtain ⟨x, y, hl⟩ := Graph.exists_isLink_of_mem_edgeSet he
+  obtain ⟨t, ht, hpt⟩ := Realization.exists_param_of_mem_cell hl hp
+  obtain ⟨d, hde, -, -, hds⟩ := exists_subdivData hl T.walks.start
+  -- The target edge at the transferred parameter is exactly the prescribed point.
+  have hqt : T.tgt.drawing d.edge (d.targetParam T.homeo t) = q := by
+    rw [d.drawing_targetParam T.homeo (Set.Ioo_subset_Icc_self ht), hde, hpt, hpq]
+  have hgraph : (T.subdivideEdge (T.combInvariants h₀) d hds ht).tgt.graph
+      = d.realizeGraph T.tgt (d.targetParam T.homeo t) := rfl
+  refine ⟨T.subdivideEdge (T.combInvariants h₀) d hds ht, d.parent, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · exact (T.refines_subdivideEdge (T.combInvariants h₀) d hds ht).1
+  · exact (T.refines_subdivideEdge (T.combInvariants h₀) d hds ht).2
+  · exact CellStructure.SubdivData.skeletonSet_realize (d.targetParam_mem_Ioo T.homeo ht)
+  · rw [hgraph, SubdivData.realizeGraph_vertexSet]
+    exact subset_insert _ _
+  · rw [hgraph, SubdivData.realizeGraph_vertexSet, hqt]
+    exact mem_insert _ _
+  · rw [hgraph, SubdivData.realizeGraph_vertexSet, hqt]
+
+/-- **Finitely many points of the target skeleton made 0-cells.** The "subdivide at all
+intersections" half of step 1 of `thm:finite-transfer`(b). -/
+theorem GeneratedPair.exists_subdivide_finite_tgt [Infinite γ] (h₀ : S₀.CombInvariants)
+    {Q : Set Plane} (hQ : Q.Finite) :
+    ∀ T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom, Q ⊆ T.tgt.skeletonSet →
+      ∃ (T' : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom) (par : γ → γ),
+        T'.src.Refines T.src par ∧ T'.tgt.Refines T.tgt par ∧
+          T'.tgt.skeletonSet = T.tgt.skeletonSet ∧
+          V(T.tgt.graph) ⊆ V(T'.tgt.graph) ∧ Q ⊆ V(T'.tgt.graph) ∧
+          V(T'.tgt.graph) ⊆ V(T.tgt.graph) ∪ Q := by
+  induction Q, hQ using Set.Finite.induction_on with
+  | empty =>
+    exact fun T _ => ⟨T, id, .refl _, .refl _, rfl, subset_rfl, empty_subset _, subset_union_left⟩
+  | @insert a s ha hs ih =>
+    intro T hQK
+    obtain ⟨T₁, par₁, hr₁, hr₁', hK₁, hV₁, haV, hV₁'⟩ :=
+      T.exists_subdivide_at_tgt h₀ (hQK (mem_insert a s))
+    obtain ⟨T₂, par₂, hr₂, hr₂', hK₂, hV₂, hsV, hV₂'⟩ :=
+      ih T₁ (hK₁ ▸ (subset_insert a s).trans hQK)
+    refine ⟨T₂, par₁ ∘ par₂, hr₂.trans hr₁, hr₂'.trans hr₁', hK₂.trans hK₁, hV₁.trans hV₂,
+      insert_subset (hV₂ haV) hsV, hV₂'.trans (union_subset ?_ ?_)⟩
+    · exact hV₁'.trans (insert_subset (mem_union_right _ (mem_insert a s)) subset_union_left)
+    · exact subset_union_of_subset_right (subset_insert a s) _
+
 end Schoenflies

@@ -362,7 +362,17 @@ all that is left of the phase.
   for the two places the plan recorded here was wrong.
 
 **Phase 2 — `thm:finite-transfer`.** (a) **is unconditional** —
-`Schoenflies.finite_transfer_toward_square'`; (b)
+`Schoenflies.finite_transfer_toward_square'`. **(b)'s step 1 is done too**: `IsSourceExtension`
+turned out to be direction-agnostic — it is stated for an arbitrary realization, so (b)'s
+hypotheses on `H'` are `IsSourceExtension P.tgt tgtOuter tgtDom H' H'draw`, and `sourcePart`,
+`pointSet_sourcePart`, `Graph.adj_congr_of_pointSet_eq` and
+`Graph.IsTwoConnected.of_adj_congr` apply to the target side unchanged. Only the subdivision
+induction needed a twin, because `GeneratedPair.subdivideEdge` cuts the *source* edge at a
+given parameter and the target edge at the one the skeleton homeomorphism sends it to;
+`exists_subdivide_finite_tgt` drives it from a prescribed target point instead, and needs no
+inverse parameter — `SkeletonHomeo.image_cell` supplies the corresponding source point and
+`SubdivData.drawing_targetParam` says the target cut lands on the nose. What is left of (b) is
+the ear step; (b)
 needs one further ingredient, accessibility at a fresh anchor on the wild curve, which
 `FreshAccess.lean` already closes.
 
@@ -555,7 +565,7 @@ path is now the two **realization constructors** they are stated against, and th
 | `lem:refinement-compatibility`, `lem:star-intersection`, `lem:star-face-mesh`, `lem:cell-neighborhood` | done | `RefinementStars.lean`. The carrier is a total function and refinement is abstract, which is what lets the limit section be built against an interface |
 | `lem:polygonal-side-accessibility` | conditional (`Schoenflies.CellsAbsorb`) | `SkeletonAccess.lean` — both halves, on one clause of `lem:cellulation-invariants` |
 | `thm:finite-transfer` (a) | **done** | `FiniteTransfer.lean` for steps 2 and 4, the induction scheme and the last paragraph; **step 3** is `Schoenflies.earStep` (`EarStep.lean`, on `EarDraw.lean` / `EarSource.lean` / `EarTarget.lean` / `SplitStage.lean` / `StageCells.lean`); **step 1** is `Schoenflies.commonSubdivision` (`CommonSubdiv.lean`, on `SubdivStage.lean` / `SubdivPoints.lean` / `Graph/PlaneEdges.lean` / `Graph/AdjCongr.lean`). `Schoenflies.finite_transfer_toward_square'` is the headline, assuming nothing but the four ambient-domain facts |
-| `thm:finite-transfer` (b) | partial | its one ingredient beyond (a), source accessibility at a fresh anchor on the wild curve, is closed in `FreshAccess.lean` (`polyAccessible_of_stronglyAccessible`). The statement itself is not yet written |
+| `thm:finite-transfer` (b) | partial | **step 1 is done** — `Schoenflies.commonSubdivisionTgt` (`CommonSubdivTgt.lean`), on `GeneratedPair.exists_subdivide_finite_tgt`. Its one ingredient beyond (a), source accessibility at a fresh anchor on the wild curve, is closed in `FreshAccess.lean` (`polyAccessible_of_stronglyAccessible`). What is not written is the **ear step**: the headline statement, the hypotheses on `H'` beyond `IsSourceExtension P.tgt …` (the fresh-anchor clauses), the combinatorial induction that identifies which source 2-cell is incident with the anchor — `hunique` of `polyAccessible_of_stronglyAccessible` — and the ear induction itself |
 | `prop:local-grid-attachment` | conditional (`hΓ`, `hcov`) | `LocalGrid.lean` (`localGrid`, the diameter clause) + `GridAttach.lean` (the overlay, the crosscut factory, the component-joining loop, and the construction as `def`s). The blueprint's three cases collapse to one; the joining loop is done by representatives rather than by a decreasing component count. `hΓ` is 2-connectivity of `Γ` with the auxiliary arcs appended — not provable there, because `C` is not drawn by segments so `Γ` is not a `pieceListGraph`; `hcov` is "finitely many representatives meet every component of `|L| ∖ C`", where the blueprint's finiteness lives |
 | `lem:grid-star-estimate`, `prop:shrinking-stars`, `lem:anchor-density` | open | quantitative refinement; they consume the stage recursion, which does not exist yet. The metric half is ready: `Windows.lean` has `supRadius` (the ℓ^∞ distance to a compact set, with attainment, positivity and the 1-Lipschitz property), `windowRadius` / `window` / `openWindow` with the blueprint's three inequalities and `W_n(p) ⊆ D`, the arithmetic of `prop:shrinking-stars` (`mem_openWindow_of_supDist_lt`), and the two sequences (`recur`, `tendsto_two_pow_neg`) |
 | the passage from stages to `LimitTower` | done | `StageTower.lean` — `StageSequence` and `StageSequence.limitTower`, with no free hypotheses; `isHomeoOn_F` is `prop:interior-homeomorphism` in exactly the shape `HasLimitHomeomorphism`'s second conjunct asks for, and `F_eq_skelHomeo` is the bridge that will discharge `HasAnchorCrosscuts` |

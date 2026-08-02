@@ -62,6 +62,10 @@ checker under proof irrelevance.
 
 `Schoenflies.sourcePart`, `Schoenflies.sourcePart_vertexSet`, `Schoenflies.sourcePart_isLink`, `Schoenflies.sourcePart_le`, `Schoenflies.mem_edgeSet_sourcePart`, `Schoenflies.edgeArc_subset_of_mem_edgeSet_sourcePart`, `Schoenflies.pointSet_sourcePart`, `Schoenflies.commonSubdivision_of_adj_match`, `Schoenflies.adj_match`, `Schoenflies.commonSubdivision`, `Schoenflies.finite_transfer_toward_square'`
 
+## Schoenflies/CommonSubdivTgt.lean  (141 lines)
+
+`Schoenflies.IsPartialTransferOfTgt`, `Schoenflies.CommonSubdivisionTgt`, `Schoenflies.GeneratedPair.tgt_nonboundary_eq`, `Schoenflies.GeneratedPair.src_isAdmissible_of_tgt`, `Schoenflies.GeneratedPair.tgt_isAdmissible_of_tgt`, `Schoenflies.adj_match_tgt`, `Schoenflies.commonSubdivisionTgt`
+
 ## Schoenflies/Compose.lean  (85 lines)
 
 `Schoenflies.overlay_has_outer_face`, `Schoenflies.two_arcs_roundtrip`, `Schoenflies.polygonal_collar`
@@ -474,9 +478,9 @@ checker under proof irrelevance.
 
 `Schoenflies.reparam`, `Schoenflies.reparam_zero`, `Schoenflies.reparam_one`, `Schoenflies.continuous_reparam`, `Schoenflies.reparam_injective`, `Schoenflies.image_reparam_I`, `Schoenflies.mapsTo_reparam`, `Schoenflies.uIcc_subset_I`, `Schoenflies.subarc`, `Schoenflies.subarc_zero`, `Schoenflies.subarc_one`, `Schoenflies.subarc_image`, `Schoenflies.subarc_image_subset`, `Schoenflies.continuousOn_subarc`, `Schoenflies.injOn_subarc`, `Schoenflies.isArcBetween_subarc`, `Schoenflies.isArc_subarc`, `Schoenflies.isArcBetween_subarc_of_injOn_I`, `Schoenflies.IsArc.exists_isArcBetween_subset`, `Schoenflies.openArc`, `Schoenflies.Ioo_subset_I`, `Schoenflies.openArc_subset`, `Schoenflies.openArc_eq_diff`, `Schoenflies.openArc_subarc`, `Schoenflies.IsArcBetween.diff_eq_openArc`, `Schoenflies.IsArcBetween.isPreconnected_diff`, `Schoenflies.IsArcBetween.nonempty_diff`, `Schoenflies.IsArcBetween.isConnected_diff`, `Schoenflies.IsArcBetween.left_mem_closure_diff`, `Schoenflies.IsArcBetween.right_mem_closure_diff`, `Schoenflies.IsArcBetween.closure_diff_eq`, `Schoenflies.image_isRelOpen`, `Schoenflies.exists_ball_inter_subset_image`, `Schoenflies.openArc_isRelOpen`, `Schoenflies.openArc_subarc_isRelOpen`, `Schoenflies.basic_piece_inside_ball`
 
-## Schoenflies/SubdivPoints.lean  (197 lines)
+## Schoenflies/SubdivPoints.lean  (269 lines)
 
-`Schoenflies.exists_fresh_triple`, `Schoenflies.CellStructure.exists_subdivData`, `Schoenflies.CellStructure.Realization.mem_vertexSet_or_exists_cell`, `Schoenflies.CellStructure.Realization.exists_param_of_mem_cell`, `Schoenflies.GeneratedPair.exists_subdivide_at`, `Schoenflies.GeneratedPair.exists_subdivide_finite`
+`Schoenflies.exists_fresh_triple`, `Schoenflies.CellStructure.exists_subdivData`, `Schoenflies.CellStructure.Realization.mem_vertexSet_or_exists_cell`, `Schoenflies.CellStructure.Realization.exists_param_of_mem_cell`, `Schoenflies.GeneratedPair.exists_subdivide_at`, `Schoenflies.GeneratedPair.exists_subdivide_finite`, `Schoenflies.GeneratedPair.exists_subdivide_at_tgt`, `Schoenflies.GeneratedPair.exists_subdivide_finite_tgt`
 
 ## Schoenflies/SubdivStage.lean  (372 lines)
 

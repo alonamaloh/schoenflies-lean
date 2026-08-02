@@ -91,10 +91,10 @@ module; what keeps the bundle conditional is the defect above, not any missing m
 * `Schoenflies.edgeArc_subset_outer_of_hasFreshAnchors` — the finding: the stated hypotheses
   of `thm:finite-transfer`(b) admit no extension with a boundary-reaching nonboundary edge.
 * `Schoenflies.IsLoop.not_meets_both_arcs`, `Schoenflies.IsLoop.exists_param_modulus`,
-  `Schoenflies.freshDense_of_param_dense` — the blueprint's "choose `z_0, …, z_{m-1}` in
+  `Schoenflies.freshDense_of_param_dense`, `Schoenflies.IsLoop.exists_param_window_of_dense`,
+  `Schoenflies.exists_freshDense_of_dense` — the blueprint's "choose `z_0, …, z_{m-1}` in
   cyclic order so that each boundary arc between consecutive ones has diameter `< δ/4`",
-  reduced to a pure selection: `FreshDense fresh δ` holds whenever every parameter window of
-  length `ρ` (from the loop's modulus for `δ/4`) contains a fresh point.
+  done: any dense subset of `S` contains a finite `FreshDense` list, for every `δ > 0`.
 * `Schoenflies.diam_closure_cell_le_of_mesh_subset` — "every closed target 2-cell of `Γ'_n`
   has diameter `< ε_n`": the mesh sentence of *Quantitative refinement*, from
   `prop:anchored-square-mesh` clause 1's radial estimate and `lem:diameter-closure`.
@@ -354,6 +354,127 @@ theorem freshDense_of_param_dense (hf : IsLoop f) (himg : f '' I = modelCurve)
       exact hmid ⟨w, ⟨hw.1, lt_trans hw.2 (by linarith)⟩, hwf⟩
     have h := hmod s hs t ht (by rw [abs_of_nonpos (by linarith : s - t ≤ 0)]; linarith)
     linarith
+
+/-- **Density on the curve transfers to density in parameter.** For a dense subset `B` of the
+loop's image, every parameter window contains a parameter carrying a point of `B`.
+
+The window's midpoint is at positive distance from the image of the complementary parameter
+set — that is injectivity of the loop, `IsLoop.injective_before_finish`, plus compactness —
+and any point of `B` closer to the midpoint than that distance has all of its parameters
+inside the window. -/
+theorem IsLoop.exists_param_window_of_dense (hf : IsLoop f) {B : Set Plane}
+    (hBS : B ⊆ f '' I) (hBdense : f '' I ⊆ closure B) {ρ : ℝ} (hρ : 0 < ρ)
+    {u : ℝ} (hu : 0 ≤ u) (hu1 : u + ρ ≤ 1) : ∃ w ∈ Ioo u (u + ρ), f w ∈ B := by
+  set m : ℝ := u + ρ / 2 with hm
+  have hmI : m ∈ I := ⟨by linarith, by linarith⟩
+  have hm1 : m ≠ 1 := ne_of_lt (by linarith)
+  have hm0 : 0 < m := by linarith
+  set K : Set Plane := f '' Icc 0 u ∪ f '' Icc (u + ρ) 1 with hK
+  have hKc : IsCompact K :=
+    (isCompact_Icc.image_of_continuousOn
+        (hf.continuousOn.mono (Icc_subset_Icc le_rfl (by linarith)))).union
+      (isCompact_Icc.image_of_continuousOn
+        (hf.continuousOn.mono (Icc_subset_Icc (by linarith) le_rfl)))
+  have hKne : K.Nonempty := ⟨f 0, Or.inl ⟨0, ⟨le_rfl, hu⟩, rfl⟩⟩
+  -- the midpoint is off the complementary arcs: injectivity of the loop
+  have hfmK : f m ∉ K := by
+    rintro (⟨v, hv, hvm⟩ | ⟨v, hv, hvm⟩)
+    · have hv1 : v ≠ 1 := ne_of_lt (lt_of_le_of_lt hv.2 (by linarith))
+      have hvI : v ∈ I := ⟨hv.1, hv.2.trans (by linarith)⟩
+      have : v = m := hf.injective_before_finish hvI hmI hv1 hm1 hvm
+      linarith [hv.2]
+    · rcases eq_or_ne v 1 with rfl | hv1
+      · have h0m : f 0 = f m := hf.finish_eq_start ▸ hvm
+        have : (0 : ℝ) = m :=
+          hf.injective_before_finish zero_mem_I hmI one_ne_zero.symm hm1 h0m
+        linarith
+      · have hvI : v ∈ I := ⟨le_trans (by linarith) hv.1, hv.2⟩
+        have : v = m := hf.injective_before_finish hvI hmI hv1 hm1 hvm
+        linarith [hv.1]
+  have hpos : 0 < Metric.infDist (f m) K :=
+    (hKc.isClosed.notMem_iff_infDist_pos hKne).1 hfmK
+  -- a point of `B` closer to the midpoint than the complementary arcs are
+  obtain ⟨b, hbB, hbd⟩ := Metric.mem_closure_iff.1 (hBdense ⟨m, hmI, rfl⟩) _ hpos
+  obtain ⟨w, hwI, hwb⟩ := hBS hbB
+  have hwK : ∀ hbK : b ∈ K, False := fun hbK => by
+    have h := Metric.infDist_le_dist_of_mem (x := f m) hbK
+    linarith
+  refine ⟨w, ⟨?_, ?_⟩, by rw [hwb]; exact hbB⟩
+  · by_contra hcon
+    push Not at hcon
+    exact hwK (Or.inl ⟨w, ⟨hwI.1, hcon⟩, hwb⟩)
+  · by_contra hcon
+    push Not at hcon
+    exact hwK (Or.inr ⟨w, ⟨hcon, hwI.2⟩, hwb⟩)
+
+/-- **A `FreshDense` list inside any dense subset of the model curve.** Combined with
+`Schoenflies.IsJordanCurve.homeomorph_modelCurve`'s loop (any loop parametrizing `S` will do),
+this reduces the fresh-point selection of `prop:anchored-square-mesh` entirely to producing a
+*dense set of admissible boundary points* — for the mesh step, the `P.homeo`-images of the
+countable dense strongly accessible set of `Schoenflies.exists_countable_dense_stronglyAccessible`,
+with the stage's finitely many drawn 0-cells removed. -/
+theorem exists_freshDense_of_dense (hf : IsLoop f) (himg : f '' I = modelCurve)
+    {B : Set Plane} (hBS : B ⊆ modelCurve) (hBdense : modelCurve ⊆ closure B)
+    {δ : ℝ} (hδ : 0 < δ) :
+    ∃ fresh : List Plane, (∀ z ∈ fresh, z ∈ B) ∧ FreshDense fresh δ := by
+  classical
+  obtain ⟨ρ₁, hρ₁, hmod₁⟩ := hf.exists_param_modulus (by linarith : (0 : ℝ) < δ / 4)
+  -- shrink the window so that it fits inside the parameter interval
+  set ρ : ℝ := min ρ₁ 2⁻¹ with hρdef
+  have hρ : 0 < ρ := lt_min hρ₁ (by norm_num)
+  have hρ2 : ρ ≤ 2⁻¹ := min_le_right _ _
+  have hmod : ∀ u ∈ I, ∀ v ∈ I, |u - v| ≤ ρ → dist (f u) (f v) ≤ δ / 4 :=
+    fun u hu v hv huv => hmod₁ u hu v hv (huv.trans (min_le_left _ _))
+  set half : ℝ := ρ / 2 with hhalfdef
+  have hhalf0 : 0 < half := by rw [hhalfdef]; linarith
+  have hBS' : B ⊆ f '' I := by rw [himg]; exact hBS
+  have hBdense' : f '' I ⊆ closure B := by rw [himg]; exact hBdense
+  -- one point of `B` in each half-window along a grid of spacing `half`
+  have hpick : ∀ i : ℕ, (i : ℝ) * half + half ≤ 1 →
+      ∃ w ∈ Ioo ((i : ℝ) * half) ((i : ℝ) * half + half), f w ∈ B := fun i hi =>
+    hf.exists_param_window_of_dense hBS' hBdense' hhalf0 (by positivity) hi
+  choose! w hw₁ hw₂ using hpick
+  set N : ℕ := ⌊half⁻¹⌋₊ with hN
+  have hmemle : ∀ i : ℕ, i < N → (i : ℝ) * half + half ≤ 1 := by
+    intro i hi
+    have h1 : ((i + 1 : ℕ) : ℝ) ≤ (N : ℝ) := by exact_mod_cast hi
+    have h2 : (N : ℝ) ≤ half⁻¹ := Nat.floor_le (by positivity)
+    have h3 : ((i + 1 : ℕ) : ℝ) * half ≤ half⁻¹ * half :=
+      mul_le_mul_of_nonneg_right (h1.trans h2) hhalf0.le
+    rw [inv_mul_cancel₀ hhalf0.ne'] at h3
+    push_cast at h3
+    linarith
+  refine ⟨(List.range N).map fun i => f (w i), ?_, ?_⟩
+  · intro z hz
+    obtain ⟨i, hi, rfl⟩ := List.mem_map.1 hz
+    exact hw₂ i (hmemle i (List.mem_range.1 hi))
+  · refine freshDense_of_param_dense hf himg hρ hmod ?_
+    intro u hu hu1
+    -- the grid half-window caught inside `(u, u + ρ)`
+    set i : ℕ := ⌈u / half⌉₊ with hi
+    have hui : u ≤ (i : ℝ) * half := by
+      have h1 : u / half ≤ (i : ℝ) := Nat.le_ceil _
+      calc u = u / half * half := (div_mul_cancel₀ u hhalf0.ne').symm
+        _ ≤ (i : ℝ) * half := mul_le_mul_of_nonneg_right h1 hhalf0.le
+    have hiu : (i : ℝ) * half < u + half := by
+      have h1 : (i : ℝ) < u / half + 1 := Nat.ceil_lt_add_one (by positivity)
+      calc (i : ℝ) * half < (u / half + 1) * half := mul_lt_mul_of_pos_right h1 hhalf0
+        _ = u + half := by rw [add_mul, div_mul_cancel₀ _ hhalf0.ne', one_mul]
+    have hile : (i : ℝ) * half + half ≤ 1 := by
+      have hhρ : half + half = ρ := by rw [hhalfdef]; ring
+      linarith
+    have hwin := hw₁ i hile
+    refine ⟨w i, ⟨lt_of_le_of_lt hui hwin.1, ?_⟩, ?_⟩
+    · have hhρ : half + half = ρ := by rw [hhalfdef]; ring
+      linarith [hwin.2]
+    · -- the pick is on the list: its index is below the grid size
+      have hiN : i < N := by
+        have h2 : ((i + 1 : ℕ) : ℝ) ≤ half⁻¹ := by
+          rw [← one_div, le_div_iff₀ hhalf0]
+          push_cast
+          linarith
+        exact Nat.lt_of_lt_of_le (Nat.lt_succ_self i) (Nat.le_floor h2)
+      exact List.mem_map.2 ⟨i, List.mem_range.2 hiN, rfl⟩
 
 end FreshDenseConstruction
 

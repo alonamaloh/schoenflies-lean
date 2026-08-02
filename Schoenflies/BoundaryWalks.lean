@@ -801,6 +801,153 @@ noncomputable def BoundaryWalks.splitFace (bw : S.BoundaryWalks) (c : S.SplitDat
         c.pathCells_splitFace (bw.isWalk hF), c.subcells_splitFace_of_ne bw hF hne,
         bw.pathCells_eq hF]
 
+/-! ### Cutting a boundary cycle at two of its 0-cells
+
+The consumer-facing theorem: this is the package `CellStructure.SplitData` asks for, and the
+reason the invariant had to carry a cycle rather than a closed walk. -/
+
+namespace BoundaryWalks
+
+variable (bw : S.BoundaryWalks)
+
+/-- A 0-cell below a 2-cell lies on its boundary cycle. -/
+theorem mem_walkVertices_of_sub {D : List γ} {e v : γ} (hF : F ∈ S.faces)
+    (hb : S.boundary F = e :: D.reverse) (hcyc : S.skel.IsCycleThrough e (bw.start F) v D)
+    (hz : u ∈ V(S.skel)) (hsub : S.sub u F) : u ∈ S.skel.walkVertices (bw.start F) D := by
+  have hwalk : S.skel.IsWalk (bw.start F) (e :: D.reverse) (bw.start F) := hb ▸ bw.isWalk hF
+  have hV : S.skel.walkVertices (bw.start F) (e :: D.reverse) =
+      S.skel.walkVertices (bw.start F) D := by
+    have hv : v ∈ insert (bw.start F) (S.skel.coveredVertices D) :=
+      hcyc.isPath.target_mem_walkVertices
+    ext z
+    simp only [Graph.walkVertices, Graph.coveredVertices, mem_insert_iff, mem_setOf_eq,
+      List.mem_cons, List.mem_reverse, exists_eq_or_imp]
+    constructor
+    · rintro (rfl | hinc | hz)
+      · exact Or.inl rfl
+      · rcases hcyc.isLink.inc_iff.1 hinc with rfl | rfl
+        · exact Or.inl rfl
+        · exact mem_insert_iff.1 hv
+      · exact Or.inr hz
+    · rintro (rfl | hz)
+      exacts [Or.inl rfl, Or.inr (Or.inr hz)]
+  have hmem : u ∈ S.pathCells (bw.start F) (S.boundary F) := by
+    rw [bw.pathCells_eq hF]
+    exact ⟨⟨S.mem_cells_of_mem_vertexSet hz, hsub⟩,
+      fun h => S.faces_ne_vertexSet hF hz h.symm⟩
+  rw [hb] at hmem
+  rcases hmem with hlist | hvert
+  · exact absurd rfl (S.vertexSet_ne_edgeSet hz (hwalk.edge_mem hlist))
+  · rwa [hV] at hvert
+
+/-- The cells of a walk that already visits its own base point are its edges and the vertices
+its edges touch. -/
+theorem pathCells_of_mem_covered {x : γ} {L : List γ} (hx : x ∈ S.skel.coveredVertices L) :
+    S.pathCells x L = {c | c ∈ L} ∪ S.skel.coveredVertices L := by
+  simp only [pathCells, Graph.walkVertices]
+  rw [Set.insert_eq_self.2 hx]
+
+/-- **Two distinct 0-cells below a 2-cell cut its boundary into two paths between them.**
+The two paths carry exactly the cells below the 2-cell, and they meet in nothing but the two
+0-cells themselves — which are, in order, the `sub_face` and `paths_meet` fields of
+`CellStructure.SplitData`, with `isPath₁` and `isPath₂` alongside. `EarStep` calls this at the
+two ends of the ear. -/
+theorem exists_boundary_paths (bw : S.BoundaryWalks) (hS : S.CombInvariants)
+    (hF : F ∈ S.faces) {a b : γ}
+    (ha : a ∈ V(S.skel)) (hbv : b ∈ V(S.skel)) (hsa : S.sub a F) (hsb : S.sub b F) (hab : a ≠ b) :
+    ∃ P₁ P₂, S.skel.IsPath a P₁ b ∧ S.skel.IsPath a P₂ b ∧
+      (∀ ⦃σ⦄, S.sub σ F ↔ σ = F ∨ σ ∈ S.pathCells a P₁ ∪ S.pathCells a P₂) ∧
+      S.pathCells a P₁ ∩ S.pathCells a P₂ = {a, b} := by
+  obtain ⟨e, v, D, hb, hcyc⟩ := bw.isCycle hF
+  obtain ⟨D₁, D₂, hp₁, hp₂, hperm, hmeet⟩ := hcyc.split_at
+    (bw.mem_walkVertices_of_sub hF hb hcyc ha hsa)
+    (bw.mem_walkVertices_of_sub hF hb hcyc hbv hsb) hab
+  -- The two arcs are the cycle cut in two: same edges, and no edge twice.
+  have hcovperm : S.skel.coveredVertices (D₁ ++ D₂) = S.skel.coveredVertices (e :: D) := by
+    ext z
+    exact ⟨fun ⟨g, hg, hz⟩ => ⟨g, hperm.mem_iff.1 hg, hz⟩,
+      fun ⟨g, hg, hz⟩ => ⟨g, hperm.mem_iff.2 hg, hz⟩⟩
+  have hnodup : (D₁ ++ D₂).Nodup :=
+    hperm.symm.nodup (List.nodup_cons.2 ⟨hcyc.notMem, hcyc.isPath.nodup⟩)
+  have hdisj : ∀ g, g ∈ D₁ → g ∈ D₂ → False := fun g hg₁ hg₂ =>
+    List.disjoint_of_nodup_append hnodup hg₁ hg₂
+  -- Each arc is nonempty — its two ends are distinct — so each end lies on one of its edges.
+  have hacov : a ∈ S.skel.coveredVertices D₁ := by
+    cases hp₁ with
+    | nil => exact absurd rfl hab
+    | cons hl _ _ => exact ⟨_, List.mem_cons_self, hl.inc_left⟩
+  have hbcov : b ∈ S.skel.coveredVertices D₂ := by
+    cases hp₂ with
+    | nil => exact absurd rfl hab.symm
+    | cons hl _ _ => exact ⟨_, List.mem_cons_self, hl.inc_left⟩
+  have hacov₂ : a ∈ S.skel.coveredVertices D₂ :=
+    (Graph.mem_walkVertices_iff.1 hp₂.isWalk.target_mem_walkVertices).resolve_left hab
+  have hacov₂' : a ∈ S.skel.coveredVertices D₂.reverse := by
+    rwa [Graph.coveredVertices_reverse]
+  have hbcov' : b ∈ S.skel.coveredVertices D₂.reverse := by
+    rwa [Graph.coveredVertices_reverse]
+  have hp₂' : S.skel.IsPath a D₂.reverse b := hp₂.reverse
+  refine ⟨D₁, D₂.reverse, hp₁, hp₂', fun σ => ?_, ?_⟩
+  · -- The cells below the 2-cell are the cells of the cycle, and the two arcs cover it.
+    have hcells : S.pathCells a D₁ ∪ S.pathCells a D₂.reverse =
+        S.pathCells (bw.start F) (S.boundary F) := by
+      have hstart : bw.start F ∈ S.skel.coveredVertices (e :: D) :=
+        ⟨e, List.mem_cons_self, hcyc.isLink.inc_left⟩
+      have hcovrev : S.skel.coveredVertices (e :: D.reverse) =
+          S.skel.coveredVertices (e :: D) := by
+        ext z
+        simp only [Graph.coveredVertices, mem_setOf_eq, List.mem_cons, List.mem_reverse]
+      rw [hb, pathCells_of_mem_covered hacov,
+        pathCells_of_mem_covered hacov₂',
+        pathCells_of_mem_covered (hcovrev ▸ hstart)]
+      have hrev : ∀ z : γ, z ∈ e :: D.reverse ↔ z ∈ e :: D := by
+        intro z; simp only [List.mem_cons, List.mem_reverse]
+      ext z
+      simp only [mem_union, mem_setOf_eq, List.mem_reverse, Graph.coveredVertices]
+      constructor
+      · rintro ((hz | hz) | (hz | hz))
+        · exact Or.inl ((hrev z).2 (hperm.mem_iff.1 (List.mem_append_left _ hz)))
+        · obtain ⟨g, hg, hzg⟩ := hz
+          exact Or.inr ⟨g, (hrev g).2 (hperm.mem_iff.1 (List.mem_append_left _ hg)), hzg⟩
+        · exact Or.inl ((hrev z).2 (hperm.mem_iff.1 (List.mem_append_right _ hz)))
+        · obtain ⟨g, hg, hzg⟩ := hz
+          exact Or.inr ⟨g, (hrev g).2 (hperm.mem_iff.1 (List.mem_append_right _ hg)), hzg⟩
+      · rintro (hz | ⟨g, hg, hzg⟩)
+        · rcases List.mem_append.1 (hperm.mem_iff.2 ((hrev z).1 hz)) with hz' | hz'
+          exacts [Or.inl (Or.inl hz'), Or.inr (Or.inl hz')]
+        · rcases List.mem_append.1 (hperm.mem_iff.2 ((hrev g).1 hg)) with hg' | hg'
+          exacts [Or.inl (Or.inr ⟨g, hg', hzg⟩), Or.inr (Or.inr ⟨g, hg', hzg⟩)]
+    rw [hcells, bw.pathCells_eq hF]
+    constructor
+    · intro h
+      by_cases hσ : σ = F
+      · exact Or.inl hσ
+      · exact Or.inr ⟨⟨hS.sub_mem_left h, h⟩, hσ⟩
+    · rintro (rfl | ⟨⟨-, h⟩, -⟩)
+      · exact hS.sub_refl (S.mem_cells_of_mem_faces hF)
+      · exact h
+  · -- The two arcs meet in the two cut points and nothing else.
+    ext z
+    constructor
+    · rintro ⟨hz₁, hz₂⟩
+      rcases hz₁ with hz₁ | hz₁ <;> rcases hz₂ with hz₂ | hz₂
+      · exact absurd (hdisj z hz₁ ((List.mem_reverse (as := D₂)).1 hz₂)) not_false
+      · exact absurd rfl (S.vertexSet_ne_edgeSet (hp₂'.isWalk.walkVertices_subset hz₂)
+          (hp₁.isWalk.edge_mem hz₁))
+      · exact absurd rfl (S.vertexSet_ne_edgeSet (hp₁.isWalk.walkVertices_subset hz₁)
+          (hp₂'.isWalk.edge_mem (show z ∈ D₂.reverse from hz₂)))
+      · rcases Graph.mem_walkVertices_iff.1 hz₂ with hza | hcov
+        · exact Or.inl hza
+        · exact hmeet z hz₁ (Graph.mem_walkVertices_of_mem_covered
+            (Graph.coveredVertices_reverse (G := S.skel) (W := D₂) ▸ hcov))
+    · rintro (rfl | rfl)
+      · exact ⟨Or.inr Graph.mem_walkVertices_self, Or.inr Graph.mem_walkVertices_self⟩
+      · exact ⟨Or.inr hp₁.target_mem_walkVertices,
+          Or.inr (Graph.mem_walkVertices_of_mem_covered
+            (Graph.coveredVertices_reverse (G := S.skel) (W := D₂) ▸ hbcov))⟩
+
+end BoundaryWalks
+
 end CellStructure
 
 end Schoenflies

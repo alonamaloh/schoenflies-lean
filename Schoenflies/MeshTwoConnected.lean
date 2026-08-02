@@ -55,6 +55,9 @@ interior to be fresh.
 * `hasTwoConnectedMeshOverlays_of` — the reduction: cores suffice for
   `Schoenflies.HasTwoConnectedMeshOverlays`.
 * `hasMeshSteps_of_cores` — the composition down to `Schoenflies.HasMeshSteps`.
+* `modelCurve_subset_cover_skelPieces`, `HasTwoConnectedMeshCores`,
+  `HasTwoConnectedSkelCores`, `hasTwoConnectedCores_of` — `lem:union-two-connected` as the
+  glue: the core splits into one obligation per side, shared along the fresh points.
 -/
 
 open Metric Set

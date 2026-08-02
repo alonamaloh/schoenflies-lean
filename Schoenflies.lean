@@ -132,3 +132,4 @@ import Schoenflies.EarStepTgt
 import Schoenflies.SkeletonCrosscuts
 import Schoenflies.StageRecursion
 import Schoenflies.GridStarEstimate
+import Schoenflies.GridComponents

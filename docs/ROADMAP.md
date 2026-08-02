@@ -532,9 +532,18 @@ What is left of the phase is discharging the two choosers, and the missing piece
    (`pieceListGraph_subdivide_isTwoConnected`, `Graph.IsTwoConnected.replace_edge_by_path`,
    `Graph.IsTwoConnected.ear`, `pieceListGraph_append_crosscut`) and assembling them is the
    caller's job.
-2. **`hcov`** of `gridAttachGraph_isConnected_diff` — finitely many representatives meet every
-   component of `|L| ∖ C`. The blueprint's *"since there are only finitely many components"*, and
-   the one place the finiteness the joining loop terminates on has no Lean statement at all.
+2. **`hcov` — done**, and it exposed a blueprint defect (see "What the standing rules caught").
+   The blueprint's *"since there are only finitely many components"* of `|L| ∖ C` is **false**
+   as a general plane fact — a segment can meet a wild `C` in a Cantor set. What the blueprint
+   silently spends is a drawing invariant, isolated in `GridComponents.lean` as
+   `Schoenflies.MeetsFinitely l C` (every piece meets `C` finitely), under which the whole
+   coverage fact is a **theorem**: `exists_reps_hcov` returns finite representatives, in the
+   cover and off `C`, whose second conjunct is *syntactically* the `hcov` of
+   `gridAttachGraph_isConnected_diff`, and
+   `gridAttachGraph_isConnected_diff_of_meetsFinitely` composes end-to-end with no `hcov`
+   left. No component is ever named — midpoints between consecutive crossing parameters do the
+   work. What survives for the assembler is `MeetsFinitely gsegs C`, a fact about `Γ`'s drawing
+   with the same owner as `hΓ`.
 3. **`lem:grid-star-estimate`**, tying the grid mesh to a star diameter bound. The metric half is
    ready in `Windows.lean`; what is missing is the geometry.
 4. **`skelHomeo_succ` on the source side — done.** `IsPartialTransferOf` now carries
@@ -619,8 +628,19 @@ up to `EarStepTgt.lean`.
 
 ### What the standing rules caught
 
-Seven things, all worth the cost of the rules that found them — and one of the same kind that a
+Eight things, all worth the cost of the rules that found them — and one of the same kind that a
 rule did not have to catch, because writing the field caught it first.
+
+**A false finiteness claim in a blueprint proof.** `prop:local-grid-attachment`'s joining loop
+terminates "since there are only finitely many components" of `|L| ∖ C`. As a general plane
+fact that is false: a straight segment can meet a wild Jordan curve in a Cantor set, so
+`segment ∖ C` can have uncountably many components. What the blueprint silently spends is that
+every segment actually fed to the loop meets `C` finitely — nonboundary edges of `Γ` meet `C`
+only at shared vertices, the auxiliary crosscut's open part lies in a face, the grid is
+disjoint from `C`. `GridComponents.lean` isolates that as `Schoenflies.MeetsFinitely`, proves
+the coverage fact as a theorem under it (`exists_reps_hcov`), and records the defect in its
+docstring. Found by the instruction this file keeps repeating: pin down what a "finiteness"
+rests on before formalising it.
 
 **A false hypothesis.** `Graph.CrosscutEncloses` stood on `main` as an assumed hypothesis for a
 whole wave, and is **false**. Nothing in its hypotheses stopped the crosscut from being drawn

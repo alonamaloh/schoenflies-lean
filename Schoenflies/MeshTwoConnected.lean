@@ -671,4 +671,108 @@ example {C : Set Plane} (hC : IsJordanCurve C) (hg : HasGridSteps initialStructu
   ⟨stageSequence_of_isJordanCurve hC hg
     (hasMeshSteps_of_cores combInvariants_initialStructure (jordan_curve_theorem hC) hcore)⟩
 
+/-! ### Splitting the core into its two sides
+
+`Schoenflies.HasTwoConnectedCores` glues out of one 2-connected subgraph per side — one
+spanning the overlay vertices on the mesh, one spanning those on the old skeleton — because
+the two sides share every fresh point: a fresh point is a vertex of the overlay, an end of
+its own spoke on the mesh, and a point of `S`, which the old skeleton occupies through its
+outer 1-cells. The glue is `Graph.IsTwoConnected.union` on two distinct fresh points, which
+the mesh-transfer caller always supplies. With it, the discharger of the core can treat the
+two subdivision bridges as independent obligations. -/
+
+/-- `S` lies on the pieces of the old skeleton: it is the realized outer cycle, whose drawn
+0-cells lie on drawn 1-cell arcs and whose 1-cell arcs are skeleton arcs. -/
+theorem modelCurve_subset_cover_skelPieces
+    (htgt : P.tgt.IsAdmissible modelCurve (Plane.closedSquare 0 1)) :
+    modelCurve ⊆ cover (skelPieces P) := by
+  rw [← htgt.outerSet_eq]
+  intro x hx
+  rw [cover_skelPieces]
+  simp only [CellStructure.Realization.outerSet, Graph.pointSet, Set.mem_union, mem_iUnion,
+    exists_prop] at hx
+  rcases hx with hx | ⟨e, he, hxe⟩
+  · -- a drawn 0-cell of the outer cycle lies on the drawn arc of one of its 1-cells
+    rw [vertexSet_map] at hx
+    obtain ⟨v, hv, rfl⟩ := hx
+    obtain ⟨e, he, hmem⟩ :=
+      pos_mem_edgeArc_of_vertex htgt (P.str.outerGraph_le.vertexSet_mono hv)
+    exact mem_iUnion₂.2 ⟨e, he, hmem⟩
+  · -- an outer 1-cell is a 1-cell
+    rw [edgeSet_map] at he
+    exact mem_iUnion₂.2 ⟨e, P.str.outerGraph_le.edgeSet_mono he, hxe⟩
+
+/-- **NAMED HYPOTHESIS — the mesh side of the core**: a 2-connected subgraph of the overlay
+containing every overlay vertex on the mesh. Its discharger is the refinement bridge: the
+overlay edges inside the mesh pieces subdivide `Schoenflies.squareMesh` — same edge name type,
+finitely many extra cut points, each interior to at most one edge, so
+`Graph.IsSubdivisionOf.isTwoConnected` (or `Graph.IsTwoConnected.replace_edge_by_path`)
+applies one point at a time — and `Schoenflies.meshGraph_isTwoConnected` starts it off from
+the two distinct fresh points supplied here. -/
+def HasTwoConnectedMeshCores (S₀ : CellStructure γ) (C : Set Plane) : Prop :=
+  ∀ P : StagePair S₀ C, P.src.IsAdmissible C (C ∪ inside C) →
+    P.tgt.IsAdmissible modelCurve (Plane.closedSquare 0 1) →
+    ∀ ⦃ε : ℝ⦄, 0 < ε → ∀ ⦃fresh : List Plane⦄,
+      (∀ z ∈ fresh, z ∈ modelCurve ∧ z ∉ V(P.tgt.graph)) →
+      (∃ z ∈ fresh, ∃ w ∈ fresh, z ≠ w) →
+      ∀ ⦃joins : List Piece⦄, JoinsFor P ε joins →
+      ∃ K : Graph Plane Piece, K ≤ meshOverlayGraph P ε fresh joins ∧ K.IsTwoConnected ∧
+        ∀ x ∈ V(meshOverlayGraph P ε fresh joins),
+          x ∈ cover (meshSegments (meshCount ε) fresh) → x ∈ V(K)
+
+/-- **NAMED HYPOTHESIS — the skeleton side of the core**: a 2-connected subgraph of the
+overlay containing every overlay vertex on the old drawn skeleton. Its discharger is the
+cross-type subdivision bridge — the overlay edges inside the drawn 1-cell arcs form a
+subdivision of `Γ'` (edge names `γ` on one side, `Schoenflies.Piece` on the other), which is
+2-connected by admissibility (`IsWeaklyAdmissible.isTwoConnected`); the transport needs a
+subdivision-with-relabelling analogue of `Graph.IsSubdivisionOf.isTwoConnected`, with
+`Graph.IsDrawing.not_isLoopAt` supplying its looplessness proviso. -/
+def HasTwoConnectedSkelCores (S₀ : CellStructure γ) (C : Set Plane) : Prop :=
+  ∀ P : StagePair S₀ C, P.src.IsAdmissible C (C ∪ inside C) →
+    P.tgt.IsAdmissible modelCurve (Plane.closedSquare 0 1) →
+    ∀ ⦃ε : ℝ⦄, 0 < ε → ∀ ⦃fresh : List Plane⦄,
+      (∀ z ∈ fresh, z ∈ modelCurve ∧ z ∉ V(P.tgt.graph)) →
+      (∃ z ∈ fresh, ∃ w ∈ fresh, z ≠ w) →
+      ∀ ⦃joins : List Piece⦄, JoinsFor P ε joins →
+      ∃ K : Graph Plane Piece, K ≤ meshOverlayGraph P ε fresh joins ∧ K.IsTwoConnected ∧
+        ∀ x ∈ V(meshOverlayGraph P ε fresh joins),
+          x ∈ cover (skelPieces P) → x ∈ V(K)
+
+/-- **The glue: the two per-side cores union to the joint core.** The two sides share the two
+distinct fresh points — each is a vertex of the overlay, lies on its own spoke, and lies on
+`S`, which the skeleton occupies — so `Graph.IsTwoConnected.union` applies. -/
+theorem hasTwoConnectedCores_of (hmesh : HasTwoConnectedMeshCores S₀ C)
+    (hskel : HasTwoConnectedSkelCores S₀ C) : HasTwoConnectedCores S₀ C := by
+  intro P hsrc htgt ε hε fresh hfresh hne2 joins hjoins
+  obtain ⟨K₁, hK₁le, hK₁2, hK₁cov⟩ := hmesh P hsrc htgt hε hfresh hne2 hjoins
+  obtain ⟨K₂, hK₂le, hK₂2, hK₂cov⟩ := hskel P hsrc htgt hε hfresh hne2 hjoins
+  obtain ⟨z, hz, w, hw, hzw⟩ := hne2
+  -- a fresh point is a vertex, on the mesh, and on the skeleton
+  have hmem : ∀ ⦃p⦄, p ∈ fresh → p ∈ V(K₁) ∧ p ∈ V(K₂) := by
+    intro p hp
+    have hpV : p ∈ V(meshOverlayGraph P ε fresh joins) :=
+      fresh_mem_vertexSet_meshOverlayGraph hp
+    have hpmesh : p ∈ cover (meshSegments (meshCount ε) fresh) :=
+      mem_cover_iff.2 ⟨spokePiece (meshCount ε) p, spokePiece_mem_meshSegments hp,
+        left_mem_segment ℝ _ _⟩
+    have hpskel : p ∈ cover (skelPieces P) :=
+      modelCurve_subset_cover_skelPieces htgt (hfresh p hp).1
+    exact ⟨hK₁cov p hpV hpmesh, hK₂cov p hpV hpskel⟩
+  refine ⟨K₁.union K₂, union_le hK₁le hK₂le, ?_, ?_⟩
+  · exact IsTwoConnected.union (Compatible.of_le_le hK₁le hK₂le) hK₁2 hK₂2 hzw
+      (hmem hz).1 (hmem hz).2 (hmem hw).1 (hmem hw).2
+  · intro x hxV hx
+    rw [vertexSet_union]
+    rcases hx with hx | hx
+    exacts [Or.inl (hK₁cov x hxV hx), Or.inr (hK₂cov x hxV hx)]
+
+/-- The interface, exercised again: the stage sequence from the two per-side cores. -/
+example {C : Set Plane} (hC : IsJordanCurve C) (hg : HasGridSteps initialStructure C)
+    (hmesh : HasTwoConnectedMeshCores initialStructure C)
+    (hskel : HasTwoConnectedSkelCores initialStructure C) :
+    Nonempty (StageSequence InitialCell initialStructure C) :=
+  ⟨stageSequence_of_isJordanCurve hC hg
+    (hasMeshSteps_of_cores combInvariants_initialStructure (jordan_curve_theorem hC)
+      (hasTwoConnectedCores_of hmesh hskel))⟩
+
 end Schoenflies

@@ -342,9 +342,9 @@ checker under proof irrelevance.
 
 `Schoenflies.FreshDense.mono`, `Schoenflies.MeshOverlayExtension`, `Schoenflies.MeshOverlayExtension.isSourceExtension`, `Schoenflies.MeshOverlayExtension.hasFreshAnchors`, `Schoenflies.MeshOverlayExtension.rename`, `Schoenflies.meshTransfer_of_extension`, `Schoenflies.HasMeshOverlays`, `Schoenflies.hasMeshTransfers`
 
-## Schoenflies/MeshTwoConnected.lean  (674 lines)
+## Schoenflies/MeshTwoConnected.lean  (778 lines)
 
-`Graph.IsTwoConnected.of_spanning_paths`, `Schoenflies.IsSimpleChain`, `Schoenflies.isSimpleChain_nil`, `Schoenflies.isSimpleChain_singleton`, `Schoenflies.isSimpleChain_cons_cons`, `Schoenflies.end_mem_coveredVertices`, `Schoenflies.end_of_mem_points`, `Schoenflies.exists_simpleChain_of_isPath`, `Schoenflies.exists_simpleChain_to_base`, `Schoenflies.ends_of_segsOf`, `Schoenflies.simpleChain_isPath_overlay`, `Schoenflies.exists_simple_joins`, `Schoenflies.HasTwoConnectedCores`, `Schoenflies.hasTwoConnectedMeshOverlays_of`, `Schoenflies.hasMeshSteps_of_cores`
+`Graph.IsTwoConnected.of_spanning_paths`, `Schoenflies.IsSimpleChain`, `Schoenflies.isSimpleChain_nil`, `Schoenflies.isSimpleChain_singleton`, `Schoenflies.isSimpleChain_cons_cons`, `Schoenflies.end_mem_coveredVertices`, `Schoenflies.end_of_mem_points`, `Schoenflies.exists_simpleChain_of_isPath`, `Schoenflies.exists_simpleChain_to_base`, `Schoenflies.ends_of_segsOf`, `Schoenflies.simpleChain_isPath_overlay`, `Schoenflies.exists_simple_joins`, `Schoenflies.HasTwoConnectedCores`, `Schoenflies.hasTwoConnectedMeshOverlays_of`, `Schoenflies.hasMeshSteps_of_cores`, `Schoenflies.modelCurve_subset_cover_skelPieces`, `Schoenflies.HasTwoConnectedMeshCores`, `Schoenflies.HasTwoConnectedSkelCores`, `Schoenflies.hasTwoConnectedCores_of`
 
 ## Schoenflies/ModelCurve.lean  (492 lines)
 

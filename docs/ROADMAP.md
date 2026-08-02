@@ -38,7 +38,8 @@ Schoenflies.stageSequence        the fields of LimitTower ← HasGridSteps, HasM
 | `Schoenflies.HasLimitHomeomorphism` | `BoundaryContinuity2.lean` | `thm:square-extension` | four conjuncts: a dense anchor set, the interior homeomorphism, `HasAnchorCrosscuts`, `HasSpokes`. **`stageSequence` + `limitTower` supply the second given the two choosers below; the other three need `lem:anchor-density` and the `SkeletonCrosscuts.lean` handoff.** |
 | the fields of `CellStructure.LimitTower` | `LimitMap.lean` | the interior homeomorphism | **supplied**: `Schoenflies.stageSequence` (`StageRecursion.lean`) builds the `StageSequence`, and `StageSequence.limitTower` the tower, conditional only on the two choosers below. `prop:shrinking-stars` is proved inside the recursion, not assumed |
 | `Schoenflies.HasGridSteps` | `StageRecursion.lean` | the interior homeomorphism | the source-grid enlargement chooser: `prop:local-grid-attachment` (conditional on `hΓ`, `hcov`) + `thm:finite-transfer`(a) + `lem:grid-star-estimate`. See Phase 3 |
-| `Schoenflies.HasMeshSteps` | `StageRecursion.lean` | the interior homeomorphism | the target-mesh enlargement chooser: `prop:anchored-square-mesh` (done) + overlay + `thm:finite-transfer`(b). The nearest of the choosers to closable |
+| `Schoenflies.HasMeshSteps` | `StageRecursion.lean` | the interior homeomorphism | **discharged** by `Schoenflies.hasMeshSteps` (`MeshSteps.lean`) from `HasMeshTransfers` below — the quantitative half, the fresh-anchor supply and the fourth ambient fact are all proved there |
+| `Schoenflies.HasMeshTransfers` | `MeshSteps.lean` | `HasMeshSteps` | the mesh step cut at the transfer's *conclusion* (`IsTransferOfTgt` + mesh-cover ⊆ skeleton), because the transfer's *hypotheses* are *jointly unsatisfiable for every mesh overlay* — see the ninth entry of "What the standing rules caught". Discharged by the repaired `thm:finite-transfer`(b) applied to the overlay of `squareMesh` with the target skeleton; `IsTransferOfTgt` itself needs no change, which is what keeps this hypothesis honest |
 | `Schoenflies.Realization.HasPolygonalArcs`, anchor incidence | `SkeletonCrosscuts.lean` | `HasAnchorCrosscuts`, `HasSpokes` | the two conditions of `lem:skeleton-crosscuts` as assembled: an arc in a polygonal-edged skeleton is polygonal (honest graph-geometry work), and each anchor has an incident nonboundary edge (a clause of `lem:anchor-density`) |
 | `Schoenflies.CellsAbsorb` | `SkeletonAccess.lean`, `FreshAccess.lean` | `lem:polygonal-side-accessibility` | one clause of `lem:cellulation-invariants`. **Discharged at a stage** by `Realization.cellsAbsorb` (`StageCells.lean`) — assertions (i) and (vii) make the 2-cells a partition of the open domain minus the skeleton into open connected pieces, which is the decomposition into components. It remains a hypothesis only where the realization is *not* a stage of a `GeneratedPair` |
 
@@ -628,8 +629,25 @@ up to `EarStepTgt.lean`.
 
 ### What the standing rules caught
 
-Eight things, all worth the cost of the rules that found them — and one of the same kind that a
+Nine things, all worth the cost of the rules that found them — and one of the same kind that a
 rule did not have to catch, because writing the field caught it first.
+
+**A proved theorem whose hypotheses are jointly unsatisfiable at its intended call site, the
+second.** `finite_transfer_back'` is proved, and no mesh overlay can ever satisfy its
+hypotheses together. `IsSourceExtension.edge_subset` forces any `H`-edge merely *touching* an
+old open 1-cell to run inside that edge's arc — so a spoke reaching the outer curve at a fresh
+point (which sits inside an old outer edge's open 1-cell) is forbidden outright; the only
+escape, pre-subdividing the outer edge at the fresh point, is forbidden by
+`HasFreshAnchors.notMem_vertexSet`, which quantifies over *all* of `E(H)` where the blueprint
+says the *new* edges `H′ ∖ Γ′`. `MeshSteps.lean` machine-checks the deadlock
+(`edgeArc_subset_outer_of_hasFreshAnchors`, `not_nonboundaryAt_of_hasFreshAnchors`: under both
+hypotheses no nonboundary edge of `H` meets the outer curve at all, so the mesh proposition's
+clauses 1 and 5 cannot both hold) and its docstring records two candidate repairs, both
+touching only hypotheses — `IsTransferOfTgt` is untouched, so everything cut at the transfer's
+conclusion survives the repair verbatim. The same `edge_subset` overshoot will meet direction
+(a)'s discharger at interior crossing points, where pre-subdivision *is* available since (a)
+has no freshness clause. Found the same way as the `FreshAccess` instance: by writing down
+what the discharger would pass, before writing the discharger.
 
 **A false finiteness claim in a blueprint proof.** `prop:local-grid-attachment`'s joining loop
 terminates "since there are only finitely many components" of `|L| ∖ C`. As a general plane

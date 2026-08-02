@@ -139,8 +139,10 @@ point of a drawn 1-cell and one subdivision at the corresponding parameter makes
 
 Nothing is lost on the way and nothing extra is gained: the skeleton does not move, no old
 0-cell stops being one, the only 0-cell added is the point itself, and both realizations refine
-the old ones along the same parent map. The last clause is what lets a consumer conclude that
-the 0-cells of the result are exactly the old ones together with the points it asked for. -/
+the old ones along the same parent map. The last-but-one clause is what lets a consumer conclude
+that the 0-cells of the result are exactly the old ones together with the points it asked for;
+the last one — a subdivision does not touch the skeleton homeomorphism — is what the
+`homeo_eqOn` clause of `Schoenflies.IsPartialTransferOf` reads off the iteration. -/
 theorem GeneratedPair.exists_subdivide_at [Infinite γ] (h₀ : S₀.CombInvariants)
     (T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom) {p : Plane}
     (hp : p ∈ T.src.skeletonSet) :
@@ -148,15 +150,16 @@ theorem GeneratedPair.exists_subdivide_at [Infinite γ] (h₀ : S₀.CombInvaria
       T'.src.Refines T.src par ∧ T'.tgt.Refines T.tgt par ∧
         T'.src.skeletonSet = T.src.skeletonSet ∧
         V(T.src.graph) ⊆ V(T'.src.graph) ∧ p ∈ V(T'.src.graph) ∧
-        V(T'.src.graph) ⊆ insert p V(T.src.graph) := by
+        V(T'.src.graph) ⊆ insert p V(T.src.graph) ∧
+        T'.homeo.toFun = T.homeo.toFun := by
   rcases Realization.mem_vertexSet_or_exists_cell hp with hv | ⟨e, he, hpe⟩
-  · exact ⟨T, id, .refl _, .refl _, rfl, subset_rfl, hv, subset_insert _ _⟩
+  · exact ⟨T, id, .refl _, .refl _, rfl, subset_rfl, hv, subset_insert _ _, rfl⟩
   obtain ⟨x, y, hl⟩ := Graph.exists_isLink_of_mem_edgeSet he
   obtain ⟨t, ht, hpt⟩ := Realization.exists_param_of_mem_cell hl hpe
   obtain ⟨d, hde, -, -, hds⟩ := exists_subdivData hl T.walks.start
   have hgraph : (T.subdivideEdge (T.combInvariants h₀) d hds ht).src.graph
       = d.realizeGraph T.src t := rfl
-  refine ⟨T.subdivideEdge (T.combInvariants h₀) d hds ht, d.parent, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨T.subdivideEdge (T.combInvariants h₀) d hds ht, d.parent, ?_, ?_, ?_, ?_, ?_, ?_, rfl⟩
   · exact (T.refines_subdivideEdge (T.combInvariants h₀) d hds ht).1
   · exact (T.refines_subdivideEdge (T.combInvariants h₀) d hds ht).2
   · exact T.skeletonSet_subdivideEdge (T.combInvariants h₀) d hds ht
@@ -180,18 +183,20 @@ theorem GeneratedPair.exists_subdivide_finite [Infinite γ] (h₀ : S₀.CombInv
         T'.src.Refines T.src par ∧ T'.tgt.Refines T.tgt par ∧
           T'.src.skeletonSet = T.src.skeletonSet ∧
           V(T.src.graph) ⊆ V(T'.src.graph) ∧ Q ⊆ V(T'.src.graph) ∧
-          V(T'.src.graph) ⊆ V(T.src.graph) ∪ Q := by
+          V(T'.src.graph) ⊆ V(T.src.graph) ∪ Q ∧
+          T'.homeo.toFun = T.homeo.toFun := by
   induction Q, hQ using Set.Finite.induction_on with
   | empty =>
-    exact fun T _ => ⟨T, id, .refl _, .refl _, rfl, subset_rfl, empty_subset _, subset_union_left⟩
+    exact fun T _ => ⟨T, id, .refl _, .refl _, rfl, subset_rfl, empty_subset _, subset_union_left,
+      rfl⟩
   | @insert a s ha hs ih =>
     intro T hQK
-    obtain ⟨T₁, par₁, hr₁, hr₁', hK₁, hV₁, haV, hV₁'⟩ :=
+    obtain ⟨T₁, par₁, hr₁, hr₁', hK₁, hV₁, haV, hV₁', hg₁⟩ :=
       T.exists_subdivide_at h₀ (hQK (mem_insert a s))
-    obtain ⟨T₂, par₂, hr₂, hr₂', hK₂, hV₂, hsV, hV₂'⟩ :=
+    obtain ⟨T₂, par₂, hr₂, hr₂', hK₂, hV₂, hsV, hV₂', hg₂⟩ :=
       ih T₁ (hK₁ ▸ (subset_insert a s).trans hQK)
     refine ⟨T₂, par₁ ∘ par₂, hr₂.trans hr₁, hr₂'.trans hr₁', hK₂.trans hK₁, hV₁.trans hV₂,
-      insert_subset (hV₂ haV) hsV, hV₂'.trans (union_subset ?_ ?_)⟩
+      insert_subset (hV₂ haV) hsV, hV₂'.trans (union_subset ?_ ?_), hg₂.trans hg₁⟩
     · exact hV₁'.trans (insert_subset (mem_union_right _ (mem_insert a s)) subset_union_left)
     · exact subset_union_of_subset_right (subset_insert a s) _
 

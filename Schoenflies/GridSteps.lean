@@ -318,6 +318,7 @@ structure GridExtensionData (P : StagePair S₀ C) (ε : ℝ) (b : Plane) where
   grid_subset : cover (localGridEdges b (windowRadius C ε b)
     (localGridCount (windowRadius C ε b) ε)) ⊆ Graph.pointSet H Hdraw
 
+omit [Nonempty γ] in
 /-- **The reduction of the renaming debt.** An extension built over *any* nonempty edge-name
 type — `Piece` for the grid overlay, `γ ⊕ Piece` for a union with the current graph, anything —
 yields a `Schoenflies.GridExtensionData`: `Infinite γ` supplies an injection of the finite edge

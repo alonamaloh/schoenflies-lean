@@ -6,6 +6,7 @@ Authors: Álvaro Begué
 import Schoenflies.GridStarEstimate
 import Schoenflies.GridComponents
 import Schoenflies.MeshSteps
+import Schoenflies.Graph.RenameEdges
 
 /-!
 # The direction-(a) grid step, assembled — the `Schoenflies.HasGridSteps` discharger
@@ -32,33 +33,32 @@ facts, reads the step relation off the conclusion by
 What remains — the one named hypothesis `Schoenflies.HasGridExtensions` — is the *construction*
 of the extension, `prop:local-grid-attachment` applied at the stage. Its discharger builds the
 graph from the pieces already on `main`, over any convenient edge-name type, and pushes it into
-`γ` by the relabelling below; see the docstring of `Schoenflies.HasGridExtensions` for the
+`γ` by the renaming below; see the docstring of `Schoenflies.HasGridExtensions` for the
 itemized obligations (`hΓ`, `MeetsFinitely`, the union with the outer part of `Γ`, and the
 window placement).
 
-## The edge relabelling
+## The edge renaming
 
 `Schoenflies.gridAttachGraph` names its edges by `Piece = Plane × Plane` while the transfer
-fixes `H : Graph Plane γ`; this repo deliberately has no edge relabelling (`Graph.map` relabels
-vertices only — see the note on `InitialCell.aux` in `InitialGenerated.lean`). The rebuild
-recorded as Phase 3's renaming debt is `Graph.relabel` below: the same graph presented under an
-injection of edge names, with drawing `Graph.relabelDraw`. Everything the transfer's hypotheses
-read — finiteness, the drawing, 2-connectivity, the vertex set, every edge arc, the point set —
-is preserved, so `Schoenflies.IsSourceExtensionOver` (the transfer's hypotheses over an
-*arbitrary* edge-name type) transports to `Schoenflies.IsSourceExtension` over `γ`
-(`Schoenflies.IsSourceExtensionOver.relabel`), and
+fixes `H : Graph Plane γ`. The rebuild recorded as Phase 3's renaming debt is
+`Graph.renameEdges` (`Schoenflies/Graph/RenameEdges.lean`): the same graph presented under an
+injection of edge names, with drawing `Graph.renameDrawing`. Everything the transfer's
+hypotheses read — finiteness, the drawing, 2-connectivity, the vertex set, every edge arc, the
+point set — is preserved, so `Schoenflies.IsSourceExtensionOver` (the transfer's hypotheses
+over an *arbitrary* edge-name type) transports to `Schoenflies.IsSourceExtension` over `γ`
+(`Schoenflies.IsSourceExtensionOver.renameEdges`), and
 `Schoenflies.nonempty_gridExtensionData_of_over` closes the renaming debt: the discharger of
 `HasGridExtensions` may build over `Piece`, or over `γ ⊕ Piece`, or over any nonempty edge type
 at all, and the injection into the infinite `γ` is chosen here.
 
 ## Blueprint
 
-* `Graph.relabel`, `Graph.relabelDraw` — not a numbered statement; the edge renaming that
-  Phase 3 item 0 of `docs/ROADMAP.md` records as the composition obligation of
-  `lem:grid-star-estimate`'s `hgrid`.
-* `Schoenflies.IsSourceExtensionOver`, `Schoenflies.IsSourceExtensionOver.relabel` — the
+* `Schoenflies.IsSourceExtensionOver`, `Schoenflies.IsSourceExtensionOver.renameEdges` — the
   hypotheses of `thm:finite-transfer`(a) on `H`, freed of the edge-name type, and their
-  transport into the shape the transfer consumes.
+  transport into the shape the transfer consumes along `Graph.renameEdges`
+  (`Schoenflies/Graph/RenameEdges.lean` — the edge renaming that Phase 3 item 0 of
+  `docs/ROADMAP.md` records as the composition obligation of `lem:grid-star-estimate`'s
+  `hgrid`).
 * `Schoenflies.GridExtensionData`, `Schoenflies.HasGridExtensions` — `prop:local-grid-attachment`
   applied at a stage, as one named hypothesis: the extension over the window, satisfying the
   transfer's hypotheses, containing the grid.
@@ -70,137 +70,6 @@ at all, and the injection into the infinite `γ` is chosen here.
 open Metric Set Schoenflies
 open scoped Graph
 
-/-! ## Relabelling the edges of a graph
-
-`Graph.map` relabels vertices and keeps edge names; nothing in Mathlib or in this repo renames
-edges. `Graph.relabel` is that missing operation, for an injection of the edge set: the same
-vertices, the same links, each edge `e` now called `f e`. It is general graph theory and
-belongs beside `Graph.map`; it is here because it was needed here first. -/
-
-namespace Graph
-
-variable {α β β' : Type*} {G : Graph α β} {f : β → β'}
-
-/-- **The graph `G` with each edge `e` renamed `f e`**, for `f` injective on the edge set.
-Injectivity is what keeps distinct edges distinct, so the relabelled graph has the same links
-with the same multiplicities. -/
-def relabel (G : Graph α β) (f : β → β') (hf : Set.InjOn f E(G)) : Graph α β' where
-  vertexSet := V(G)
-  IsLink e' x y := ∃ e ∈ E(G), f e = e' ∧ G.IsLink e x y
-  edgeSet := f '' E(G)
-  isLink_symm := fun _ _ => ⟨fun _ _ ⟨e, he, hfe, hl⟩ => ⟨e, he, hfe, hl.symm⟩⟩
-  eq_or_eq_of_isLink_of_isLink := by
-    rintro e' x y v w ⟨e, he, rfl, hl⟩ ⟨e₂, he₂, hfe, hl₂⟩
-    obtain rfl := hf he₂ he hfe
-    exact hl.left_eq_or_eq hl₂
-  edge_mem_iff_exists_isLink := by
-    rintro e'
-    constructor
-    · rintro ⟨e, he, rfl⟩
-      obtain ⟨x, y, hl⟩ := exists_isLink_of_mem_edgeSet he
-      exact ⟨x, y, e, he, rfl, hl⟩
-    · rintro ⟨x, y, e, he, rfl, -⟩
-      exact ⟨e, he, rfl⟩
-  left_mem_of_isLink := by
-    rintro e' x y ⟨e, -, -, hl⟩
-    exact hl.left_mem
-
-variable {hf : Set.InjOn f E(G)}
-
-@[simp] theorem relabel_vertexSet : V(G.relabel f hf) = V(G) := rfl
-
-@[simp] theorem relabel_edgeSet : E(G.relabel f hf) = f '' E(G) := rfl
-
-theorem relabel_isLink {e' : β'} {x y : α} :
-    (G.relabel f hf).IsLink e' x y ↔ ∃ e ∈ E(G), f e = e' ∧ G.IsLink e x y := Iff.rfl
-
-/-- On an edge of `G`, the relabelled link is the old link. -/
-theorem relabel_isLink_image {e : β} (he : e ∈ E(G)) {x y : α} :
-    (G.relabel f hf).IsLink (f e) x y ↔ G.IsLink e x y := by
-  constructor
-  · rintro ⟨e₂, he₂, hfe, hl⟩
-    obtain rfl := hf he₂ he hfe
-    exact hl
-  · exact fun hl => ⟨e, he, rfl, hl⟩
-
-/-- Relabelling edges does not change which pairs of vertices are joined. -/
-theorem relabel_adj {x y : α} : (G.relabel f hf).Adj x y ↔ G.Adj x y := by
-  constructor
-  · rintro ⟨e', e, he, rfl, hl⟩
-    exact ⟨e, hl⟩
-  · rintro ⟨e, hl⟩
-    exact ⟨f e, e, hl.edge_mem, rfl, hl⟩
-
-theorem relabel_inc_image {e : β} (he : e ∈ E(G)) {x : α} :
-    (G.relabel f hf).Inc (f e) x ↔ G.Inc e x := by
-  constructor
-  · rintro ⟨y, hl⟩
-    exact ⟨y, (relabel_isLink_image he).1 hl⟩
-  · rintro ⟨y, hl⟩
-    exact ⟨y, (relabel_isLink_image he).2 hl⟩
-
-theorem relabel_finite [G.Finite] : (G.relabel f hf).Finite where
-  finite_vertexSet := Graph.finite_vertexSet G
-  finite_edgeSet := (Graph.finite_edgeSet G).image f
-
-/-- **2-connectivity survives an edge relabelling** — it only sees adjacency
-(`Graph.IsTwoConnected.of_adj_congr`). -/
-theorem IsTwoConnected.relabel (h : G.IsTwoConnected) : (G.relabel f hf).IsTwoConnected :=
-  h.of_adj_congr relabel_vertexSet.symm fun _ _ => relabel_adj.symm
-
-/-! ### The relabelled drawing -/
-
-variable [Nonempty β] {d : β → ℝ → Plane}
-
-/-- The drawing of a relabelled plane graph: each new name `f e` is drawn by the old drawing of
-`e`, recovered by a partial inverse of `f` on the edge set. Off the image the value is junk and
-is never read — every clause of `Graph.IsDrawing` quantifies over edges of the graph. -/
-noncomputable def relabelDraw (f : β → β') (s : Set β) (d : β → ℝ → Plane) :
-    β' → ℝ → Plane :=
-  fun e' => d (Function.invFunOn f s e')
-
-theorem relabelDraw_image {G : Graph Plane β} {f : β → β'} (hf : Set.InjOn f E(G)) {e : β}
-    (he : e ∈ E(G)) {d : β → ℝ → Plane} : relabelDraw f E(G) d (f e) = d e := by
-  rw [relabelDraw, hf.leftInvOn_invFunOn he]
-
-theorem relabel_edgeArc {G : Graph Plane β} {f : β → β'} (hf : Set.InjOn f E(G)) {e : β}
-    (he : e ∈ E(G)) {d : β → ℝ → Plane} :
-    edgeArc (relabelDraw f E(G) d) (f e) = edgeArc d e := by
-  rw [edgeArc, edgeArc, relabelDraw_image hf he]
-
-/-- Relabelling the edges does not move the drawn point set. -/
-theorem relabel_pointSet {G : Graph Plane β} {f : β → β'} (hf : Set.InjOn f E(G))
-    {d : β → ℝ → Plane} :
-    pointSet (G.relabel f hf) (relabelDraw f E(G) d) = pointSet G d := by
-  rw [pointSet, pointSet, relabel_vertexSet, relabel_edgeSet, Set.biUnion_image]
-  exact congrArg _ (Set.iUnion₂_congr fun e he => relabel_edgeArc hf he)
-
-/-- **A drawing survives an edge relabelling.** Every clause is the old clause read through the
-bijection `e ↦ f e` of edge names, under which the arcs are unchanged. -/
-theorem IsDrawing.relabel {G : Graph Plane β} {f : β → β'} {hf : Set.InjOn f E(G)}
-    {d : β → ℝ → Plane} (hd : IsDrawing G d) :
-    IsDrawing (G.relabel f hf) (relabelDraw f E(G) d) where
-  edge_param := by
-    rintro e' ⟨e, he, rfl⟩
-    obtain ⟨hcont, hinj, hl⟩ := hd.edge_param he
-    rw [relabelDraw_image hf he]
-    exact ⟨hcont, hinj, (relabel_isLink_image he).2 hl⟩
-  vertex_mem_edgeArc := by
-    rintro e' x y v ⟨e, he, rfl, hl⟩ hv hvarc
-    rw [relabel_edgeArc hf he] at hvarc
-    exact hd.vertex_mem_edgeArc hl hv hvarc
-  edge_inter := by
-    rintro e' g' he' hg' hne p hpe hpg
-    obtain ⟨e, he, rfl⟩ := he'
-    obtain ⟨g, hg, rfl⟩ := hg'
-    have hneg : e ≠ g := fun h => hne (congrArg f h)
-    rw [relabel_edgeArc hf he] at hpe
-    rw [relabel_edgeArc hf hg] at hpg
-    obtain ⟨hpV, hince, hincg⟩ := hd.edge_inter he hg hneg hpe hpg
-    exact ⟨hpV, (relabel_inc_image he).2 hince, (relabel_inc_image hg).2 hincg⟩
-
-end Graph
-
 namespace Schoenflies
 
 open Graph CellStructure
@@ -209,23 +78,13 @@ variable {γ : Type*} [Nonempty γ] {S₀ : CellStructure γ} {C : Set Plane}
 
 /-! ## A supply of names
 
-The relabelling needs an injection of the finite edge set into `γ`; `Infinite γ` supplies one.
-This is general set theory and is here only because it was needed here first. -/
+The renaming needs an injection of the finite edge set into `γ`; `Infinite γ` supplies one, by
+`Graph.exists_injOn_notMem` with nothing to avoid. -/
 
 /-- A finite set of any type injects into any infinite type. -/
 theorem exists_injOn_of_finite {β δ : Type*} [Infinite δ] {s : Set β} (hs : s.Finite) :
-    ∃ f : β → δ, Set.InjOn f s := by
-  classical
-  haveI := hs.fintype
-  have hemb : Nonempty (s ↪ δ) :=
-    ⟨(Fintype.equivFin s).toEmbedding.trans
-      ((Fin.valEmbedding).trans (Infinite.natEmbedding δ))⟩
-  obtain ⟨g⟩ := hemb
-  refine ⟨fun b => if h : b ∈ s then g ⟨b, h⟩ else Classical.arbitrary δ, ?_⟩
-  intro a ha b hb hab
-  dsimp only at hab
-  rw [dif_pos ha, dif_pos hb] at hab
-  exact congrArg Subtype.val (g.injective hab)
+    ∃ f : β → δ, Set.InjOn f s :=
+  (Graph.exists_injOn_notMem hs Set.finite_empty).imp fun _f h => h.1
 
 /-! ## The transfer's hypotheses, freed of the edge-name type
 
@@ -234,12 +93,12 @@ theorem exists_injOn_of_finite {β δ : Type*} [Infinite δ] {s : Set β} (hs : 
 type. The construction of the extension is more comfortable over a concrete name type (the
 grid overlay uses `Piece`; the union with the outer part of `Γ` may want `γ ⊕ Piece`), and no
 clause of the hypotheses reads a name: this is the same statement over an arbitrary edge type,
-together with the transport into the `γ`-shape along `Graph.relabel`. -/
+together with the transport into the `γ`-shape along `Graph.renameEdges`. -/
 
 /-- **The hypotheses of `thm:finite-transfer`(a) on the extension, over an arbitrary edge-name
 type.** Field for field `Schoenflies.IsSourceExtension`, with the graph's edge names drawn from
-any type `β`; `Schoenflies.IsSourceExtensionOver.relabel` converts to the `γ`-named form the
-transfer consumes. -/
+any type `β`; `Schoenflies.IsSourceExtensionOver.renameEdges` converts to the `γ`-named form
+the transfer consumes. -/
 structure IsSourceExtensionOver {β : Type*} {S : CellStructure γ} (R : S.Realization)
     (outer dom : Set Plane) (G : Graph Plane β) (d : β → ℝ → Plane) : Prop where
   /-- `H` is finite. -/
@@ -267,27 +126,27 @@ structure IsSourceExtensionOver {β : Type*} {S : CellStructure γ} (R : S.Reali
   isConnected : IsConnected (Graph.pointSet G d \ outer)
 
 omit [Nonempty γ] in
-/-- **The transport into the transfer's shape.** The relabelled graph satisfies
+/-- **The transport into the transfer's shape.** The renamed graph satisfies
 `Schoenflies.IsSourceExtension`: every clause of the hypotheses reads the graph through its
-vertex set, its adjacency, or its edge arcs, all of which `Graph.relabel` preserves. -/
-theorem IsSourceExtensionOver.relabel {β : Type*} [Nonempty β] {S : CellStructure γ}
+vertex set, its adjacency, or its edge arcs, all of which `Graph.renameEdges` preserves. -/
+theorem IsSourceExtensionOver.renameEdges {β : Type*} [Nonempty β] {S : CellStructure γ}
     {R : S.Realization} {outer dom : Set Plane} {G : Graph Plane β} {d : β → ℝ → Plane}
     (h : IsSourceExtensionOver R outer dom G d) {f : β → γ} (hf : Set.InjOn f E(G)) :
-    IsSourceExtension R outer dom (G.relabel f hf) (Graph.relabelDraw f E(G) d) := by
+    IsSourceExtension R outer dom (G.renameEdges f hf) (Graph.renameDrawing G f d) := by
   haveI := h.finite
-  refine ⟨Graph.relabel_finite, h.isDrawing.relabel, h.isTwoConnected.relabel,
+  refine ⟨Graph.renameEdges_finite, h.isDrawing.renameEdges hf, h.isTwoConnected.renameEdges hf,
     h.vertexSet_subset, ?_, ?_, ?_, ?_, ?_⟩
-  · rw [Graph.relabel_pointSet hf]
+  · rw [Graph.pointSet_renameEdges hf]
     exact h.skeletonSet_subset
   · rintro e he f' ⟨P, hP, rfl⟩ q hq hqcell hqV
-    rw [Graph.relabel_edgeArc hf hP] at hq ⊢
+    rw [Graph.edgeArc_renameDrawing hf hP] at hq ⊢
     exact h.edge_subset he hP hq hqcell hqV
-  · rw [Graph.relabel_pointSet hf]
+  · rw [Graph.pointSet_renameEdges hf]
     exact h.pointSet_subset
   · rintro f' ⟨P, hP, rfl⟩
-    rw [Graph.relabel_edgeArc hf hP]
+    rw [Graph.edgeArc_renameDrawing hf hP]
     exact h.edge_dichotomy hP
-  · rw [Graph.relabel_pointSet hf]
+  · rw [Graph.pointSet_renameEdges hf]
     exact h.isConnected
 
 /-! ## The named hypothesis: the extension exists
@@ -322,7 +181,7 @@ omit [Nonempty γ] in
 /-- **The reduction of the renaming debt.** An extension built over *any* nonempty edge-name
 type — `Piece` for the grid overlay, `γ ⊕ Piece` for a union with the current graph, anything —
 yields a `Schoenflies.GridExtensionData`: `Infinite γ` supplies an injection of the finite edge
-set into `γ`, and `Graph.relabel` transports every hypothesis. -/
+set into `γ`, and `Graph.renameEdges` transports every hypothesis. -/
 theorem nonempty_gridExtensionData_of_over [Infinite γ] {β : Type*} [Nonempty β]
     {P : StagePair S₀ C} {ε : ℝ} {b : Plane} {G : Graph Plane β} {d : β → ℝ → Plane}
     (hext : IsSourceExtensionOver P.src C (C ∪ inside C) G d)
@@ -331,8 +190,8 @@ theorem nonempty_gridExtensionData_of_over [Infinite γ] {β : Type*} [Nonempty 
     Nonempty (GridExtensionData P ε b) := by
   haveI := hext.finite
   obtain ⟨f, hf⟩ := exists_injOn_of_finite (δ := γ) (Graph.finite_edgeSet G)
-  refine ⟨⟨G.relabel f hf, Graph.relabelDraw f E(G) d, hext.relabel hf, ?_⟩⟩
-  rw [Graph.relabel_pointSet hf]
+  refine ⟨⟨G.renameEdges f hf, Graph.renameDrawing G f d, hext.renameEdges hf, ?_⟩⟩
+  rw [Graph.pointSet_renameEdges hf]
   exact hgrid
 
 /-- **NAMED HYPOTHESIS — the extension chooser, `prop:local-grid-attachment` at a stage.**
@@ -347,7 +206,7 @@ except the four listed obligations:
 
 * the graph and its clauses — `Schoenflies.gridAttachGraph` (`GridAttach.lean`): the drawing
   (`gridAttachGraph_isDrawing`), the grid containment (`localGrid_subset_gridAttachGraph`,
-  which is `grid_subset` up to the relabelling), 2-connectivity
+  which is `grid_subset` up to the renaming), 2-connectivity
   (`gridAttachGraph_isTwoConnected`) and connectedness of the open nonboundary part
   (`gridAttachGraph_isConnected_diff_of_meetsFinitely`, `GridComponents.lean`);
 * **obligation 1, `hΓ`** of `gridAttachGraph_isTwoConnected`: 2-connectivity of `Γ` with the

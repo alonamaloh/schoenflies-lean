@@ -423,4 +423,252 @@ theorem simpleChain_isPath_overlay (hnd : ∀ P ∈ pieces, P.Nondeg)
           · exact Graph.mem_walkVertices_of_mem_covered
               (Graph.coveredVertices_mono (List.subset_append_right _ _) hcov)
 
+/-! ### The joining arcs, chosen simple
+
+`Schoenflies.exists_joinsFor` produces joining chains that may double back; here each
+representative of the nonboundary skeleton is joined to the base point by a *simple* chain,
+and `Schoenflies.JoinsFor` is re-established for the collection. The chains are also exported,
+because the main theorem needs to walk along them. -/
+
+variable {P : StagePair S₀ C}
+
+/-- **Simple joining arcs exist.** A list of simple chains, one from a representative of each
+component of the nonboundary skeleton off `S` to the mesh base point, whose segments satisfy
+`Schoenflies.JoinsFor`. -/
+theorem exists_simple_joins (htgt : P.tgt.IsAdmissible modelCurve (Plane.closedSquare 0 1))
+    (ε : ℝ) :
+    ∃ (VS : List (List Plane)) (joins : List Piece), joins = VS.flatMap segsOf ∧
+      JoinsFor P ε joins ∧
+      (∀ vs ∈ VS, ∃ h : vs ≠ [], IsSimpleChain vs ∧ vs.getLast h = meshBase ε ∧
+        vs.head h ≠ meshBase ε ∧ vs.head h ∈ cover (skelNbPieces P) ∧
+        poly vs ⊆ Plane.openSquare 0 1) ∧
+      cover joins = ⋃ vs ∈ VS, poly vs := by
+  obtain ⟨reps, hrmem, hrcov⟩ :=
+    exists_reps_cover_diff (skelNbPieces P) (skelNbPieces_meetsFinitely htgt)
+  -- every representative sits in the open square
+  have hrepΩ : ∀ r ∈ reps, r ∈ Plane.openSquare 0 1 := by
+    intro r hr
+    obtain ⟨hr1, hr2⟩ := hrmem r hr
+    obtain ⟨Q, hQ, hrQ⟩ := mem_cover_iff.1 hr1
+    obtain ⟨e, ⟨he, -⟩, hQe⟩ := mem_skelNbPieces.1 hQ
+    have hsq : r ∈ Plane.closedSquare 0 1 := htgt.skeletonSet_subset
+      (arc_subset_skeletonSet P he (seg_subset_edgeArc P he hQe hrQ))
+    exact mem_openSquare_zero_one.2
+      (lt_of_le_of_ne (mem_closedSquare_zero_one.1 hsq) fun h => hr2 h)
+  -- one simple chain per representative other than the base point itself
+  have key : ∀ rs : List Plane, (∀ r ∈ rs, r ∈ cover (skelNbPieces P) ∧
+      r ∈ Plane.openSquare 0 1) →
+      ∃ VS : List (List Plane),
+        (∀ vs ∈ VS, ∃ h : vs ≠ [], IsSimpleChain vs ∧ vs.getLast h = meshBase ε ∧
+          vs.head h ≠ meshBase ε ∧ vs.head h ∈ cover (skelNbPieces P) ∧
+          poly vs ⊆ Plane.openSquare 0 1) ∧
+        ∀ r ∈ rs, r = meshBase ε ∨ ∃ vs ∈ VS, ∃ h : vs ≠ [], vs.head h = r := by
+    intro rs
+    induction rs with
+    | nil => exact fun _ => ⟨[], by simp, by simp⟩
+    | cons r rs ih =>
+      intro hmem
+      obtain ⟨VS, hVS, hcov⟩ := ih fun w hw => hmem w (List.mem_cons_of_mem _ hw)
+      by_cases hrb : r = meshBase ε
+      · refine ⟨VS, hVS, fun w hw => ?_⟩
+        rcases List.mem_cons.1 hw with rfl | hw
+        exacts [Or.inl hrb, hcov w hw]
+      · obtain ⟨vs, hvs, hh, hl, hSC, hΩ⟩ :=
+          exists_simpleChain_to_base (hmem r List.mem_cons_self).2 hrb
+        refine ⟨vs :: VS, ?_, ?_⟩
+        · intro ws hws
+          rcases List.mem_cons.1 hws with rfl | hws
+          · exact ⟨hvs, hSC, hl, by rw [hh]; exact hrb,
+              hh ▸ (hmem r List.mem_cons_self).1, hΩ⟩
+          · exact hVS ws hws
+        · intro w hw
+          rcases List.mem_cons.1 hw with rfl | hw
+          · exact Or.inr ⟨vs, List.mem_cons_self .., hvs, hh⟩
+          · rcases hcov w hw with h | ⟨ws, hws, h⟩
+            exacts [Or.inl h, Or.inr ⟨ws, List.mem_cons_of_mem _ hws, h⟩]
+  obtain ⟨VS, hVS, hcov⟩ := key reps fun r hr => ⟨(hrmem r hr).1, hrepΩ r hr⟩
+  -- each chain's segments occupy exactly its carrier
+  have hpolyeq : ∀ vs ∈ VS, cover (segsOf vs) = poly vs := by
+    intro vs hvs
+    obtain ⟨h, -, hl, hne, -, -⟩ := hVS vs hvs
+    exact cover_segsOf_eq (head_mem_poly h) (getLast_mem_poly h) (by rw [hl]; exact hne)
+  have hjcov : cover (VS.flatMap segsOf) = ⋃ vs ∈ VS, poly vs := by
+    rw [cover_flatMap_list]
+    ext x
+    simp only [mem_iUnion, exists_prop]
+    constructor
+    · rintro ⟨vs, hvs, hx⟩
+      exact ⟨vs, hvs, by rw [← hpolyeq vs hvs]; exact hx⟩
+    · rintro ⟨vs, hvs, hx⟩
+      exact ⟨vs, hvs, by rw [hpolyeq vs hvs]; exact hx⟩
+  have hΩall : (⋃ vs ∈ VS, poly vs) ⊆ Plane.openSquare 0 1 := by
+    intro x hx
+    obtain ⟨vs, hvs, hx⟩ := mem_iUnion₂.1 hx
+    obtain ⟨-, -, -, -, -, hΩ⟩ := hVS vs hvs
+    exact hΩ hx
+  have hjS : ∀ w ∈ (⋃ vs ∈ VS, poly vs), w ∉ modelCurve := fun w hw =>
+    (openSquare_subset_closedSquare_diff (hΩall hw)).2
+  have hbS : meshBase ε ∉ modelCurve := meshBase_notMem_modelCurve ε
+  refine ⟨VS, VS.flatMap segsOf, rfl, ⟨?_, ?_, ?_⟩, hVS, hjcov⟩
+  · -- nondegeneracy
+    intro Q hQ
+    obtain ⟨vs, -, hQvs⟩ := List.mem_flatMap.1 hQ
+    exact segsOf_nondeg vs Q hQvs
+  · rw [hjcov]
+    exact hΩall
+  · -- the connectivity clause of `JoinsFor`
+    rintro x ⟨hx, hxS⟩
+    rcases hx with hx | hx
+    · -- on the nonboundary skeleton: representative first, then its chain
+      obtain ⟨r, hr, A₀, hA₀sub, hA₀conn, hxA₀, hrA₀⟩ := hrcov x ⟨hx, hxS⟩
+      rcases hcov r hr with hrb | ⟨vs, hvs, hne, hhead⟩
+      · -- the representative is the base point itself
+        refine ⟨A₀ ∪ {meshBase ε}, ?_,
+          IsPreconnected.union (meshBase ε) (hrb ▸ hrA₀) rfl hA₀conn
+            isPreconnected_singleton, Or.inl hxA₀, Or.inr rfl⟩
+        rintro w (hw | hw)
+        · obtain ⟨hw1, hw2⟩ := hA₀sub hw
+          exact ⟨Or.inl (Or.inl hw1), hw2⟩
+        · rw [mem_singleton_iff] at hw
+          subst hw
+          exact ⟨Or.inr rfl, hbS⟩
+      · -- down the chain to the base point
+        obtain ⟨hne', -, hlast, -, -, -⟩ := hVS vs hvs
+        refine ⟨A₀ ∪ poly vs, ?_,
+          IsPreconnected.union r hrA₀ (hhead ▸ head_mem_poly hne) hA₀conn
+            (isConnected_poly hne).isPreconnected, Or.inl hxA₀,
+          Or.inr (hlast ▸ getLast_mem_poly hne')⟩
+        rintro w (hw | hw)
+        · obtain ⟨hw1, hw2⟩ := hA₀sub hw
+          exact ⟨Or.inl (Or.inl hw1), hw2⟩
+        · refine ⟨Or.inl (Or.inr ?_), hjS w (mem_iUnion₂.2 ⟨vs, hvs, hw⟩)⟩
+          rw [hjcov]
+          exact mem_iUnion₂.2 ⟨vs, hvs, hw⟩
+    · -- on a joining arc: its own chain reaches the base point
+      rw [hjcov] at hx
+      obtain ⟨vs, hvs, hxvs⟩ := mem_iUnion₂.1 hx
+      obtain ⟨hne, -, hlast, -, -, -⟩ := hVS vs hvs
+      refine ⟨poly vs, ?_, (isConnected_poly hne).isPreconnected, hxvs,
+        hlast ▸ getLast_mem_poly hne⟩
+      intro w hw
+      refine ⟨Or.inl (Or.inr ?_), hjS w (mem_iUnion₂.2 ⟨vs, hvs, hw⟩)⟩
+      rw [hjcov]
+      exact mem_iUnion₂.2 ⟨vs, hvs, hw⟩
+
+/-! ### The named hypothesis, and the reduction -/
+
+/-- **NAMED HYPOTHESIS — the mesh-and-skeleton core of the overlay.** At every admissible
+stage, mesh size, valid fresh list with two distinct points, and `JoinsFor` list of joining
+arcs, the overlay has a 2-connected subgraph containing every overlay vertex that lies on the
+mesh or on the old drawn skeleton.
+
+The intended discharger is the subdivision bridge of the blueprint's `lem:polygonal-overlay`:
+
+* the overlay restricted to the edges inside the mesh pieces refines
+  `Schoenflies.squareMesh ε fresh anchors` by finitely many extra cut points — each one a
+  single-edge subdivision (`Graph.IsSubdivisionOf`, or `Graph.IsTwoConnected.replace_edge_by_path`
+  edge by edge) — and `Schoenflies.meshGraph_isTwoConnected` makes the mesh 2-connected from
+  exactly the two distinct fresh points supplied here;
+* the overlay restricted to the edges inside the old skeleton is a subdivision of `Γ'`,
+  2-connected by admissibility (`IsWeaklyAdmissible.isTwoConnected`); this crossing of edge
+  name types (`γ` to `Schoenflies.Piece`) is the genuinely new content;
+* the two share the four corners of the outer ring — vertices of both, since the outer 1-cells
+  of the stage occupy `S` (`IsAdmissible.outerSet_eq`) and the outer ring does too — so
+  `Graph.IsTwoConnected.union` glues them, and the union contains every overlay vertex on
+  mesh or skeleton.
+
+The quantifier over `joins` is universal because the core does not depend on which joining
+arcs are drawn: they only refine the subdivision further. -/
+def HasTwoConnectedCores (S₀ : CellStructure γ) (C : Set Plane) : Prop :=
+  ∀ P : StagePair S₀ C, P.src.IsAdmissible C (C ∪ inside C) →
+    P.tgt.IsAdmissible modelCurve (Plane.closedSquare 0 1) →
+    ∀ ⦃ε : ℝ⦄, 0 < ε → ∀ ⦃fresh : List Plane⦄,
+      (∀ z ∈ fresh, z ∈ modelCurve ∧ z ∉ V(P.tgt.graph)) →
+      (∃ z ∈ fresh, ∃ w ∈ fresh, z ≠ w) →
+      ∀ ⦃joins : List Piece⦄, JoinsFor P ε joins →
+      ∃ K : Graph Plane Piece, K ≤ meshOverlayGraph P ε fresh joins ∧ K.IsTwoConnected ∧
+        ∀ x ∈ V(meshOverlayGraph P ε fresh joins),
+          x ∈ cover (meshSegments (meshCount ε) fresh) ∪ cover (skelPieces P) → x ∈ V(K)
+
+/-- **The reduction: a 2-connected mesh-and-skeleton core makes the whole overlay
+2-connected.** The joining arcs are chosen simple (`Schoenflies.exists_simple_joins`), each
+chain subdivides to a path of the overlay between a skeleton vertex and the mesh base point —
+two distinct vertices of the core — and `Graph.IsTwoConnected.of_spanning_paths` absorbs the
+chains one ear at a time. -/
+theorem hasTwoConnectedMeshOverlays_of (hcore : HasTwoConnectedCores S₀ C) :
+    HasTwoConnectedMeshOverlays S₀ C := by
+  intro P hsrc htgt ε hε fresh hfresh hne2
+  obtain ⟨VS, joins, hjdef, hjoins, hchains, hjcov⟩ := exists_simple_joins htgt ε
+  refine ⟨joins, hjoins, ?_⟩
+  obtain ⟨K, hKle, hK2, hKcov⟩ := hcore P hsrc htgt hε hfresh hne2 hjoins
+  have hfresh' : ∀ z ∈ fresh, z ∈ modelCurve := fun z hz => (hfresh z hz).1
+  have hnd := meshOverlayPieces_nondeg (P := P) (ε := ε) hfresh' hjoins.nondeg
+  have hEnds := meshOverlayPoints_endsAreCut P ε fresh joins
+  have hMeets := meshOverlayPoints_meetsAreCut P ε fresh joins
+  have hfin : V(meshOverlayGraph P ε fresh joins).Finite :=
+    (meshOverlayGraph_finite P ε fresh joins).finite_vertexSet
+  refine hK2.of_spanning_paths hfin hKle
+    (T := {x ∈ V(meshOverlayGraph P ε fresh joins) |
+      x ∈ cover (meshSegments (meshCount ε) fresh) ∪ cover (skelPieces P)})
+    (fun x hx => hKcov x hx.1 hx.2) ?_
+  intro x hxH hxK
+  -- a vertex outside the core lies on a joining chain
+  have hxjoin : x ∈ cover joins := by
+    obtain ⟨e, heE, hend⟩ := id hxH
+    have hxe : x ∈ e.seg := by
+      rcases hend with rfl | rfl
+      exacts [left_mem_segment ℝ _ _, right_mem_segment ℝ _ _]
+    obtain ⟨R, hR, hsubR, -⟩ := meshOverlayGraph_edge_source (P := P) (ε := ε) heE
+    rcases List.mem_append.1 hR with hmesh | hrest
+    · exact absurd (hKcov x hxH (Or.inl (mem_cover_iff.2 ⟨R, hmesh, hsubR hxe⟩))) hxK
+    rcases List.mem_append.1 hrest with hskel | hjoin
+    · exact absurd (hKcov x hxH (Or.inr (mem_cover_iff.2 ⟨R, hskel, hsubR hxe⟩))) hxK
+    · exact mem_cover_iff.2 ⟨R, hjoin, hsubR hxe⟩
+  rw [hjcov] at hxjoin
+  obtain ⟨vs, hvsVS, hxvs⟩ := mem_iUnion₂.1 hxjoin
+  obtain ⟨hne, hSC, hlast, hheadne, hheadskel, -⟩ := hchains vs hvsVS
+  have hsegsub : ∀ Q ∈ segsOf vs, Q ∈ meshOverlayPieces P ε fresh joins := by
+    intro Q hQ
+    refine List.mem_append_right _ (List.mem_append_right _ ?_)
+    rw [hjdef]
+    exact List.mem_flatMap.2 ⟨vs, hvsVS, hQ⟩
+  -- the chain's two ends are cut points, hence vertices, and both lie on the core
+  have hheadlast : vs.head hne ≠ vs.getLast hne := by rw [hlast]; exact hheadne
+  obtain ⟨⟨Qh, hQh, hQh1⟩, Ql, hQl, hQl2⟩ := ends_of_segsOf vs hne hSC hheadlast
+  have hheadpts : vs.head hne ∈ meshOverlayPoints P ε fresh joins :=
+    hEnds Qh (hsegsub Qh hQh) _ (Or.inl hQh1)
+  have hlastpts : vs.getLast hne ∈ meshOverlayPoints P ε fresh joins :=
+    hEnds Ql (hsegsub Ql hQl) _ (Or.inr hQl2)
+  obtain ⟨Rh, hRh, hheadRh⟩ := mem_cover_iff.1 hheadskel
+  have hheadV : vs.head hne ∈ V(meshOverlayGraph P ε fresh joins) :=
+    overlay_mem_vertexSet_of_cut hheadpts
+      (List.mem_append_right _ (List.mem_append_left _ (skelNbPieces_subset P hRh))) hheadRh
+  obtain ⟨Rm, hRm, hbRm⟩ := mem_cover_iff.1 (meshBase_mem_cover_meshSegments ε fresh)
+  have hlastRm : vs.getLast hne ∈ Rm.seg := by rw [hlast]; exact hbRm
+  have hlastV : vs.getLast hne ∈ V(meshOverlayGraph P ε fresh joins) :=
+    overlay_mem_vertexSet_of_cut hlastpts (List.mem_append_left _ hRm) hlastRm
+  -- the chain's overlay path is the ear through `x`
+  obtain ⟨W, hWpath, -, hWcov⟩ :=
+    simpleChain_isPath_overlay hnd hEnds hMeets vs hne hSC hsegsub hlastV
+  exact ⟨vs.head hne, vs.getLast hne, W, hWpath, hheadlast,
+    ⟨hheadV, Or.inr (mem_cover_iff.2 ⟨Rh, skelNbPieces_subset P hRh, hheadRh⟩)⟩,
+    ⟨hlastV, Or.inl (mem_cover_iff.2 ⟨Rm, hRm, hlastRm⟩)⟩, hWcov x hxH hxvs⟩
+
+/-- `Schoenflies.HasMeshSteps` from the core hypothesis alone: the whole mesh-transfer chain
+composes through `Schoenflies.hasMeshOverlays_of`, `Schoenflies.hasMeshTransfers` and
+`Schoenflies.hasMeshSteps`. -/
+theorem hasMeshSteps_of_cores {γ : Type*} [Infinite γ] {S₀ : CellStructure γ} {C : Set Plane}
+    (h₀ : S₀.CombInvariants) (hsep : IsSeparating C)
+    (hcore : HasTwoConnectedCores S₀ C) : HasMeshSteps S₀ C :=
+  hasMeshSteps (hasMeshTransfers h₀ hsep
+    (hasMeshOverlays_of (hasTwoConnectedMeshOverlays_of hcore)))
+
+/-- The interface, exercised: over the concrete base, the stage sequence of Phase 3 now rests
+on the source-grid chooser and the core hypothesis. -/
+example {C : Set Plane} (hC : IsJordanCurve C) (hg : HasGridSteps initialStructure C)
+    (hcore : HasTwoConnectedCores initialStructure C) :
+    Nonempty (StageSequence InitialCell initialStructure C) :=
+  ⟨stageSequence_of_isJordanCurve hC hg
+    (hasMeshSteps_of_cores combInvariants_initialStructure (jordan_curve_theorem hC) hcore)⟩
+
 end Schoenflies

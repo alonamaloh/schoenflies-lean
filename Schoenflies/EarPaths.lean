@@ -64,6 +64,16 @@ theorem IsPartialTransferOf.exists_cell_of_mem_vertexSet
   obtain ⟨z, hz, hza⟩ := hmem
   exact ⟨z, hz, hza⟩
 
+/-- **A supply of fresh names.** `EarStep` needs `2k + 1` names outside the current structure's
+cells — one per ear edge, one per interior vertex, and two for the new 2-cells — and this is
+where `[Infinite γ]` is spent. The cells of a `CellStructure` are finite by three of its own
+fields, so their complement is infinite and holds a set of any size. -/
+theorem exists_fresh_list [Infinite γ] {s : Set γ} (hs : s.Finite) (n : ℕ) :
+    ∃ l : List γ, l.length = n ∧ l.Nodup ∧ ∀ z ∈ l, z ∉ s := by
+  obtain ⟨t, hts, hcard⟩ := hs.infinite_compl.exists_subset_card_eq n
+  exact ⟨t.toList, by simp [hcard], t.nodup_toList,
+    fun z hz => hts (Finset.mem_toList.1 hz)⟩
+
 namespace GeneratedPair
 
 /-- **The 2-cell an ear is inserted into, and the two boundary paths of `def:generated-structure`

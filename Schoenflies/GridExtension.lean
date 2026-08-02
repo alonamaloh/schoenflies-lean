@@ -206,3 +206,197 @@ theorem IsDrawing.sumUnion (h₁ : IsDrawing G₁ d₁) (h₂ : IsDrawing G₂ d
       exact ⟨Or.inr hV, sumUnion_inc_inr.2 hiP, sumUnion_inc_inr.2 hiQ⟩
 
 end Graph
+
+namespace Schoenflies
+
+open Graph CellStructure
+
+variable {γ : Type*} {S : CellStructure γ} {R : S.Realization} {outer dom : Set Plane}
+
+/-! ## The nonboundary skeleton as a piece list
+
+`IsWeaklyAdmissible.isPolygonal` says each nonboundary edge arc is `poly vs` for some vertex
+list; `Schoenflies.segsOf` reads such a list as nondegenerate segments covering it. Chaining
+the two over the (finite) nonboundary edge set presents the whole polygonal nonboundary
+skeleton as one piece list, which is what the overlay of `prop:local-grid-attachment`
+consumes. -/
+
+open scoped Classical in
+/-- The chosen polyline presentation of a polygonal set — junk when the set is not
+polygonal, which no lemma below ever reads. -/
+noncomputable def arcChain (A : Set Plane) : List Plane :=
+  if h : IsPolygonal A then h.choose else []
+
+theorem poly_arcChain {A : Set Plane} (h : IsPolygonal A) : A = poly (arcChain A) := by
+  rw [arcChain, dif_pos h]
+  exact h.choose_spec
+
+/-- The nonboundary 1-cells of the structure, as a list. -/
+noncomputable def nonboundaryEdgeList (S : CellStructure γ) : List γ :=
+  letI := Classical.decPred fun e => e ∉ E(S.outerGraph)
+  (S.finite_edgeSet.toFinset.filter fun e => e ∉ E(S.outerGraph)).toList
+
+theorem mem_nonboundaryEdgeList {e : γ} :
+    e ∈ nonboundaryEdgeList S ↔ e ∈ E(S.skel) ∧ e ∉ E(S.outerGraph) := by
+  letI := Classical.decPred fun e : γ => e ∉ E(S.outerGraph)
+  rw [nonboundaryEdgeList, Finset.mem_toList, Finset.mem_filter, Set.Finite.mem_toFinset]
+
+/-- **The polygonal nonboundary skeleton of a stage, as a piece list**: each nonboundary
+edge's arc read off as the segment chain of its chosen polyline. -/
+noncomputable def skeletonSegs (R : S.Realization) : List Piece :=
+  (nonboundaryEdgeList S).flatMap fun e => segsOf (arcChain (edgeArc R.drawing e))
+
+/-- Every listed piece is nondegenerate — `segsOf` skips repeated vertices. -/
+theorem skeletonSegs_nondeg : ∀ P ∈ skeletonSegs R, P.Nondeg := by
+  intro P hP
+  obtain ⟨e, -, hPe⟩ := List.mem_flatMap.1 hP
+  exact segsOf_nondeg _ P hPe
+
+/-- A piece of a chain stays on the chain's carrier. -/
+theorem seg_subset_poly_of_mem_segsOf {vs : List Plane} {P : Piece} (hP : P ∈ segsOf vs) :
+    P.seg ⊆ poly vs := by
+  rcases cover_segsOf vs with h | ⟨h1, -⟩
+  · exact fun z hz => h ▸ mem_cover hP hz
+  · rw [h1] at hP
+    exact absurd hP (List.not_mem_nil)
+
+/-- A drawn edge arc holds two distinct points: its two ends, distinct because a plane graph
+has no loops. -/
+theorem exists_ne_mem_edgeArc (R : S.Realization) {e : γ} (he : e ∈ E(S.skel)) :
+    ∃ a b, a ∈ edgeArc R.drawing e ∧ b ∈ edgeArc R.drawing e ∧ a ≠ b := by
+  have he' : e ∈ E(R.graph) := by rw [Realization.edgeSet_graph]; exact he
+  obtain ⟨-, -, hl⟩ := R.isDrawing.edge_param he'
+  refine ⟨R.drawing e 0, R.drawing e 1, ⟨0, zero_mem_I, rfl⟩, ⟨1, one_mem_I, rfl⟩,
+    fun hEq => ?_⟩
+  exact R.isDrawing.not_isLoopAt e (R.drawing e 1) (hEq ▸ hl)
+
+/-- **The chain of a nonboundary edge occupies exactly its arc.** -/
+theorem cover_segsOf_arcChain (R : S.Realization) {e : γ} (he : e ∈ E(S.skel))
+    (hpoly : IsPolygonal (edgeArc R.drawing e)) :
+    cover (segsOf (arcChain (edgeArc R.drawing e))) = edgeArc R.drawing e := by
+  obtain ⟨a, b, ha, hb, hab⟩ := exists_ne_mem_edgeArc R he
+  have hpa := poly_arcChain hpoly
+  exact (cover_segsOf_eq (hpa ▸ ha) (hpa ▸ hb) hab).trans hpa.symm
+
+/-- Reading a listed piece back: it belongs to the chain of one nonboundary edge. -/
+theorem exists_edge_of_mem_skeletonSegs {P : Piece} (hP : P ∈ skeletonSegs R) :
+    ∃ e, (e ∈ E(S.skel) ∧ e ∉ E(S.outerGraph)) ∧
+      P ∈ segsOf (arcChain (edgeArc R.drawing e)) := by
+  obtain ⟨e, he, hPe⟩ := List.mem_flatMap.1 hP
+  exact ⟨e, mem_nonboundaryEdgeList.1 he, hPe⟩
+
+/-- A nonboundary edge arc lies on the cover of the skeleton pieces. -/
+theorem edgeArc_subset_cover_skeletonSegs (hW : R.IsWeaklyAdmissible outer dom) {e : γ}
+    (he : e ∈ E(S.skel)) (hne : e ∉ E(S.outerGraph)) :
+    edgeArc R.drawing e ⊆ cover (skeletonSegs R) := by
+  intro z hz
+  rw [← cover_segsOf_arcChain R he (hW.isPolygonal he hne)] at hz
+  obtain ⟨P, hP, hzP⟩ := mem_cover_iff.1 hz
+  exact mem_cover (List.mem_flatMap.2 ⟨e, mem_nonboundaryEdgeList.2 ⟨he, hne⟩, hP⟩) hzP
+
+/-- **The skeleton pieces occupy exactly the nonboundary edge arcs.** -/
+theorem cover_skeletonSegs (hW : R.IsWeaklyAdmissible outer dom) :
+    cover (skeletonSegs R) = ⋃ e ∈ E(S.skel) \ E(S.outerGraph), edgeArc R.drawing e := by
+  refine Set.Subset.antisymm (fun z hz => ?_) (fun z hz => ?_)
+  · obtain ⟨P, hP, hzP⟩ := mem_cover_iff.1 hz
+    obtain ⟨e, ⟨he, hne⟩, hPe⟩ := exists_edge_of_mem_skeletonSegs hP
+    have hsub : P.seg ⊆ edgeArc R.drawing e :=
+      (poly_arcChain (hW.isPolygonal he hne)) ▸ seg_subset_poly_of_mem_segsOf hPe
+    exact Set.mem_biUnion ⟨he, hne⟩ (hsub hzP)
+  · obtain ⟨e, he, hze⟩ := Set.mem_iUnion₂.1 hz
+    exact edgeArc_subset_cover_skeletonSegs hW he.1 he.2 hze
+
+/-! ## Where the skeleton pieces sit
+
+`MeetsFinitely` (obligation 2 of the extension chooser) and the window-side placement facts,
+all read off the stage's own drawing invariants: away from the drawn 0-cells a skeleton piece
+runs in the open nonboundary cell of its edge, inside the open domain, off the outer curve. -/
+
+/-- **A skeleton piece leaves the open domain only at drawn 0-cells.** -/
+theorem skeletonSegs_diff_subset (hW : R.IsWeaklyAdmissible outer dom) :
+    ∀ P ∈ skeletonSegs R, P.seg \ (R.pos '' V(S.skel)) ⊆ dom \ outer := by
+  intro P hP z hz
+  obtain ⟨e, ⟨he, hne⟩, hPe⟩ := exists_edge_of_mem_skeletonSegs hP
+  have hsub : P.seg ⊆ edgeArc R.drawing e :=
+    (poly_arcChain (hW.isPolygonal he hne)) ▸ seg_subset_poly_of_mem_segsOf hPe
+  obtain ⟨x, y, hl⟩ := S.skel.exists_isLink_of_mem_edgeSet he
+  refine hW.cell_subset he hne ?_
+  rw [R.cell_edge hl]
+  refine ⟨hsub hz.1, ?_⟩
+  rintro (h | h)
+  · exact hz.2 (h ▸ ⟨x, hl.left_mem, rfl⟩)
+  · exact hz.2 (h ▸ ⟨y, hl.right_mem, rfl⟩)
+
+/-- **Obligation 2 of the extension chooser, discharged**: the skeleton pieces meet `C`
+finitely, because away from the finitely many drawn 0-cells they avoid it. -/
+theorem meetsFinitely_skeletonSegs {C : Set Plane} (hW : R.IsWeaklyAdmissible C dom) :
+    MeetsFinitely (skeletonSegs R) C :=
+  MeetsFinitely.of_diff_subset_compl (S.finite_vertexSet.image R.pos)
+    fun P hP => (skeletonSegs_diff_subset hW P hP).trans fun _ hz => hz.2
+
+/-- What the skeleton pieces meet of the outer curve is drawn 0-cells. -/
+theorem cover_skeletonSegs_inter_subset {C : Set Plane} (hW : R.IsWeaklyAdmissible C dom) :
+    cover (skeletonSegs R) ∩ C ⊆ R.pos '' V(S.skel) := by
+  rintro z ⟨hz, hzC⟩
+  obtain ⟨P, hP, hzP⟩ := mem_cover_iff.1 hz
+  by_contra hznot
+  exact (skeletonSegs_diff_subset hW P hP ⟨hzP, hznot⟩).2 hzC
+
+/-- The skeleton pieces stay on the realized skeleton. -/
+theorem cover_skeletonSegs_subset (hW : R.IsWeaklyAdmissible outer dom) :
+    cover (skeletonSegs R) ⊆ R.skeletonSet := by
+  intro z hz
+  obtain ⟨P, hP, hzP⟩ := mem_cover_iff.1 hz
+  obtain ⟨e, ⟨he, hne⟩, hPe⟩ := exists_edge_of_mem_skeletonSegs hP
+  have hsub : P.seg ⊆ edgeArc R.drawing e :=
+    (poly_arcChain (hW.isPolygonal he hne)) ▸ seg_subset_poly_of_mem_segsOf hPe
+  exact edgeArc_subset_pointSet (by rw [Realization.edgeSet_graph]; exact he) (hsub hzP)
+
+/-! ## The drawn 0-cells off the outer cycle lie on the skeleton pieces
+
+The union's vertex clause `V(Γ) ⊆ V(H)` splits: an outer 0-cell is a vertex of the outer part,
+and any other 0-cell must be found on the polygonal part. It is, because 2-connectedness
+leaves no vertex isolated, an edge at a non-outer vertex is nonboundary, and a drawn edge
+ends at its drawn 0-cells. -/
+
+/-- A 0-cell off the outer cycle has a nonboundary edge. -/
+theorem exists_nonboundary_isLink_of_notMem_outer (hW : R.IsWeaklyAdmissible outer dom)
+    {v : γ} (hv : v ∈ V(S.skel)) (hvout : v ∉ V(S.outerGraph)) :
+    ∃ e w, S.skel.IsLink e v w ∧ e ∉ E(S.outerGraph) := by
+  have hv' : R.pos v ∈ V(R.graph) := by
+    rw [Realization.vertexSet_graph]; exact ⟨v, hv, rfl⟩
+  -- some other vertex exists, so a path leaves `pos v` by some edge
+  obtain ⟨a, ha, b, hb, -, -, hab, -, -⟩ := hW.isTwoConnected.hasThreeVertices
+  obtain ⟨w', hw', hne⟩ : ∃ w' ∈ V(R.graph), R.pos v ≠ w' := by
+    rcases eq_or_ne a (R.pos v) with rfl | h
+    · exact ⟨b, hb, fun h => hab h⟩
+    · exact ⟨a, ha, fun h' => h h'.symm⟩
+  obtain ⟨W, hWp⟩ := hW.isTwoConnected.connected.exists_isPath hv' hw'
+  obtain ⟨g, -, hinc⟩ := hWp.isWalk.exists_inc_source (hWp.ne_nil hne)
+  obtain ⟨z, hl⟩ := hinc
+  -- read the incidence back on the abstract skeleton
+  have hl' : (S.skel.map R.pos).IsLink g (R.pos v) z := hl
+  rw [Graph.map_isLink] at hl'
+  obtain ⟨p, q, hpq, hpv, -⟩ := hl'
+  obtain rfl : p = v := R.injOn_pos hpq.left_mem hv hpv
+  refine ⟨g, q, hpq, fun hgout => hvout ?_⟩
+  -- an outer edge would put `v` on the outer cycle
+  obtain ⟨x', y', hlo⟩ := S.outerGraph.exists_isLink_of_mem_edgeSet hgout
+  rcases hpq.left_eq_or_eq (hlo.mono S.outerGraph_le) with rfl | rfl
+  · exact hlo.left_mem
+  · exact hlo.right_mem
+
+/-- **A non-outer drawn 0-cell lies on the skeleton pieces.** -/
+theorem pos_mem_cover_skeletonSegs (hW : R.IsWeaklyAdmissible outer dom) {v : γ}
+    (hv : v ∈ V(S.skel)) (hvout : v ∉ V(S.outerGraph)) :
+    R.pos v ∈ cover (skeletonSegs R) := by
+  obtain ⟨e, w, hl, hne⟩ := exists_nonboundary_isLink_of_notMem_outer hW hv hvout
+  have he' : e ∈ E(R.graph) := by rw [Realization.edgeSet_graph]; exact hl.edge_mem
+  obtain ⟨-, -, hlp⟩ := R.isDrawing.edge_param he'
+  have hlv : R.graph.IsLink e (R.pos v) (R.pos w) := hl.map R.pos
+  refine edgeArc_subset_cover_skeletonSegs hW hl.edge_mem hne ?_
+  rcases hlv.eq_and_eq_or_eq_and_eq hlp with ⟨h0, -⟩ | ⟨h0, -⟩
+  · exact h0 ▸ ⟨0, zero_mem_I, rfl⟩
+  · exact h0 ▸ ⟨1, one_mem_I, rfl⟩
+
+end Schoenflies

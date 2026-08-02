@@ -326,7 +326,7 @@ checker under proof irrelevance.
 
 `Schoenflies.frontier_closedSquare_sdiff_modelCurve`, `Schoenflies.edgeArc_subset_outer_of_strong_hypotheses`, `Schoenflies.not_nonboundaryAt_of_strong_hypotheses`, `Schoenflies.edge_subset_clause_of_inter_subset_vertexSet`, `Schoenflies.IsLoop.not_meets_both_arcs`, `Schoenflies.IsLoop.exists_param_modulus`, `Schoenflies.freshDense_of_param_dense`, `Schoenflies.IsLoop.exists_param_window_of_dense`, `Schoenflies.exists_freshDense_of_dense`, `Schoenflies.IsLoop.exists_ne_near`, `Schoenflies.IsLoop.closure_sdiff_singleton`, `Schoenflies.IsLoop.closure_sdiff_finite`, `Schoenflies.exists_fresh_anchor_supply`, `Schoenflies.diam_closure_cell_le_of_mesh_subset`, `Schoenflies.MeshTransfer`, `Schoenflies.HasMeshTransfers`, `Schoenflies.MeshTransfer.meshStepData`, `Schoenflies.hasMeshSteps`
 
-## Schoenflies/MeshTransfer.lean  (335 lines)
+## Schoenflies/MeshTransfer.lean  (345 lines)
 
 `Schoenflies.FreshDense.mono`, `Schoenflies.MeshOverlayExtension`, `Schoenflies.MeshOverlayExtension.isSourceExtension`, `Schoenflies.MeshOverlayExtension.hasFreshAnchors`, `Schoenflies.MeshOverlayExtension.rename`, `Schoenflies.meshTransfer_of_extension`, `Schoenflies.HasMeshOverlays`, `Schoenflies.hasMeshTransfers`
 

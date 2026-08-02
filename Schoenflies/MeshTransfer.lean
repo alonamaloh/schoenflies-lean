@@ -139,7 +139,15 @@ structure MeshOverlayExtension (P : StagePair S₀ C) (ε : ℝ) (fresh : List P
     (IsPolygonal (Graph.edgeArc Hdraw f) ∧
       Graph.edgeArc Hdraw f \ V(H) ⊆ Plane.closedSquare 0 1 \ modelCurve)
   /-- `|H| ∖ S` is connected — `Schoenflies.squareMesh_isConnected_diff` plus the attachment
-  of every overlay component to the mesh. -/
+  of every overlay component to the mesh.
+
+  This clause is why `H` is *not* required to be exactly the mesh overlaid with the skeleton:
+  a component of the old nonboundary skeleton can miss the mesh entirely (a crosscut hugging
+  the boundary between two old 0-cells with no fresh point between them stays inside the
+  outermost ring band and off every spoke), and then the blueprint's *joining arcs* — extra
+  polygonal nonboundary edges off `S` connecting such a component to the mesh — must be part
+  of `H`. Every other clause tolerates them: they meet `S` nowhere, so the fresh-anchor
+  clauses ignore them, and each one is an ear for 2-connectivity. -/
   isConnected : IsConnected (Graph.pointSet H Hdraw \ modelCurve)
   /-- **A new nonboundary edge reaches `S` only at a listed fresh point** — the first half of
   the second sentence of `thm:finite-transfer`(b), with the anchor properties of the fresh
@@ -269,10 +277,12 @@ such that *every* fresh list on `S` avoiding the drawn 0-cells and the bad set, 
 two points, extends to a `Schoenflies.MeshOverlayExtension` over the overlay machinery's own
 edge names.
 
-Its discharger is `lem:polygonal-overlay` run on `squareMesh ε fresh anchors` and the drawn
-target skeleton (polygonal by `GeneratedPair.tgt_isPolygonal`): subdivide every mesh edge and
-every old 1-cell at their meeting points — in the *base pair first* where an old 1-cell gains
-interior vertices (`GeneratedPair.exists_subdivide_finite_tgt`) — take the union, and read
+Its discharger is `lem:polygonal-overlay` run on `squareMesh ε fresh anchors`, the drawn
+target skeleton (polygonal by `GeneratedPair.tgt_isPolygonal`), **and the joining arcs** —
+see `MeshOverlayExtension.isConnected` for why the arcs are not optional: subdivide every
+mesh edge and every old 1-cell at their meeting points — in the *base pair first* where an
+old 1-cell gains interior vertices (`GeneratedPair.exists_subdivide_finite_tgt`) — take the
+union, and read
 the clauses off `prop:anchored-square-mesh` (clauses 3–5 are `squareMesh_inner_edge_at_fresh`,
 `squareMesh_unique_inner_edge`, `squareMesh_isConnected_diff`) and the 2-connectivity toolkit
 (`squareMesh_isTwoConnected` via `exists_two_distinct_fresh_of_freshDense`,

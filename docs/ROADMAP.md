@@ -36,53 +36,59 @@ Schoenflies.CellStructure.LimitTower.isHomeoOn_F      ← the fields of LimitTow
 | `Schoenflies.SquareExtension` | `Endgame.lean` | `thm:main` | discharged by `square_extension` below, so not really open |
 | `Schoenflies.HasLimitHomeomorphism` | `BoundaryContinuity2.lean` | `thm:square-extension` | four conjuncts: a dense anchor set, the interior homeomorphism, `HasAnchorCrosscuts`, `HasSpokes`. **`LimitTower` supplies the second; the other three need the construction.** |
 | the fields of `CellStructure.LimitTower` | `LimitMap.lean` | the interior homeomorphism | ~14 fields, each an obligation on whoever builds the nested sequence: the cell decompositions, the shared parent maps, the two halves of `prop:shrinking-stars`, and the nesting of the skeleton maps. See the module docstring |
-| the **edge matching** — `hmatch` of `commonSubdivision_of_adj_match` | `CommonSubdiv.lean` | `thm:finite-transfer`(a) | all that is left of step 1. See the section below: `Schoenflies.CommonSubdivision` itself is no longer the obligation, since `commonSubdivision_of_adj_match` derives it from this one statement about arcs of a single plane graph |
 | `Schoenflies.CellsAbsorb` | `SkeletonAccess.lean`, `FreshAccess.lean` | `lem:polygonal-side-accessibility` | one clause of `lem:cellulation-invariants`. **Discharged at a stage** by `Realization.cellsAbsorb` (`StageCells.lean`) — assertions (i) and (vii) make the 2-cells a partition of the open domain minus the skeleton into open connected pieces, which is the decomposition into components. It remains a hypothesis only where the realization is *not* a stage of a `GeneratedPair` |
 
-`Schoenflies.EarStep` is no longer on this list: `Schoenflies.earStep` (`EarStep.lean`) proves
-it, and `Schoenflies.finite_transfer_toward_square_of_commonSubdivision` restates
-`thm:finite-transfer`(a) on step 1 alone.
+**`thm:finite-transfer`(a) is no longer on this list.** Both of its named hypotheses are
+discharged — step 3 by `Schoenflies.earStep` (`EarStep.lean`) and step 1 by
+`Schoenflies.commonSubdivision` (`CommonSubdiv.lean`) — and
+`Schoenflies.finite_transfer_toward_square'` is the theorem with neither assumed. What it still
+takes as arguments is four facts about the two *ambient domains*, the same at every stage:
+`dom ∖ outer` open with frontier inside `outer` on each side, which
+`Schoenflies.isOpen_sdiff_outer_of_isSeparating` and `frontier_sdiff_outer_of_isSeparating`
+supply for a closed Jordan region, the shape both sides have.
 
-### What is left of step 1, exactly
+### How step 1 went
 
-`Schoenflies.CommonSubdivision` is no longer the unit of obligation.
-`Schoenflies.commonSubdivision_of_adj_match` (`CommonSubdiv.lean`) derives it from a single
-hypothesis, and `Schoenflies.finite_transfer_toward_square_of_adj_match` restates the whole of
-direction (a) on that hypothesis and on the four stage-independent domain facts `earStep`
-already needed.
+`Schoenflies.commonSubdivision` (`CommonSubdiv.lean`) proves it. The record of what it took,
+because two of the three clauses were not where they looked.
 
-**Why `K` is forced, and what it is.** Step 1 may only subdivide, and a subdivision does not
-move the realized skeleton (`SubdivData.skeletonSet_realize`), so `T₀.src.skeletonSet` is still
-`|Γ|` and the clause `skeletonSet_eq` forces `pointSet K Hdraw = |Γ|`. Since every edge of `H`
-inside `|Γ|` is needed to cover it, `K` is `Schoenflies.sourcePart P.src H Hdraw` — the
-vertices of `H` on `|Γ|` with the edges of `H` drawn inside `|Γ|`. Two of the three clauses of
-`CommonSubdivision` are proved of it outright: `sourcePart_le` and `pointSet_sourcePart`, the
-latter spending exactly two hypotheses on the extension (`|Γ| ⊆ |H|`, and `edge_subset`, which
-is what says `H` does not *cross* `Γ` — so the blueprint's overlay has, in the Lean
-formulation, already been performed by the hypothesis, and
-`exists_overlay_of_biUnion_finite` is not on this path at all).
+**`K` is forced, and what it is.** Step 1 may only subdivide, and a subdivision does not move
+the realized skeleton (`SubdivData.skeletonSet_realize`), so `T₀.src.skeletonSet` is still `|Γ|`
+and the clause `skeletonSet_eq` forces `pointSet K Hdraw = |Γ|`. Since every edge of `H` inside
+`|Γ|` is needed to cover it, `K` is `Schoenflies.sourcePart P.src H Hdraw` — the vertices of `H`
+on `|Γ|` with the edges of `H` drawn inside `|Γ|`. `sourcePart_le` and `pointSet_sourcePart` are
+two of the three clauses, the latter spending exactly two hypotheses on the extension: `|Γ| ⊆
+|H|`, and `edge_subset`.
 
-**The third clause and the naming obstruction.** `K.IsTwoConnected` cannot be read off the
-bundle directly, and the reason is names, not mathematics: 2-connectivity of the *realized*
-skeleton is a field of `IsWeaklyAdmissible` and so is free at every stage, but that graph
-carries names drawn from `γ` by the freshness lemmas while `K ≤ H` forces `K` to carry `H`'s
-names, and there is no edge relabelling in Mathlib or in this repo. Choosing `H`'s names for
-the subdivisions is not open either: `SubdivData.newEdge₁_notMem` wants them fresh, and
-nothing stops an edge name of `H` from already being a cell of `P`. The repair is
-`Graph.IsTwoConnected.of_adj_congr` (`Graph/AdjCongr.lean`): 2-connectivity depends only on the
-vertex set and the adjacency relation, across a change of edge *type*. It is proved.
+**The overlay was not on this path.** `exists_overlay_of_biUnion_finite` was recorded here as
+what step 1 needed. It is not used: `IsSourceExtension`'s `edge_subset` clause already says an
+edge of `H` meeting an open edge of `Γ` runs inside it, i.e. that `H` does not *cross* `Γ`, so
+the blueprint's overlay has, in the Lean formulation, already been performed by the hypothesis.
+What step 1 actually needed was to extract `K` from `H` and subdivide `Γ` to match.
 
-**So the whole of step 1 is now one statement.** `GeneratedPair.exists_subdivide_finite`
-(`SubdivPoints.lean`) produces the stage whose 0-cells are exactly `V(sourcePart)` — the
-reverse vertex inclusion is what makes that an equality rather than an inclusion — and
-`hmatch` is the remaining input: *a stage whose skeleton is still `|Γ|` and whose 0-cells are
-exactly the vertices of `sourcePart` has the adjacency of `sourcePart`.* Both directions are
-one ordering argument along a single drawn edge of `Γ`: an edge of `sourcePart` and a drawn
-1-cell of the refined stage are sub-arcs of the same ambient arc whose interiors avoid the same
-finite set of marked points, so two of them that meet coincide.
-`Schoenflies.subarc_subset_of_isPreconnected` and
-`IsArcBetween.eq_of_subset_of_isArcBetween` (`PolygonalCut.lean`) are the tools, and
-`ArcMonotone.lean` is the precedent for the parameter comparisons. **None of it is written.**
+**The third clause was a naming problem, not a geometric one.** `K.IsTwoConnected` cannot be
+read off the bundle even though 2-connectivity of the realized skeleton is a field of
+`IsWeaklyAdmissible` and so free at every stage: that graph carries names drawn from `γ` by the
+freshness lemmas, while `K ≤ H` forces `H`'s names, and there is no edge relabelling in Mathlib
+or in this repo. Nor can the subdivisions simply use `H`'s names —
+`SubdivData.newEdge₁_notMem` wants them fresh, and nothing stops an edge name of `H` from
+already being a cell of `P`. Three results close it:
+
+* `GeneratedPair.subdivideEdge` (`SubdivStage.lean`) carries the thirteen-field bundle across
+  one subdivision, and `GeneratedPair.exists_subdivide_finite` (`SubdivPoints.lean`) iterates
+  it, producing the stage whose 0-cells are **exactly** the old ones together with `V(H) ∩ |Γ|`;
+* `Graph.adj_congr_of_pointSet_eq` (`Graph/PlaneEdges.lean`) — two finite plane graphs occupying
+  the same points with the same vertices have the same adjacency, because the open edges of a
+  plane graph are the connected components of what its vertices leave of it. Finiteness is spent
+  once, on "the other arcs are a closed set";
+* `Graph.IsTwoConnected.of_adj_congr` (`Graph/AdjCongr.lean`) — 2-connectivity travels along
+  that adjacency, across a change of edge *type*.
+
+The middle one is worth its own line, because the first plan for it was wrong: it was recorded
+here as an ordering argument along a single drawn edge of `Γ`, using
+`subarc_subset_of_isPreconnected` and the `ArcMonotone` parameter comparisons. It is nothing of
+the sort — the statement mentions neither `Γ` nor the extension, and the proof is one separation
+argument, the same shape as `Realization.cell_isComponent` in `StageCells.lean`.
 
 ### The atom is closed
 
@@ -345,21 +351,18 @@ all that is left of the phase.
   `a ∈ V(B)`, `b ∈ V(B)`, and `IsPartialTransferOf.exists_cell_of_mem_vertexSet`
   (`EarPaths.lean`) names the 0-cells they are. So `EarStep` is one split with no subdivision,
   and the subdivision half of everything above is needed only by `CommonSubdivision` (1e).
-* **1e. `CommonSubdivision` — all but the edge matching.** Independent of 1b–1d.
+* **1e. `CommonSubdivision` — done.** Independent of 1b–1d.
   `GeneratedPair.subdivideEdge` (`SubdivStage.lean`) carries the thirteen-field bundle across one
   subdivision — the mirror of `GeneratedPair.splitFace`, the one clause that does not copy being
   `outerSet_eq`, since a subdivision really does change the outer graph when the subdivided edge
   is outer (`SubdivData.outerSet_realize`). `GeneratedPair.exists_subdivide_finite`
-  (`SubdivPoints.lean`) iterates it over a finite set of skeleton points. `sourcePart` and
-  `Graph.IsTwoConnected.of_adj_congr` are the other two ingredients, and
-  `commonSubdivision_of_adj_match` assembles all of them. **What is left is the edge matching
-  alone** — see "What is left of step 1, exactly" above. Note that
-  `exists_overlay_of_biUnion_finite` turned out *not* to be on this path: `IsSourceExtension`'s
-  `edge_subset` clause already forbids `H` from crossing `Γ`, so the overlay has been performed
-  by the hypothesis.
+  (`SubdivPoints.lean`) iterates it over a finite set of skeleton points; `sourcePart`,
+  `Graph.adj_congr_of_pointSet_eq` and `Graph.IsTwoConnected.of_adj_congr` are the other three
+  ingredients, and `Schoenflies.commonSubdivision` assembles them. See "How step 1 went" above
+  for the two places the plan recorded here was wrong.
 
-**Phase 2 — `thm:finite-transfer`.** (a) becomes unconditional the moment the edge matching of
-1e lands; (b)
+**Phase 2 — `thm:finite-transfer`.** (a) **is unconditional** —
+`Schoenflies.finite_transfer_toward_square'`; (b)
 needs one further ingredient, accessibility at a fresh anchor on the wild curve, which
 `FreshAccess.lean` already closes.
 
@@ -551,7 +554,7 @@ path is now the two **realization constructors** they are stated against, and th
 | `lem:cellulation-invariants` | done | (ii), (iii), (iv), (v), (vi), (viii), (ix) and (i) at the subdivision constructor in `GeneratedStructure.lean`; **(i) at the split constructor and (vii)** in `CellulationInvariants.lean` (`SplitData.IsCrosscutSplit.isCellDecomposition_and_isFaceJordan`, `SubdivData.IsRefinement.isCellDecomposition_and_isFaceJordan`). Both are *step* theorems, stated against a realization of the refined structure — see the row above for what is still missing |
 | `lem:refinement-compatibility`, `lem:star-intersection`, `lem:star-face-mesh`, `lem:cell-neighborhood` | done | `RefinementStars.lean`. The carrier is a total function and refinement is abstract, which is what lets the limit section be built against an interface |
 | `lem:polygonal-side-accessibility` | conditional (`Schoenflies.CellsAbsorb`) | `SkeletonAccess.lean` — both halves, on one clause of `lem:cellulation-invariants` |
-| `thm:finite-transfer` (a) | conditional (the edge matching) | `FiniteTransfer.lean` for steps 2 and 4, the induction scheme and the last paragraph; **step 3 is closed** — `Schoenflies.earStep` in `EarStep.lean`, on `EarDraw.lean` / `EarSource.lean` / `EarTarget.lean` / `SplitStage.lean` / `StageCells.lean`; **step 1 is closed but for the edge matching** — `Schoenflies.commonSubdivision_of_adj_match` in `CommonSubdiv.lean`, on `SubdivStage.lean` / `SubdivPoints.lean` / `Graph/AdjCongr.lean`. `Schoenflies.finite_transfer_toward_square_of_adj_match` is the theorem with only that assumed |
+| `thm:finite-transfer` (a) | **done** | `FiniteTransfer.lean` for steps 2 and 4, the induction scheme and the last paragraph; **step 3** is `Schoenflies.earStep` (`EarStep.lean`, on `EarDraw.lean` / `EarSource.lean` / `EarTarget.lean` / `SplitStage.lean` / `StageCells.lean`); **step 1** is `Schoenflies.commonSubdivision` (`CommonSubdiv.lean`, on `SubdivStage.lean` / `SubdivPoints.lean` / `Graph/PlaneEdges.lean` / `Graph/AdjCongr.lean`). `Schoenflies.finite_transfer_toward_square'` is the headline, assuming nothing but the four ambient-domain facts |
 | `thm:finite-transfer` (b) | partial | its one ingredient beyond (a), source accessibility at a fresh anchor on the wild curve, is closed in `FreshAccess.lean` (`polyAccessible_of_stronglyAccessible`). The statement itself is not yet written |
 | `prop:local-grid-attachment` | conditional (`hΓ`, `hcov`) | `LocalGrid.lean` (`localGrid`, the diameter clause) + `GridAttach.lean` (the overlay, the crosscut factory, the component-joining loop, and the construction as `def`s). The blueprint's three cases collapse to one; the joining loop is done by representatives rather than by a decreasing component count. `hΓ` is 2-connectivity of `Γ` with the auxiliary arcs appended — not provable there, because `C` is not drawn by segments so `Γ` is not a `pieceListGraph`; `hcov` is "finitely many representatives meet every component of `|L| ∖ C`", where the blueprint's finiteness lives |
 | `lem:grid-star-estimate`, `prop:shrinking-stars`, `lem:anchor-density` | open | quantitative refinement; they consume the stage recursion, which does not exist yet. The metric half is ready: `Windows.lean` has `supRadius` (the ℓ^∞ distance to a compact set, with attainment, positivity and the 1-Lipschitz property), `windowRadius` / `window` / `openWindow` with the blueprint's three inequalities and `W_n(p) ⊆ D`, the arithmetic of `prop:shrinking-stars` (`mem_openWindow_of_supDist_lt`), and the two sequences (`recur`, `tendsto_two_pow_neg`) |

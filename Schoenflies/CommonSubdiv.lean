@@ -6,6 +6,7 @@ Authors: Álvaro Begué
 import Schoenflies.SubdivPoints
 import Schoenflies.EarStep
 import Schoenflies.Graph.AdjCongr
+import Schoenflies.Graph.PlaneEdges
 
 /-!
 # Step 1 of `thm:finite-transfer`(a): the part of the extension that lies on the old skeleton
@@ -30,32 +31,34 @@ subdivision of `Γ`" as far as step 1 is concerned: it is what says `H` does not
 so that the blueprint's overlay has, in the Lean formulation, already been performed by the
 hypothesis.
 
-## What is still missing, and what it is missing for
+## The third clause, and why it was the hard one
 
-The third clause, `K.IsTwoConnected`, is **not** proved here. The route is settled and its two
-halves are in place:
+`K.IsTwoConnected` is not read off the bundle, and the obstruction is names rather than
+mathematics: 2-connectivity of the *realized* skeleton is a field of `IsWeaklyAdmissible` and so
+is free at every stage, but that graph carries names drawn from `γ` by the freshness lemmas
+while `K ≤ H` forces `K` to carry `H`'s names, and there is no edge relabelling in Mathlib or
+here. Choosing `H`'s names for the subdivisions is not open either: `SubdivData.newEdge₁_notMem`
+wants them fresh, and nothing stops an edge name of `H` from already being a cell of `P`.
 
-* `Graph.IsTwoConnected.of_adj_congr` (`Schoenflies/Graph/AdjCongr.lean`) transports
-  2-connectivity between two graphs on the same vertex set with the same adjacency, across a
-  change of edge *names* — which is the only obstruction, since 2-connectivity of the realized
-  skeleton is a field of `IsWeaklyAdmissible` and so is free at every stage;
-* `GeneratedPair.exists_subdivide_finite` (`Schoenflies/SubdivPoints.lean`) produces the stage
-  whose 0-cells are exactly the old ones together with `V(H) ∩ |Γ|`, i.e. `V(sourcePart)`.
+Three results close it, and none of them mentions the other two's subject matter:
 
-What is missing between them is the **edge matching**: that after subdividing at every vertex of
-`H` on `|Γ|`, each drawn 1-cell of the new stage is the arc of exactly one edge of
-`sourcePart`, and conversely — hence the two graphs have the same adjacency. That is an
-ordering argument along one drawn edge of `Γ`: both an edge of `sourcePart` and a drawn 1-cell
-of the refined stage are sub-arcs of the same ambient arc whose interiors avoid the same finite
-set of marked points, and two such sub-arcs meeting are equal. `IsArcBetween.eq_of_subset` and
-`Schoenflies.subarc_subset_of_isPreconnected` (`PolygonalCut.lean`) are the tools; nothing of it
-is written yet.
+* `GeneratedPair.exists_subdivide_finite` (`SubdivPoints.lean`) produces the stage whose 0-cells
+  are exactly the old ones together with `V(H) ∩ |Γ|`, i.e. `V(sourcePart)` — the reverse vertex
+  inclusion is what makes that an equality;
+* `Graph.adj_congr_of_pointSet_eq` (`Graph/PlaneEdges.lean`) says two finite plane graphs
+  occupying the same points with the same vertices have the same adjacency, because the open
+  edges of a plane graph are the connected components of what its vertices leave of it. That is
+  `Schoenflies.adj_match`;
+* `Graph.IsTwoConnected.of_adj_congr` (`Graph/AdjCongr.lean`) carries 2-connectivity along that
+  adjacency, across the change of edge type.
 
 ## Blueprint
 
 * `Schoenflies.sourcePart` — the subgraph the blueprint's step 1 subdivides `Γ` to match.
 * `Schoenflies.pointSet_sourcePart` — "the old skeleton is literally a subgraph of the overlay",
   on the source side and at the level of point sets.
+* `Schoenflies.commonSubdivision` — step 1 of `thm:finite-transfer`(a), unconditional.
+* `Schoenflies.finite_transfer_toward_square'` — `thm:finite-transfer`(a), unconditional.
 -/
 
 open Set unitInterval
@@ -143,12 +146,9 @@ exactly the 0-cells of `sourcePart`. Its drawn skeleton is 2-connected for free,
 of weak admissibility, and `Graph.IsTwoConnected.of_adj_congr` carries that to `sourcePart` as
 soon as the two graphs have the same adjacency.
 
-`hmatch` is that last step and is the only thing assumed. It says: a stage whose skeleton is
-still `|Γ|` and whose 0-cells are exactly the vertices of `sourcePart` has the adjacency of
-`sourcePart`. Both directions are the same ordering argument along one drawn edge of `Γ` — see
-the module docstring — and neither is proved yet. It is a statement about arcs of a single
-plane graph, believed and discharged by a later module; it is not a restatement of the goal,
-since it says nothing about cell structures being generated, refined, or matched. -/
+`hmatch` is that last step. It is **discharged** by `Schoenflies.adj_match` below; the
+hypothesis is kept only because it isolates the one thing this assembly needs to know about the
+geometry, and keeping the two apart is what makes each of them short. -/
 theorem commonSubdivision_of_adj_match [Infinite γ] (h₀ : S₀.CombInvariants)
     (P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom)
     (hH : IsSourceExtension P.src srcOuter srcDom H Hdraw)
@@ -174,26 +174,57 @@ theorem commonSubdivision_of_adj_match [Infinite γ] (h₀ : S₀.CombInvariants
       T.src_isWeaklyAdmissible.isTwoConnected
   · rw [hK, pointSet_sourcePart hH]
 
-/-- **`thm:finite-transfer`, direction (a), on the edge matching alone.**
+/-! ### The edge matching, and step 1 unconditional
+
+The stage produced above and `sourcePart` are two finite plane graphs occupying the same points
+with the same vertices — the first because a subdivision does not move the skeleton, the second
+by `pointSet_sourcePart`; the vertices agree because that is what subdividing at every vertex of
+`H` on `|Γ|` achieved. `Graph.adj_congr_of_pointSet_eq` says two such graphs have the same
+adjacency, and that is the whole of the matching: the open edges of a finite plane graph are the
+connected components of what its vertices leave of it, so the edge names carry nothing adjacency
+can see. -/
+
+/-- **The edge matching.** A stage whose drawn skeleton occupies `|Γ|` and whose 0-cells are
+exactly the vertices of `sourcePart` has the adjacency of `sourcePart`. -/
+theorem adj_match {P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom}
+    (hH : IsSourceExtension P.src srcOuter srcDom H Hdraw)
+    (T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom)
+    (hK : T.src.skeletonSet = P.src.skeletonSet)
+    (hV : V(T.src.graph) = V(sourcePart P.src H Hdraw)) ⦃x y : Plane⦄ :
+    T.src.graph.Adj x y ↔ (sourcePart P.src H Hdraw).Adj x y := by
+  haveI := hH.finite
+  haveI : (sourcePart P.src H Hdraw).Finite := Graph.Finite.of_le sourcePart_le
+  haveI := T.src.finite_graph
+  -- The ascription matters: `Realization.isDrawing` is stated for `skel.map pos`, and the
+  -- `Finite` instance for `T.src.graph`, which is that graph by definition but not by syntax.
+  have hd : IsDrawing T.src.graph T.src.drawing := T.src.isDrawing
+  exact Graph.adj_congr_of_pointSet_eq hd (hH.isDrawing.mono sourcePart_le)
+    (show T.src.skeletonSet = _ by rw [hK, pointSet_sourcePart hH]) hV
+
+/-- **Step 1 of `thm:finite-transfer`(a), unconditional.** `Schoenflies.CommonSubdivision`,
+which stood as a named hypothesis in `FiniteTransfer.lean` since the module was written. -/
+theorem commonSubdivision [Infinite γ] (h₀ : S₀.CombInvariants)
+    (P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom)
+    (hH : IsSourceExtension P.src srcOuter srcDom H Hdraw) :
+    CommonSubdivision P H Hdraw :=
+  commonSubdivision_of_adj_match h₀ P hH fun T hK hV => adj_match hH T hK hV
+
+/-- **`thm:finite-transfer`, direction (a), unconditional.**
 
 `Schoenflies.finite_transfer_toward_square` assumed steps 1 and 3;
-`Schoenflies.finite_transfer_toward_square_of_commonSubdivision` discharged step 3. This
-discharges everything of step 1 except the edge matching, so the whole of direction (a) now
-rests on `hmatch` and on four stage-independent facts about the two ambient domains — which
-`Schoenflies.isOpen_sdiff_outer_of_isSeparating` and its companion supply for a closed Jordan
-region, the shape both sides have. -/
-theorem finite_transfer_toward_square_of_adj_match [Infinite γ] (h₀ : S₀.CombInvariants)
+`Schoenflies.finite_transfer_toward_square_of_commonSubdivision` discharged step 3, and step 1
+is `Schoenflies.commonSubdivision` above. What remains as hypotheses are the four
+stage-independent facts about the two ambient domains — `dom ∖ outer` open with frontier inside
+`outer` on each side — which `Schoenflies.isOpen_sdiff_outer_of_isSeparating` and its companion
+supply for a closed Jordan region, the shape both sides have. -/
+theorem finite_transfer_toward_square' [Infinite γ] (h₀ : S₀.CombInvariants)
     {P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom}
     (hH : IsSourceExtension P.src srcOuter srcDom H Hdraw)
     (hsrcQ : IsOpen (srcDom \ srcOuter)) (hsrcFr : frontier (srcDom \ srcOuter) ⊆ srcOuter)
-    (htgtQ : IsOpen (tgtDom \ tgtOuter)) (htgtFr : frontier (tgtDom \ tgtOuter) ⊆ tgtOuter)
-    (hmatch : ∀ T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom,
-      T.src.skeletonSet = P.src.skeletonSet →
-      V(T.src.graph) = V(sourcePart P.src H Hdraw) →
-      ∀ ⦃x y : Plane⦄, T.src.graph.Adj x y ↔ (sourcePart P.src H Hdraw).Adj x y) :
+    (htgtQ : IsOpen (tgtDom \ tgtOuter)) (htgtFr : frontier (tgtDom \ tgtOuter) ⊆ tgtOuter) :
     ∃ (T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom) (par : γ → γ),
       IsTransferOf T P H Hdraw par :=
   finite_transfer_toward_square_of_commonSubdivision h₀ hH hsrcQ hsrcFr htgtQ htgtFr
-    (commonSubdivision_of_adj_match h₀ P hH hmatch)
+    (commonSubdivision h₀ P hH)
 
 end Schoenflies

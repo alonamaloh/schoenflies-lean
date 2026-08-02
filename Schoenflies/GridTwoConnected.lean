@@ -353,6 +353,28 @@ theorem hasGridUnionTwoConnected_of {C : Set Plane} (hsep : IsSeparating C)
       exact hx'
     · exact Or.inr (vertexSet_inter_grid_subset hs hx hx')
 
+/-! ### The interface, exercised
+
+Over the concrete base, the reduction composes with the extension chooser of
+`Schoenflies/GridExtension.lean` and the step discharge of `Schoenflies/GridSteps.lean`: the
+source-grid half of Phase 3 now rests on the anchored-core hypothesis alone. -/
+
+/-- `Schoenflies.HasGridSteps` from the anchored-core hypothesis alone. -/
+theorem hasGridSteps_of_anchoredCores [Infinite γ] {C : Set Plane} (h₀ : S₀.CombInvariants)
+    (hsep : IsSeparating C) (hcore : HasGridAnchoredCores S₀ C) : HasGridSteps S₀ C :=
+  hasGridSteps h₀ hsep (hasGridExtensions_of hsep (hasGridUnionTwoConnected_of hsep hcore))
+
+/-- The acceptance check: with the mesh-transfer chooser, a stage sequence for a Jordan curve
+follows from the anchored-core hypothesis. -/
+example {C : Set Plane} (hC : IsJordanCurve C)
+    (hcore : HasGridAnchoredCores initialStructure C)
+    (hm : HasMeshTransfers initialStructure C) :
+    Nonempty (StageSequence InitialCell initialStructure C) :=
+  ⟨stageSequence_of_isJordanCurve hC
+    (hasGridSteps_of_anchoredCores combInvariants_initialStructure (jordan_curve_theorem hC)
+      hcore)
+    (hasMeshSteps hm)⟩
+
 end Assemble
 
 end Schoenflies

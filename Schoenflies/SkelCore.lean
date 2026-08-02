@@ -211,3 +211,164 @@ theorem IsTwoConnected.of_edge_paths (hG : G.IsTwoConnected) {x y : β → α} {
     exact (hr.trans h2).symm
 
 end Graph
+
+namespace Schoenflies
+
+/-! ### The parameter interval of a segment inside an arc
+
+An overlay edge lying inside a drawn 1-cell arc occupies, in the arc's own parameter, a closed
+subinterval whose two endpoints map to the edge's two ends. This is what replaces the
+distance-from-an-end coordinate of `Schoenflies.exists_incWalk_insideEdges` when the ambient
+is an arc rather than a straight segment. The inverse continuity is
+`Schoenflies.image_isRelOpen`, spent twice: once to see the preimage of the segment is
+connected, once (through preconnectedness of the punctured image) to see the interval's
+endpoints map to the segment's ends. -/
+
+/-- **A point whose removal leaves a nondegenerate segment connected is an end.** Removing an
+interior point splits the segment into the near part and the far part, separated by the
+distance from the first end. (General-purpose; a candidate for hoisting into
+`Schoenflies/SegmentOrder.lean`.) -/
+theorem end_of_isPreconnected_diff {Q : Piece} (hQN : Q.Nondeg) {z : Plane} (hz : z ∈ Q.seg)
+    (hpre : IsPreconnected (Q.seg \ {z})) : z = Q.1 ∨ z = Q.2 := by
+  by_contra hcon
+  push Not at hcon
+  have hzi : z ∈ Q.interior :=
+    mem_openSegment_of_ne_left_right (Ne.symm hcon.1) (Ne.symm hcon.2) hz
+  have hlt : dist Q.1 Q.1 < dist Q.1 z ∧ dist Q.1 z < dist Q.1 Q.2 :=
+    dist_lt_of_mem_openSegment hQN (left_mem_segment ℝ _ _) (right_mem_segment ℝ _ _) hQN
+      (by rw [dist_self]; exact dist_nonneg) hzi
+  rw [dist_self] at hlt
+  -- The two open half-planes at the distance of `z` from `Q.1` separate the remainder.
+  have hU₁ : IsOpen {w : Plane | dist Q.1 w < dist Q.1 z} :=
+    isOpen_lt (by fun_prop) continuous_const
+  have hU₂ : IsOpen {w : Plane | dist Q.1 z < dist Q.1 w} :=
+    isOpen_lt continuous_const (by fun_prop)
+  have hsub : Q.seg \ {z} ⊆ {w | dist Q.1 w < dist Q.1 z} ∪ {w | dist Q.1 z < dist Q.1 w} := by
+    rintro w ⟨hw, hwz⟩
+    rcases lt_trichotomy (dist Q.1 w) (dist Q.1 z) with h | h | h
+    · exact Or.inl h
+    · exact absurd (eq_of_dist_left_eq hQN hw hz h) (by simpa using hwz)
+    · exact Or.inr h
+  have h₁ : ((Q.seg \ {z}) ∩ {w | dist Q.1 w < dist Q.1 z}).Nonempty :=
+    ⟨Q.1, ⟨left_mem_segment ℝ _ _, by simpa using fun h => hcon.1 h.symm⟩,
+      by simpa [dist_self] using hlt.1⟩
+  have h₂ : ((Q.seg \ {z}) ∩ {w | dist Q.1 z < dist Q.1 w}).Nonempty :=
+    ⟨Q.2, ⟨right_mem_segment ℝ _ _, by simpa using fun h => hcon.2 h.symm⟩, hlt.2⟩
+  obtain ⟨w, -, hw₁, hw₂⟩ := hpre _ _ hU₁ hU₂ hsub h₁ h₂
+  rw [mem_setOf_eq] at hw₁ hw₂
+  exact absurd (hw₁.trans hw₂) (lt_irrefl _)
+
+variable {f : ℝ → Plane}
+
+/-- **A nondegenerate segment inside an arc is the image of a closed parameter interval**,
+whose endpoints map to the segment's two ends. Compactness and inverse continuity
+(`Schoenflies.image_isRelOpen`) make the parameter set a compact interval; puncturing it at
+either endpoint leaves the image connected, so each endpoint maps to an end by
+`Schoenflies.end_of_isPreconnected_diff`. -/
+theorem exists_arc_param_Icc (hc : ContinuousOn f I) (hi : InjOn f I)
+    {Q : Piece} (hQN : Q.Nondeg) (hQsub : Q.seg ⊆ f '' I) :
+    ∃ s t : ℝ, s ∈ I ∧ t ∈ I ∧ s < t ∧ I ∩ f ⁻¹' Q.seg = Icc s t ∧
+      f '' Icc s t = Q.seg ∧
+      ((f s = Q.1 ∧ f t = Q.2) ∨ (f s = Q.2 ∧ f t = Q.1)) := by
+  set T : Set ℝ := I ∩ f ⁻¹' Q.seg with hTdef
+  have hTsubI : T ⊆ I := inter_subset_left
+  have hTcl : IsClosed T :=
+    hc.preimage_isClosed_of_isClosed isClosed_Icc (isCompact_segment Q.1 Q.2).isClosed
+  have hTcp : IsCompact T := isCompact_I.of_isClosed_subset hTcl hTsubI
+  have hfT : f '' T = Q.seg := by
+    refine Subset.antisymm ?_ ?_
+    · rintro _ ⟨u, hu, rfl⟩
+      exact hu.2
+    · intro q hq
+      obtain ⟨u, hu, rfl⟩ := hQsub hq
+      exact ⟨u, ⟨hu, hq⟩, rfl⟩
+  have hTne : T.Nonempty := by
+    obtain ⟨u, hu, huq⟩ := hQsub (left_mem_segment ℝ Q.1 Q.2)
+    exact ⟨u, hu, by rw [mem_preimage, huq]; exact left_mem_segment ℝ Q.1 Q.2⟩
+  -- The preimage is preconnected: its two would-be halves have relatively open images.
+  have hTpre : IsPreconnected T := by
+    intro U V hU hV hTUV hTU hTV
+    obtain ⟨U', hU'op, hU'eq⟩ := image_isRelOpen hc hi hU
+    obtain ⟨V', hV'op, hV'eq⟩ := image_isRelOpen hc hi hV
+    have hmemU' : ∀ u ∈ T, u ∈ U → f u ∈ U' := fun u hu huU => by
+      have : f u ∈ f '' (U ∩ I) := ⟨u, ⟨huU, hTsubI hu⟩, rfl⟩
+      rw [hU'eq] at this
+      exact this.1
+    have hmemV' : ∀ u ∈ T, u ∈ V → f u ∈ V' := fun u hu huV => by
+      have : f u ∈ f '' (V ∩ I) := ⟨u, ⟨huV, hTsubI hu⟩, rfl⟩
+      rw [hV'eq] at this
+      exact this.1
+    have hcov : Q.seg ⊆ U' ∪ V' := by
+      intro q hq
+      have hq' : q ∈ f '' T := by rw [hfT]; exact hq
+      obtain ⟨u, hu, rfl⟩ := hq'
+      exact (hTUV hu).imp (hmemU' u hu) (hmemV' u hu)
+    obtain ⟨u₁, hu₁T, hu₁U⟩ := hTU
+    obtain ⟨u₂, hu₂T, hu₂V⟩ := hTV
+    have him₁ : f u₁ ∈ Q.seg := by rw [← hfT]; exact mem_image_of_mem f hu₁T
+    have him₂ : f u₂ ∈ Q.seg := by rw [← hfT]; exact mem_image_of_mem f hu₂T
+    obtain ⟨q, hqseg, hqU', hqV'⟩ :=
+      (convex_segment Q.1 Q.2).isPreconnected _ _ hU'op hV'op hcov
+        ⟨f u₁, him₁, hmemU' u₁ hu₁T hu₁U⟩ ⟨f u₂, him₂, hmemV' u₂ hu₂T hu₂V⟩
+    have hq' : q ∈ f '' T := by rw [hfT]; exact hqseg
+    obtain ⟨u, huT, rfl⟩ := hq'
+    have himu : f u ∈ f '' I := mem_image_of_mem f (hTsubI huT)
+    -- pull the common point back along injectivity
+    have huU : u ∈ U := by
+      have h1 : f u ∈ f '' (U ∩ I) := by rw [hU'eq]; exact ⟨hqU', himu⟩
+      obtain ⟨u', hu', he⟩ := h1
+      exact (hi hu'.2 (hTsubI huT) he) ▸ hu'.1
+    have huV : u ∈ V := by
+      have h1 : f u ∈ f '' (V ∩ I) := by rw [hV'eq]; exact ⟨hqV', himu⟩
+      obtain ⟨u', hu', he⟩ := h1
+      exact (hi hu'.2 (hTsubI huT) he) ▸ hu'.1
+    exact ⟨u, huT, huU, huV⟩
+  have hIcc : T = Icc (sInf T) (sSup T) := eq_Icc_of_connected_compact ⟨hTne, hTpre⟩ hTcp
+  set s := sInf T
+  set t := sSup T
+  have hstle : s ≤ t := nonempty_Icc.1 (hIcc ▸ hTne)
+  have hsT : s ∈ T := hIcc ▸ mem_Icc.2 ⟨le_rfl, hstle⟩
+  have htT : t ∈ T := hIcc ▸ mem_Icc.2 ⟨hstle, le_rfl⟩
+  have hsI : s ∈ I := hTsubI hsT
+  have htI : t ∈ I := hTsubI htT
+  have hfIcc : f '' Icc s t = Q.seg := by rw [← hIcc]; exact hfT
+  have hst : s < t := by
+    rcases lt_or_eq_of_le hstle with h | h
+    · exact h
+    -- a one-point interval would collapse the segment to a point
+    exfalso
+    rw [h, Icc_self, image_singleton] at hfIcc
+    refine hQN ?_
+    have h1 : Q.1 ∈ ({f t} : Set Plane) := by rw [hfIcc]; exact left_mem_segment ℝ Q.1 Q.2
+    have h2 : Q.2 ∈ ({f t} : Set Plane) := by rw [hfIcc]; exact right_mem_segment ℝ Q.1 Q.2
+    rw [mem_singleton_iff] at h1 h2
+    rw [h1, h2]
+  -- Each interval endpoint maps to an end of the segment.
+  have hIccI : Icc s t ⊆ I := hIcc ▸ hTsubI
+  have hfsmem : f s ∈ Q.seg := by rw [← hfIcc]; exact mem_image_of_mem f (mem_Icc.2 ⟨le_rfl, hstle⟩)
+  have hftmem : f t ∈ Q.seg := by rw [← hfIcc]; exact mem_image_of_mem f (mem_Icc.2 ⟨hstle, le_rfl⟩)
+  have hfs : f s = Q.1 ∨ f s = Q.2 := by
+    have himg : f '' Ioc s t = Q.seg \ {f s} := by
+      rw [← Icc_sdiff_left,
+        (hi.mono hIccI).image_sdiff_subset (singleton_subset_iff.2 (mem_Icc.2 ⟨le_rfl, hstle⟩)),
+        image_singleton, hfIcc]
+    refine end_of_isPreconnected_diff hQN hfsmem ?_
+    rw [← himg]
+    exact (isPreconnected_Ioc).image f (hc.mono ((Ioc_subset_Icc_self).trans hIccI))
+  have hft : f t = Q.1 ∨ f t = Q.2 := by
+    have himg : f '' Ico s t = Q.seg \ {f t} := by
+      rw [← Icc_sdiff_right,
+        (hi.mono hIccI).image_sdiff_subset (singleton_subset_iff.2 (mem_Icc.2 ⟨hstle, le_rfl⟩)),
+        image_singleton, hfIcc]
+    refine end_of_isPreconnected_diff hQN hftmem ?_
+    rw [← himg]
+    exact (isPreconnected_Ico).image f (hc.mono ((Ico_subset_Icc_self).trans hIccI))
+  have hfst : f s ≠ f t := fun h => (ne_of_lt hst) (hi hsI htI h)
+  refine ⟨s, t, hsI, htI, hst, hIcc, hfIcc, ?_⟩
+  · rcases hfs with h1 | h1 <;> rcases hft with h2 | h2
+    · exact absurd (h1.trans h2.symm) hfst
+    · exact Or.inl ⟨h1, h2⟩
+    · exact Or.inr ⟨h1, h2⟩
+    · exact absurd (h1.trans h2.symm) hfst
+
+end Schoenflies

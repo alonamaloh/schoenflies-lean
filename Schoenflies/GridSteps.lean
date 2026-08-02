@@ -402,6 +402,90 @@ theorem hasGridSteps [Infinite γ] (h₀ : S₀.CombInvariants) (hsep : IsSepara
   fun P hsrc htgt _ε hε _b hb =>
     (hE P hsrc htgt hε hb).elim fun E => E.nonempty_gridStepData h₀ hsep hε hb
 
+/-! ## The window placement
+
+The quantitative half of obligation 4 of the extension chooser: the local grid on the window
+`W(b)` lies inside the closed window, hence inside the open Jordan domain, hence misses `C`.
+The disjointness is stated in the exact shape `Schoenflies.exists_reps_hcov` consumes, and
+`Schoenflies.MeetsFinitely.of_disjoint` turns it into the grid's joining-loop input. -/
+
+section WindowPlacement
+
+variable {p b : Plane} {s ε : ℝ} {k : ℕ}
+
+/-- A grid coordinate stays within `s` of the centre's coordinate. -/
+theorem abs_localGridX_sub_le (hs : 0 < s) (hk : 1 ≤ k) {i : ℕ} (hi : i ≤ k) :
+    |localGridX p s k i - p 0| ≤ s := by
+  have hk0 : (0 : ℝ) < k := by exact_mod_cast hk
+  have hik : (i : ℝ) ≤ k := by exact_mod_cast hi
+  have h1 : (0 : ℝ) ≤ i * (2 * s / k) := by positivity
+  have h2 : (i : ℝ) * (2 * s / k) ≤ 2 * s := by
+    calc (i : ℝ) * (2 * s / k) ≤ k * (2 * s / k) :=
+          mul_le_mul_of_nonneg_right hik (by positivity)
+      _ = 2 * s := by field_simp
+  rw [localGridX, uniformCoord, abs_le]
+  constructor <;> nlinarith
+
+/-- A grid coordinate stays within `s` of the centre's coordinate. -/
+theorem abs_localGridY_sub_le (hs : 0 < s) (hk : 1 ≤ k) {j : ℕ} (hj : j ≤ k) :
+    |localGridY p s k j - p 1| ≤ s := by
+  have hk0 : (0 : ℝ) < k := by exact_mod_cast hk
+  have hjk : (j : ℝ) ≤ k := by exact_mod_cast hj
+  have h1 : (0 : ℝ) ≤ j * (2 * s / k) := by positivity
+  have h2 : (j : ℝ) * (2 * s / k) ≤ 2 * s := by
+    calc (j : ℝ) * (2 * s / k) ≤ k * (2 * s / k) :=
+          mul_le_mul_of_nonneg_right hjk (by positivity)
+      _ = 2 * s := by field_simp
+  rw [localGridY, uniformCoord, abs_le]
+  constructor <;> nlinarith
+
+/-- Every vertex of the local grid lies in the closed window. -/
+theorem gridPt_mem_closedSquare (hs : 0 < s) (hk : 1 ≤ k) {i j : ℕ} (hi : i ≤ k) (hj : j ≤ k) :
+    gridPt (localGridX p s k) (localGridY p s k) i j ∈ Plane.closedSquare p s := by
+  change Plane.supDist _ p ≤ s
+  rw [Plane.supDist, Plane.supNorm]
+  refine max_le ?_ ?_
+  · simpa [gridPt, Plane.sub_apply] using abs_localGridX_sub_le (p := p) hs hk hi
+  · simpa [gridPt, Plane.sub_apply] using abs_localGridY_sub_le (p := p) hs hk hj
+
+/-- **The local grid lies in the closed window**: each edge is a segment between two grid
+vertices, and the window is convex. -/
+theorem cover_localGridEdges_subset (hs : 0 < s) (hk : 1 ≤ k) :
+    cover (localGridEdges p s k) ⊆ Plane.closedSquare p s := by
+  intro x hx
+  obtain ⟨P, hP, hxP⟩ := mem_cover_iff.1 hx
+  rw [localGridEdges] at hP
+  rcases (mem_gridEdges_iff hk hk).1 hP with ⟨i, hi, j, hj, rfl⟩ | ⟨i, hi, j, hj, rfl⟩
+  · exact (Plane.convex_closedSquare p s).segment_subset
+      (gridPt_mem_closedSquare hs hk (by omega) hj)
+      (gridPt_mem_closedSquare hs hk (by omega) hj) hxP
+  · exact (Plane.convex_closedSquare p s).segment_subset
+      (gridPt_mem_closedSquare hs hk hi (by omega))
+      (gridPt_mem_closedSquare hs hk hi (by omega)) hxP
+
+/-- The local grid on the window `W(b)` lies in the window. -/
+theorem cover_localGridEdges_subset_window (hC : IsCompact C) (hCne : C.Nonempty)
+    (hbC : b ∉ C) (hk : 1 ≤ k) :
+    cover (localGridEdges b (windowRadius C ε b) k) ⊆ window C ε b := by
+  rw [window]
+  exact cover_localGridEdges_subset (windowRadius_pos hC hCne hbC) hk
+
+/-- **The grid misses the curve** — the disjointness `Schoenflies.exists_reps_hcov` asks of
+the grid half of the attachment cover, and via `Schoenflies.MeetsFinitely.of_disjoint` the
+grid's input to the joining loop. -/
+theorem disjoint_cover_localGridEdges (hsep : IsSeparating C) (hb : b ∈ inside C)
+    (hε : 0 < ε) (hk : 1 ≤ k) :
+    Disjoint (cover (localGridEdges b (windowRadius C ε b) k)) C := by
+  have hC : IsCompact C := hsep.isJordanCurve.isCompact
+  have hCne : C.Nonempty := hsep.isJordanCurve.nonempty
+  have hbC : b ∉ C := fun h => inside_subset_compl hb h
+  have hsub : cover (localGridEdges b (windowRadius C ε b) k) ⊆ inside C :=
+    (cover_localGridEdges_subset_window hC hCne hbC hk).trans
+      (window_subset_inside hC hCne hsep hb hε)
+  exact Set.disjoint_left.2 fun x hx hxC => inside_subset_compl (hsub hx) hxC
+
+end WindowPlacement
+
 /-! ### The interface, exercised
 
 Over the concrete base, the two remaining obligations of Phase 3 are the extension chooser here

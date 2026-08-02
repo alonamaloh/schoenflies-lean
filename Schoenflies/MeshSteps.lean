@@ -90,6 +90,11 @@ module; what keeps the bundle conditional is the defect above, not any missing m
   closed Jordan regions" in the form the transfer consumes.
 * `Schoenflies.edgeArc_subset_outer_of_hasFreshAnchors` — the finding: the stated hypotheses
   of `thm:finite-transfer`(b) admit no extension with a boundary-reaching nonboundary edge.
+* `Schoenflies.IsLoop.not_meets_both_arcs`, `Schoenflies.IsLoop.exists_param_modulus`,
+  `Schoenflies.freshDense_of_param_dense` — the blueprint's "choose `z_0, …, z_{m-1}` in
+  cyclic order so that each boundary arc between consecutive ones has diameter `< δ/4`",
+  reduced to a pure selection: `FreshDense fresh δ` holds whenever every parameter window of
+  length `ρ` (from the loop's modulus for `δ/4`) contains a fresh point.
 * `Schoenflies.diam_closure_cell_le_of_mesh_subset` — "every closed target 2-cell of `Γ'_n`
   has diameter `< ε_n`": the mesh sentence of *Quantitative refinement*, from
   `prop:anchored-square-mesh` clause 1's radial estimate and `lem:diameter-closure`.
@@ -192,6 +197,165 @@ theorem not_nonboundaryAt_of_hasFreshAnchors
     {p : Plane} (hpS : p ∈ tgtOuter) : ¬ NonboundaryAt H Hdraw tgtOuter p := by
   rintro ⟨f, hf, hp, hnot⟩
   exact hnot (edgeArc_subset_outer_of_hasFreshAnchors hH hA hf hp hpS)
+
+/-! ### `FreshDense` from parameter-dense fresh points
+
+Nothing on `main` constructs a nontrivial `Schoenflies.FreshDense` list: the only construction
+is the vacuous `Schoenflies.freshDense_of_four_sqrt_two_le`. The discharger of
+`HasMeshTransfers` below has to make one out of the dense strongly accessible anchors, and
+this section proves the geometric half of that step: **if the fresh points are `ρ`-dense in
+the parameter of any loop parametrizing `S`, for a `ρ` within which the loop moves points by
+at most `δ/4`, then `FreshDense fresh δ` holds** — with
+`Schoenflies.IsLoop.exists_param_modulus` producing such a `ρ` for every loop and `δ`. What
+remains for the discharger is a pure choice: pick, inside each parameter window of length `ρ`,
+one fresh point from the dense anchor set.
+
+The proof is the blueprint's "cut `S` into small arcs" argument run backwards on the machinery
+of `TwoArcs.lean`. A preconnected subset of `S` avoiding all fresh points cannot have two
+fresh parameters interleaved with two of its own (`IsLoop.not_meets_both_arcs`: the two arcs
+between the fresh points, `IsLoop.pieces_cover` / `IsLoop.pieces_meet_at_ends`, have plane-open
+complements covering the set and separating it). So the parameters the set visits either span
+no fresh parameter — a window of length at most `ρ` — or trap every fresh parameter between
+them, pinning both endpoints to the loop's seam; either way its points are within `δ/2`. -/
+
+section FreshDenseConstruction
+
+open unitInterval
+
+variable {f : ℝ → Plane}
+
+/-- **The separation lemma.** A preconnected set inside the loop's image which avoids the two
+cut points `f a`, `f b` cannot meet both the middle arc and the outside arc: the complements of
+the two arcs are plane-open, they cover the set, and each contains one of the two given
+points, so preconnectedness would put a point of the set outside the whole curve. -/
+theorem IsLoop.not_meets_both_arcs (hf : IsLoop f) {A : Set Plane} (hA : IsPreconnected A)
+    (hsub : A ⊆ f '' I) {a b : ℝ} (ha : a ∈ I) (hb : b ∈ I) (ha1 : a ≠ 1) (hb1 : b ≠ 1)
+    (hab : a < b) (hfa : f a ∉ A) (hfb : f b ∉ A) {x y : Plane} (hx : x ∈ A) (hy : y ∈ A)
+    (hxm : x ∈ f '' Icc a b) (hyo : y ∈ f '' Icc 0 a ∪ f '' Icc b 1) : False := by
+  set M : Set Plane := f '' Icc a b with hM
+  set O : Set Plane := f '' Icc 0 a ∪ f '' Icc b 1 with hO
+  have hMO : M ∪ O = f '' I := IsLoop.pieces_cover ha hb
+  have hmeet : M ∩ O = {f a, f b} := hf.pieces_meet_at_ends ha hb ha1 hb1 hab
+  have hMc : IsCompact M := isCompact_Icc.image_of_continuousOn
+    (hf.continuousOn.mono (IsLoop.middle_subset_I ha hb))
+  have hOc : IsCompact O :=
+    (isCompact_Icc.image_of_continuousOn
+        (hf.continuousOn.mono (IsLoop.front_subset_I ha))).union
+      (isCompact_Icc.image_of_continuousOn (hf.continuousOn.mono (IsLoop.back_subset_I hb)))
+  -- the set avoids the two cut points
+  have hcut : ∀ ⦃z⦄, z ∈ A → z ∉ ({f a, f b} : Set Plane) := by
+    intro z hz hmem
+    simp only [Set.mem_insert_iff, Set.mem_singleton_iff] at hmem
+    rcases hmem with rfl | rfl
+    exacts [hfa hz, hfb hz]
+  -- so the two open complements cover it
+  have hcover : A ⊆ Oᶜ ∪ Mᶜ := by
+    intro z hz
+    have hzMO : z ∈ M ∪ O := by rw [hMO]; exact hsub hz
+    rcases hzMO with hzM | hzO
+    · exact Or.inl fun hzO => hcut hz (by rw [← hmeet]; exact ⟨hzM, hzO⟩)
+    · exact Or.inr fun hzM => hcut hz (by rw [← hmeet]; exact ⟨hzM, hzO⟩)
+  have hxO : x ∉ O := fun hxO => hcut hx (by rw [← hmeet]; exact ⟨hxm, hxO⟩)
+  have hyM : y ∉ M := fun hyM => hcut hy (by rw [← hmeet]; exact ⟨hyM, hyo⟩)
+  obtain ⟨w, hwA, hwO, hwM⟩ := hA Oᶜ Mᶜ hOc.isClosed.isOpen_compl hMc.isClosed.isOpen_compl
+    hcover ⟨x, hx, hxO⟩ ⟨y, hy, hyM⟩
+  have hwMO : w ∈ M ∪ O := by rw [hMO]; exact hsub hwA
+  rcases hwMO with h | h
+  exacts [hwM h, hwO h]
+
+/-- **A parameter modulus for every loop**: within some window length `ρ` the loop moves
+points by at most `ε`. Heine–Cantor on the compact parameter interval. -/
+theorem IsLoop.exists_param_modulus (hf : IsLoop f) {ε : ℝ} (hε : 0 < ε) :
+    ∃ ρ > 0, ∀ u ∈ I, ∀ v ∈ I, |u - v| ≤ ρ → dist (f u) (f v) ≤ ε := by
+  obtain ⟨ρ, hρ, h⟩ := Metric.uniformContinuousOn_iff.1
+    (isCompact_I.uniformContinuousOn_of_continuous hf.continuousOn) ε hε
+  refine ⟨ρ / 2, by linarith, fun u hu v hv huv => ?_⟩
+  refine (h u hu v hv ?_).le
+  rw [Real.dist_eq]
+  linarith
+
+/-- **`FreshDense` from parameter density.** If every parameter window of length `ρ` contains
+a fresh point and the loop moves parameters `ρ` apart by at most `δ/4`, the fresh points are
+`δ`-dense on `S` in the sense of `Schoenflies.FreshDense`. This is the geometric content of
+the blueprint's "choose `z_0, …, z_{m-1}` in cyclic order so that each boundary arc between
+consecutive ones has diameter `< δ/4`"; the cyclic order is replaced by the two-sided case
+split on where the avoided parameters can sit. -/
+theorem freshDense_of_param_dense (hf : IsLoop f) (himg : f '' I = modelCurve)
+    {fresh : List Plane} {ρ δ : ℝ} (hρ : 0 < ρ)
+    (hmod : ∀ u ∈ I, ∀ v ∈ I, |u - v| ≤ ρ → dist (f u) (f v) ≤ δ / 4)
+    (hnet : ∀ u, 0 ≤ u → u + ρ ≤ 1 → ∃ w ∈ Ioo u (u + ρ), f w ∈ fresh) :
+    FreshDense fresh δ := by
+  have hδ0 : 0 ≤ δ := by
+    have h := hmod 0 zero_mem_I 0 zero_mem_I (by simpa using hρ.le)
+    rw [dist_self] at h
+    linarith
+  intro A hA hconn x hx y hy
+  have hsub : A ⊆ f '' I := fun z hz => by rw [himg]; exact (hA hz).1
+  have havoid : ∀ ⦃w⦄, w ∈ I → f w ∈ fresh → f w ∉ A := fun w _hw hwf h => (hA h).2 hwf
+  -- the key claim, for ordered parameters short of the finish
+  suffices key : ∀ s t : ℝ, s ∈ I → t ∈ I → s ≠ 1 → t ≠ 1 → s ≤ t →
+      f s ∈ A → f t ∈ A → dist (f s) (f t) ≤ δ / 2 by
+    obtain ⟨s, hs, hs1, hfs⟩ := hf.parameter_before_finish (hsub hx)
+    obtain ⟨t, ht, ht1, hft⟩ := hf.parameter_before_finish (hsub hy)
+    rcases le_total s t with h | h
+    · rw [← hfs, ← hft]
+      exact key s t hs ht hs1 ht1 h (by rw [hfs]; exact hx) (by rw [hft]; exact hy)
+    · rw [← hfs, ← hft, dist_comm]
+      exact key t s ht hs ht1 hs1 h (by rw [hft]; exact hy) (by rw [hfs]; exact hx)
+  intro s t hs ht hs1 ht1 hst hfsA hftA
+  rcases eq_or_lt_of_le hst with rfl | hlt
+  · rw [dist_self]; linarith
+  by_cases hmid : ∃ w ∈ Ioo s t, f w ∈ fresh
+  · -- A fresh parameter sits strictly between `s` and `t`. Then no fresh parameter can sit
+    -- strictly outside `[s, t]` — the separation lemma — so the net pins both `s` and `t` to
+    -- within `ρ` of the loop's seam, and the seam point bridges the two.
+    obtain ⟨w₁, hw₁, hw₁f⟩ := hmid
+    have hw₁I : w₁ ∈ I := ⟨hs.1.trans hw₁.1.le, hw₁.2.le.trans ht.2⟩
+    have hw₁1 : w₁ ≠ 1 := ne_of_lt (lt_of_lt_of_le hw₁.2 ht.2)
+    have hbefore : ∀ w, 0 ≤ w → w < s → f w ∈ fresh → False := by
+      intro w hw0 hws hwf
+      have hwI : w ∈ I := ⟨hw0, (hws.trans hlt).le.trans ht.2⟩
+      exact hf.not_meets_both_arcs hconn hsub hwI hw₁I
+        (ne_of_lt (lt_of_lt_of_le hws hs.2)) hw₁1 (hws.trans hw₁.1)
+        (havoid hwI hwf) (havoid hw₁I hw₁f) hfsA hftA
+        ⟨s, ⟨hws.le, hw₁.1.le⟩, rfl⟩ (Or.inr ⟨t, ⟨hw₁.2.le, ht.2⟩, rfl⟩)
+    have hafter : ∀ w, t < w → w < 1 → f w ∈ fresh → False := by
+      intro w htw hw1 hwf
+      have hwI : w ∈ I := ⟨ht.1.trans htw.le, hw1.le⟩
+      exact hf.not_meets_both_arcs hconn hsub hw₁I hwI hw₁1 (ne_of_lt hw1)
+        (hw₁.2.trans htw) (havoid hw₁I hw₁f) (havoid hwI hwf) hftA hfsA
+        ⟨t, ⟨hw₁.2.le, htw.le⟩, rfl⟩ (Or.inl ⟨s, ⟨hs.1, hw₁.1.le⟩, rfl⟩)
+    have hsρ : s ≤ ρ := by
+      by_contra hcon
+      push Not at hcon
+      obtain ⟨w, hw, hwf⟩ := hnet 0 le_rfl (by linarith [hs.2])
+      rw [zero_add] at hw
+      exact hbefore w hw.1.le (hw.2.trans hcon) hwf
+    have htρ : 1 - t ≤ ρ := by
+      by_contra hcon
+      push Not at hcon
+      obtain ⟨w, hw, hwf⟩ := hnet t ht.1 (by linarith)
+      exact hafter w hw.1 (by linarith [hw.2]) hwf
+    calc dist (f s) (f t) ≤ dist (f s) (f 0) + dist (f 0) (f t) := dist_triangle _ _ _
+      _ ≤ δ / 4 + δ / 4 := by
+          refine add_le_add (hmod s hs 0 zero_mem_I ?_) ?_
+          · rw [sub_zero, abs_of_nonneg hs.1]; linarith
+          · rw [← hf.finish_eq_start]
+            refine hmod 1 one_mem_I t ht ?_
+            rw [abs_of_nonneg (by linarith [ht.2] : (0 : ℝ) ≤ 1 - t)]
+            linarith
+      _ = δ / 2 := by ring
+  · -- No fresh parameter between `s` and `t`: the net forces the window short, and the
+    -- modulus finishes.
+    have hts : t - s ≤ ρ := by
+      by_contra hcon
+      push Not at hcon
+      obtain ⟨w, hw, hwf⟩ := hnet s hs.1 (by linarith [ht.2])
+      exact hmid ⟨w, ⟨hw.1, lt_trans hw.2 (by linarith)⟩, hwf⟩
+    have h := hmod s hs t ht (by rw [abs_of_nonpos (by linarith : s - t ≤ 0)]; linarith)
+    linarith
+
+end FreshDenseConstruction
 
 /-! ### The mesh bound through the transfer
 

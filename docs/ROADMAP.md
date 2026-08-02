@@ -150,24 +150,33 @@ and 1c are done and `sorry`-free; 1d is blocked on one interface change, describ
   structure file had ever imported); what 1c adds is the bridge from the abstract invariant to
   it. Carries `CombInvariants`, because `sub_face` quantifies over every `σ ≼ F` and nothing
   else says such a `σ` is a cell.
-* **1d. `EarStep`, and the interface change it needs first.** The `SplitData` fields are now
-  available, but **`EarStep` as stated on `main` cannot reach them**: its hypothesis is
-  `IsPartialTransferOf T P B Hdraw par`, and neither that nor `GeneratedPair` carries a
-  `BoundaryWalks`. It cannot be recovered either — a `GeneratedStructure` derivation may contain
+* **1d. The bundle carries the invariant — done; `EarStep` itself is next.** The `SplitData`
+  fields were available after 1c but **`EarStep` could not reach them**: its hypothesis is
+  `IsPartialTransferOf T P B Hdraw par`, and neither that nor `GeneratedPair` carried a
+  `BoundaryWalks`. It cannot be recovered from `generated` either — a derivation may contain
   `SubdivData`s whose `boundaryStart` has nothing to do with any invariant, so there is no
-  closure theorem over the raw inductive, only the two step *constructions*. So `GeneratedPair`
-  should gain a field `walks : str.BoundaryWalks`, discharged at stage 0 by
-  `Schoenflies.initialBoundaryWalks` and propagated by `BoundaryWalks.subdivideEdge` /
-  `.splitFace`. That is the same shape of change as `SubdivData.newBoundary`, and the same
-  argument for it — but it is *not* free this time: `InitialData.generatedPair` already
-  constructs one, so the field has to be discharged there, and `InitialBoundaryWalks.lean` has
-  to move below `InitialGenerated.lean` in the import order (it uses `initSub_iff_face`, which
-  is a fifteen-line case analysis to inline).
-  After that, `EarStep` itself is the assembly: at most two subdivisions to make the ear's ends
-  0-cells, then the split, with `SubdivData.realize`/`realizeHomeo` and
-  `SplitData.realize`/`splitHomeo` supplying the realizations, and every `GeneratedPair` field
-  rebuilt. `[Infinite γ]` is already recorded as the fix for the fresh-name defect. This is the
-  largest single module in phase 1.
+  closure theorem over the raw inductive, only the two step *constructions* a consumer applies
+  while building a stage. So `GeneratedPair` now has a tenth field, `walks : str.BoundaryWalks`,
+  discharged at stage 0 by `Schoenflies.initialBoundaryWalks` (which moved into
+  `InitialGenerated.lean`, since it cannot sit above the pair it feeds).
+
+  What is left of 1d is the assembly: at most two subdivisions to make the ear's ends 0-cells,
+  then the split, rebuilding every `GeneratedPair` field. `[Infinite γ]` is already recorded as
+  the fix for the fresh-name defect. **One ingredient of that assembly does not exist on
+  `main`**, and it is not the boundary paths any more:
+
+  > **weak admissibility is not known to be preserved by either elementary operation.**
+  > `IsWeaklyAdmissible` occurs in exactly two modules — `FiniteTransfer.lean`, which defines
+  > it, and `InitialGenerated.lean`, which discharges it at stage 0. Nothing subdivides or
+  > splits it. Its five clauses are unequal: `outerSet_eq`, `isPolygonal`, `cell_subset` and
+  > `skeletonSet_subset` should be routine from the realization constructors, but
+  > `isTwoConnected` needs *a subdivision of a 2-connected graph is 2-connected*, and
+  > `Schoenflies/Graph/TwoConnected.lean` says nothing about subdivisions —
+  > `IsTwoConnected.union` needs both sides 2-connected, which an ear is not. That is a
+  > self-contained graph-theory lemma and the natural next module.
+* **1d′. Weak admissibility across the two operations.** The above, as its own piece: it is
+  what `GeneratedPair.subdivideEdge` and `GeneratedPair.splitFace` — the two atoms `EarStep`
+  is built from — are missing, and it is independent of everything else in phase 1.
 * **1e. `CommonSubdivision`.** Independent of 1b–1d and pure assembly:
   `exists_overlay_of_biUnion_finite` gives the overlay, `SubdivData.realizeHomeo` transports one
   subdivision to the other realization, and the induction over the overlay's finitely many new

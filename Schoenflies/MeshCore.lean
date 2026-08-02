@@ -240,3 +240,223 @@ theorem isTwoConnected_descend (hG' : G'.IsTwoConnected) (hxy : x ≠ y)
 end IsSubdivisionOf
 
 end Graph
+
+namespace Schoenflies
+
+variable {pieces : List Piece} {points : List Plane} {p : Plane}
+
+/-! ### One extra cut point, at the end of the list
+
+`subdivide` recurses on the head of the point list, so appending a point *cuts last*: the
+result is one `splitAllAt` applied to the finished subdivision. At the level of the overlay
+graph that one cut is either nothing at all — the point was interior to no edge — or exactly
+one single-vertex subdivision, because distinct overlay edges have disjoint interiors
+(`Schoenflies.overlayPieces_disjoint_interiors`). -/
+
+/-- Subdividing at an appended point list is subdividing twice.
+(General-purpose; a candidate for hoisting into `Schoenflies/Subdivide.lean` beside
+`Schoenflies.subdivide_append`.) -/
+theorem subdivide_points_append :
+    ∀ (ps : List Plane) (pieces : List Piece) (qs : List Plane),
+      subdivide pieces (ps ++ qs) = subdivide (subdivide pieces ps) qs := by
+  intro ps
+  induction ps with
+  | nil => intro pieces qs; rfl
+  | cons r rs ih =>
+    intro pieces qs
+    rw [List.cons_append, subdivide_cons, subdivide_cons, ih]
+
+/-- Appending one cut point cuts the finished subdivision once. -/
+theorem subdivide_snoc (pieces : List Piece) (points : List Plane) (p : Plane) :
+    subdivide pieces (points ++ [p]) = splitAllAt p (subdivide pieces points) := by
+  rw [subdivide_points_append, subdivide_cons, subdivide_nil]
+
+/-- A cut point interior to no edge changes the overlay not at all — on the nose. -/
+theorem overlayGraph_snoc_of_no_interior
+    (hnone : ∀ Q ∈ subdivide pieces points, p ∉ Q.interior) :
+    overlayGraph pieces (points ++ [p]) = overlayGraph pieces points := by
+  have hlist : overlayPieces pieces (points ++ [p]) = overlayPieces pieces points := by
+    unfold overlayPieces
+    rw [subdivide_snoc, splitAllAt_eq_self hnone]
+  exact Graph.ext (by rw [overlayGraph_vertexSet, overlayGraph_vertexSet, hlist])
+    fun f a b => by rw [overlayGraph_isLink, overlayGraph_isLink, hlist]
+
+/-- **A cut point interior to some edge subdivides the overlay at exactly that edge.** The
+uniqueness is `Schoenflies.overlayPieces_disjoint_interiors`; the two halves, oriented, are
+the two new edges, and neither can be an old edge because each has the new point — which is
+not a cut point — as an end. -/
+theorem overlayGraph_snoc_isSubdivisionOf (hnd : ∀ P ∈ pieces, P.Nondeg)
+    (hEnds : EndsAreCut pieces points) (hMeets : MeetsAreCut pieces points)
+    {Q₀ : Piece} (hQ₀ : Q₀ ∈ subdivide pieces points) (hp : p ∈ Q₀.interior) :
+    ∃ e f₁ f₂ : Piece, e.Nondeg ∧
+      Graph.IsSubdivisionOf (overlayGraph pieces (points ++ [p]))
+        (overlayGraph pieces points) e e.1 e.2 p f₁ f₂ := by
+  classical
+  set e := orientPiece Q₀ with hedef
+  set f₁ := orientPiece (e.1, p) with hf₁def
+  set f₂ := orientPiece (p, e.2) with hf₂def
+  have hpe : p ∈ e.interior := by rw [hedef, orientPiece_interior]; exact hp
+  have heE : e ∈ overlayPieces pieces points := mem_overlayPieces.2 ⟨Q₀, hQ₀, rfl⟩
+  have hend : e.Nondeg := overlayPieces_nondeg points hnd e heE
+  have hppts : p ∉ points := fun hpp => subdivide_avoids points hnd p hpp Q₀ hQ₀ hp
+  have hp1 : p ≠ e.1 := fun hh => hend (left_mem_openSegment_iff.1 (hh ▸ hpe))
+  have hp2 : p ≠ e.2 := fun hh => hend (right_mem_openSegment_iff.1 (hh ▸ hpe))
+  -- which points the two halves have as ends
+  have hf₁ends : f₁ = (e.1, p) ∨ f₁ = (p, e.1) := by
+    rw [hf₁def]
+    by_cases hh : Precedes e.1 p
+    · exact Or.inl (orientPiece_of_precedes hh)
+    · exact Or.inr (orientPiece_of_not_precedes hh)
+  have hf₂ends : f₂ = (p, e.2) ∨ f₂ = (e.2, p) := by
+    rw [hf₂def]
+    by_cases hh : Precedes p e.2
+    · exact Or.inl (orientPiece_of_precedes hh)
+    · exact Or.inr (orientPiece_of_not_precedes hh)
+  have hf₁p : p = f₁.1 ∨ p = f₁.2 := by
+    rcases hf₁ends with h | h <;> rw [h]
+    exacts [Or.inr rfl, Or.inl rfl]
+  have hf₂p : p = f₂.1 ∨ p = f₂.2 := by
+    rcases hf₂ends with h | h <;> rw [h]
+    exacts [Or.inl rfl, Or.inr rfl]
+  -- the edge through `p` is unique, and its two readings as a raw piece
+  have hEcut : ∀ f ∈ overlayPieces pieces points, ∀ z, (z = f.1 ∨ z = f.2) → z ∈ points :=
+    overlayPieces_ends_cut hEnds
+  have huniq : ∀ f ∈ overlayPieces pieces points, p ∈ f.interior → f = e := by
+    intro f hf hpf
+    by_contra hne
+    exact overlayPieces_disjoint_interiors hnd hEnds hMeets hf heE hne hpf hpe
+  have hcasesR : ∀ R ∈ subdivide pieces points, p ∈ R.interior → R = e ∨ R = (e.2, e.1) := by
+    intro R hR hpR
+    have hoRe : orientPiece R = e := huniq _ (mem_overlayPieces.2 ⟨R, hR, rfl⟩)
+      (by rw [orientPiece_interior]; exact hpR)
+    by_cases hprec : Precedes R.1 R.2
+    · exact Or.inl (by rw [← hoRe, orientPiece_of_precedes hprec])
+    · have h2 : (R.2, R.1) = e := by rw [← hoRe, orientPiece_of_not_precedes hprec]
+      have h3 := Prod.ext_iff.1 h2
+      exact Or.inr (Prod.ext h3.2 h3.1)
+  -- the two halves are fresh names, distinct from each other and from everything old
+  have hf₁new : f₁ ∉ overlayPieces pieces points := fun hf₁E => hppts (hEcut f₁ hf₁E p hf₁p)
+  have hf₂new : f₂ ∉ overlayPieces pieces points := fun hf₂E => hppts (hEcut f₂ hf₂E p hf₂p)
+  have hf₁₂ : f₁ ≠ f₂ := by
+    rcases hf₁ends with h1 | h1 <;> rcases hf₂ends with h2 | h2 <;> rw [h1, h2] <;>
+      intro hh <;> rw [Prod.ext_iff] at hh
+    · exact hp1 hh.1.symm
+    · exact hend hh.1
+    · exact hend hh.2
+    · exact hp2 hh.1
+  -- membership in the refined overlay
+  have hmemQ : ∀ f : Piece, f ∈ overlayPieces pieces (points ++ [p]) ↔
+      (f ∈ overlayPieces pieces points ∧ p ∉ f.interior) ∨ f = f₁ ∨ f = f₂ := by
+    intro f
+    rw [mem_overlayPieces, subdivide_snoc]
+    constructor
+    · rintro ⟨Rh, hRh, rfl⟩
+      obtain ⟨R, hR, hRhR⟩ := List.mem_flatMap.1 hRh
+      by_cases hpR : p ∈ R.interior
+      · rw [splitAt, if_pos hpR] at hRhR
+        rcases hcasesR R hR hpR with rfl | hRswap
+        · -- the split piece reads as `e` itself
+          rcases List.mem_cons.1 hRhR with rfl | hRh2
+          · exact Or.inr (Or.inl rfl)
+          · rcases List.mem_singleton.1 hRh2 with rfl
+            exact Or.inr (Or.inr rfl)
+        · -- the split piece reads as `e` reversed; its halves orient to the same two names
+          subst hRswap
+          rcases List.mem_cons.1 hRhR with rfl | hRh2
+          · exact Or.inr (Or.inr (orientPiece_swap (p, e.2)))
+          · rcases List.mem_singleton.1 hRh2 with rfl
+            exact Or.inr (Or.inl (orientPiece_swap (e.1, p)))
+      · rw [splitAt, if_neg hpR] at hRhR
+        rw [List.mem_singleton.1 hRhR]
+        refine Or.inl ⟨mem_overlayPieces.2 ⟨R, hR, rfl⟩, ?_⟩
+        rw [orientPiece_interior]
+        exact hpR
+    · have hQhalves : ∀ Rh ∈ splitAt p Q₀, ∃ S ∈ splitAllAt p (subdivide pieces points),
+          orientPiece S = orientPiece Rh :=
+        fun Rh hRh => ⟨Rh, List.mem_flatMap.2 ⟨Q₀, hQ₀, hRh⟩, rfl⟩
+      have hQsplit : splitAt p Q₀ = [(Q₀.1, p), (p, Q₀.2)] := by rw [splitAt, if_pos hp]
+      rintro (⟨hfE, hpf⟩ | rfl | rfl)
+      · obtain ⟨R, hR, rfl⟩ := mem_overlayPieces.1 hfE
+        have hpR : p ∉ R.interior := by rw [← orientPiece_interior R]; exact hpf
+        exact ⟨R, List.mem_flatMap.2 ⟨R, hR,
+          by rw [splitAt, if_neg hpR]; exact List.mem_singleton_self _⟩, rfl⟩
+      · -- `f₁` arises from the split of `Q₀`, whichever way `Q₀` reads `e`
+        rcases hcasesR Q₀ hQ₀ hp with hQe | hQe
+        · obtain ⟨S, hS, hSo⟩ := hQhalves (Q₀.1, p) (by rw [hQsplit]; exact List.mem_cons_self ..)
+          exact ⟨S, hS, by rw [hSo, hQe]⟩
+        · obtain ⟨S, hS, hSo⟩ := hQhalves (p, Q₀.2)
+            (by rw [hQsplit]; exact List.mem_cons_of_mem _ (List.mem_singleton_self _))
+          refine ⟨S, hS, ?_⟩
+          rw [hSo, hQe]
+          exact orientPiece_swap (e.1, p)
+      · rcases hcasesR Q₀ hQ₀ hp with hQe | hQe
+        · obtain ⟨S, hS, hSo⟩ := hQhalves (p, Q₀.2)
+            (by rw [hQsplit]; exact List.mem_cons_of_mem _ (List.mem_singleton_self _))
+          exact ⟨S, hS, by rw [hSo, hQe]⟩
+        · obtain ⟨S, hS, hSo⟩ := hQhalves (Q₀.1, p) (by rw [hQsplit]; exact List.mem_cons_self ..)
+          refine ⟨S, hS, ?_⟩
+          rw [hSo, hQe]
+          exact orientPiece_swap (p, e.2)
+  -- the structure
+  refine ⟨e, f₁, f₂, hend, ?_⟩
+  refine ⟨⟨heE, Or.inl ⟨rfl, rfl⟩⟩, ?_, ?_, ?_, hf₁₂, ?_, ?_⟩
+  · -- the new vertex is new
+    rintro ⟨g, hg, hpg⟩
+    exact hppts (hEcut g hg p hpg)
+  · -- the first new edge is new
+    exact fun hf₁E => hf₁new hf₁E
+  · exact fun hf₂E => hf₂new hf₂E
+  · -- the vertex set gains exactly `p`
+    ext w
+    simp only [overlayGraph_vertexSet, endSet, mem_setOf_eq, mem_insert_iff]
+    constructor
+    · rintro ⟨g, hg, hw⟩
+      rcases (hmemQ g).1 hg with ⟨hgE, -⟩ | rfl | rfl
+      · exact Or.inr ⟨g, hgE, hw⟩
+      · rcases hf₁ends with h | h <;> rw [h] at hw <;> rcases hw with rfl | rfl
+        exacts [Or.inr ⟨e, heE, Or.inl rfl⟩, Or.inl rfl, Or.inl rfl,
+          Or.inr ⟨e, heE, Or.inl rfl⟩]
+      · rcases hf₂ends with h | h <;> rw [h] at hw <;> rcases hw with rfl | rfl
+        exacts [Or.inl rfl, Or.inr ⟨e, heE, Or.inr rfl⟩, Or.inr ⟨e, heE, Or.inr rfl⟩,
+          Or.inl rfl]
+    · rintro (rfl | ⟨g, hg, hw⟩)
+      · refine ⟨f₁, (hmemQ f₁).2 (Or.inr (Or.inl rfl)), hf₁p⟩
+      · by_cases hpg : p ∈ g.interior
+        · obtain rfl := huniq g hg hpg
+          rcases hw with rfl | rfl
+          · refine ⟨f₁, (hmemQ f₁).2 (Or.inr (Or.inl rfl)), ?_⟩
+            rcases hf₁ends with h | h <;> rw [h]
+            exacts [Or.inl rfl, Or.inr rfl]
+          · refine ⟨f₂, (hmemQ f₂).2 (Or.inr (Or.inr rfl)), ?_⟩
+            rcases hf₂ends with h | h <;> rw [h]
+            exacts [Or.inr rfl, Or.inl rfl]
+        · exact ⟨g, (hmemQ g).2 (Or.inl ⟨hg, hpg⟩), hw⟩
+  · -- the links: everything old except `e`, plus the two halves
+    intro g a b
+    constructor
+    · rintro ⟨hg, hab⟩
+      rcases (hmemQ g).1 hg with ⟨hgE, hpg⟩ | rfl | rfl
+      · refine Or.inl ⟨⟨hgE, hab⟩, ?_, ?_, ?_⟩
+        · rintro rfl; exact hpg hpe
+        · rintro rfl; exact hf₁new hgE
+        · rintro rfl; exact hf₂new hgE
+      · refine Or.inr (Or.inl ⟨rfl, ?_⟩)
+        rcases hf₁ends with h | h <;> rw [h] at hab <;>
+          rcases hab with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
+        exacts [rfl, Sym2.eq_swap, Sym2.eq_swap, rfl]
+      · refine Or.inr (Or.inr ⟨rfl, ?_⟩)
+        rcases hf₂ends with h | h <;> rw [h] at hab <;>
+          rcases hab with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
+        exacts [rfl, Sym2.eq_swap, Sym2.eq_swap, rfl]
+    · rintro (⟨⟨hgE, hab⟩, hge, -, -⟩ | ⟨rfl, hs⟩ | ⟨rfl, hs⟩)
+      · exact ⟨(hmemQ g).2 (Or.inl ⟨hgE, fun hpg => hge (huniq g hgE hpg)⟩), hab⟩
+      · refine ⟨(hmemQ f₁).2 (Or.inr (Or.inl rfl)), ?_⟩
+        rcases Sym2.eq_iff.1 hs with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ <;>
+          rcases hf₁ends with h | h <;> rw [h]
+        exacts [Or.inl ⟨rfl, rfl⟩, Or.inr ⟨rfl, rfl⟩, Or.inr ⟨rfl, rfl⟩, Or.inl ⟨rfl, rfl⟩]
+      · refine ⟨(hmemQ f₂).2 (Or.inr (Or.inr rfl)), ?_⟩
+        rcases Sym2.eq_iff.1 hs with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩ <;>
+          rcases hf₂ends with h | h <;> rw [h]
+        exacts [Or.inl ⟨rfl, rfl⟩, Or.inr ⟨rfl, rfl⟩, Or.inr ⟨rfl, rfl⟩, Or.inl ⟨rfl, rfl⟩]
+
+end Schoenflies

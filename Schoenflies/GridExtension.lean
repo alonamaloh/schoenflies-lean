@@ -36,11 +36,43 @@ The old nonboundary skeleton enters through the piece list — so grid×skeleton
 vertices by the overlay convention — and **not** as subgraph edges of `Γ`; only the outer edges
 of `Γ` survive as `γ`-named edges of `H`.
 
+## What is a hypothesis here, and why
+
+One statement, `Schoenflies.HasGridUnionTwoConnected`: at each stage, auxiliary segments
+`xsegs` inside the open Jordan domain and extra cut points `xtra` exist making the assembled
+union 2-connected, for any representative list on the cover and any joining family as
+`Schoenflies.IsJoinFamily` describes. The existential over `xsegs` is not slack: the two
+degenerate cases of `prop:local-grid-attachment` need a crosscut attaching the grid to the
+skeleton twice, and without it a single joining arc would hang the grid on a cut vertex — the
+quantifier order (`∃ xsegs`, then `∀ reps Jarc`) matches the order in which the construction
+chooses them, since the representatives depend on the cover that `xsegs` is part of. Its
+discharger's ingredient list is on the docstring of the definition. Everything else — the
+piece list, the joining arcs, the window placement, `MeetsFinitely`, the union's drawing, the
+subdivision clause, the dichotomy, the component loop, and the renaming into `γ` — is proved,
+and `Schoenflies.hasGridExtensions_of` composes the reduction with
+`Schoenflies.hasGridSteps`.
+
 ## Blueprint
 
 * `Graph.IsDrawing.of_le`, `Graph.sumUnion`, `Graph.sumDraw`, `Graph.IsDrawing.sumUnion` — not
   numbered statements; the union of two plane graphs over distinct edge-name types, which is
   how the wild outer part and the polygonal part coexist in one graph.
+* `Schoenflies.arcChain`, `Schoenflies.nonboundaryEdgeList`, `Schoenflies.skeletonSegs` and
+  its cover/placement lemmas — the polygonal nonboundary skeleton of `def:admissible-graph`
+  as a piece list; `Schoenflies.meetsFinitely_skeletonSegs` is the finiteness the joining
+  loop of `prop:local-grid-attachment` spends.
+* `Schoenflies.gridJoin`, `Schoenflies.gridJoin_props`, `Schoenflies.IsJoinFamily` — the
+  joining arcs of the component loop, from `lem:polygonal-connectedness`
+  (`Schoenflies.exists_simple_poly_of_isPreconnected`).
+* `Schoenflies.gridExtGraph`, `Schoenflies.gridExtDraw`,
+  `Schoenflies.gridExtGraph_isDrawing`, `Schoenflies.isSourceExtensionOver_gridExtGraph` —
+  `prop:local-grid-attachment` assembled at a stage: the extension and the hypotheses of
+  `thm:finite-transfer`(a) for it, with `rem:polygonal-overlay-convention` supplying the
+  vertex at every meeting point through `Schoenflies.mem_vertexSet_attachGraph_of_mem_extra`.
+* `Schoenflies.HasGridUnionTwoConnected` — the named hypothesis:
+  `lem:subdivision-ear-preserve` + `lem:union-two-connected` at the stage.
+* `Schoenflies.hasGridExtensions_of` — the discharge of `Schoenflies.HasGridExtensions`
+  from it.
 -/
 
 open Metric Set Schoenflies
@@ -1050,6 +1082,21 @@ theorem hasGridExtensions_of [Infinite γ] {C : Set Plane} (hsep : IsSeparating 
     (Graph.sumDraw P.src.drawing segmentDrawing)
   rw [Graph.pointSet_sumUnion]
   exact Or.inr (localGrid_subset_gridAttachGraph hz)
+
+/-! ### The interface, exercised
+
+Over the concrete base, the reduction composes with `Schoenflies.hasGridSteps`: with the
+mesh-transfer chooser, the single remaining source-side obligation of Phase 3 is the named
+hypothesis of this module. -/
+
+example {C : Set Plane} (hC : IsJordanCurve C)
+    (h2c : HasGridUnionTwoConnected initialStructure C)
+    (hm : HasMeshTransfers initialStructure C) :
+    Nonempty (StageSequence InitialCell initialStructure C) :=
+  ⟨stageSequence_of_isJordanCurve hC
+    (hasGridSteps combInvariants_initialStructure (jordan_curve_theorem hC)
+      (hasGridExtensions_of (jordan_curve_theorem hC) h2c))
+    (hasMeshSteps hm)⟩
 
 end Assemble
 

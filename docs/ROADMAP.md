@@ -36,10 +36,14 @@ Schoenflies.CellStructure.LimitTower.isHomeoOn_F      ← the fields of LimitTow
 | `Schoenflies.SquareExtension` | `Endgame.lean` | `thm:main` | discharged by `square_extension` below, so not really open |
 | `Schoenflies.HasLimitHomeomorphism` | `BoundaryContinuity2.lean` | `thm:square-extension` | four conjuncts: a dense anchor set, the interior homeomorphism, `HasAnchorCrosscuts`, `HasSpokes`. **`LimitTower` supplies the second; the other three need the construction.** |
 | the fields of `CellStructure.LimitTower` | `LimitMap.lean` | the interior homeomorphism | ~14 fields, each an obligation on whoever builds the nested sequence: the cell decompositions, the shared parent maps, the two halves of `prop:shrinking-stars`, and the nesting of the skeleton maps. See the module docstring |
-| `Schoenflies.EarStepTgt` | `FiniteTransferBack.lean` | `thm:finite-transfer`(b) | step 3 of direction (b), one ear insertion. Both of its geometric halves are now proved — `Schoenflies.exists_earCrosscut` places the given target ear and `GeneratedPair.exists_source_ear` (`SourceEar.lean`) produces the source crosscut, on the two accessibility results and on `hunique`, which `AnchorFace.lean` closed. What is left is the assembly, one further clause of the transfer invariant (`T.homeo` agrees with `P.homeo` on the base skeleton), and the three hypotheses of (b) on `H`; see below |
 | `Schoenflies.CellsAbsorb` | `SkeletonAccess.lean`, `FreshAccess.lean` | `lem:polygonal-side-accessibility` | one clause of `lem:cellulation-invariants`. **Discharged at a stage** by `Realization.cellsAbsorb` (`StageCells.lean`) — assertions (i) and (vii) make the 2-cells a partition of the open domain minus the skeleton into open connected pieces, which is the decomposition into components. It remains a hypothesis only where the realization is *not* a stage of a `GeneratedPair` |
 
-**`thm:finite-transfer`(a) is no longer on this list.** Both of its named hypotheses are
+**Neither direction of `thm:finite-transfer` is on this list any more.** (b)'s ear step is
+`Schoenflies.earStepTgt` (`EarStepTgt.lean`) and `Schoenflies.finite_transfer_back'` is (b)
+assuming nothing beyond its own statement — `IsSourceExtension` on `H`, `HasFreshAnchors` for its
+new boundary points, and the two ambient-domain facts. See "How (b) went" below.
+
+**`thm:finite-transfer`(a) is no longer on this list either.** Both of its named hypotheses are
 discharged — step 3 by `Schoenflies.earStep` (`EarStep.lean`) and step 1 by
 `Schoenflies.commonSubdivision` (`CommonSubdiv.lean`) — and
 `Schoenflies.finite_transfer_toward_square'` is the theorem with neither assumed. What it still
@@ -373,9 +377,12 @@ induction needed a twin, because `GeneratedPair.subdivideEdge` cuts the *source*
 given parameter and the target edge at the one the skeleton homeomorphism sends it to;
 `exists_subdivide_finite_tgt` drives it from a prescribed target point instead, and needs no
 inverse parameter — `SkeletonHomeo.image_cell` supplies the corresponding source point and
-`SubdivData.drawing_targetParam` says the target cut lands on the nose. What is left of (b) is
-the ear step, `Schoenflies.EarStepTgt`; `Schoenflies.finite_transfer_back` is (b) with only
-that assumed. Its two halves are of very different sizes. An endpoint off `C` is accessible from
+`SubdivData.drawing_targetParam` says the target cut lands on the nose. **(b) is now
+unconditional too**: `Schoenflies.finite_transfer_back'` (`EarStepTgt.lean`) assumes nothing
+beyond its own statement. What follows is the record of what its ear step took, because two of
+its pieces were not where they looked.
+
+The ear step's two halves are of very different sizes. An endpoint off `C` is accessible from
 the corresponding source face — that is
 `CellStructure.Realization.polyAccessible_of_notMem_outer` (`SourceAccess.lean`), **done**. It
 is not `polygonal_side_accessibility_target`, which asks every edge polygonal and which a source
@@ -409,7 +416,7 @@ so the source 2-cell above `z` and the target 2-cell above `z` are the same name
 
 **The invariant is now carried, and that was the other half.** `EarStepTgt` quantifies over
 every intermediate stage, so — the failure mode this file has recorded three times — nothing
-outside the bundle could supply it. `IsPartialTransferOfTgt` has a fifth clause,
+outside the bundle could supply it. `IsPartialTransferOfTgt` has the clause
 `anchor_uniqueFaceAt`: a 0-cell whose ancestor in the base pair is an outer edge, *and at which
 the current subgraph still has no nonboundary edge*, is incident with at most one 2-cell. Both
 conditions are load-bearing. Without the first the clause would be a statement about old 0-cells
@@ -426,71 +433,54 @@ of subdivisions — and `commonSubdivisionTgt` spends it against (vi) at the bas
 else in the chain changed shape: `transfer_of_ears_tgt` and `finite_transfer_back` recompile
 untouched.
 
-#### What is left of `EarStepTgt`
+#### How the ear step went
 
-**Its two geometric halves are both done.** What is left is the assembly, one more clause of the
-transfer invariant, and the hypotheses of (b) on `H`.
+**Both geometric halves are shared with direction (a), and that was the surprise.** Three
+theorems that looked like they would need target-side twins did not:
 
-* **Placing the given ear on the target side — done.** `Schoenflies.exists_earCrosscut`
-  (`EarSource.lean`) is the old `exists_source_earCrosscut` with the five clauses that named
-  `T.src` — a realization's cell decomposition, its outer set, what it occupies, which of its
-  0-cells are drawn, and the absorption family — taken as arguments. Nothing in the placement
-  argument knows which side it is on, and `IsSourceExtension` was already direction-agnostic, so
-  `earStep` and its (b) twin call one theorem.
-* **The source crosscut — done.** `SourceEar.lean`. `lem:accessible-endpoints` is shared:
-  `exists_crosscut_of_accessible_ends` and `exists_crosscut_split_of_accessible_ends` take the
-  accessibility of the two endpoints as hypotheses, and `exists_target_crosscut` / `_split` are
-  those with `lem:polygonal-side-accessibility` supplied. The source side's two cases are
-  `GeneratedPair.polyAccessible_src_of_notMem_outer` and
-  `…polyAccessible_src_of_stronglyAccessible`, the second with all three of its inputs supplied
-  from the stage — absorption, covering, and `hunique` from `unique_cell_of_uniqueFaceAt`.
-  `GeneratedPair.exists_source_ear` reads the rest off assertion (vii) and produces the crosscut.
-* **What the assembly still needs.** `exists_target_earCrosscut` draws the source ear along the
-  crosscut (it is stated for two arbitrary realizations, so it serves both directions) and
-  `EarHomeo.symm` turns the matching round, since it comes out target-to-source and
-  `GeneratedPair.splitFace` wants source-to-target. Then `splitFace` produces the stage and four
-  of the five clauses of `IsPartialTransferOfTgt` are read off it exactly as in `earStep`. The
-  fifth, `anchor_uniqueFaceAt`, is `SplitData.uniqueFaceAt` together with
-  `.notMem_earCells_of_mem_vertexSet`; the input it needs — an ear edge is never an outer edge,
-  so an ear ending at a 0-cell destroys that 0-cell's "untouched" hypothesis — is
-  `Graph.notSubset_of_mem_ear`.
+* `Schoenflies.exists_earCrosscut` (`EarSource.lean`) places an ear from **either** realization.
+  The five clauses that named `T.src` are a realization's cell decomposition, its outer set, what
+  it occupies, which of its 0-cells are drawn, and the absorption family; nothing in the
+  placement argument knows which side it is on, and `IsSourceExtension` was already
+  direction-agnostic. `GeneratedPair.exists_face_and_boundary_paths` was generalized the same way
+  — only assertion (i) and the two endpoint positions were ever about one realization, since the
+  boundary cut is about the abstract structure both realize.
+* `lem:accessible-endpoints` is shared: `Schoenflies.exists_crosscut_of_accessible_ends` takes
+  the accessibility of the two endpoints as hypotheses, and `exists_target_crosscut` / `_split`
+  are now that with `lem:polygonal-side-accessibility` supplied — which is available on the
+  target side only, because it wants every edge polygonal.
+* `Schoenflies.exists_target_earCrosscut` was already stated for two arbitrary realizations. What
+  it needed was `CellStructure.SplitData.EarHomeo.symm`: it matches the ear one is *given* to the
+  ear one *builds*, the two directions are given theirs on opposite sides, and
+  `GeneratedPair.splitFace` always wants the matching from source to target.
 
-**The one invariant still missing, and the two things that turned out not to be.**
+So the genuinely new work was the source crosscut (`SourceEar.lean`) — the two-case split that
+direction (a) never meets, `polyAccessible_of_notMem_outer` off `C` and the anchor paragraph on
+it — and the assembly.
 
-The accessibility hypothesis at a fresh anchor is about the *base* pair's correspondence: `a ∈ 𝒜`
-is a property of the source point that `P.homeo` matches with the fresh target point `u(a)`.
-Spending it at an intermediate stage needs `T.tgt.pos z = P.homeo.toFun (T.src.pos z)`, and that
-needs a clause the bundle does not have: **`T.homeo` agrees with `P.homeo` on `P.src.skeletonSet`**.
-It is true and both constructors preserve it — `SplitData.splitHomeo_eqOn` is the split half and
-the subdivision half is its mirror — so it is a fifth clause of `IsPartialTransferOfTgt` of the
-same kind as the fourth, discharged at the base by the subdivision iteration. Add it before
-writing the assembly, not after; that is the lesson this file has recorded four times.
+**Two obligations that looked like new invariants were not.**
 
-Two obligations that looked like they would need the same treatment do not:
+* The geometric twin of `anchor_uniqueFaceAt` — the blueprint's "`K` … does not contain `a`" —
+  follows from the untouched condition already in the bundle. Take `K` on the target side as
+  `closure (|B| ∖ S)`; `Graph.closure_pointSet_diff_subset` says what a finite plane graph leaves
+  outside a set is contained in the vertices outside it together with the arcs of the edges not
+  inside it, which is closed, so a closure point on `S` lies on a nonboundary edge of `B` through
+  the anchor — exactly what the untouched condition forbids. `T.homeo` then transports it to the
+  source, where `polyAccessible_of_stronglyAccessible` wants it.
+* "The ancestor of the anchor is an outer edge" is derived, not assumed:
+  `Realization.Refines.cell_subset` puts the anchor in the open cell of its ancestor, a 0-cell
+  ancestor would make it a drawn 0-cell of the base pair and a 2-cell ancestor would put it off
+  the skeleton, and `Realization.mem_edgeSet_outerGraph_of_cell_meets_outerSet` makes the
+  surviving 1-cell an outer one.
 
-* **The geometric twin of `anchor_uniqueFaceAt` is not a new invariant.** The instantiation of
-  `polyAccessible_of_stronglyAccessible` needs `K` compact with `a ∉ K` and
-  `(srcDom ∖ srcOuter) ∩ T.src.skeletonSet ⊆ K`; take `K := closure (T.src.skeletonSet ∖ srcOuter)`,
-  compact as a closed subset of the compact skeleton. Then `a ∉ K` **follows from the untouched
-  condition already in the bundle**: `pointSet B Hdraw ∖ tgtOuter` is contained in the finite
-  union of the vertices off the outer curve and the arcs of the edges that are not inside it,
-  which is closed, so a point of the closure lying on the outer curve lies on such an arc — and
-  that is a nonboundary edge of `B` through the anchor, which is what the untouched condition
-  forbids. Only the transport across `T.homeo` is left, and the clause above supplies it.
-* **The ancestor being an outer edge is not a hypothesis either.** `refines_tgt.cell_subset` puts
-  `T.tgt.pos z` in the open cell of `par z`; a 0-cell parent would make it a drawn 0-cell of the
-  base pair and a 2-cell parent would put it off the skeleton, so `par z` is a 1-cell, and
-  `Realization.mem_edgeSet_outerGraph_of_cell_meets_outerSet` (`StageCells.lean`) makes it an
-  *outer* 1-cell. So the `H`-level hypothesis to carry is only the blueprint's own: a fresh
-  boundary point is not a 0-cell of `Γ'`.
-
-**The hypotheses of (b) on `H`**, then, are three, all about `H` and the base pair alone: at most
-one nonboundary edge of `H` is incident with each point of `S`; such a point is not a 0-cell of
-`Γ'`; and its `P.homeo`-partner is strongly accessible in the open source region. The first two
-are the second sentence of `thm:finite-transfer`(b) and the third is `a ∈ 𝒜`. The "untouched"
-antecedent of `anchor_uniqueFaceAt` follows from the first together with the ear step's own
-`∀ e ∈ D, e ∉ E(B)`: the ear's first edge is a nonboundary edge of `H` at the anchor, so any
-other one is it, and it is not an edge of `B`.
+**One was.** `IsPartialTransferOfTgt.homeo_eqOn` — the stage's skeleton map agrees with the base
+pair's on the base skeleton — is nowhere derivable from the other clauses, because
+`Realization.Refines` says nothing about the two homeomorphisms. Without it the fresh-anchor
+accessibility hypothesis, which is about the *base* pair's correspondence, cannot be spent at an
+intermediate stage. A subdivision does not change the map at all, so the base case is the
+identity; `SplitData.splitHomeo_eqOn` restricted along `Realization.Refines.skeletonSet_subset`
+is the step. It was found by writing down what the assembly would pass **before** writing the
+assembly, which is the cheap defence this file has recommended four times.
 
 **Phase 3 — the stage recursion.** Where `GridAttach.lean`, `SquareMeshClosed.lean` and
 `Windows.lean` are spent, giving `lem:grid-star-estimate` and `prop:shrinking-stars`. This is
@@ -602,8 +592,9 @@ Nothing was wrong with the *proof*: `accessCone_subset_cell` uses `Disjoint (con
 absorption and `x ∉ K` for the covering, and both are true of the whole skeleton, while the
 shrinking is true of the smaller compact set the blueprint calls `K`. Conflating them is what
 made the statement vacuous. The repair is two sets with `D ∩ K' ⊆ K`, three lines, and is done;
-see the bullet in "What is left of `EarStepTgt`" above for the instantiation and for the second
-induction obligation it brings with it.
+see "How the ear step went" above for the instantiation, and note that the second induction
+obligation it looked like it would bring turned out to follow from the anchor clause already
+present.
 
 It is the fourth instance of the same shape and the first where the defect is *unsatisfiability*
 rather than a missing invariant, so the standing rule that caught it is a different one: a
@@ -704,7 +695,7 @@ path is now the two **realization constructors** they are stated against, and th
 | `lem:refinement-compatibility`, `lem:star-intersection`, `lem:star-face-mesh`, `lem:cell-neighborhood` | done | `RefinementStars.lean`. The carrier is a total function and refinement is abstract, which is what lets the limit section be built against an interface |
 | `lem:polygonal-side-accessibility` | conditional (`Schoenflies.CellsAbsorb`) | `SkeletonAccess.lean` — both halves, on one clause of `lem:cellulation-invariants` |
 | `thm:finite-transfer` (a) | **done** | `FiniteTransfer.lean` for steps 2 and 4, the induction scheme and the last paragraph; **step 3** is `Schoenflies.earStep` (`EarStep.lean`, on `EarDraw.lean` / `EarSource.lean` / `EarTarget.lean` / `SplitStage.lean` / `StageCells.lean`); **step 1** is `Schoenflies.commonSubdivision` (`CommonSubdiv.lean`, on `SubdivStage.lean` / `SubdivPoints.lean` / `Graph/PlaneEdges.lean` / `Graph/AdjCongr.lean`). `Schoenflies.finite_transfer_toward_square'` is the headline, assuming nothing but the four ambient-domain facts |
-| `thm:finite-transfer` (b) | conditional (`EarStepTgt`) | `Schoenflies.finite_transfer_back` (`FiniteTransferBack.lean`) is the theorem with only the ear step assumed. **Step 1 is done** — `Schoenflies.commonSubdivisionTgt` (`CommonSubdivTgt.lean`), on `GeneratedPair.exists_subdivide_finite_tgt`; steps 2 and 4 and the final admissibility are `transfer_of_ears_tgt` and `finite_transfer_back`. **The combinatorial paragraph of step 3 is done** — `AnchorFace.lean` (`CellStructure.UniqueFaceAt` and the two elementary operations), carried through the induction as the `anchor_uniqueFaceAt` clause of `IsPartialTransferOfTgt` and discharged at the base by `commonSubdivisionTgt`; **and so are both geometric halves of step 3** — `Schoenflies.exists_earCrosscut` (`EarSource.lean`) places the given target ear, and `GeneratedPair.exists_source_ear` (`SourceEar.lean`) produces the source crosscut. What is left of `Schoenflies.EarStepTgt` is the assembly, one further clause of the transfer invariant, and the hypotheses of (b) on `H` — see the live-obligations table |
+| `thm:finite-transfer` (b) | **done** | `Schoenflies.finite_transfer_back` (`FiniteTransferBack.lean`) is the theorem with only the ear step assumed. **Step 1 is done** — `Schoenflies.commonSubdivisionTgt` (`CommonSubdivTgt.lean`), on `GeneratedPair.exists_subdivide_finite_tgt`; steps 2 and 4 and the final admissibility are `transfer_of_ears_tgt` and `finite_transfer_back`. **The combinatorial paragraph of step 3 is done** — `AnchorFace.lean` (`CellStructure.UniqueFaceAt` and the two elementary operations), carried through the induction as the `anchor_uniqueFaceAt` clause of `IsPartialTransferOfTgt` and discharged at the base by `commonSubdivisionTgt`; **and so are both geometric halves of step 3** — `Schoenflies.exists_earCrosscut` (`EarSource.lean`) places the given target ear, and `GeneratedPair.exists_source_ear` (`SourceEar.lean`) produces the source crosscut. **And step 3 is closed**: `Schoenflies.earStepTgt` (`EarStepTgt.lean`, on `SourceEar.lean`), whose `HasFreshAnchors` is the statement's own second sentence. `Schoenflies.finite_transfer_back'` is the headline, assuming nothing but that and the four ambient-domain facts |
 | `prop:local-grid-attachment` | conditional (`hΓ`, `hcov`) | `LocalGrid.lean` (`localGrid`, the diameter clause) + `GridAttach.lean` (the overlay, the crosscut factory, the component-joining loop, and the construction as `def`s). The blueprint's three cases collapse to one; the joining loop is done by representatives rather than by a decreasing component count. `hΓ` is 2-connectivity of `Γ` with the auxiliary arcs appended — not provable there, because `C` is not drawn by segments so `Γ` is not a `pieceListGraph`; `hcov` is "finitely many representatives meet every component of `|L| ∖ C`", where the blueprint's finiteness lives |
 | `lem:grid-star-estimate`, `prop:shrinking-stars`, `lem:anchor-density` | open | quantitative refinement; they consume the stage recursion, which does not exist yet. The metric half is ready: `Windows.lean` has `supRadius` (the ℓ^∞ distance to a compact set, with attainment, positivity and the 1-Lipschitz property), `windowRadius` / `window` / `openWindow` with the blueprint's three inequalities and `W_n(p) ⊆ D`, the arithmetic of `prop:shrinking-stars` (`mem_openWindow_of_supDist_lt`), and the two sequences (`recur`, `tendsto_two_pow_neg`) |
 | the passage from stages to `LimitTower` | done | `StageTower.lean` — `StageSequence` and `StageSequence.limitTower`, with no free hypotheses; `isHomeoOn_F` is `prop:interior-homeomorphism` in exactly the shape `HasLimitHomeomorphism`'s second conjunct asks for, and `F_eq_skelHomeo` is the bridge that will discharge `HasAnchorCrosscuts` |

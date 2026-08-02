@@ -158,6 +158,88 @@ theorem notMem_of_mem_edgeArc_diff (hH : IsDrawing H Hdraw) {e : β} {p q x : Pl
   rintro rfl
   exact hx.2 (hH.vertex_mem_edgeArc hl hy hx.1)
 
+/-- **A walk between distinct ends departs along an edge.** The ear step of
+`thm:finite-transfer`(b) needs the ear's first edge, as the nonboundary edge the fresh anchor at
+that end carries; the other end's is the first edge of the reversed walk. -/
+theorem IsWalk.exists_isLink_left_of_ne {a b : Plane} {D : List β} (h : H.IsWalk a D b)
+    (hab : a ≠ b) : ∃ e ∈ D, ∃ m, H.IsLink e a m := by
+  cases h with
+  | nil => exact absurd rfl hab
+  | cons hl _ => exact ⟨_, List.mem_cons_self .., _, hl⟩
+
+/-- **The degenerate ear adds nothing.** If some edge of the ear is already an edge of `B` then
+both its ends lie in `V(B)`, so both are among the two prescribed ends, and
+`Graph.IsPath.eq_singleton_of_inc` makes the ear that one edge — which `B` already has, so the
+union is `B` itself.
+
+This is the branch `Schoenflies.exists_earCrosscut` excludes with its hypothesis
+`∀ e ∈ D, e ∉ E(B)`; together the two cover every ear an ear step is handed, in either
+direction. -/
+theorem union_pathGraphOf_eq_left (hH : IsDrawing H Hdraw) (hBH : B ≤ H) {a b : Plane} {D : List β}
+    (hD : H.IsPath a D b) (hab : a ≠ b) (ha : a ∈ V(B))
+    (hint : ∀ y ∈ H.walkVertices a D, y ≠ a → y ≠ b → y ∉ V(B))
+    {e : β} (heD : e ∈ D) (heB : e ∈ E(B)) :
+    B.union (H.pathGraphOf a D) = B := by
+  obtain ⟨p, q, hl⟩ := exists_isLink_of_mem_edgeSet (hD.edge_mem heD)
+  have hpq : p ≠ q := fun h => hH.not_isLoopAt e p (by rw [← h] at hl; exact hl)
+  have hpV : p ∈ V(B) := mem_vertexSet_of_inc_of_mem_edgeSet hBH heB hl.inc_left
+  have hqV : q ∈ V(B) := mem_vertexSet_of_inc_of_mem_edgeSet hBH heB hl.inc_right
+  have hends : ∀ {x : Plane}, x ∈ H.walkVertices a D → x ∈ V(B) → x = a ∨ x = b := by
+    intro x hx hxB
+    by_contra hcon
+    push Not at hcon
+    exact hint x hx hcon.1 hcon.2 hxB
+  have hp' := hends (mem_walkVertices_of_mem_covered ⟨e, heD, hl.inc_left⟩) hpV
+  have hq' := hends (mem_walkVertices_of_mem_covered ⟨e, heD, hl.inc_right⟩) hqV
+  have hkey : H.Inc e a ∧ H.Inc e b := by
+    rcases hp' with hp | hp <;> rcases hq' with hq | hq
+    · exact absurd (hp.trans hq.symm) hpq
+    · exact ⟨by rw [← hp]; exact hl.inc_left, by rw [← hq]; exact hl.inc_right⟩
+    · exact ⟨by rw [← hq]; exact hl.inc_right, by rw [← hp]; exact hl.inc_left⟩
+    · exact absurd (hp.trans hq.symm) hpq
+  obtain rfl : D = [e] := hD.eq_singleton_of_inc hab heD hkey.1 hkey.2
+  have hle : H.pathGraphOf a [e] ≤ B := by
+    constructor
+    · intro x hx
+      rw [pathGraphOf_vertexSet] at hx
+      rcases mem_walkVertices_iff.1 hx with rfl | ⟨f, hf, hinc⟩
+      · exact ha
+      · rw [List.mem_singleton] at hf
+        subst hf
+        rcases hinc.eq_or_eq_of_isLink hl with rfl | rfl
+        exacts [hpV, hqV]
+    · intro f x y hlk
+      rw [pathGraphOf_isLink] at hlk
+      obtain ⟨hf, hxy, -, -⟩ := hlk
+      rw [List.mem_singleton] at hf
+      subst hf
+      exact (hBH.isLink_iff heB).2 hxy
+  exact union_eq_left_of_le hle
+
+/-- **What a finite plane graph leaves outside a set accumulates only on its own pieces.**
+
+The part of `|G|` outside `A` is contained in the vertices outside `A` together with the arcs of
+the edges that are not inside `A`, and that is a *closed* set — finitely many points and finitely
+many arcs — so the closure is contained in it too.
+
+`thm:finite-transfer`(b) spends it on the blueprint's `K`, "the union of all old closed
+nonboundary edges and the finitely many source ears already inserted", which is what the access
+cone at a fresh anchor is shrunk away from: `a ∉ K` reduces by this to "no nonboundary edge of
+the current subgraph passes through `a`", which is the anchor clause of the transfer invariant. -/
+theorem closure_pointSet_diff_subset [B.Finite] (hB : IsDrawing B Hdraw) (A : Set Plane) :
+    closure (pointSet B Hdraw \ A) ⊆
+      (V(B) \ A) ∪ ⋃ e ∈ {e | e ∈ E(B) ∧ ¬ edgeArc Hdraw e ⊆ A}, edgeArc Hdraw e := by
+  refine closure_minimal (fun x hx => ?_) ?_
+  · rcases hx.1 with hv | hedge
+    · exact Or.inl ⟨hv, hx.2⟩
+    obtain ⟨e, he, hxe⟩ := Set.mem_iUnion₂.1 hedge
+    exact Or.inr (Set.mem_iUnion₂.2 ⟨e, ⟨he, fun hsub => hx.2 (hsub hxe)⟩, hxe⟩)
+  refine IsClosed.union (Graph.finite_vertexSet B).diff.isClosed ?_
+  refine Set.Finite.isClosed_biUnion ((Graph.finite_edgeSet B).subset fun e he => he.1)
+    fun e he => ?_
+  obtain ⟨p, q, hl⟩ := exists_isLink_of_mem_edgeSet he.1
+  exact (hB.edge_isArcBetween hl).isArc.isClosed
+
 /-- **No ear edge is an outer edge.** The outer curve is already occupied by `B`, and the ear's
 interior is not; an ear edge drawn inside the outer curve would put an interior point of its own
 arc in `|B|`, which `Graph.disjoint_walkPointSet_diff` forbids.
@@ -295,13 +377,8 @@ theorem exists_earCrosscut [Infinite γ]
   · rw [hdearSet]
     exact hdrawH.isPolygonal_walkPointSet hD.isWalk hpolyD
 
-/-- **The degenerate ear, disposed of.** If some edge of the ear is already an edge of `B` then
-both its ends lie in `V(B)`, so both are among the two prescribed ends, and
-`Graph.IsPath.eq_singleton_of_inc` makes the ear that one edge. The ear then adds nothing —
-`B ∪ ear = B` — and the partial transfer carries over unchanged.
-
-This is the branch `Schoenflies.exists_earCrosscut` excludes with its hypothesis
-`∀ e ∈ D, e ∉ E(B)`; together the two cover every ear `Schoenflies.EarStep` is handed. -/
+/-- **The degenerate ear, disposed of** — direction (a). The ear adds nothing, so the partial
+transfer carries over unchanged. -/
 theorem isPartialTransferOf_union_of_mem_edgeSet
     {T P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom} {H B : Graph Plane γ}
     {Hdraw : γ → ℝ → Plane} {par : γ → γ}
@@ -311,41 +388,8 @@ theorem isPartialTransferOf_union_of_mem_edgeSet
     (hint : ∀ y ∈ H.walkVertices a D, y ≠ a → y ≠ b → y ∉ V(B))
     {e : γ} (heD : e ∈ D) (heB : e ∈ E(B)) :
     IsPartialTransferOf T P (B.union (H.pathGraphOf a D)) Hdraw par := by
-  obtain ⟨p, q, hl⟩ := exists_isLink_of_mem_edgeSet (hD.edge_mem heD)
-  have hpq : p ≠ q := fun h => hH.not_isLoopAt e p (by rw [← h] at hl; exact hl)
-  have hpV : p ∈ V(B) := mem_vertexSet_of_inc_of_mem_edgeSet hBH heB hl.inc_left
-  have hqV : q ∈ V(B) := mem_vertexSet_of_inc_of_mem_edgeSet hBH heB hl.inc_right
-  have hends : ∀ {x : Plane}, x ∈ H.walkVertices a D → x ∈ V(B) → x = a ∨ x = b := by
-    intro x hx hxB
-    by_contra hcon
-    push Not at hcon
-    exact hint x hx hcon.1 hcon.2 hxB
-  have hp' := hends (mem_walkVertices_of_mem_covered ⟨e, heD, hl.inc_left⟩) hpV
-  have hq' := hends (mem_walkVertices_of_mem_covered ⟨e, heD, hl.inc_right⟩) hqV
-  have hkey : H.Inc e a ∧ H.Inc e b := by
-    rcases hp' with hp | hp <;> rcases hq' with hq | hq
-    · exact absurd (hp.trans hq.symm) hpq
-    · exact ⟨by rw [← hp]; exact hl.inc_left, by rw [← hq]; exact hl.inc_right⟩
-    · exact ⟨by rw [← hq]; exact hl.inc_right, by rw [← hp]; exact hl.inc_left⟩
-    · exact absurd (hp.trans hq.symm) hpq
-  obtain rfl : D = [e] := hD.eq_singleton_of_inc hab heD hkey.1 hkey.2
-  have hle : H.pathGraphOf a [e] ≤ B := by
-    constructor
-    · intro x hx
-      rw [pathGraphOf_vertexSet] at hx
-      rcases mem_walkVertices_iff.1 hx with rfl | ⟨f, hf, hinc⟩
-      · exact ha
-      · rw [List.mem_singleton] at hf
-        subst hf
-        rcases hinc.eq_or_eq_of_isLink hl with rfl | rfl
-        exacts [hpV, hqV]
-    · intro f x y hlk
-      rw [pathGraphOf_isLink] at hlk
-      obtain ⟨hf, hxy, -, -⟩ := hlk
-      rw [List.mem_singleton] at hf
-      subst hf
-      exact (hBH.isLink_iff heB).2 hxy
-  rw [union_eq_left_of_le hle]
+  rw [Graph.union_pathGraphOf_eq_left hH hBH hD hab ha hint heD heB]
   exact hT
+
 
 end Schoenflies

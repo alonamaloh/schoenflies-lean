@@ -239,6 +239,36 @@ theorem mapsTo_invFun :
   rw [m.leftInvOn hx]
   exact hx
 
+/-- A vertex of the ear is drawn on the ear. -/
+theorem earPos_mem_earSet {earPos : γ → Plane} {earDraw : γ → ℝ → Plane} {z : γ}
+    (hz : z ∈ V(d.ear)) : earPos z ∈ d.earSet earPos earDraw :=
+  Graph.vertexSet_subset_pointSet (by rw [d.vertexSet_earGraph]; exact ⟨z, hz, rfl⟩)
+
+/-- An edge of the ear is drawn on the ear. -/
+theorem edgeArc_subset_earSet {earPos : γ → Plane} {earDraw : γ → ℝ → Plane} {f : γ}
+    (hf : f ∈ E(d.ear)) : Graph.edgeArc earDraw f ⊆ d.earSet earPos earDraw :=
+  Graph.edgeArc_subset_pointSet (by rw [d.edgeSet_earGraph]; exact hf)
+
+/-- **The matching of the two drawn ears is symmetric.**
+
+`Schoenflies.exists_target_earCrosscut` produces the matching from the ear one is *given* to the
+ear one *builds*, and the two directions of `thm:finite-transfer` are given theirs on opposite
+sides — while `GeneratedPair.splitFace` always wants it from source to target. This is the
+turn-around, and there is nothing to it: the two inverse laws exchange by definition, and the
+two matching clauses transport along the left inverse. -/
+def symm : d.EarHomeo earPos₂ earDraw₂ earPos₁ earDraw₁ where
+  toFun := m.invFun
+  invFun := m.toFun
+  continuousOn_toFun := m.continuousOn_invFun
+  continuousOn_invFun := m.continuousOn_toFun
+  leftInvOn := m.rightInvOn
+  rightInvOn := m.leftInvOn
+  earPos_apply := fun z hz => by
+    rw [← m.earPos_apply hz, m.leftInvOn (earPos_mem_earSet hz)]
+  edgeArc_image := fun f hf => by
+    rw [← m.edgeArc_image hf]
+    exact (m.leftInvOn.mono (edgeArc_subset_earSet hf)).image_image
+
 variable {R₁ R₂ : S.Realization}
 
 /-- **At the ear's source end the chosen map is pinned to the old 0-cell's target position.**

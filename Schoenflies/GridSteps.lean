@@ -484,6 +484,17 @@ theorem disjoint_cover_localGridEdges (hsep : IsSeparating C) (hb : b ∈ inside
       (window_subset_inside hC hCne hsep hb hε)
   exact Set.disjoint_left.2 fun x hx hxC => inside_subset_compl (hsub hx) hxC
 
+/-- **`MeetsFinitely` from the drawing invariant.** A family of segments each of which avoids
+`C` off a fixed finite set — the shape of a stage's nonboundary edges, whose arcs minus the
+drawn 0-cells lie in the open domain, disjoint from `C` — meets `C` finitely. This is the
+reduction of obligation 2 of the extension chooser to the stage's own dichotomy clause: what
+remains for the discharger is only to present the nonboundary skeleton as such a family. -/
+theorem MeetsFinitely.of_diff_subset_compl {l : List Piece} {V : Set Plane} (hV : V.Finite)
+    (h : ∀ P ∈ l, P.seg \ V ⊆ Cᶜ) : MeetsFinitely l C := by
+  intro P hP
+  refine hV.subset fun x hx => by_contra fun hxV => ?_
+  exact h P hP ⟨hx.1, hxV⟩ hx.2
+
 end WindowPlacement
 
 /-! ### The interface, exercised

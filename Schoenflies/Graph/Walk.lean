@@ -86,6 +86,12 @@ variable {α β : Type*} {G H : Graph α β} {u v w x y z : α} {e f : β} {W W�
 
 namespace Graph
 
+/-- The set a list spans, peeled at the head. Everything about an edge list here runs by
+recursion on it, and this is the form the induction step needs the *set* of its members in. -/
+theorem setOf_mem_cons {α : Type*} (a : α) (l : List α) :
+    {x | x ∈ a :: l} = insert a {x | x ∈ l} := by
+  ext x; simp [List.mem_cons]
+
 /-! ### The vertices an edge list touches -/
 
 /-- The vertices lying on at least one edge of `W`. -/
@@ -349,6 +355,26 @@ theorem IsPath.mono (hHG : H ≤ G) (h : H.IsPath u W v) : G.IsPath u W v := by
 
 theorem IsPath.target_mem_walkVertices (h : G.IsPath u W v) : v ∈ G.walkVertices u W :=
   h.isWalk.target_mem_walkVertices
+
+/-- **A path from a vertex back to itself is empty.** The first step would depart from the
+vertex the rest of the path arrives at, which the freshness clause forbids. -/
+theorem IsPath.eq_nil_of_eq (h : G.IsPath u W u) : W = [] := by
+  cases h with
+  | nil => rfl
+  | cons _ hT hfresh => exact absurd hT.target_mem_walkVertices hfresh
+
+/-- **A path with an edge joining its own two ends is that one edge.** The middle vertex of the
+first step would otherwise be revisited, and the path's freshness clause forbids it. -/
+theorem IsPath.eq_singleton_of_inc (h : G.IsPath u W v) (huv : u ≠ v)
+    (he : e ∈ W) (hu : G.Inc e u) (hv : G.Inc e v) : W = [e] := by
+  cases h with
+  | nil => simp at he
+  | cons hl₀ hW hfresh =>
+    rcases List.mem_cons.1 he with rfl | he'
+    · rcases hv.eq_or_eq_of_isLink hl₀ with rfl | rfl
+      · exact absurd rfl huv
+      · rw [hW.eq_nil_of_eq]
+    · exact absurd (mem_walkVertices_of_mem_covered ⟨e, he', hu⟩) hfresh
 
 /-- A path grows at its **target** end. The relation is built at the source end, so this is
 the direction that has to be worked for; it is what reversal runs on. -/

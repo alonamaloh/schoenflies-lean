@@ -333,6 +333,29 @@ theorem cell_subset_skeletonSet {R : S.Realization} {κ : γ}
     exact Set.sdiff_subset.trans (edgeArc_subset_pointSet
       (by rw [Realization.edgeSet_graph]; exact he))
 
+/-- **The converse: every skeleton point lies in the open cell of some 0-cell or 1-cell.** A
+drawn vertex is the open 0-cell of its name; a point of a drawn arc is either one of its two
+ends — again a 0-cell — or an interior point, which is the open 1-cell of the edge.
+
+Stated as an existential rather than through `Realization.cellUnion`, which is two modules
+above this one: the geometric content is the dichotomy, and the `cellUnion` form
+(`skeletonSet_subset_cellUnion`) is a one-line corollary where that definition is available. -/
+theorem exists_cell_of_mem_skeletonSet {R : S.Realization} {x : Plane} (hx : x ∈ R.skeletonSet) :
+    ∃ κ ∈ V(S.skel) ∪ E(S.skel), x ∈ R.cell κ := by
+  rcases hx with hx | hx
+  · rw [Realization.vertexSet_graph] at hx
+    obtain ⟨z, hz, rfl⟩ := hx
+    exact ⟨z, Set.mem_union_left _ hz, by rw [R.cell_vertex hz]; rfl⟩
+  · obtain ⟨f, hf, hxf⟩ := Set.mem_iUnion₂.1 hx
+    rw [Realization.edgeSet_graph] at hf
+    obtain ⟨a, b, hl⟩ := exists_isLink_of_mem_edgeSet hf
+    by_cases hxab : x ∈ ({R.pos a, R.pos b} : Set Plane)
+    · simp only [Set.mem_insert_iff, Set.mem_singleton_iff] at hxab
+      rcases hxab with rfl | rfl
+      · exact ⟨a, Set.mem_union_left _ hl.left_mem, by rw [R.cell_vertex hl.left_mem]; rfl⟩
+      · exact ⟨b, Set.mem_union_left _ hl.right_mem, by rw [R.cell_vertex hl.right_mem]; rfl⟩
+    · exact ⟨f, Set.mem_union_right _ hf, by rw [R.cell_edge hl]; exact ⟨hxf, hxab⟩⟩
+
 end Realization
 
 /-! ### The skeleton homeomorphism -/

@@ -256,15 +256,8 @@ all that is left of the phase.
     graph) gives the drawing, and `SplitData.EarHomeo`'s two matching clauses then hold by
     definition — which is exactly the shape `MatchedSplit.lean` argues for.
 
-  For the integrator: eight general facts were written in these three modules for want of a
-  home — `Graph.setOf_mem_cons`, `Graph.union_eq_left_of_le`, `Graph.IsPath.eq_singleton_of_inc`,
-  `Graph.pointSet_pathGraphOf`, `Graph.IsDrawing.isPolygonal_walkPointSet`,
-  `Graph.edgeArc_map`, `Graph.pointSet_map`, `Graph.IsDrawing.map_of_injOn`. They belong in
-  `Schoenflies/Graph/{Walk,PathGraph,Drawing}.lean`. And `EarTarget.lean` imports the whole of
-  `InitialPair.lean` for one general topology fact,
-  `Schoenflies.continuousOn_invFunOn_image` — *a continuous injection of a compact set has a
-  continuous inverse on its image* — which belongs in `Schoenflies/Topology.lean`; hoisting it
-  drops the import.
+  The eight general facts these three modules wrote for want of a home are hoisted; see
+  "The integrator debts, discharged" below.
 
 * **1d‴. Closing the bundle — done, and it was the whole of what was left.** The assembly
   could not be written against `GeneratedPair` as it stood: `EarStep` quantifies over *every*
@@ -488,6 +481,50 @@ the largest phase by far and the only one whose geometry is not yet assembled an
 
 **Phase 4 — `thm:main` unconditional.** `HasAnchorCrosscuts` and `HasSpokes` from the stages.
 The limit map and everything after it is already built and waiting.
+
+### The integrator debts, discharged
+
+Everything this file and the module docstrings recorded as "written here for want of a home" is
+hoisted. Nothing was restated and nothing was renamed, so no consumer changed; what changed is
+which module a fact can be reached from.
+
+| Fact | Was in | Now in |
+|---|---|---|
+| `Graph.setOf_mem_cons`, `Graph.IsPath.eq_singleton_of_inc` | `EarDraw.lean`, `EarSource.lean` | `Graph/Walk.lean` |
+| `Graph.union_eq_left_of_le` | `EarSource.lean` | `Graph/TwoConnected.lean`, beside `Graph.union` |
+| `Graph.edgeArc_map`, `Graph.pointSet_map`, `Graph.IsDrawing.map_of_injOn` | `EarTarget.lean` | `Graph/Drawing.lean` |
+| `Graph.closure_pointSet_diff_subset` | `EarSource.lean` | `Graph/Drawing.lean` |
+| `Graph.walkPointSet` and its API, `Graph.IsPath.map`, `Graph.IsPathGraph.map`, `Graph.map_union` | `RealizeSplit.lean` | **`Graph/DrawnWalk.lean`**, new |
+| `Graph.pointSet_pathGraphOf`, `Graph.IsDrawing.isPolygonal_walkPointSet` | `EarSource.lean` | `Graph/DrawnWalk.lean` |
+| `Schoenflies.continuousOn_invFunOn_image` | `InitialPair.lean` | `Topology.lean` |
+| `SubdivData.outer_vertexSet_of_mem` | `SubdivStage.lean` | `GeneratedStructure.lean`, beside `outer_edgeSet_of_mem` |
+| `Realization.Refines.skeletonSet_subset` | `StageCells.lean` | `RefinementStars.lean`, beside `Refines` |
+
+Three of them were not simple moves, and the reasons are worth keeping.
+
+* **`walkPointSet` had to move for two of the eight to move at all.** `Graph.pointSet_pathGraphOf`
+  and `IsDrawing.isPolygonal_walkPointSet` are stated in terms of it, and it lived in
+  `RealizeSplit.lean` — four layers of cell-structure machinery above the graph modules the two
+  facts belong in. `RealizeSplit.lean`'s own docstring had said "if a second consumer appears
+  they belong in `Schoenflies/Graph/`"; the ear steps of both directions were that consumer.
+  `Graph/DrawnWalk.lean` is the module, on `Graph.PathGraph` + `Graph.Drawing` + `Concatenate` +
+  `Polygonal`, and it carries `IsDrawing.isArcBetween_walkPointSet` — the workhorse that makes a
+  drawn path an arc — down with it.
+* **`Refines.skeletonSet_subset` was blocked by `cellUnion`, not by its own content.** Its proof
+  went through `skeletonSet_subset_cellUnion`, and `Realization.cellUnion` is defined in
+  `CellulationInvariants.lean`, which imports `RefinementStars.lean` — so the lemma could not
+  follow `Refines` down. The dichotomy it actually uses has nothing to do with `cellUnion`:
+  a skeleton point is a drawn vertex, or an endpoint of a drawn arc, or an interior point of one.
+  That is now `Realization.exists_cell_of_mem_skeletonSet`, next to its converse
+  `cell_subset_skeletonSet` in `CombinatorialInvariance.lean`, and `skeletonSet_subset_cellUnion`
+  is a three-line corollary where `cellUnion` exists.
+* **`IsPath.eq_nil_of_eq` came along.** `eq_singleton_of_inc` uses it, and it was in
+  `FaceCycles.lean` — a module far above `Graph/Walk.lean`, which is where the rest of the
+  `IsPath` basics are.
+
+`EarTarget.lean` dropping `import Schoenflies.InitialPair` is the one with a measurable effect:
+`InitialPair.lean` is no longer in the import closure of `EarTarget.lean` or of anything above it
+up to `EarStepTgt.lean`.
 
 ### What the standing rules caught
 

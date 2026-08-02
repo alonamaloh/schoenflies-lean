@@ -54,11 +54,6 @@ namespace Graph
 
 variable {γ : Type*} {H : Graph Plane γ} {Hdraw : γ → ℝ → Plane}
 
-/-- The set a list spans, peeled at the head. -/
-theorem setOf_mem_cons {α : Type*} (a : α) (l : List α) :
-    {x | x ∈ a :: l} = insert a {x | x ∈ l} := by
-  ext x; simp [List.mem_cons]
-
 /-! ### The correspondence between an abstract ear and a concrete path -/
 
 /-- **A chart of the concrete path `a --D--> b` of `H` by an abstract ear on fresh names.**

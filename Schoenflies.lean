@@ -27,6 +27,7 @@ import Schoenflies.Graph.Tree
 import Schoenflies.Graph.Component
 import Schoenflies.Graph.Ear
 import Schoenflies.Graph.Drawing
+import Schoenflies.Graph.DrawnWalk
 import Schoenflies.Graph.OuterFace
 import Schoenflies.Graph.CycleJordan
 import Schoenflies.Compose

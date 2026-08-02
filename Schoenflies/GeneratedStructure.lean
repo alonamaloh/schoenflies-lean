@@ -573,6 +573,15 @@ theorem outer_edgeSet_of_mem (he : d.edge ∈ E(S.outerGraph)) :
     Set.mem_insert_iff, d.outer_isLink he, and_true]
   tauto
 
+/-- The subdivided outer cycle gains the new 0-cell, and nothing else — the outer-cycle twin of
+`SubdivData.skeleton_vertexSet`. -/
+theorem outer_vertexSet_of_mem (he : d.edge ∈ E(S.outerGraph)) :
+    V(d.outer) = insert d.newVertex V(S.outerGraph) := by
+  ext z
+  simp only [outer, subdivGraph_vertexSet, Set.mem_union, Set.mem_setOf_eq,
+    Set.mem_insert_iff, d.outer_isLink he, and_true]
+  tauto
+
 /-- **The abstract subcell relation after an edge subdivision.** Read off the blueprint's
 update list, in order: the old pairs that involve neither `e` nor a new cell; the reflexive
 pairs of the new cells (see the fidelity note in the module docstring); `v ≼ e₁, e₂`; each old

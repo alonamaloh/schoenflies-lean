@@ -1261,23 +1261,6 @@ homeomorphism is the one that matches the parameters: `sp t ↦ [u(a), u(b)](t)`
 definitions agree at `a` and `b`, which is where `C` and `P` meet, so the pasting lemma applies
 to the two closed pieces of the skeleton. -/
 
-/-- A continuous injection of a compact set has a continuous inverse on its image. Stated for
-the set-level `Function.invFunOn`, which is what a parametrized arc has to be inverted with. -/
-theorem continuousOn_invFunOn_image {f : ℝ → Plane} {s : Set ℝ} (hs : IsCompact s)
-    (hf : ContinuousOn f s) (hinj : InjOn f s) :
-    ContinuousOn (Function.invFunOn f s) (f '' s) := by
-  rw [continuousOn_iff_isClosed]
-  intro F hF
-  refine ⟨f '' (F ∩ s), (hs.inter_left hF).image_of_continuousOn (hf.mono inter_subset_right)
-    |>.isClosed, ?_⟩
-  ext y
-  constructor
-  · rintro ⟨hy, x, hx, rfl⟩
-    rw [mem_preimage, hinj.leftInvOn_invFunOn hx] at hy
-    exact ⟨⟨x, ⟨hy, hx⟩, rfl⟩, ⟨x, hx, rfl⟩⟩
-  · rintro ⟨⟨x, ⟨hxF, hxs⟩, rfl⟩, -⟩
-    exact ⟨by rw [mem_preimage, hinj.leftInvOn_invFunOn hxs]; exact hxF, ⟨x, hxs, rfl⟩⟩
-
 /-! ### The initial matched pair, bundled
 
 `InitialData C` is the data `prop:initial-pair` produces before any of its conclusions are

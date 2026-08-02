@@ -386,18 +386,22 @@ theorem exists_nonboundary_isLink_of_notMem_outer (hW : R.IsWeaklyAdmissible out
   · exact hlo.left_mem
   · exact hlo.right_mem
 
+/-- An abstract edge's drawn arc passes through the drawn positions of its two ends. -/
+theorem pos_mem_edgeArc (R : S.Realization) {e v w : γ} (hl : S.skel.IsLink e v w) :
+    R.pos v ∈ edgeArc R.drawing e := by
+  have he' : e ∈ E(R.graph) := by rw [Realization.edgeSet_graph]; exact hl.edge_mem
+  obtain ⟨-, -, hlp⟩ := R.isDrawing.edge_param he'
+  have hlv : R.graph.IsLink e (R.pos v) (R.pos w) := hl.map R.pos
+  rcases hlv.eq_and_eq_or_eq_and_eq hlp with ⟨h0, -⟩ | ⟨h0, -⟩
+  · exact h0 ▸ ⟨0, zero_mem_I, rfl⟩
+  · exact h0 ▸ ⟨1, one_mem_I, rfl⟩
+
 /-- **A non-outer drawn 0-cell lies on the skeleton pieces.** -/
 theorem pos_mem_cover_skeletonSegs (hW : R.IsWeaklyAdmissible outer dom) {v : γ}
     (hv : v ∈ V(S.skel)) (hvout : v ∉ V(S.outerGraph)) :
     R.pos v ∈ cover (skeletonSegs R) := by
   obtain ⟨e, w, hl, hne⟩ := exists_nonboundary_isLink_of_notMem_outer hW hv hvout
-  have he' : e ∈ E(R.graph) := by rw [Realization.edgeSet_graph]; exact hl.edge_mem
-  obtain ⟨-, -, hlp⟩ := R.isDrawing.edge_param he'
-  have hlv : R.graph.IsLink e (R.pos v) (R.pos w) := hl.map R.pos
-  refine edgeArc_subset_cover_skeletonSegs hW hl.edge_mem hne ?_
-  rcases hlv.eq_and_eq_or_eq_and_eq hlp with ⟨h0, -⟩ | ⟨h0, -⟩
-  · exact h0 ▸ ⟨0, zero_mem_I, rfl⟩
-  · exact h0 ▸ ⟨1, one_mem_I, rfl⟩
+  exact edgeArc_subset_cover_skeletonSegs hW hl.edge_mem hne (pos_mem_edgeArc R hl)
 
 /-! ## The joining arcs
 
@@ -495,6 +499,13 @@ noncomputable def gridExtGraph (R : S.Realization) (gsegs : List Piece) (reps : 
 /-- Its drawing: the stage's drawing on the outer names, straight segments on the pieces. -/
 noncomputable def gridExtDraw (R : S.Realization) : γ ⊕ Piece → ℝ → Plane :=
   Graph.sumDraw R.drawing segmentDrawing
+
+@[simp] theorem edgeArc_gridExtDraw_inl (R : S.Realization) (e : γ) :
+    Graph.edgeArc (gridExtDraw R) (Sum.inl e) = Graph.edgeArc R.drawing e := rfl
+
+@[simp] theorem edgeArc_gridExtDraw_inr (R : S.Realization) (Q : Piece) :
+    Graph.edgeArc (gridExtDraw R) (Sum.inr Q) = Q.seg :=
+  edgeArc_segmentDrawing Q
 
 /-- The outer part is a subgraph of the stage's drawn graph. -/
 theorem outerPart_le (R : S.Realization) : S.outerGraph.map R.pos ≤ R.graph :=
@@ -700,6 +711,153 @@ theorem gridExtGraph_isDrawing (hW : R.IsWeaklyAdmissible C (C ∪ inside C)) (h
         (pos_mem_vertexSet_gridAttachGraph hs hg1 hj1 hverts hqv hqcov) hqQ with rfl | rfl
       · exact ⟨y, hlQ⟩
       · exact ⟨x, hlQ.symm⟩
+
+/-! ## The hypotheses of the transfer, assembled
+
+Everything `Schoenflies.IsSourceExtensionOver` asks of the union, from the placement
+hypotheses; only 2-connectivity (`htc`) and the connectedness of the open nonboundary part
+(`hconn`) enter as inputs, discharged respectively by the named hypothesis
+`Schoenflies.HasGridUnionTwoConnected` and by the joining loop of
+`Schoenflies/GridComponents.lean`. -/
+
+/-- **`prop:local-grid-attachment` at a stage, cut at the transfer's hypotheses.** -/
+theorem isSourceExtensionOver_gridExtGraph (hsep : IsSeparating C)
+    (hW : R.IsWeaklyAdmissible C (C ∪ inside C)) (hs : 0 < s)
+    (hg1 : ∀ P ∈ gsegs, P.Nondeg)
+    (hg2 : ∀ P ∈ gsegs, P.seg \ (R.pos '' V(S.skel)) ⊆ inside C)
+    (hj1 : ∀ P ∈ reps.flatMap Jarc, P.Nondeg)
+    (hj2 : ∀ r ∈ reps, cover (Jarc r) ⊆ inside C)
+    (hgridin : cover (localGridEdges p s (localGridCount s ε)) ⊆ inside C)
+    (hverts : ∀ v ∈ V(S.skel), R.pos v ∈ extra)
+    (hchain : ∀ ⦃e⦄, e ∈ E(S.skel) → e ∉ E(S.outerGraph) → ∀ ⦃q⦄, q ∈ edgeArc R.drawing e →
+      ∃ P', P' ∈ gsegs ∧ q ∈ P'.seg ∧ P'.seg ⊆ edgeArc R.drawing e)
+    (htc : (gridExtGraph R gsegs reps Jarc p s ε extra).IsTwoConnected)
+    (hconn : IsConnected (cover (gridAttachPieces gsegs reps Jarc p s ε) \ C)) :
+    IsSourceExtensionOver R C (C ∪ inside C)
+      (gridExtGraph R gsegs reps Jarc p s ε extra) (gridExtDraw R) := by
+  have h₂ := gridAttachGraph_isDrawing (p := p) (ε := ε) (extra := extra) hs hg1 hj1
+  -- the union occupies the outer curve together with the pieces
+  have hps : Graph.pointSet (gridExtGraph R gsegs reps Jarc p s ε extra) (gridExtDraw R)
+      = C ∪ cover (gridAttachPieces gsegs reps Jarc p s ε) := by
+    show Graph.pointSet
+      ((S.outerGraph.map R.pos).sumUnion (gridAttachGraph gsegs reps Jarc p s ε extra))
+      (Graph.sumDraw R.drawing segmentDrawing) = _
+    rw [Graph.pointSet_sumUnion, gridAttachGraph_pointSet,
+      show Graph.pointSet (S.outerGraph.map R.pos) R.drawing = R.outerSet from rfl,
+      hW.outerSet_eq]
+  have hsub : cover gsegs ⊆ cover (gridAttachPieces gsegs reps Jarc p s ε) := by
+    rw [cover_gridAttachPieces]
+    exact (Set.subset_union_left.trans Set.subset_union_left)
+  -- a non-outer 0-cell lies on the gsegs, through its nonboundary edge's chain
+  have hposcov : ∀ v ∈ V(S.skel), v ∉ V(S.outerGraph) → R.pos v ∈ cover gsegs := by
+    intro v hv hvout
+    obtain ⟨e, w, hl, hne⟩ := exists_nonboundary_isLink_of_notMem_outer hW hv hvout
+    obtain ⟨P', hP', hqP', -⟩ := hchain hl.edge_mem hne (pos_mem_edgeArc R hl)
+    exact mem_cover hP' hqP'
+  refine ⟨Graph.sumUnion_finite,
+    gridExtGraph_isDrawing hW hs hg1 hg2 hj1 hj2 hgridin hverts, htc, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · -- `V(Γ) ⊆ V(H)`
+    rintro z hz
+    rw [Realization.vertexSet_graph] at hz
+    obtain ⟨v, hv, rfl⟩ := hz
+    show R.pos v ∈ V(S.outerGraph.map R.pos) ∪ V(gridAttachGraph gsegs reps Jarc p s ε extra)
+    by_cases hvo : v ∈ V(S.outerGraph)
+    · exact Set.mem_union_left _ (by rw [Graph.vertexSet_map]; exact ⟨v, hvo, rfl⟩)
+    · exact Set.mem_union_right _ (pos_mem_vertexSet_gridAttachGraph hs hg1 hj1 hverts
+        ⟨v, hv, rfl⟩ (hsub (hposcov v hv hvo)))
+  · -- `|Γ| ⊆ |H|`
+    intro z hz
+    rw [hps]
+    obtain ⟨κ, hκ, hzκ⟩ := Realization.exists_cell_of_mem_skeletonSet hz
+    rcases hκ with hκv | hκe
+    · rw [R.cell_vertex hκv] at hzκ
+      obtain rfl := hzκ
+      by_cases hvo : κ ∈ V(S.outerGraph)
+      · exact Or.inl (hW.outerSet_eq ▸ R.pos_mem_outerSet hvo)
+      · exact Or.inr (hsub (hposcov κ hκv hvo))
+    · by_cases heo : κ ∈ E(S.outerGraph)
+      · exact Or.inl (hW.outerSet_eq ▸ R.edgeArc_subset_outerSet heo
+          (cell_subset_edgeArc R hκe hzκ))
+      · obtain ⟨P', hP', hqP', -⟩ := hchain hκe heo (cell_subset_edgeArc R hκe hzκ)
+        exact Or.inr (hsub (mem_cover hP' hqP'))
+  · -- the subdivision clause
+    rintro e he f' hf' q hqf hqcell hqV
+    rcases hf' with ⟨f, hf, rfl⟩ | ⟨Q, hQ, rfl⟩
+    · -- an outer-named edge of `H` is an edge of `Γ`: same edge, or a forbidden crossing
+      rw [edgeArc_gridExtDraw_inl] at hqf ⊢
+      have hfo : f ∈ E(S.outerGraph) := by rwa [Graph.edgeSet_map] at hf
+      by_cases hef : e = f
+      · rw [hef]
+      · exfalso
+        have he' : e ∈ E(R.graph) := by rw [Realization.edgeSet_graph]; exact he
+        have hfR : f ∈ E(R.graph) := by
+          rw [Realization.edgeSet_graph]
+          exact S.outerGraph_le.edgeSet_mono hfo
+        exact notMem_cell_of_mem_vertexSet R he
+          (R.isDrawing.edge_inter he' hfR hef (cell_subset_edgeArc R he hqcell) hqf).1 hqcell
+    · rw [edgeArc_gridExtDraw_inr] at hqf ⊢
+      have hQ' : Q ∈ overlayPieces (gridAttachPieces gsegs reps Jarc p s ε)
+          (attachPoints (gridAttachPieces gsegs reps Jarc p s ε) extra) := hQ
+      by_cases heo : e ∈ E(S.outerGraph)
+      · -- the open cell of an outer edge misses the pieces except at drawn 0-cells,
+        -- which never lie in open cells
+        exfalso
+        have hqC : q ∈ C := hW.outerSet_eq ▸ R.edgeArc_subset_outerSet heo
+          (cell_subset_edgeArc R he hqcell)
+        have hqcov := seg_subset_cover_of_mem_overlayPieces hQ' hqf
+        obtain ⟨u, hu, rfl⟩ :=
+          cover_gridAttachPieces_inter_subset hg2 hj2 hgridin ⟨hqcov, hqC⟩
+        exact notMem_cell_of_mem_vertexSet R he
+          (by rw [Realization.vertexSet_graph]; exact ⟨u, hu, rfl⟩) hqcell
+      · -- nonboundary: the subpiece through `q` inside the chain of `e` either IS this
+        -- edge — which then runs inside the old arc — or crosses it at a vertex
+        obtain ⟨P', hP', hqP', hP'sub⟩ := hchain he heo (cell_subset_edgeArc R he hqcell)
+        have hP'p : P' ∈ gridAttachPieces gsegs reps Jarc p s ε := by
+          rw [gridAttachPieces]
+          exact List.mem_append_left _ (List.mem_append_left _ hP')
+        obtain ⟨Q₁, hQ₁, hqQ₁, hQ₁sub⟩ := exists_subpiece
+          (pts := attachPoints (gridAttachPieces gsegs reps Jarc p s ε) extra) hP'p hqP'
+        have hoQ₁ : orientPiece Q₁ ∈ E(gridAttachGraph gsegs reps Jarc p s ε extra) :=
+          mem_overlayPieces.2 ⟨Q₁, hQ₁, rfl⟩
+        by_cases hor : orientPiece Q₁ = Q
+        · intro z hz
+          rw [← hor, orientPiece_seg] at hz
+          exact hP'sub (hQ₁sub hz)
+        · exfalso
+          have hq1 : q ∈ Graph.edgeArc segmentDrawing (orientPiece Q₁) := by
+            rw [edgeArc_segmentDrawing, orientPiece_seg]
+            exact hqQ₁
+          have hq2 : q ∈ Graph.edgeArc segmentDrawing Q := by
+            rw [edgeArc_segmentDrawing]
+            exact hqf
+          refine hqV (Set.mem_union_right _ (h₂.edge_inter hQ hoQ₁ ?_ hq2 hq1).1)
+          exact fun h => hor h.symm
+  · -- `|H|` in the closed domain
+    rw [hps]
+    exact Set.union_subset (fun z hz => Or.inl hz)
+      (cover_gridAttachPieces_subset hW hg2 hj2 hgridin)
+  · -- the edge dichotomy
+    rintro f' hf'
+    rcases hf' with ⟨f, hf, rfl⟩ | ⟨Q, hQ, rfl⟩
+    · left
+      rw [edgeArc_gridExtDraw_inl]
+      have hfo : f ∈ E(S.outerGraph) := by rwa [Graph.edgeSet_map] at hf
+      exact fun z hz => hW.outerSet_eq ▸ R.edgeArc_subset_outerSet hfo hz
+    · right
+      rw [edgeArc_gridExtDraw_inr]
+      refine ⟨isPolygonal_segment Q.1 Q.2, ?_⟩
+      rintro z ⟨hz, hzV⟩
+      have hQ' : Q ∈ overlayPieces (gridAttachPieces gsegs reps Jarc p s ε)
+          (attachPoints (gridAttachPieces gsegs reps Jarc p s ε) extra) := hQ
+      have hzcov := seg_subset_cover_of_mem_overlayPieces hQ' hz
+      have hznot : z ∉ R.pos '' V(S.skel) := fun hzim =>
+        hzV (Set.mem_union_right _
+          (pos_mem_vertexSet_gridAttachGraph hs hg1 hj1 hverts hzim hzcov))
+      rw [sdiff_outer_eq_inside hsep]
+      exact cover_gridAttachPieces_diff_subset hg2 hj2 hgridin ⟨hzcov, hznot⟩
+  · -- `|H| ∖ C` connected
+    rw [hps, Set.union_diff_left]
+    exact hconn
 
 end Placement
 

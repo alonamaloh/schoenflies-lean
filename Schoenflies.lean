@@ -135,3 +135,4 @@ import Schoenflies.GridStarEstimate
 import Schoenflies.GridComponents
 import Schoenflies.MeshSteps
 import Schoenflies.PolygonalSkeletonArcs
+import Schoenflies.GridSteps

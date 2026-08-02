@@ -95,6 +95,13 @@ module; what keeps the bundle conditional is the defect above, not any missing m
   `Schoenflies.exists_freshDense_of_dense` — the blueprint's "choose `z_0, …, z_{m-1}` in
   cyclic order so that each boundary arc between consecutive ones has diameter `< δ/4`",
   done: any dense subset of `S` contains a finite `FreshDense` list, for every `δ > 0`.
+* `Schoenflies.IsLoop.exists_ne_near`, `Schoenflies.IsLoop.closure_sdiff_singleton`,
+  `Schoenflies.IsLoop.closure_sdiff_finite` — a Jordan curve has no isolated points, so a set
+  dense in it stays dense after a finite set is removed.
+* `Schoenflies.exists_fresh_anchor_supply` — the whole fresh-point side of the mesh step: for
+  every stage, `δ` and finite avoid set, a `FreshDense` list on `S`, off the avoid set, whose
+  source partners under the stage's skeleton map are strongly accessible — the `a ∈ 𝒜` clause
+  of `thm:finite-transfer`(b), supplied from the fixed anchor set `Schoenflies.anchorSet`.
 * `Schoenflies.diam_closure_cell_le_of_mesh_subset` — "every closed target 2-cell of `Γ'_n`
   has diameter `< ε_n`": the mesh sentence of *Quantitative refinement*, from
   `prop:anchored-square-mesh` clause 1's radial estimate and `lem:diameter-closure`.
@@ -476,7 +483,145 @@ theorem exists_freshDense_of_dense (hf : IsLoop f) (himg : f '' I = modelCurve)
         exact Nat.lt_of_lt_of_le (Nat.lt_succ_self i) (Nat.le_floor h2)
       exact List.mem_map.2 ⟨i, List.mem_range.2 hiN, rfl⟩
 
+/-- **A Jordan curve accumulates at each of its points**: arbitrarily near `f t` there is a
+point of the curve other than `f t`. A parameter slightly to the side of `t` carries it, by
+injectivity short of the finish. -/
+theorem IsLoop.exists_ne_near (hf : IsLoop f) {t : ℝ} (ht : t ∈ I) (ht1 : t ≠ 1) {ε : ℝ}
+    (hε : 0 < ε) : ∃ y ∈ f '' I, y ≠ f t ∧ dist y (f t) < ε := by
+  obtain ⟨η, hη, hcont⟩ := Metric.continuousWithinAt_iff.1 (hf.continuousOn t ht) ε hε
+  have ht' : t < 1 := ht.2.lt_of_ne ht1
+  rcases eq_or_lt_of_le ht.1 with h0 | h0
+  · -- `t` is the start: approach from the right
+    set s : ℝ := min (η / 2) 2⁻¹ with hs
+    have hs0 : 0 < s := lt_min (by linarith) (by norm_num)
+    have hsI : s ∈ I := ⟨hs0.le, le_trans (min_le_right _ _) (by norm_num)⟩
+    have hs1 : s ≠ 1 := ne_of_lt (lt_of_le_of_lt (min_le_right _ _) (by norm_num))
+    refine ⟨f s, ⟨s, hsI, rfl⟩, fun he => ?_, ?_⟩
+    · have heq : s = t := hf.injective_before_finish hsI ht hs1 ht1 he
+      rw [heq, ← h0] at hs0
+      exact lt_irrefl _ hs0
+    · refine hcont hsI ?_
+      rw [Real.dist_eq, ← h0, sub_zero, abs_of_pos hs0]
+      exact lt_of_le_of_lt (min_le_left _ _) (by linarith)
+  · -- otherwise approach from the left
+    set s : ℝ := t - min (η / 2) (t / 2) with hs
+    have hmin : 0 < min (η / 2) (t / 2) := lt_min (by linarith) (by linarith)
+    have hst : s < t := by rw [hs]; linarith
+    have hs0 : 0 ≤ s := by
+      have := min_le_right (η / 2) (t / 2)
+      rw [hs]; linarith
+    have hsI : s ∈ I := ⟨hs0, (hst.trans ht').le⟩
+    have hs1 : s ≠ 1 := ne_of_lt (hst.trans ht')
+    refine ⟨f s, ⟨s, hsI, rfl⟩, fun he => ?_, ?_⟩
+    · exact absurd (hf.injective_before_finish hsI ht hs1 ht1 he) hst.ne
+    · refine hcont hsI ?_
+      rw [Real.dist_eq, abs_of_nonpos (by linarith : s - t ≤ 0)]
+      have := min_le_left (η / 2) (t / 2)
+      rw [hs]; linarith
+
+/-- Removing one point from a set dense in a Jordan curve keeps it dense: the curve has no
+isolated points (`IsLoop.exists_ne_near`), so near the removed point there is another curve
+point, and the dense set approximates *that* within a radius too small to hit the removed
+point. -/
+theorem IsLoop.closure_sdiff_singleton (hf : IsLoop f) {B : Set Plane}
+    (hBd : f '' I ⊆ closure B) (v : Plane) : f '' I ⊆ closure (B \ {v}) := by
+  intro x hx
+  rw [Metric.mem_closure_iff]
+  intro ε hε
+  rcases eq_or_ne x v with rfl | hxv
+  · -- at the removed point: approximate a nearby distinct curve point instead
+    obtain ⟨t, ht, ht1, hft⟩ := hf.parameter_before_finish hx
+    obtain ⟨y, hyS, hyx, hyd⟩ := hf.exists_ne_near ht ht1 (by linarith : (0 : ℝ) < ε / 2)
+    rw [hft] at hyx hyd
+    have hr : 0 < min (ε / 2) (dist y x) := lt_min (by linarith) (dist_pos.2 hyx)
+    obtain ⟨b, hbB, hbd⟩ := Metric.mem_closure_iff.1 (hBd hyS) _ hr
+    refine ⟨b, ⟨hbB, ?_⟩, ?_⟩
+    · -- `b` is closer to `y` than `x` is, so `b ≠ x`
+      intro hbv
+      rw [Set.mem_singleton_iff] at hbv
+      subst hbv
+      exact absurd (lt_of_lt_of_le hbd (min_le_right _ _)) (lt_irrefl _)
+    · have h1 := lt_of_lt_of_le hbd (min_le_left _ _)
+      calc dist x b ≤ dist x y + dist y b := dist_triangle _ _ _
+        _ < ε / 2 + ε / 2 := by rw [dist_comm x y]; exact add_lt_add hyd h1
+        _ = ε := by ring
+  · -- elsewhere: approximate within a radius too small to reach `v`
+    have hr : 0 < min ε (dist x v) := lt_min hε (dist_pos.2 hxv)
+    obtain ⟨b, hbB, hbd⟩ := Metric.mem_closure_iff.1 (hBd hx) _ hr
+    refine ⟨b, ⟨hbB, ?_⟩, lt_of_lt_of_le hbd (min_le_left _ _)⟩
+    intro hbv
+    rw [Set.mem_singleton_iff] at hbv
+    subst hbv
+    exact absurd (lt_of_lt_of_le hbd (min_le_right _ _)) (lt_irrefl _)
+
+/-- Removing a finite set from a set dense in a Jordan curve keeps it dense. -/
+theorem IsLoop.closure_sdiff_finite (hf : IsLoop f) {B V : Set Plane}
+    (hBd : f '' I ⊆ closure B) (hV : V.Finite) : f '' I ⊆ closure (B \ V) := by
+  induction V, hV using Set.Finite.induction_on with
+  | empty => simpa using hBd
+  | @insert v V' _ _ ih =>
+    have h1 : B \ insert v V' = (B \ V') \ {v} := by
+      rw [← Set.union_singleton, ← Set.sdiff_sdiff]
+    rw [h1]
+    exact hf.closure_sdiff_singleton ih v
+
 end FreshDenseConstruction
+
+/-! ### The fresh-anchor supply for the mesh step
+
+The pieces above assemble into the full fresh-point side of a `MeshTransfer`: for every stage,
+every `δ` and every finite avoid set, a `FreshDense` list of boundary points, off the avoid
+set, whose source partners under the stage's skeleton map are strongly accessible. The dense
+set is the `P.homeo`-image of the fixed anchor set `𝒜`
+(`Schoenflies.anchorSet`, `InitialPairFixed.lean`), density transported by continuity of the
+skeleton map on the source skeleton. -/
+
+section FreshSupply
+
+open unitInterval
+
+variable [Nonempty γ] {C : Set Plane}
+
+omit [Nonempty γ] in
+/-- **The fresh-point supply.** Everything `Schoenflies.MeshTransfer` needs of its fresh
+points except the mesh itself: `δ`-density on `S`, avoidance of any finite set (in practice
+the drawn 0-cells of the stage), and strong accessibility of the source partners — the `a ∈ 𝒜`
+clause of `thm:finite-transfer`(b). -/
+theorem exists_fresh_anchor_supply (hsep : IsSeparating C) (A : AnchorSet C)
+    (P : StagePair S₀ C) {δ : ℝ} (hδ : 0 < δ) {V : Set Plane} (hV : V.Finite) :
+    ∃ fresh : List Plane, FreshDense fresh δ ∧
+      ∀ z ∈ fresh, z ∈ modelCurve ∧ z ∉ V ∧
+        StronglyAccessible (inside C) (P.homeo.invFun z) := by
+  obtain ⟨f, hf, himg⟩ := isJordanCurve_modelCurve
+  -- the skeleton map carries `C` onto `S` …
+  have hCsk : C ⊆ P.src.skeletonSet := by
+    have h1 := P.src.outerSet_subset_skeletonSet
+    rwa [P.src_isWeaklyAdmissible.outerSet_eq] at h1
+  have himgC : P.homeo.toFun '' C = modelCurve := by
+    have h1 := P.homeo.image_outerSet
+    rwa [P.src_isWeaklyAdmissible.outerSet_eq, P.tgt_isWeaklyAdmissible.outerSet_eq] at h1
+  -- … and the anchor set is dense in `C`, so its image is dense in `S`. (`StagePair` unfolds
+  -- to a `GeneratedPair` whose type mentions `modelCurve`, so rewriting `modelCurve` in a goal
+  -- that mentions `P` breaks the motive; everything is transported by `Eq.subset` instead.)
+  have hclA : closure A.carrier ⊆ C :=
+    closure_minimal A.subset_curve hsep.isJordanCurve.isCompact.isClosed
+  have hdense₀ : modelCurve ⊆ closure (P.homeo.toFun '' A.carrier) :=
+    himgC.superset.trans ((Set.image_mono A.dense).trans
+      (ContinuousOn.image_closure (P.homeo.continuousOn_toFun.mono (hclA.trans hCsk))))
+  set B : Set Plane := (P.homeo.toFun '' A.carrier) \ V with hB
+  have hBS : B ⊆ modelCurve := fun z hz => by
+    obtain ⟨⟨a, ha, rfl⟩, -⟩ := hz
+    exact himgC.subset ⟨a, A.subset_curve ha, rfl⟩
+  have hBdense : modelCurve ⊆ closure B :=
+    himg.superset.trans (hf.closure_sdiff_finite (himg.subset.trans hdense₀) hV)
+  obtain ⟨fresh, hfB, hdense⟩ := exists_freshDense_of_dense hf himg hBS hBdense hδ
+  refine ⟨fresh, hdense, fun z hz => ?_⟩
+  obtain ⟨⟨a, haA, rfl⟩, hzV⟩ := hfB z hz
+  have haC : a ∈ P.src.skeletonSet := hCsk (A.subset_curve haA)
+  have hinv : P.homeo.invFun (P.homeo.toFun a) = a := P.homeo.leftInvOn haC
+  exact ⟨hBS ⟨⟨a, haA, rfl⟩, hzV⟩, hzV, by rw [hinv]; exact A.stronglyAccessible a haA⟩
+
+end FreshSupply
 
 /-! ### The mesh bound through the transfer
 

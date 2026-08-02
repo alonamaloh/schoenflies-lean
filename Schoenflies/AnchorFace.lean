@@ -63,6 +63,9 @@ maintain it. That is a change to the transfer invariant, not to this paragraph, 
 * `Schoenflies.CellStructure.SubdivData.uniqueFaceAt`,
   `…SubdivData.uniqueFaceAt_of_mem_newCells` — "at the common subdivision stage, `a` is inserted
   in the interior of one outer edge", so the fresh anchor inherits (vi) from that edge.
+* `Schoenflies.CellStructure.PropagatesUniqueFace`, `…SubdivData.propagatesUniqueFace` — the
+  same, in the composable form the common subdivision hands its consumer: one parent map into the
+  base pair, however many subdivisions were made.
 * `Schoenflies.CellStructure.SplitData.uniqueFaceAt` — "whenever such an ear splits the unique
   2-cell incident with `a`, exactly one of the two new boundary paths contains `a`; hence exactly
   one descendant 2-cell remains incident with `a`".
@@ -148,6 +151,47 @@ theorem uniqueFaceAt_of_mem_newCells (h : S.UniqueFaceAt d.edge) (hσ : σ ∈ d
   exact h h₁ h₂ hs₁.2 hs₂.2
 
 end SubdivData
+
+/-! ### The invariant along a parent map
+
+A subdivision hands every cell it creates exactly the supercells of the edge it cut, and leaves
+every other cell's alone; both readings are "the invariant at a cell of the refinement follows
+from the invariant at its parent". Stated that way it **composes**, which is what the common
+subdivision needs: it iterates `GeneratedPair.subdivideEdge` an unknown number of times and hands
+the consumer one parent map into the base pair.
+
+The 2-cell split does *not* satisfy it — the ear's two ends are their own parents and the split
+is exactly what breaks the invariant there — so `SplitData.uniqueFaceAt` above carries its own
+side condition instead. -/
+
+/-- **The invariant passes from a parent to its children.** -/
+def PropagatesUniqueFace (S' S : CellStructure γ) (par : γ → γ) : Prop :=
+  ∀ ⦃σ⦄, σ ∈ S'.cells → S.UniqueFaceAt (par σ) → S'.UniqueFaceAt σ
+
+theorem propagatesUniqueFace_id (S : CellStructure γ) : PropagatesUniqueFace S S id :=
+  fun _ _ h => h
+
+/-- **Propagation composes**, along the composite parent map. The one thing it needs beyond the
+two hypotheses is that the intermediate parent of a cell is a cell, which is
+`Realization.Refines.parent_mem_cells`. -/
+theorem PropagatesUniqueFace.trans {S₂ S₁ S₀' : CellStructure γ} {par par' : γ → γ}
+    (h' : PropagatesUniqueFace S₂ S₁ par') (h : PropagatesUniqueFace S₁ S₀' par)
+    (hpar : ∀ ⦃σ⦄, σ ∈ S₂.cells → par' σ ∈ S₁.cells) :
+    PropagatesUniqueFace S₂ S₀' (par ∘ par') :=
+  fun _ hσ hu => h' hσ (h (hpar hσ) hu)
+
+/-- **One edge subdivision propagates the invariant.** The two cases are the two readings of the
+subdivided structure's cells: an old cell other than the subdivided edge is its own parent and
+keeps its supercells, and a created cell has the parent's. -/
+theorem SubdivData.propagatesUniqueFace (d : S.SubdivData) :
+    PropagatesUniqueFace (S.subdivideEdge d) S d.parent := by
+  intro σ hσ hu
+  rw [subdivideEdge_cells] at hσ
+  rcases hσ with ⟨hσ, hσe⟩ | hσ
+  · rw [d.parent_of_mem_cells hσ] at hu
+    exact d.uniqueFaceAt hu hσ (Set.mem_singleton_iff.not.1 hσe)
+  · rw [d.parent_of_mem_newCells hσ] at hu
+    exact d.uniqueFaceAt_of_mem_newCells hu hσ
 
 /-! ### Elementary operation 2: a 2-cell split
 

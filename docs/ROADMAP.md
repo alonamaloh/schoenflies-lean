@@ -37,7 +37,7 @@ Schoenflies.CellStructure.LimitTower.isHomeoOn_F      ← the fields of LimitTow
 | `Schoenflies.HasLimitHomeomorphism` | `BoundaryContinuity2.lean` | `thm:square-extension` | four conjuncts: a dense anchor set, the interior homeomorphism, `HasAnchorCrosscuts`, `HasSpokes`. **`LimitTower` supplies the second; the other three need the construction.** |
 | the fields of `CellStructure.LimitTower` | `LimitMap.lean` | the interior homeomorphism | ~14 fields, each an obligation on whoever builds the nested sequence: the cell decompositions, the shared parent maps, the two halves of `prop:shrinking-stars`, and the nesting of the skeleton maps. See the module docstring |
 | `Schoenflies.CommonSubdivision` | `FiniteTransfer.lean` | `thm:finite-transfer`(a) | step 1. The overlay itself is proved (`exists_overlay_of_biUnion_finite`); what is missing is carrying each new subdivision point through the chosen edge parametrization to the *other* realization. `RealizeSubdivHomeo.lean` now supplies exactly that transport for one subdivision (`SubdivData.targetParam`, `realizeHomeo`), so this is assembly, not new mathematics |
-| `Schoenflies.EarStep` | `FiniteTransfer.lean` | `thm:finite-transfer`(a) | step 3, one ear. Carries `[Infinite γ]` — see below. Every geometric ingredient exists, and the two boundary paths are now produced by `BoundaryWalks.exists_boundary_paths`; what is missing is **the invariant on the bundle** (`GeneratedPair` must carry a `BoundaryWalks`) and then the assembly. See phase 1d below |
+| `Schoenflies.EarStep` | `FiniteTransfer.lean` | `thm:finite-transfer`(a) | step 3, one ear. Carries `[Infinite γ]` — see below. **Both `EarCrosscut`s and the `EarHomeo` now exist** (`EarDraw.lean`, `EarSource.lean`, `EarTarget.lean`), so the geometric input of `SplitData.realize` is in hand on both sides, and `GeneratedPair` now carries assertion (vii). What is missing is two more stage invariants the bundle still does not carry — `CellsAbsorb` on the source side and the target-cells-are-components presentation — and then the assembly of the twelve fields. See phase 1d below |
 | `Schoenflies.CellsAbsorb` | `SkeletonAccess.lean`, `FiniteTransfer.lean`, `FreshAccess.lean` | `lem:polygonal-side-accessibility`, ear placement | one clause of `lem:cellulation-invariants`; `cellsAbsorb_of_isComponent_in` discharges it when the cells are the components |
 
 ### The atom is closed
@@ -160,10 +160,96 @@ and 1c are done and `sorry`-free; 1d is blocked on one interface change, describ
   discharged at stage 0 by `Schoenflies.initialBoundaryWalks` (which moved into
   `InitialGenerated.lean`, since it cannot sit above the pair it feeds).
 
-  What is left of 1d is the assembly: at most two subdivisions to make the ear's ends 0-cells,
-  then the split, rebuilding every `GeneratedPair` field. `[Infinite γ]` is already recorded as
-  the fix for the fresh-name defect. **One ingredient of that assembly does not exist on
-  `main`**, and it is not the boundary paths any more:
+  **No subdivision is needed after all.** The reading flagged below as "worth checking" holds:
+  `IsPartialTransferOf.vertexSet_subset` plus `EarStep`'s own `a, b ∈ V(B)` make both ends
+  drawn 0-cells already (`IsPartialTransferOf.exists_cell_of_mem_vertexSet`, `EarPaths.lean`),
+  so one ear insertion is **one split with no subdivision**. The subdivision constructor is
+  needed by `CommonSubdivision` (1e) and not by the ear induction.
+
+* **1d″. The drawn ear, and both `EarCrosscut`s — done.** Three modules, all `sorry`-free.
+
+  * `EarDraw.lean` — the abstract ear and its drawing are built **together**, because the ear
+    has to be drawn exactly where `H` draws the path it came from. `Graph.IsEarChart` is the
+    correspondence: the ear is `Graph.pathOn z steps` on fresh names, `earPos` places its
+    vertices at the concrete path's vertices in order, `name` matches its edges with the
+    concrete path's, and `isLink` ties the two. `Graph.exists_isEarChart` builds one by an
+    induction along the path from its source; the hypothesis `z = w ↔ a = b` is what keeps that
+    recursion uniform, since the last step has to arrive at the *prescribed* old name of the far
+    0-cell. Out of it: `Graph.IsEarChart.isDrawing` (the drawn ear is a plane graph — every
+    clause of `IsDrawing` is the corresponding clause for `H`) and `.pointSet_eq` (it occupies
+    exactly `|H.pathGraphOf a D|`), packaged as `Graph.exists_drawn_ear`.
+  * `EarSource.lean` — `Schoenflies.exists_source_earCrosscut`: from exactly what `EarStep` is
+    handed, the `SplitData` *and* the source `EarCrosscut`, all seven fields. The two facts
+    worth naming are `Graph.disjoint_walkPointSet_diff` (the ear's interior misses `|B|` —
+    `EarStep` only says the interior *vertices* are new, and that the interior *points* are is
+    the plane-graph condition on `H`) and `Graph.IsDrawing.isPolygonal_walkPointSet` (no ear
+    edge can be an outer edge, because the outer curve is inside `|B|` and the ear's interior is
+    not, so `edge_dichotomy` gives polygonality). The one ear these miss is a single edge `B`
+    already has, and `Schoenflies.isPartialTransferOf_union_of_mem_edgeSet` disposes of it:
+    `B ∪ ear = B` there.
+  * `EarTarget.lean` — `Schoenflies.exists_target_earCrosscut`: the target ear is the **image**
+    of the source one under a homeomorphism of the two arcs (`Schoenflies.exists_arc_homeo`),
+    not a cutting of the target crosscut at prescribed parameters. `Graph.IsDrawing.map_of_injOn`
+    (a plane graph pushed forward along an injection continuous on its point set is a plane
+    graph) gives the drawing, and `SplitData.EarHomeo`'s two matching clauses then hold by
+    definition — which is exactly the shape `MatchedSplit.lean` argues for.
+
+  For the integrator: eight general facts were written in these three modules for want of a
+  home — `Graph.setOf_mem_cons`, `Graph.union_eq_left_of_le`, `Graph.IsPath.eq_singleton_of_inc`,
+  `Graph.pointSet_pathGraphOf`, `Graph.IsDrawing.isPolygonal_walkPointSet`,
+  `Graph.edgeArc_map`, `Graph.pointSet_map`, `Graph.IsDrawing.map_of_injOn`. They belong in
+  `Schoenflies/Graph/{Walk,PathGraph,Drawing}.lean`. And `EarTarget.lean` imports the whole of
+  `InitialPair.lean` for one general topology fact,
+  `Schoenflies.continuousOn_invFunOn_image` — *a continuous injection of a compact set has a
+  continuous inverse on its image* — which belongs in `Schoenflies/Topology.lean`; hoisting it
+  drops the import.
+
+* **1d‴. What `EarStep` still needs, and it is an interface change.** The assembly of the
+  `GeneratedPair` fields cannot be written against `GeneratedPair` as it stood, because
+  `EarStep` quantifies over *every* partial transfer `T` and three things the split needs are
+  properties of `T` that the bundle did not carry and no hypothesis of `EarStep` supplies. The
+  first is now closed; the other two are not.
+
+  1. **Assertion (vii) on both realizations — closed.**
+     `SplitData.isCellDecomposition_and_isFaceJordan_realize` takes `R.IsFaceJordan`, and
+     `SplitData.isCutPair_of_inter` — which produces the `IsCutPair` that `exists_target_ear`
+     consumes — takes it on the target. Nothing on `main` ever *constructed* an `IsFaceJordan`:
+     the only occurrences in the inventory were the structure, its API, and the two step
+     theorems, so it was unavailable at stage 0 too. `GeneratedPair` now has two more fields,
+     **`src_isFaceJordan` and `tgt_isFaceJordan`** (eleventh and twelfth), discharged in
+     `InitialGenerated.lean` by `InitialData.src_isFaceJordan` / `.tgt_isFaceJordan` — the same
+     move that added `walks`. The proof at stage 0 is four lines each:
+     `IsCrosscut.isJordanCurve_union` splices the arc of `C` with the crosscut, and
+     `IsSeparating.frontier_inside` identifies the frontier of `inside` that curve with the
+     curve, so `InitialData.sourceRealization_cell_face` finishes it.
+  2. **`Schoenflies.CellsAbsorb` for the source realization.** Already in the table above, but
+     note *where* it now has to be discharged: `GeneratedPair.exists_face_and_boundary_paths`
+     needs it for the current stage, inside a theorem quantified over `T`, so it cannot be an
+     argument of the `EarStep` proof either. Either it becomes a field, or it is derived from
+     (i) + (vii) — the 2-cells of a stage are the components of the open domain minus the
+     skeleton, which is what `cellsAbsorb_of_isComponent_in` wants.
+  3. **The target-side presentation `exists_target_ear` consumes**: an ambient open `Q` with
+     `frontier Q ⊆ tgt.skeletonSet` and every target 2-cell a component of `Q ∖ |Γ'|`, plus
+     `IsPolygonal (edgeArc tgt.drawing e)` for **every** target edge. The last is not implied by
+     weak admissibility: `IsWeaklyAdmissible.isPolygonal` is restricted to *nonboundary* edges,
+     correctly (the source outer edges are subarcs of the wild `C`), and on the target side the
+     outer edges are the square's sides — polygonal, but nothing records it. A field
+     `tgt_isPolygonal_outer`, or a target-side clause saying the 2-cells are the components of
+     the open square, is what closes this.
+
+  None of the three is a gap in the mathematics; all three are the bundle being one invariant
+  short of its consumer, which is the same failure mode `walks` had and the standing rules keep
+  catching.
+
+  The rest of the assembly is routine and unwritten: `generated := T.generated.splitFace d`,
+  the two `realize`s, `splitHomeo`, `walks := T.walks.splitFace …`, the ten weak-admissibility
+  clauses (`isTwoConnected` is `EarCrosscut.isTwoConnected_splitGraph`, `isPolygonal` for an ear
+  edge on the target is `IsArcBetween.isPolygonal_of_subset` inside the polygonal crosscut,
+  `outerSet_eq` is `map_eq_of_eqOn` + `pointSet_congr` since the split changes neither the outer
+  graph nor its drawing), and the four `IsPartialTransferOf` fields, of which `skeletonSet_eq`
+  is `SplitData.skeletonSet_realize` plus `Graph.pointSet_union`.
+
+  What follows is the record of the two blockers that *were* closed.
 
   > **weak admissibility is not known to be preserved by either elementary operation.**
   > `IsWeaklyAdmissible` occurs in exactly two modules — `FiniteTransfer.lean`, which defines
@@ -200,15 +286,13 @@ and 1c are done and `sorry`-free; 1d is blocked on one interface change, describ
   operations — read off the realization constructors, with `skeletonSet_realize` already there
   — and then `GeneratedPair.subdivideEdge` / `.splitFace` themselves.
 
-  **An interface reading worth checking before writing `EarStep`.** The blueprint's step 3 is
-  "at most two edge subdivisions followed by one split", the subdivisions being what turns the
-  ear's endpoints into 0-cells. In the Lean formulation they may be unnecessary:
-  `IsPartialTransferOf.vertexSet_subset` says `V(B) ⊆ V(T.src.graph)`, and `EarStep` hypothesises
-  `a ∈ V(B)`, `b ∈ V(B)` — so both ends are *already* drawn 0-cells of the current stage, and
-  `Realization.injOn_pos` names the 0-cells they are. If that reading holds, `EarStep` is one
-  split with no subdivision, and the subdivision half of everything above is needed only by
-  `CommonSubdivision` (1e), not by the ear induction. Not formalised — it is a reading of two
-  fields, and the first thing to test when 1d is written.
+  **An interface reading, now checked.** The blueprint's step 3 is "at most two edge
+  subdivisions followed by one split", the subdivisions being what turns the ear's endpoints
+  into 0-cells. In the Lean formulation they are unnecessary, and this is now formal:
+  `IsPartialTransferOf.vertexSet_subset` says `V(B) ⊆ V(T.src.graph)`, `EarStep` hypothesises
+  `a ∈ V(B)`, `b ∈ V(B)`, and `IsPartialTransferOf.exists_cell_of_mem_vertexSet`
+  (`EarPaths.lean`) names the 0-cells they are. So `EarStep` is one split with no subdivision,
+  and the subdivision half of everything above is needed only by `CommonSubdivision` (1e).
 * **1e. `CommonSubdivision`.** Independent of 1b–1d and pure assembly:
   `exists_overlay_of_biUnion_finite` gives the overlay, `SubdivData.realizeHomeo` transports one
   subdivision to the other realization, and the induction over the overlay's finitely many new

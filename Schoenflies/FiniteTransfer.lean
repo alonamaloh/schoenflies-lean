@@ -291,6 +291,19 @@ structure GeneratedPair (S₀ : CellStructure γ) (srcOuter srcDom tgtOuter tgtD
   src_isCellDecomposition : src.IsCellDecomposition srcDom
   /-- **Assertion (i)** on the target side. -/
   tgt_isCellDecomposition : tgt.IsCellDecomposition tgtDom
+  /-- **Assertion (vii)** on the source side: every open 2-cell is the bounded complementary
+  region of a Jordan curve, namely its own frontier.
+
+  Like `walks` below it travels with the bundle rather than being derived from `generated`. The
+  reason is the same: `SplitData.isCellDecomposition_and_isFaceJordan_realize` *consumes* it at
+  the current stage and reproduces it at the next, so there is no closure theorem over the raw
+  inductive, only the two step constructions a consumer applies while building a stage. And
+  `EarStep` needs it on **both** sides — on the target because
+  `SplitData.isCutPair_of_inter`, which produces the `IsCutPair` that
+  `Schoenflies.exists_target_ear` consumes, is stated against it. -/
+  src_isFaceJordan : src.IsFaceJordan
+  /-- **Assertion (vii)** on the target side. -/
+  tgt_isFaceJordan : tgt.IsFaceJordan
   /-- The source realization is weakly admissible. -/
   src_isWeaklyAdmissible : src.IsWeaklyAdmissible srcOuter srcDom
   /-- The target realization is weakly admissible. -/

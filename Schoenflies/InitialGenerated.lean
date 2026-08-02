@@ -832,6 +832,50 @@ theorem tgt_isCellDecomposition :
     (by rw [d.tgt_outerArcs]; exact d.hasArcCollarsTarget)
   rwa [d.tgt_outerArcs, modelCurve_union_inside] at h
 
+/-- **Assertion (vii) on the source side**: each of the two 2-cells is the bounded complementary
+region of a Jordan curve — the arc of `C` it is labelled by, spliced with the crosscut.
+
+`IsCrosscut.isJordanCurve_union` is the splicing and `IsSeparating.frontier_inside` identifies
+the frontier of the bounded region with the curve, so the frontier the abstract statement is
+phrased against *is* that curve. -/
+theorem src_isFaceJordan : d.sourceRealization.IsFaceJordan := by
+  have key : ∀ k : Bool, IsJordanCurve (d.src.arcOf k ∪ d.crossSet) := by
+    intro k
+    cases k
+    · exact d.isCrosscut.isJordanCurve_union d.isCutPair
+    · exact d.isCrosscut.isJordanCurve_union d.isCutPair.symm
+  have hfr : ∀ k : Bool,
+      frontier (d.sourceRealization.cell (InitialCell.face k)) = d.src.arcOf k ∪ d.crossSet := by
+    intro k
+    rw [d.sourceRealization_cell_face k]
+    exact (jordan_curve_theorem (key k)).frontier_inside
+  constructor
+  · rintro F ⟨k, rfl⟩
+    rw [hfr k]
+    exact key k
+  · rintro F ⟨k, rfl⟩
+    rw [hfr k, d.sourceRealization_cell_face k]
+
+/-- **Assertion (vii) on the target side**, by the same splicing inside the square. -/
+theorem tgt_isFaceJordan : d.targetRealization.IsFaceJordan := by
+  have key : ∀ k : Bool, IsJordanCurve (d.tgt.arcOf k ∪ d.tgt.chordSet) := by
+    intro k
+    cases k
+    · exact d.isCrosscutTarget.isJordanCurve_union d.isCutPairTarget
+    · exact d.isCrosscutTarget.isJordanCurve_union d.isCutPairTarget.symm
+  have hfr : ∀ k : Bool,
+      frontier (d.targetRealization.cell (InitialCell.face k))
+        = d.tgt.arcOf k ∪ d.tgt.chordSet := by
+    intro k
+    rw [d.targetRealization_cell_face k]
+    exact (jordan_curve_theorem (key k)).frontier_inside
+  constructor
+  · rintro F ⟨k, rfl⟩
+    rw [hfr k]
+    exact key k
+  · rintro F ⟨k, rfl⟩
+    rw [hfr k, d.targetRealization_cell_face k]
+
 /-- **`def:admissible-graph` (weak form) on the source side.** -/
 theorem src_isWeaklyAdmissible : d.sourceRealization.IsWeaklyAdmissible C (C ∪ inside C) := by
   have h := d.src.isWeaklyAdmissible d.isCrosscut_src
@@ -873,6 +917,8 @@ noncomputable def generatedPair :
   homeo := d.skeletonHomeo
   src_isCellDecomposition := d.src_isCellDecomposition
   tgt_isCellDecomposition := d.tgt_isCellDecomposition
+  src_isFaceJordan := d.src_isFaceJordan
+  tgt_isFaceJordan := d.tgt_isFaceJordan
   src_isWeaklyAdmissible := d.src_isWeaklyAdmissible
   tgt_isWeaklyAdmissible := d.tgt_isWeaklyAdmissible
   walks := initialBoundaryWalks

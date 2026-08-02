@@ -255,6 +255,17 @@ theorem IsArcBetween.right_mem_closure_diff {A : Set Plane} {p q : Plane}
   rw [Set.pair_comm]
   exact h.reverse.left_mem_closure_diff
 
+/-- **The closure of an open arc is the closed arc.** The two endpoint halves are the two
+lemmas above; the interior points are already there. -/
+theorem IsArcBetween.closure_diff_eq {A : Set Plane} {p q : Plane} (h : IsArcBetween A p q) :
+    closure (A \ {p, q}) = A := by
+  refine subset_antisymm (h.isArc.isClosed.closure_subset_iff.2 sdiff_subset) fun z hz => ?_
+  by_cases hzp : z = p
+  · exact hzp ▸ h.left_mem_closure_diff
+  · by_cases hzq : z = q
+    · exact hzq ▸ h.right_mem_closure_diff
+    · exact subset_closure ⟨hz, by simp [hzp, hzq]⟩
+
 /-! ### A parametrisation is an open map onto its arc -/
 
 /-- **The parametrisation is an open map onto its arc.** The image of a relatively open piece

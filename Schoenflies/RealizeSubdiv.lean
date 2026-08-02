@@ -156,18 +156,9 @@ theorem subarc_image_inter (hi : InjOn f (uIcc a b)) (h : t ∈ uIcc a b) :
   rw [subarc_image, subarc_image, ← hi.image_inter (uIcc_left_subset h) (uIcc_right_subset h),
     uIcc_inter_uIcc h, image_singleton]
 
-/-- **The closure of an open arc is the closed arc.** General; `Schoenflies/Subarc.lean` has the
-two endpoint halves (`IsArcBetween.left_mem_closure_diff` and `…right_mem_closure_diff`) but not
-this consequence, and every "closure of a new open edge" computation is this lemma. It belongs
-next to those two if a second consumer appears. -/
-theorem IsArcBetween.closure_diff_eq {A : Set Plane} {p q : Plane} (h : IsArcBetween A p q) :
-    closure (A \ {p, q}) = A := by
-  refine subset_antisymm (h.isArc.isClosed.closure_subset_iff.2 sdiff_subset) fun z hz => ?_
-  by_cases hzp : z = p
-  · exact hzp ▸ h.left_mem_closure_diff
-  · by_cases hzq : z = q
-    · exact hzq ▸ h.right_mem_closure_diff
-    · exact subset_closure ⟨hz, by simp [hzp, hzq]⟩
+-- `IsArcBetween.closure_diff_eq` used to stand here, with a note that it belonged next to
+-- `left_mem_closure_diff` / `right_mem_closure_diff` in `Schoenflies/Subarc.lean` once a second
+-- consumer appeared. `Graph/PlaneEdges.lean` is that consumer, and it has moved.
 
 /-- The three pieces an open arc is cut into put the arc back together. -/
 theorem diff_pair_union_union {A : Set Plane} {p q : Plane} (hp : p ∈ A) (hq : q ∈ A) :

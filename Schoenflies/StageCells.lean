@@ -115,6 +115,35 @@ theorem cells_isComponent_in (hcd : R.IsCellDecomposition dom) (hJ : R.IsFaceJor
   ⟨(cell_subset_sdiff hcd houter hF).trans Set.diff_subset,
     (hJ.nonempty hF).choose, (cell_isComponent hcd hJ houter hF (hJ.nonempty hF).choose_spec).symm⟩
 
+/-- **An open 1-cell that meets the outer curve is an outer edge.**
+
+The realized outer cycle is its own 0-cells together with the arcs of its own edges. A point of
+the *open* 1-cell of `e` is not a drawn 0-cell, so it lies on some outer edge's arc; and away
+from the vertices a point of a plane graph lies on exactly one edge, so that outer edge is `e`.
+
+`thm:finite-transfer`(b) is what needs it: a fresh boundary point is a 0-cell drawn on the outer
+curve inside an open 1-cell of the base pair, and this is what makes that 1-cell an *outer* edge
+— which is what "inserted in the interior of one outer edge" means, and what the anchor clause of
+the transfer invariant asks of the ancestor. -/
+theorem mem_edgeSet_outerGraph_of_cell_meets_outerSet {e : γ} (he : e ∈ E(S.skel))
+    (hz : z ∈ R.cell e) (hout : z ∈ R.outerSet) : e ∈ E(S.outerGraph) := by
+  obtain ⟨x, y, hl⟩ := Graph.exists_isLink_of_mem_edgeSet he
+  have hdraw : Graph.IsDrawing R.graph R.drawing := R.isDrawing
+  have hlmap : R.graph.IsLink e (R.pos x) (R.pos y) := Graph.IsLink.map _ hl
+  rw [R.cell_edge hl] at hz
+  -- A drawn 0-cell on the arc of `e` is one of its two ends, which `z` is not.
+  have hnotV : z ∉ V(R.graph) := fun hv => by
+    rcases hdraw.vertex_mem_edgeArc hlmap hv hz.1 with h | h
+    exacts [hz.2 (Or.inl h), hz.2 (Or.inr h)]
+  rcases hout with hv | hedge
+  · exact absurd ((Graph.map_mono R.pos S.outerGraph_le).vertexSet_mono hv) hnotV
+  · obtain ⟨f, hf, hzf⟩ := Set.mem_iUnion₂.1 hedge
+    have hfE : f ∈ E(S.outerGraph) := by rwa [Graph.edgeSet_map] at hf
+    have hfskel : f ∈ E(R.graph) := by
+      rw [Realization.edgeSet_graph]; exact S.outerGraph_le.edgeSet_mono hfE
+    have heskel : e ∈ E(R.graph) := by rw [Realization.edgeSet_graph]; exact he
+    rwa [hdraw.unique_edge_at heskel hfskel hnotV hz.1 hzf]
+
 /-- **The boundary curve of a 2-cell lies in the drawn skeleton.** Its frontier is the union of
 the open cells strictly below it (assertions (i) and (vii)), and none of those is a 2-cell —
 that is assertion (viii), `IsCellDecomposition.sub_face_eq`. So they are 0-cells and 1-cells,

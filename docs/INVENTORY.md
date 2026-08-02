@@ -138,6 +138,10 @@ checker under proof irrelevance.
 
 `Schoenflies.CellStructure.Realization.IsWeaklyAdmissible`, `Schoenflies.CellStructure.Realization.IsAdmissible`, `Schoenflies.CellStructure.Realization.mem_faces_of_notMem_skeletonSet`, `Schoenflies.CellStructure.Realization.IsCellDecomposition.sub_of_pos_mem_closure_cell`, `Schoenflies.CellStructure.Realization.IsCellDecomposition.exists_unique_face_subset_cell`, `Schoenflies.CellStructure.Realization.IsCellDecomposition.exists_face_of_ear`, `Schoenflies.GeneratedPair`, `Schoenflies.GeneratedPair.combInvariants`, `Schoenflies.GeneratedPair.src_nonboundary_eq`, `Schoenflies.GeneratedPair.tgt_isAdmissible`, `Schoenflies.GeneratedPair.src_isAdmissible`, `Schoenflies.IsSourceExtension`, `Schoenflies.IsSourceExtension.not_isLoopAt`, `Schoenflies.IsPartialTransferOf`, `Schoenflies.IsTransferOf`, `Schoenflies.CommonSubdivision`, `Schoenflies.EarStep`, `Schoenflies.transfer_of_ears`, `Schoenflies.finite_transfer_toward_square`, `Schoenflies.isOpen_isPreconnected_disjoint_of_target_cell`, `Schoenflies.exists_target_crosscut`, `Schoenflies.exists_target_crosscut_split`, `Schoenflies.CellStructure.Realization.pos_mem_closure_cell_congr`, `Schoenflies.exists_target_ear`, `Schoenflies.exists_overlay_of_biUnion_finite`
 
+## Schoenflies/FiniteTransferBack.lean  (129 lines)
+
+`Schoenflies.IsTransferOfTgt`, `Schoenflies.EarStepTgt`, `Schoenflies.transfer_of_ears_tgt`, `Schoenflies.finite_transfer_back`
+
 ## Schoenflies/FreshAccess.lean  (229 lines)
 
 `Schoenflies.convex_accessCone`, `Schoenflies.isPreconnected_accessCone`, `Schoenflies.mem_closure_accessCone`, `Schoenflies.polyAccessible_accessCone`, `Schoenflies.exists_accessCone_disjoint`, `Schoenflies.accessCone_subset_cell`, `Schoenflies.polyAccessible_of_stronglyAccessible`

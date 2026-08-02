@@ -274,9 +274,9 @@ checker under proof irrelevance.
 
 `Schoenflies.mem_cover_localGridEdges_of_supDist_eq`, `Schoenflies.CellStructure.Realization.diam_closure_cell_le_of_grid`, `Schoenflies.CellStructure.Realization.diam_star_carrier_le_of_grid`, `Schoenflies.CellStructure.Realization.diam_star_carrier_le_of_openWindow`, `Schoenflies.StagePair.diam_star_le_of_grid`
 
-## Schoenflies/GridSteps.lean  (513 lines)
+## Schoenflies/GridSteps.lean  (372 lines)
 
-`Graph.relabel`, `Graph.relabel_vertexSet`, `Graph.relabel_edgeSet`, `Graph.relabel_isLink`, `Graph.relabel_isLink_image`, `Graph.relabel_adj`, `Graph.relabel_inc_image`, `Graph.relabel_finite`, `Graph.IsTwoConnected.relabel`, `Graph.relabelDraw`, `Graph.relabelDraw_image`, `Graph.relabel_edgeArc`, `Graph.relabel_pointSet`, `Graph.IsDrawing.relabel`, `Schoenflies.exists_injOn_of_finite`, `Schoenflies.IsSourceExtensionOver`, `Schoenflies.IsSourceExtensionOver.relabel`, `Schoenflies.GridExtensionData`, `Schoenflies.nonempty_gridExtensionData_of_over`, `Schoenflies.HasGridExtensions`, `Schoenflies.GridExtensionData.nonempty_gridStepData`, `Schoenflies.hasGridSteps`, `Schoenflies.abs_localGridX_sub_le`, `Schoenflies.abs_localGridY_sub_le`, `Schoenflies.gridPt_mem_closedSquare`, `Schoenflies.cover_localGridEdges_subset`, `Schoenflies.cover_localGridEdges_subset_window`, `Schoenflies.disjoint_cover_localGridEdges`, `Schoenflies.MeetsFinitely.of_diff_subset_compl`
+`Schoenflies.exists_injOn_of_finite`, `Schoenflies.IsSourceExtensionOver`, `Schoenflies.IsSourceExtensionOver.renameEdges`, `Schoenflies.GridExtensionData`, `Schoenflies.nonempty_gridExtensionData_of_over`, `Schoenflies.HasGridExtensions`, `Schoenflies.GridExtensionData.nonempty_gridStepData`, `Schoenflies.hasGridSteps`, `Schoenflies.abs_localGridX_sub_le`, `Schoenflies.abs_localGridY_sub_le`, `Schoenflies.gridPt_mem_closedSquare`, `Schoenflies.cover_localGridEdges_subset`, `Schoenflies.cover_localGridEdges_subset_window`, `Schoenflies.disjoint_cover_localGridEdges`, `Schoenflies.MeetsFinitely.of_diff_subset_compl`
 
 ## Schoenflies/InitialGenerated.lean  (1005 lines)
 

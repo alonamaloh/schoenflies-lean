@@ -37,19 +37,13 @@ Schoenflies.stageSequence        the fields of LimitTower ← HasGridSteps, HasM
 | `Schoenflies.SquareExtension` | `Endgame.lean` | `thm:main` | discharged by `square_extension` below, so not really open |
 | `Schoenflies.HasLimitHomeomorphism` | `BoundaryContinuity2.lean` | `thm:square-extension` | four conjuncts: a dense anchor set, the interior homeomorphism, `HasAnchorCrosscuts`, `HasSpokes`. **`stageSequence` + `limitTower` supply the second given the two choosers below; the other three need `lem:anchor-density` and the `SkeletonCrosscuts.lean` handoff.** |
 | the fields of `CellStructure.LimitTower` | `LimitMap.lean` | the interior homeomorphism | **supplied**: `Schoenflies.stageSequence` (`StageRecursion.lean`) builds the `StageSequence`, and `StageSequence.limitTower` the tower, conditional only on the two choosers below. `prop:shrinking-stars` is proved inside the recursion, not assumed |
-| `Schoenflies.HasGridSteps` | `StageRecursion.lean` | the interior homeomorphism | **discharged** by `Schoenflies.hasGridSteps` (`GridSteps.lean`) from `HasGridExtensions` below — the transfer invocation, the star bound, the `Piece`→`γ` relabelling (`Graph.relabel`, `IsSourceExtensionOver`), the window placement and the `MeetsFinitely` reduction are all proved there |
+| `Schoenflies.HasGridSteps` | `StageRecursion.lean` | the interior homeomorphism | **discharged** by `Schoenflies.hasGridSteps` (`GridSteps.lean`) from `HasGridExtensions` below — the transfer invocation, the star bound, the `Piece`→`γ` renaming (`Graph.renameEdges`, `IsSourceExtensionOver`), the window placement and the `MeetsFinitely` reduction are all proved there |
 | `Schoenflies.HasGridExtensions` | `GridSteps.lean` | `HasGridSteps` | at every stage, window and mesh: an `IsSourceExtension` whose point set carries the local grid over the window. The discharger must build **`gridAttachGraph` ∪ the outer part of the stage's own graph** — the grid alone cannot satisfy `skeletonSet_subset`, since `|Γ|` contains the wild `C`; the nonboundary skeleton enters through `gsegs` inside the overlay so crossings become vertices. The `hΓ` 2-connectivity assembly lives here, with `localGrid_subdivide_isTwoConnected` already discharging the `hK` side. See the module docstring's itemized obligations |
 | `Schoenflies.HasMeshSteps` | `StageRecursion.lean` | the interior homeomorphism | **discharged** by `Schoenflies.hasMeshSteps` (`MeshSteps.lean`) from `HasMeshTransfers` below — the quantitative half, the fresh-anchor supply and the fourth ambient fact are all proved there |
 | `Schoenflies.HasMeshTransfers` | `MeshSteps.lean` | `HasMeshSteps` | **discharged** by `Schoenflies.hasMeshTransfers` (`MeshTransfer.lean`) from `HasMeshOverlays` below, via the repaired `finite_transfer_back'` — the fresh-point supply at density `min ε 3`, the `HasFreshAnchors` derivation, the γ-renaming (`Graph.renameEdges`, `Graph/RenameEdges.lean`) and the ambient facts are all proved there. (The cut at the transfer's conclusion had been forced by the pre-repair deadlock, the ninth entry of "What the standing rules caught"; `IsTransferOfTgt` was untouched by the repair, as the cut anticipated) |
 | `Schoenflies.HasMeshOverlays` | `MeshTransfer.lean` | `HasMeshTransfers` | the overlay construction itself: given any valid fresh list, a `MeshOverlayExtension` — the extension clauses over a free edge type for `meshSegments` overlaid with the polygonal target skeleton **plus joining arcs**. The joining arcs are load-bearing: for an arbitrary admissible stage, mesh ∪ skeleton alone can have disconnected complement of `S` (counterexample recorded at the `isConnected` field). Discharger: `polygonal_overlay` + mesh clauses 3–5 + the 2-connectivity toolkit; the risky fields are audited in the module docstring |
 | anchor incidence | `SkeletonCrosscuts.lean` | `HasAnchorCrosscuts`, `HasSpokes` | the surviving condition of `lem:skeleton-crosscuts` as assembled: each anchor has an incident nonboundary edge — a clause of `lem:anchor-density`. Its former companion `Realization.HasPolygonalArcs` is **a theorem**: `Realization.hasPolygonalArcs_of_isPolygonal` (`PolygonalSkeletonArcs.lean`), with the hypothesis-free corollary `GeneratedPair.tgt_hasPolygonalArcs` that `exists_anchor_crosscut` takes directly |
 | `Schoenflies.CellsAbsorb` | `SkeletonAccess.lean`, `FreshAccess.lean` | `lem:polygonal-side-accessibility` | one clause of `lem:cellulation-invariants`. **Discharged at a stage** by `Realization.cellsAbsorb` (`StageCells.lean`) — assertions (i) and (vii) make the 2-cells a partition of the open domain minus the skeleton into open connected pieces, which is the decomposition into components. It remains a hypothesis only where the realization is *not* a stage of a `GeneratedPair` |
-
-**One live integrator debt.** The two chooser waves independently built an edge-renaming:
-`Graph.relabel` / `relabelDraw` (`GridSteps.lean`) and `Graph.renameEdges` / `renameDrawing`
-(`Graph/RenameEdges.lean`). No name collides and both are correct; `RenameEdges.lean` is the
-general, standalone one and should survive. A housekeeping pass should port `GridSteps.lean`'s
-internal uses onto it and delete the local copy.
 
 **Neither direction of `thm:finite-transfer` is on this list any more.** (b)'s ear step is
 `Schoenflies.earStepTgt` (`EarStepTgt.lean`) and `Schoenflies.finite_transfer_back'` is (b)
@@ -594,8 +588,8 @@ where no such sequence exists.
 ### The integrator debts, discharged
 
 Everything this file and the module docstrings recorded as "written here for want of a home" is
-hoisted. Nothing was restated and nothing was renamed, so no consumer changed; what changed is
-which module a fact can be reached from.
+hoisted. Nothing was restated and — except where a row says otherwise — nothing was renamed, so
+no consumer changed; what changed is which module a fact can be reached from.
 
 | Fact | Was in | Now in |
 |---|---|---|
@@ -608,6 +602,7 @@ which module a fact can be reached from.
 | `Schoenflies.continuousOn_invFunOn_image` | `InitialPair.lean` | `Topology.lean` |
 | `SubdivData.outer_vertexSet_of_mem` | `SubdivStage.lean` | `GeneratedStructure.lean`, beside `outer_edgeSet_of_mem` |
 | `Realization.Refines.skeletonSet_subset` | `StageCells.lean` | `RefinementStars.lean`, beside `Refines` |
+| `Graph.relabel` / `Graph.relabelDraw` and their lemmas | `GridSteps.lean` | **deleted** — they duplicated `Graph.renameEdges` / `Graph.renameDrawing` (`Graph/RenameEdges.lean`), which the two chooser waves had built independently; `GridSteps.lean` now consumes the general module. The one renamed declaration is the transport `IsSourceExtensionOver.relabel` → `IsSourceExtensionOver.renameEdges` (its statement necessarily changed with the API and it had no consumer outside `GridSteps.lean`); `exists_injOn_of_finite` survives verbatim as a corollary of `Graph.exists_injOn_notMem`, and every other public name and statement of `GridSteps.lean` (`IsSourceExtensionOver`, `GridExtensionData`, `nonempty_gridExtensionData_of_over`, `HasGridExtensions`, `hasGridSteps`, …) is unchanged |
 
 Three of them were not simple moves, and the reasons are worth keeping.
 

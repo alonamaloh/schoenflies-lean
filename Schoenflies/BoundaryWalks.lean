@@ -121,13 +121,26 @@ it, both elementary operations preserve it, and the ear construction consumes it
 structure BoundaryWalks (S : CellStructure γ) where
   /-- The base point of each 2-cell's boundary walk. -/
   start : γ → γ
-  /-- The boundary datum of a 2-cell really is a closed walk. -/
-  isWalk : ∀ ⦃F⦄, F ∈ S.faces → S.skel.IsWalk (start F) (S.boundary F) (start F)
+  /-- The boundary datum of a 2-cell really is a **cycle** of the skeleton based at `start F`:
+  it leaves by an edge `e` and comes back along a path, which is where vertex-simplicity lives.
+  Presented through the edge, the way `Graph.IsCycleThrough` presents every cycle in this
+  development — `Graph.IsPath` then does the ruling-out of repetitions, and
+  `Graph.IsCycleThrough.split_at` is waiting on the other side. -/
+  isCycle : ∀ ⦃F⦄, F ∈ S.faces → ∃ e v D, S.boundary F = e :: D.reverse ∧
+    S.skel.IsCycleThrough e (start F) v D
   /-- And the cells it runs through are exactly the cells strictly below the 2-cell. -/
   pathCells_eq : ∀ ⦃F⦄, F ∈ S.faces →
     S.pathCells (start F) (S.boundary F) = S.subcells F \ {F}
 
 namespace BoundaryWalks
+
+/-- The boundary datum is a closed walk — the weaker half of `isCycle`, which is all most of
+the bookkeeping needs. -/
+theorem isWalk (bw : S.BoundaryWalks) (hF : F ∈ S.faces) :
+    S.skel.IsWalk (bw.start F) (S.boundary F) (bw.start F) := by
+  obtain ⟨e, v, D, hb, hl, hD, -⟩ := bw.isCycle hF
+  rw [hb]
+  exact .cons hl hD.reverse.isWalk
 
 /-- **No 2-cell is strictly below another.** The cells below `F` are the cells of a walk, and a
 walk runs through 0-cells and 1-cells only. The blueprint asserts this of its update lists; it
@@ -429,6 +442,77 @@ theorem SubstWalk.isPath {u v : γ} {W W' : List γ} (hsub : d.SubstWalk u W W')
       · exact d.newVertex_notMem (S.mem_cells_of_mem_vertexSet hl.left_mem)
       · exact hfresh hmem'
 
+/-- A path that avoids the subdivided edge is a path of the subdivided skeleton. -/
+theorem isPath_skeleton_of_notMem {u v : γ} {W : List γ} (h : S.skel.IsPath u W v)
+    (hW : d.edge ∉ W) : d.skeleton.IsPath u W v := by
+  obtain ⟨W', hW'⟩ := d.exists_substWalk h.isWalk
+  obtain rfl := hW'.eq_of_notMem hW
+  exact SubstWalk.isPath hW' h
+
+theorem newVertex_notMem_walkVertices {u v : γ} {W : List γ} (h : S.skel.IsPath u W v)
+    (hW : d.edge ∉ W) : d.newVertex ∉ d.skeleton.walkVertices u W := by
+  rw [d.walkVertices_skeleton_eq h.isWalk hW]
+  exact fun hmem => d.newVertex_notMem
+    (S.mem_cells_of_mem_vertexSet (h.isWalk.walkVertices_subset hmem))
+
+/-- An old edge is never one of the two new ones. -/
+theorem ne_newEdge_of_mem_edgeSet {g : γ} (hg : g ∈ E(S.skel)) :
+    g ≠ d.newEdge₁ ∧ g ≠ d.newEdge₂ :=
+  ⟨fun h => d.newEdge₁_notMem_edgeSet (h ▸ hg), fun h => d.newEdge₂_notMem_edgeSet (h ▸ hg)⟩
+
+/-- **The boundary cycle survives an edge subdivision.** Three cases, and they are the three
+constructors of `IsSubstWalk`: the walk either leaves the 2-cell's base point by the subdivided
+edge — in one direction or the other, and then the new vertex is inserted right at the front of
+the cycle — or it leaves by some other edge, and the correction happens further along. -/
+theorem isCycle_newBoundary (bw : S.BoundaryWalks) (d : S.SubdivData)
+    (hstart : d.boundaryStart = bw.start) {F : γ} (hF : F ∈ S.faces) :
+    ∃ e v D, d.newBoundary F = e :: D.reverse ∧
+      d.skeleton.IsCycleThrough e (bw.start F) v D := by
+  obtain ⟨e, v, D, hb, hlink, hD, hnot⟩ := bw.isCycle hF
+  have hsubst : d.SubstWalk (bw.start F) (S.boundary F) (d.newBoundary F) :=
+    hstart ▸ d.newBoundary_isSubstWalk F _ (hstart ▸ bw.isWalk hF)
+  rcases hsubst.cons_inv hb with ⟨rfl, hcase⟩ | ⟨hne, w, L', hL, hlw, hs⟩
+  · -- The cycle leaves its base point by the subdivided edge, so the new vertex comes first.
+    have hDrev : d.edge ∉ D.reverse := by simpa using hnot
+    rcases hcase with ⟨hu, L', hL, hs⟩ | ⟨hu, L', hL, hs⟩
+    · obtain rfl : L' = D.reverse := hs.eq_of_notMem hDrev
+      obtain rfl : v = d.right := (d.isLink.right_unique (hu ▸ hlink)).symm
+      refine ⟨d.newEdge₁, d.newVertex, D ++ [d.newEdge₂], by rw [hL, List.reverse_append]; rfl,
+        ?_, ?_, ?_⟩
+      · rw [hu]; exact d.skeleton_isLink.2 (Or.inr (Or.inl ⟨rfl, rfl⟩))
+      · refine (d.isPath_skeleton_of_notMem hD hnot).extend_at_target
+          (d.skeleton_isLink.2 (Or.inr (Or.inr ⟨rfl, rfl⟩))).symm
+          (d.newVertex_notMem_walkVertices hD hnot)
+      · rw [List.mem_append]
+        rintro (hmem | hmem)
+        · exact (d.ne_newEdge_of_mem_edgeSet (hD.isWalk.edge_mem hmem)).1.symm rfl
+        · exact d.newEdge_ne (List.eq_of_mem_singleton hmem)
+    · obtain rfl : L' = D.reverse := hs.eq_of_notMem hDrev
+      obtain rfl : v = d.left := (d.isLink.symm.right_unique (hu ▸ hlink)).symm
+      refine ⟨d.newEdge₂, d.newVertex, D ++ [d.newEdge₁], by rw [hL, List.reverse_append]; rfl,
+        ?_, ?_, ?_⟩
+      · rw [hu]; exact d.skeleton_isLink.2 (Or.inr (Or.inr ⟨rfl, Sym2.eq_swap⟩))
+      · refine (d.isPath_skeleton_of_notMem hD hnot).extend_at_target
+          (d.skeleton_isLink.2 (Or.inr (Or.inl ⟨rfl, Sym2.eq_swap⟩))).symm
+          (d.newVertex_notMem_walkVertices hD hnot)
+      · rw [List.mem_append]
+        rintro (hmem | hmem)
+        · exact (d.ne_newEdge_of_mem_edgeSet (hD.isWalk.edge_mem hmem)).2.symm rfl
+        · exact d.newEdge_ne (List.eq_of_mem_singleton hmem).symm
+  · -- The cycle leaves by another edge, which survives; the correction is inside the path.
+    obtain rfl : w = v := hlw.right_unique hlink
+    have hpath : d.skeleton.IsPath w L' (bw.start F) := SubstWalk.isPath hs hD.reverse
+    refine ⟨e, w, L'.reverse, by rw [hL, List.reverse_reverse], ?_, hpath.reverse, ?_⟩
+    · exact d.skeleton_isLink.2 (Or.inl ⟨hlink, hne,
+        (d.ne_newEdge_of_mem_edgeSet hlink.edge_mem).1,
+        (d.ne_newEdge_of_mem_edgeSet hlink.edge_mem).2⟩)
+    · rw [List.mem_reverse]
+      intro hmem
+      rcases SubstWalk.mem_of_mem (d := d) hs hmem with hmem' | rfl | rfl
+      · exact hnot (by simpa using hmem')
+      · exact (d.ne_newEdge_of_mem_edgeSet hlink.edge_mem).1 rfl
+      · exact (d.ne_newEdge_of_mem_edgeSet hlink.edge_mem).2 rfl
+
 /-- The subcell relation of a subdivided structure, at a 2-cell: the old subcells minus the
 subdivided edge, plus the three new cells when the edge was one of them. -/
 theorem subRel_face_iff {σ : γ} (hF : F ∈ S.faces) :
@@ -488,9 +572,7 @@ subdivision moves no old vertex — and that is why the `SubdivData` has to have
 def BoundaryWalks.subdivideEdge (bw : S.BoundaryWalks) (d : S.SubdivData)
     (hstart : d.boundaryStart = bw.start) : (S.subdivideEdge d).BoundaryWalks where
   start := bw.start
-  isWalk F hF := by
-    have h := subdivideEdge_isWalk_boundary d (F := F) (v := bw.start F) (hstart ▸ bw.isWalk hF)
-    rwa [hstart] at h
+  isCycle F hF := SubdivData.isCycle_newBoundary bw d hstart hF
   pathCells_eq F hF := by
     have hwalk : S.skel.IsWalk (bw.start F) (S.boundary F) (bw.start F) := bw.isWalk hF
     have hsubst : d.SubstWalk (bw.start F) (S.boundary F) ((S.subdivideEdge d).boundary F) :=
@@ -501,10 +583,10 @@ def BoundaryWalks.subdivideEdge (bw : S.BoundaryWalks) (d : S.SubdivData)
     by_cases hedge : S.sub d.edge F
     · rw [d.subcells_subdivideEdge_of_sub hF hedge,
         d.crossedCells_of_mem ((bw.mem_boundary_iff_sub hF d.edge_mem_edgeSet).2 hedge),
-        union_sdiff_distrib, sdiff_singleton_eq_self hFn, sdiff_sdiff_comm]
+        union_sdiff_distrib, sdiff_singleton_eq_self hFn, Set.sdiff_sdiff_comm]
     · rw [d.subcells_subdivideEdge_of_not_sub hF hedge,
         d.crossedCells_of_notMem fun h => hedge ((bw.mem_boundary_iff_sub hF
-          d.edge_mem_edgeSet).1 h), union_empty, sdiff_sdiff_comm]
+          d.edge_mem_edgeSet).1 h), union_empty, Set.sdiff_sdiff_comm]
 
 /-! ### Preservation by a 2-cell split -/
 
@@ -532,18 +614,24 @@ theorem splitFace_boundary_of_ne {F : γ} (h₁ : F ≠ c.face₁) (h₂ : F ≠
 
 /-- An old walk runs through the same cells after a split: the skeleton only grows, and it grows
 by edges the old walk does not take. -/
+theorem coveredVertices_splitFace {u v : γ} {W : List γ} (h : S.skel.IsWalk u W v) :
+    (S.splitFace c).skel.coveredVertices W = S.skel.coveredVertices W := by
+  ext z
+  constructor
+  · rintro ⟨f, hf, y, hy⟩
+    rcases Graph.union_isLink.1 hy with hl | ⟨hne, -⟩
+    · exact ⟨f, hf, y, hl⟩
+    · exact absurd (h.edge_mem hf) hne
+  · rintro ⟨f, hf, y, hy⟩
+    exact ⟨f, hf, y, Or.inl hy⟩
+
+theorem walkVertices_splitFace {u v : γ} {W : List γ} (h : S.skel.IsWalk u W v) :
+    (S.splitFace c).skel.walkVertices u W = S.skel.walkVertices u W := by
+  rw [Graph.walkVertices, Graph.walkVertices, c.coveredVertices_splitFace h]
+
 theorem pathCells_splitFace {u v : γ} {W : List γ} (h : S.skel.IsWalk u W v) :
     (S.splitFace c).pathCells u W = S.pathCells u W := by
-  have hcov : (S.splitFace c).skel.coveredVertices W = S.skel.coveredVertices W := by
-    ext z
-    constructor
-    · rintro ⟨f, hf, y, hy⟩
-      rcases Graph.union_isLink.1 hy with hl | ⟨hne, -⟩
-      · exact ⟨f, hf, y, hl⟩
-      · exact absurd (h.edge_mem hf) hne
-    · rintro ⟨f, hf, y, hy⟩
-      exact ⟨f, hf, y, Or.inl hy⟩
-  simp only [pathCells, Graph.walkVertices, hcov]
+  simp only [pathCells, Graph.walkVertices, c.coveredVertices_splitFace h]
 
 /-- An edge of the ear is incident in the new skeleton to exactly what it was incident to in the
 ear: it is a fresh name, so the old skeleton has no say. -/
@@ -558,21 +646,83 @@ theorem inc_iff_of_mem_ear_edgeSet {f z : γ} (hf : f ∈ E(c.ear)) :
 
 /-- **The ear contributes exactly its own cells.** Its edge list is its edge set and the
 vertices it visits are its vertex set, both by `Graph.IsPathGraph`. -/
+theorem coveredVertices_earWalk : (S.splitFace c).skel.coveredVertices c.earWalk =
+    c.ear.coveredVertices c.earWalk := by
+  ext z
+  constructor
+  · rintro ⟨f, hf, hz⟩
+    exact ⟨f, hf, (c.inc_iff_of_mem_ear_edgeSet (c.isPathGraph.mem_edgeSet hf)).1 hz⟩
+  · rintro ⟨f, hf, hz⟩
+    exact ⟨f, hf, (c.inc_iff_of_mem_ear_edgeSet (c.isPathGraph.mem_edgeSet hf)).2 hz⟩
+
+/-- The vertices the ear's walk visits in the new skeleton are the ear's own vertices. -/
+theorem walkVertices_earWalk :
+    (S.splitFace c).skel.walkVertices c.source c.earWalk = V(c.ear) := by
+  rw [Graph.walkVertices, c.coveredVertices_earWalk, c.isPathGraph.vertexSet_eq,
+    Graph.walkVertices]
+
 theorem pathCells_earWalk_reverse :
     (S.splitFace c).pathCells c.source c.earWalk.reverse = c.earCells := by
-  have hcov : (S.splitFace c).skel.coveredVertices c.earWalk =
-      c.ear.coveredVertices c.earWalk := by
-    ext z
-    constructor
-    · rintro ⟨f, hf, hz⟩
-      exact ⟨f, hf, (c.inc_iff_of_mem_ear_edgeSet (c.isPathGraph.mem_edgeSet hf)).1 hz⟩
-    · rintro ⟨f, hf, hz⟩
-      exact ⟨f, hf, (c.inc_iff_of_mem_ear_edgeSet (c.isPathGraph.mem_edgeSet hf)).2 hz⟩
+  have hcov := c.coveredVertices_earWalk
   ext z
   simp only [pathCells, Graph.walkVertices, Graph.coveredVertices_reverse, hcov, earCells,
     mem_union, mem_setOf_eq, List.mem_reverse, mem_insert_iff, c.isPathGraph.edgeSet_eq,
     c.isPathGraph.vertexSet_eq, Graph.walkVertices]
   tauto
+
+/-- **The boundary cycle of a new 2-cell.** The boundary path the 2-cell was split along,
+closed up by the ear. It is a *cycle* and not merely a closed walk because the ear meets the old
+skeleton only at its two ends (`SplitData.vertexSet_inter`) and the path never returns to its
+own source. Stated for one boundary path, so that both new 2-cells use it. -/
+theorem isCycle_path_append_ear {P : List γ} (hP : S.skel.IsPath c.source P c.target)
+    (hb : (S.splitFace c).boundary F = P ++ c.earWalk.reverse) :
+    ∃ e v D, (S.splitFace c).boundary F = e :: D.reverse ∧
+      (S.splitFace c).skel.IsCycleThrough e c.source v D := by
+  obtain ⟨g, P₀, hp⟩ : ∃ g P₀, P = g :: P₀ := by
+    rcases hl : P with _ | ⟨a, l⟩
+    · exact absurd ((hl ▸ hP).isWalk.eq_of_nil) c.source_ne_target
+    · exact ⟨a, l, rfl⟩
+  have hP' : S.skel.IsPath c.source (g :: P₀) c.target := hp ▸ hP
+  cases hP' with
+  | cons hlink hP₀ hfresh =>
+    have hear : (S.splitFace c).skel.IsPath c.source c.earWalk c.target :=
+      c.isPathGraph.isPath.mono c.ear_le_skeleton
+    have hrev : (S.splitFace c).skel.IsPath c.target P₀.reverse _ :=
+      hP₀.reverse.mono c.le_skeleton
+    have hmeet : ∀ y ∈ (S.splitFace c).skel.walkVertices c.source c.earWalk,
+        y ∈ (S.splitFace c).skel.walkVertices c.target P₀.reverse → y = c.target := by
+      intro y hy hy'
+      rw [c.walkVertices_earWalk] at hy
+      rw [c.walkVertices_splitFace hP₀.reverse.isWalk] at hy'
+      have hyS : y ∈ V(S.skel) := hP₀.reverse.isWalk.walkVertices_subset hy'
+      have hmem : y ∈ ({c.source, c.target} : Set γ) := by
+        rw [← c.vertexSet_inter]; exact ⟨hy, hyS⟩
+      rcases hmem with hys | hyt
+      · subst hys
+        rcases Graph.mem_walkVertices_iff.1 hy' with hy'' | hcov
+        · exact absurd hy'' c.source_ne_target
+        · exact absurd (Graph.mem_walkVertices_of_mem_covered
+            (Graph.coveredVertices_reverse ▸ hcov)) hfresh
+      · exact hyt
+    refine ⟨g, _, c.earWalk ++ P₀.reverse, ?_, hlink.mono c.le_skeleton,
+      hear.append hrev hmeet, ?_⟩
+    · rw [hb, hp, List.reverse_append, List.reverse_reverse]
+      rfl
+    · rw [List.mem_append]
+      rintro (hmem | hmem)
+      · exact c.edge_fresh (c.isPathGraph.mem_edgeSet hmem)
+          (S.mem_cells_of_mem_edgeSet hlink.edge_mem)
+      · exact (List.nodup_cons.1 (Graph.IsPath.cons hlink hP₀ hfresh).nodup).1
+          (List.mem_reverse.1 hmem)
+
+/-- The boundary cycles of the 2-cells a split does not touch are the old ones. -/
+theorem isCycle_boundary_of_ne (bw : S.BoundaryWalks) (hF : F ∈ S.faces) (h₁ : F ≠ c.face₁)
+    (h₂ : F ≠ c.face₂) :
+    ∃ e v D, (S.splitFace c).boundary F = e :: D.reverse ∧
+      (S.splitFace c).skel.IsCycleThrough e (bw.start F) v D := by
+  obtain ⟨e, v, D, hb, hlink, hD, hnot⟩ := bw.isCycle hF
+  exact ⟨e, v, D, by rw [c.splitFace_boundary_of_ne h₁ h₂, hb], hlink.mono c.le_skeleton,
+    hD.mono c.le_skeleton, hnot⟩
 
 theorem face₁_notMem_cells₁ : c.face₁ ∉ c.cells₁ := fun h => c.face₁_notMem (c.cells₁_subset h)
 
@@ -615,18 +765,16 @@ cell below an old 2-cell. -/
 noncomputable def BoundaryWalks.splitFace (bw : S.BoundaryWalks) (c : S.SplitData) :
     (S.splitFace c).BoundaryWalks where
   start F := if F = c.face₁ ∨ F = c.face₂ then c.source else bw.start F
-  isWalk F hF := by
+  isCycle F hF := by
     rcases hF with rfl | rfl | ⟨hF, hne⟩
-    · rw [if_pos (Or.inl rfl), c.splitFace_boundary_face₁]
-      exact (c.isPath₁.isWalk.mono c.le_skeleton).append
-        (c.isPathGraph.isWalk.reverse.mono c.ear_le_skeleton)
-    · rw [if_pos (Or.inr rfl), c.splitFace_boundary_face₂]
-      exact (c.isPath₂.isWalk.mono c.le_skeleton).append
-        (c.isPathGraph.isWalk.reverse.mono c.ear_le_skeleton)
+    · rw [if_pos (Or.inl rfl)]
+      exact c.isCycle_path_append_ear c.isPath₁ c.splitFace_boundary_face₁
+    · rw [if_pos (Or.inr rfl)]
+      exact c.isCycle_path_append_ear c.isPath₂ c.splitFace_boundary_face₂
     · have h₁ : F ≠ c.face₁ := fun h => c.face₁_notMem (h ▸ S.mem_cells_of_mem_faces hF)
       have h₂ : F ≠ c.face₂ := fun h => c.face₂_notMem (h ▸ S.mem_cells_of_mem_faces hF)
-      rw [if_neg (by rintro (h | h); exacts [h₁ h, h₂ h]), c.splitFace_boundary_of_ne h₁ h₂]
-      exact (bw.isWalk hF).mono c.le_skeleton
+      rw [if_neg (by rintro (h | h); exacts [h₁ h, h₂ h])]
+      exact c.isCycle_boundary_of_ne bw hF h₁ h₂
   pathCells_eq F hF := by
     rcases hF with rfl | rfl | ⟨hF, hne⟩
     · have hL : (S.splitFace c).pathCells c.source ((S.splitFace c).boundary c.face₁)

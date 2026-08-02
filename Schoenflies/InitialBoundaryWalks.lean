@@ -38,6 +38,36 @@ theorem isWalk_initBoundary (k : Bool) :
   cases k
   exacts [isWalk_initBoundary_false, isWalk_initBoundary_true]
 
+/-- Membership in the vertices an explicit walk of `initSkel` visits, in a shape `decide` can
+finish: an edge of the initial skeleton is incident exactly to its two `ends`. -/
+theorem mem_initSkel_walkVertices_iff {u x : InitialCell} {W : List InitialCell} :
+    x ∈ initSkel.walkVertices u W ↔
+      x = u ∨ ∃ e ∈ W, e ∈ InitialCell.edges ∧ (x = e.ends.1 ∨ x = e.ends.2) := by
+  simp only [Graph.walkVertices, Graph.coveredVertices, mem_insert_iff, mem_setOf_eq,
+    initSkel_inc_iff]
+
+/-- **`B₁ ∪ P` is a cycle at `a`, and `B₂ ∪ P` one at `b`.** The two boundary walks of the
+initial structure repeat no vertex: each runs along three outer edges and back over the chord,
+through four of the six boundary vertices. -/
+theorem isCycle_initBoundary (k : Bool) :
+    ∃ e v D, initBoundary (.face k) = e :: D.reverse ∧
+      initSkel.IsCycleThrough e (initStart (.face k)) v D := by
+  cases k
+  · refine ⟨.edge 1, .vert 2, [.chord, .edge 3, .edge 2], rfl,
+      initSkel_isLink_edge (by decide : (1 : Fin 6) + 1 = 2), ?_, by decide⟩
+    refine .cons initSkel_isLink_chord
+      (.cons (initSkel_isLink_edge (by decide : (3 : Fin 6) + 1 = 4)).symm
+        (.cons (initSkel_isLink_edge (by decide : (2 : Fin 6) + 1 = 3)).symm
+          (.nil (InitialCell.vert_mem_vertices 2)) ?_) ?_) ?_ <;>
+      simp [mem_initSkel_walkVertices_iff, InitialCell.ends, initStart]
+  · refine ⟨.edge 4, .vert 5, [.chord, .edge 0, .edge 5], rfl,
+      initSkel_isLink_edge (by decide : (4 : Fin 6) + 1 = 5), ?_, by decide⟩
+    refine .cons initSkel_isLink_chord.symm
+      (.cons (initSkel_isLink_edge (by decide : (0 : Fin 6) + 1 = 1)).symm
+        (.cons (initSkel_isLink_edge (by decide : (5 : Fin 6) + 1 = 0)).symm
+          (.nil (InitialCell.vert_mem_vertices 5)) ?_) ?_) ?_ <;>
+      simp [mem_initSkel_walkVertices_iff, InitialCell.ends, initStart]
+
 /-- The cells of an initial boundary walk are the `faceCells` of its 2-cell. The base point is
 covered by the walk itself — both walks take the chord, whose ends are the two base points — so
 adding it changes nothing, which is the whole gap between `mem_faceCells_iff` and this. -/
@@ -70,9 +100,9 @@ theorem subcells_face_sdiff (k : Bool) :
 /-- **The initial structure satisfies the boundary-walk invariant.** -/
 def initialBoundaryWalks : initialStructure.BoundaryWalks where
   start := initStart
-  isWalk := by
+  isCycle := by
     rintro F ⟨k, rfl⟩
-    exact isWalk_initBoundary k
+    exact isCycle_initBoundary k
   pathCells_eq := by
     rintro F ⟨k, rfl⟩
     change initialStructure.pathCells _ (initBoundary (.face k)) = _

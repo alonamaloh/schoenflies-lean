@@ -313,6 +313,29 @@ theorem IsSubstWalk.eq_cons_of_head {u : γ} {V W W' : List γ}
     rw [List.cons.injEq] at hV
     exact absurd hV.1 hf
 
+/-- **Inversion at the head.** A corrected walk whose first step is `g` either replaced the
+subdivided edge — in the order the walk crossed it — or kept `g` and went on. The equation
+hypothesis is what lets `cases` see through the index. -/
+theorem IsSubstWalk.cons_inv {u g : γ} {V W L : List γ}
+    (hsub : IsSubstWalk H e x y e₁ e₂ u V L) (hV : V = g :: W) :
+    (g = e ∧ ((u = x ∧ ∃ L', L = e₁ :: e₂ :: L' ∧ IsSubstWalk H e x y e₁ e₂ y W L') ∨
+        (u = y ∧ ∃ L', L = e₂ :: e₁ :: L' ∧ IsSubstWalk H e x y e₁ e₂ x W L'))) ∨
+      (g ≠ e ∧ ∃ w L', L = g :: L' ∧ H.IsLink g u w ∧ IsSubstWalk H e x y e₁ e₂ w W L') := by
+  cases hsub with
+  | nil u => exact absurd hV (by simp)
+  | forward h =>
+    rw [List.cons.injEq] at hV
+    obtain ⟨rfl, rfl⟩ := hV
+    exact Or.inl ⟨rfl, Or.inl ⟨rfl, _, rfl, h⟩⟩
+  | backward h =>
+    rw [List.cons.injEq] at hV
+    obtain ⟨rfl, rfl⟩ := hV
+    exact Or.inl ⟨rfl, Or.inr ⟨rfl, _, rfl, h⟩⟩
+  | other hl hf h =>
+    rw [List.cons.injEq] at hV
+    obtain ⟨rfl, rfl⟩ := hV
+    exact Or.inr ⟨hf, _, _, rfl, hl, h⟩
+
 /-- **One corrected list cannot serve both directions.** The walk consisting of the subdivided
 edge alone is a walk from `x` and a walk from `y`, and its two corrections are the two orders of
 `e₁, e₂`; they coincide only if the edge is a loop. This is why the departure vertex has to be

@@ -5,6 +5,7 @@ Authors: Álvaro Begué
 -/
 import Schoenflies.MeshSteps
 import Schoenflies.LocalGrid
+import Schoenflies.Graph.RenameEdges
 
 /-!
 # The mesh transfer chooser, reduced to the polygonal overlay
@@ -192,6 +193,56 @@ theorem hasFreshAnchors (M : MeshOverlayExtension P ε fresh γ) (hsep : IsSepar
     rw [sdiff_outer_eq_inside hsep]
     exact (hfresh p (M.nonboundaryAt_mem_fresh hp hnb)).2
 
+/-- **The bundle transports across an edge renaming.** An overlay extension over any
+edge-name type yields one over `γ`: `Graph.exists_injOn_notMem` supplies fresh injective
+`γ`-names for the finitely many overlay edges, and `Graph.renameEdges` preserves everything
+the clauses read — vertex set, adjacency, each edge's arc, the occupied point set. This is
+the `Piece`-to-`γ` rebuild of the module docstring. -/
+theorem rename [Infinite γ] {β : Type*} [Nonempty β]
+    (M : MeshOverlayExtension P ε fresh β) : Nonempty (MeshOverlayExtension P ε fresh γ) := by
+  classical
+  haveI := M.finite
+  obtain ⟨σ, hσ, -⟩ := Graph.exists_injOn_notMem (Graph.finite_edgeSet M.H)
+    (Set.finite_empty (α := γ))
+  have hpt : Graph.pointSet (M.H.renameEdges σ hσ) (Graph.renameDrawing M.H σ M.Hdraw)
+      = Graph.pointSet M.H M.Hdraw := Graph.pointSet_renameEdges hσ
+  -- the two directions of the `NonboundaryAt` correspondence
+  have hnbdown : ∀ ⦃p : Plane⦄,
+      NonboundaryAt (M.H.renameEdges σ hσ) (Graph.renameDrawing M.H σ M.Hdraw)
+        modelCurve P.tgt.skeletonSet p →
+      NonboundaryAt M.H M.Hdraw modelCurve P.tgt.skeletonSet p := by
+    rintro p ⟨f, hf, hp, hnb, hnew⟩
+    obtain ⟨f₀, hf₀, rfl, harc⟩ := Graph.exists_rep_of_mem_renameEdges (d := M.Hdraw) hσ hf
+    rw [harc] at hp hnb hnew
+    exact ⟨f₀, hf₀, hp, hnb, hnew⟩
+  refine ⟨⟨M.H.renameEdges σ hσ, Graph.renameDrawing M.H σ M.Hdraw,
+    Graph.renameEdges_finite, M.isDrawing.renameEdges hσ,
+    M.isTwoConnected.renameEdges hσ, M.vertexSet_subset, ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩⟩
+  · rw [hpt]; exact M.skeletonSet_subset
+  · -- `edge_subset`
+    intro e he f hf q hq hcell hqV
+    obtain ⟨f₀, hf₀, rfl, harc⟩ := Graph.exists_rep_of_mem_renameEdges (d := M.Hdraw) hσ hf
+    rw [harc] at hq ⊢
+    exact M.edge_subset he hf₀ hq hcell hqV
+  · rw [hpt]; exact M.pointSet_subset
+  · -- `edge_dichotomy`
+    intro f hf
+    obtain ⟨f₀, hf₀, rfl, harc⟩ := Graph.exists_rep_of_mem_renameEdges (d := M.Hdraw) hσ hf
+    rw [harc]
+    exact M.edge_dichotomy hf₀
+  · rw [hpt]; exact M.isConnected
+  · -- `nonboundaryAt_mem_fresh`
+    intro p hp hnb
+    exact M.nonboundaryAt_mem_fresh hp (hnbdown hnb)
+  · -- `unique_edge`
+    intro p hp f g hf hg hpf hpg hnbf hnbg hnewf hnewg
+    obtain ⟨f₀, hf₀, rfl, harcf⟩ := Graph.exists_rep_of_mem_renameEdges (d := M.Hdraw) hσ hf
+    obtain ⟨g₀, hg₀, rfl, harcg⟩ := Graph.exists_rep_of_mem_renameEdges (d := M.Hdraw) hσ hg
+    rw [harcf] at hpf hnbf hnewf
+    rw [harcg] at hpg hnbg hnewg
+    exact congrArg σ (M.unique_edge hp hf₀ hg₀ hpf hpg hnbf hnbg hnewf hnewg)
+  · rw [hpt]; exact M.mesh_subset
+
 end MeshOverlayExtension
 
 /-- **One overlay extension is one mesh transfer.** The extension is fed to the repaired
@@ -237,7 +288,7 @@ def HasMeshOverlays (S₀ : CellStructure γ) (C : Set Plane) : Prop :=
           (∀ z ∈ fresh, z ∈ modelCurve ∧ z ∉ V(P.tgt.graph) ∧ z ∉ bad ∧
             StronglyAccessible (inside C) (P.homeo.invFun z)) →
           (∃ z ∈ fresh, ∃ w ∈ fresh, z ≠ w) →
-          Nonempty (MeshOverlayExtension P ε fresh γ)
+          Nonempty (MeshOverlayExtension P ε fresh Piece)
 
 /-- **The discharge of the mesh-transfer chooser from the overlay.** The fresh points are
 chosen by `Schoenflies.exists_fresh_anchor_supply` at density `min ε 3` — positive, at most
@@ -264,7 +315,8 @@ theorem hasMeshTransfers [Infinite γ] (h₀ : S₀.CombInvariants) (hsep : IsSe
   obtain ⟨M⟩ := hext hfresh'
     (exists_two_distinct_fresh_of_freshDense hdense
       (lt_of_le_of_lt (min_le_right ε 3) (by norm_num)))
+  obtain ⟨M'⟩ := M.rename (γ := γ)
   exact meshTransfer_of_extension h₀ hsep (hdense.mono (min_le_left ε 3))
-    (fun z hz => ⟨(hfresh' z hz).2.1, (hfresh' z hz).2.2.2⟩) M
+    (fun z hz => ⟨(hfresh' z hz).2.1, (hfresh' z hz).2.2.2⟩) M'
 
 end Schoenflies

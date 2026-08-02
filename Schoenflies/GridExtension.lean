@@ -508,4 +508,121 @@ instance outerPart_finite (R : S.Realization) : (S.outerGraph.map R.pos).Finite 
     rw [Graph.edgeSet_map]
     exact S.finite_edgeSet.subset S.outerGraph_le.edgeSet_mono
 
+/-! ## Placement of the polygonal part
+
+Everything below reads the piece list through four placement hypotheses — the skeleton pieces
+leave the open domain only at drawn 0-cells (`hg2`, which `skeletonSegs_diff_subset` supplies
+and which auxiliary segments inside the domain satisfy vacuously), the joining arcs and the
+grid lie in the open domain (`hj2`, `hgridin`), and every drawn 0-cell is a prescribed vertex
+(`hverts`). -/
+
+/-- A vertex of the drawn skeleton never lies in an open 1-cell. -/
+theorem notMem_cell_of_mem_vertexSet (R : S.Realization) {e : γ} (he : e ∈ E(S.skel))
+    {z : Plane} (hz : z ∈ V(R.graph)) : z ∉ R.cell e := by
+  obtain ⟨x, y, hl⟩ := S.skel.exists_isLink_of_mem_edgeSet he
+  rw [R.cell_edge hl]
+  rintro ⟨hzarc, hzends⟩
+  refine hzends ?_
+  rcases R.isDrawing.vertex_mem_edgeArc (hl.map R.pos) hz hzarc with rfl | rfl
+  · exact Set.mem_insert _ _
+  · exact Set.mem_insert_of_mem _ rfl
+
+/-- An open 1-cell stays on its own drawn arc. -/
+theorem cell_subset_edgeArc (R : S.Realization) {e : γ} (he : e ∈ E(S.skel)) :
+    R.cell e ⊆ edgeArc R.drawing e := by
+  obtain ⟨x, y, hl⟩ := S.skel.exists_isLink_of_mem_edgeSet he
+  rw [R.cell_edge hl]
+  exact Set.diff_subset
+
+/-- The drawn 0-cells lie on the realized skeleton. -/
+theorem pos_image_subset_skeletonSet (R : S.Realization) :
+    R.pos '' V(S.skel) ⊆ R.skeletonSet := by
+  rintro z ⟨v, hv, rfl⟩
+  exact vertexSet_subset_pointSet (by rw [Realization.vertexSet_graph]; exact ⟨v, hv, rfl⟩)
+
+section Placement
+
+variable {gsegs : List Piece} {reps : List Plane} {Jarc : Plane → List Piece} {p : Plane}
+  {s ε : ℝ} {extra : List Plane}
+
+/-- The cover of the attachment pieces, decomposed. -/
+theorem cover_gridAttachPieces :
+    cover (gridAttachPieces gsegs reps Jarc p s ε) =
+      (cover gsegs ∪ ⋃ r ∈ reps, cover (Jarc r)) ∪
+        cover (localGridEdges p s (localGridCount s ε)) := by
+  rw [gridAttachPieces, cover_append, cover_append, cover_flatMap']
+
+/-- **Off the drawn 0-cells, the pieces lie in the open Jordan domain.** -/
+theorem cover_gridAttachPieces_diff_subset
+    (hg2 : ∀ P ∈ gsegs, P.seg \ (R.pos '' V(S.skel)) ⊆ inside C)
+    (hj2 : ∀ r ∈ reps, cover (Jarc r) ⊆ inside C)
+    (hgridin : cover (localGridEdges p s (localGridCount s ε)) ⊆ inside C) :
+    cover (gridAttachPieces gsegs reps Jarc p s ε) \ (R.pos '' V(S.skel)) ⊆ inside C := by
+  rintro z ⟨hz, hznot⟩
+  rw [cover_gridAttachPieces] at hz
+  rcases hz with (hz | hz) | hz
+  · obtain ⟨P, hP, hzP⟩ := mem_cover_iff.1 hz
+    exact hg2 P hP ⟨hzP, hznot⟩
+  · obtain ⟨r, hr, hzr⟩ := Set.mem_iUnion₂.1 hz
+    exact hj2 r hr hzr
+  · exact hgridin hz
+
+/-- **What the pieces meet of the outer curve is drawn 0-cells.** -/
+theorem cover_gridAttachPieces_inter_subset
+    (hg2 : ∀ P ∈ gsegs, P.seg \ (R.pos '' V(S.skel)) ⊆ inside C)
+    (hj2 : ∀ r ∈ reps, cover (Jarc r) ⊆ inside C)
+    (hgridin : cover (localGridEdges p s (localGridCount s ε)) ⊆ inside C) :
+    cover (gridAttachPieces gsegs reps Jarc p s ε) ∩ C ⊆ R.pos '' V(S.skel) := by
+  rintro z ⟨hz, hzC⟩
+  by_contra hznot
+  exact inside_subset_compl
+    (cover_gridAttachPieces_diff_subset hg2 hj2 hgridin ⟨hz, hznot⟩) hzC
+
+/-- The pieces stay in the closed domain. -/
+theorem cover_gridAttachPieces_subset
+    (hW : R.IsWeaklyAdmissible C (C ∪ inside C))
+    (hg2 : ∀ P ∈ gsegs, P.seg \ (R.pos '' V(S.skel)) ⊆ inside C)
+    (hj2 : ∀ r ∈ reps, cover (Jarc r) ⊆ inside C)
+    (hgridin : cover (localGridEdges p s (localGridCount s ε)) ⊆ inside C) :
+    cover (gridAttachPieces gsegs reps Jarc p s ε) ⊆ C ∪ inside C := by
+  intro z hz
+  by_cases hzv : z ∈ R.pos '' V(S.skel)
+  · exact hW.skeletonSet_subset (pos_image_subset_skeletonSet R hzv)
+  · exact Or.inr (cover_gridAttachPieces_diff_subset hg2 hj2 hgridin ⟨hz, hzv⟩)
+
+/-- A vertex of the polygonal part lies on the pieces. -/
+theorem vertexSet_gridAttachGraph_subset_cover :
+    V(gridAttachGraph gsegs reps Jarc p s ε extra) ⊆
+      cover (gridAttachPieces gsegs reps Jarc p s ε) := by
+  rintro v ⟨Q, hQ, hv⟩
+  refine seg_subset_cover_of_mem_overlayPieces hQ ?_
+  rcases hv with rfl | rfl
+  · exact left_mem_segment ℝ _ _
+  · exact right_mem_segment ℝ _ _
+
+/-- **A drawn 0-cell on the pieces is a vertex of the polygonal part** — because every drawn
+0-cell is a prescribed cut point of the overlay. -/
+theorem pos_mem_vertexSet_gridAttachGraph (hs : 0 < s)
+    (hg1 : ∀ P ∈ gsegs, P.Nondeg) (hj1 : ∀ P ∈ reps.flatMap Jarc, P.Nondeg)
+    (hverts : ∀ v ∈ V(S.skel), R.pos v ∈ extra) {z : Plane}
+    (hz : z ∈ R.pos '' V(S.skel)) (hzc : z ∈ cover (gridAttachPieces gsegs reps Jarc p s ε)) :
+    z ∈ V(gridAttachGraph gsegs reps Jarc p s ε extra) := by
+  obtain ⟨v, hv, rfl⟩ := hz
+  exact mem_vertexSet_attachGraph_of_mem_extra (gridAttachPieces_nondeg hs hg1 hj1)
+    (hverts v hv) hzc
+
+/-- A subpiece of the overlay through any point of a listed piece, staying inside it. -/
+theorem exists_subpiece {l : List Piece} {pts : List Plane} {P : Piece} (hP : P ∈ l)
+    {q : Plane} (hq : q ∈ P.seg) :
+    ∃ Q₁ ∈ subdivide l pts, q ∈ Q₁.seg ∧ Q₁.seg ⊆ P.seg := by
+  have hcov : cover (subdivide [P] pts) = P.seg := by
+    rw [subdivide_cover, cover_cons, cover_nil, Set.union_empty]
+  obtain ⟨Q₁, hQ₁, hqQ₁⟩ := mem_cover_iff.1 (hcov ▸ hq)
+  refine ⟨Q₁, ?_, hqQ₁, fun z hz => hcov ▸ mem_cover hQ₁ hz⟩
+  obtain ⟨l₁, l₂, rfl⟩ := List.append_of_mem hP
+  rw [show l₁ ++ P :: l₂ = l₁ ++ ([P] ++ l₂) from rfl, subdivide_append, subdivide_append]
+  exact List.mem_append_right _ (List.mem_append_left _ hQ₁)
+
+end Placement
+
 end Schoenflies

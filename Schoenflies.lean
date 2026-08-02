@@ -110,3 +110,4 @@ import Schoenflies.BoundaryWalks
 import Schoenflies.Graph.Subdivision
 import Schoenflies.PolygonalCut
 import Schoenflies.EarPaths
+import Schoenflies.Graph.PathOn

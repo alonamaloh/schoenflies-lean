@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Álvaro Begué
 -/
 import Schoenflies.CellulationInvariants
+import Schoenflies.Graph.Subdivision
 import Schoenflies.Subarc
 
 /-!
@@ -1042,6 +1043,45 @@ theorem pointSet_realize :
 
 /-- **An edge subdivision does not move the realized 1-skeleton.** -/
 theorem skeletonSet_realize : (d.realize R t ht).skeletonSet = R.skeletonSet := pointSet_realize ht
+
+/-- **The drawn skeleton of a subdivision really is a subdivision of the drawn skeleton**, in
+the sense `Graph/Subdivision.lean` states it — so `Graph.IsSubdivisionOf.isTwoConnected` and
+`.connected` apply to it, which is what `def:admissible-graph`'s 2-connectivity clause needs
+across the first elementary operation. -/
+theorem isSubdivisionOf_realizeGraph :
+    Graph.IsSubdivisionOf (d.realizeGraph R t) R.graph d.edge (R.pos d.left) (R.pos d.right)
+      (R.drawing d.edge t) d.newEdge₁ d.newEdge₂ where
+  isLink := d.isLink_drawn_edge R
+  newVertex_notMem := d.newPos_notMem_vertexSet R ht
+  newEdge₁_notMem := by
+    rw [Realization.edgeSet_graph]; exact d.newEdge₁_notMem_edgeSet
+  newEdge₂_notMem := by
+    rw [Realization.edgeSet_graph]; exact d.newEdge₂_notMem_edgeSet
+  newEdge_ne := d.newEdge_ne
+  vertexSet_eq := realizeGraph_vertexSet
+  isLink_iff := by
+    intro f a b
+    constructor
+    · intro hl
+      by_cases h₁ : f = d.newEdge₁
+      · subst h₁
+        rcases (d.realizeGraph_isLink_newEdge₁ (R := R) (t := t)).eq_and_eq_or_eq_and_eq hl with
+          ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
+        exacts [Or.inr (Or.inl ⟨rfl, rfl⟩), Or.inr (Or.inl ⟨rfl, Sym2.eq_swap⟩)]
+      by_cases h₂ : f = d.newEdge₂
+      · subst h₂
+        rcases (d.realizeGraph_isLink_newEdge₂ (R := R) (t := t)).eq_and_eq_or_eq_and_eq hl with
+          ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
+        exacts [Or.inr (Or.inr ⟨rfl, rfl⟩), Or.inr (Or.inr ⟨rfl, Sym2.eq_swap⟩)]
+      obtain ⟨hfS, hfe⟩ := d.mem_edgeSet_skel_of_ne hl.edge_mem h₁ h₂
+      exact Or.inl ⟨(d.realizeGraph_isLink_old hfS hfe).1 hl, hfe, h₁, h₂⟩
+    · rintro (⟨hl, hfe, h₁, h₂⟩ | ⟨rfl, hs⟩ | ⟨rfl, hs⟩)
+      · refine (d.realizeGraph_isLink_old ?_ hfe).2 hl
+        rw [← Realization.edgeSet_graph]; exact hl.edge_mem
+      · rcases Sym2.eq_iff.1 hs with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
+        exacts [d.realizeGraph_isLink_newEdge₁, d.realizeGraph_isLink_newEdge₁.symm]
+      · rcases Sym2.eq_iff.1 hs with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
+        exacts [d.realizeGraph_isLink_newEdge₂, d.realizeGraph_isLink_newEdge₂.symm]
 
 end SubdivData
 

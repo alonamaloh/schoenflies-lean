@@ -474,7 +474,7 @@ theorem mem_vertexSet_attachGraph_of_mem_extra {pieces : List Piece} {extra : Li
     z ∈ V(attachGraph pieces extra) := by
   have hend : z ∈ endSet (subdivide pieces (attachPoints pieces extra)) :=
     mem_endSet_subdivide_of_mem_cover hnd (mem_attachPoints_of_mem hz) hzc
-  show z ∈ V(overlayGraph pieces (attachPoints pieces extra))
+  change z ∈ V(overlayGraph pieces (attachPoints pieces extra))
   rw [← (sameLinks_overlayGraph pieces (attachPoints pieces extra)).vertexSet,
     pieceListGraph_vertexSet]
   exact hend
@@ -543,7 +543,7 @@ theorem cell_subset_edgeArc (R : S.Realization) {e : γ} (he : e ∈ E(S.skel)) 
     R.cell e ⊆ edgeArc R.drawing e := by
   obtain ⟨x, y, hl⟩ := S.skel.exists_isLink_of_mem_edgeSet he
   rw [R.cell_edge hl]
-  exact Set.diff_subset
+  exact Set.sdiff_subset
 
 /-- The drawn 0-cells lie on the realized skeleton. -/
 theorem pos_image_subset_skeletonSet (R : S.Realization) :
@@ -651,7 +651,7 @@ theorem gridExtGraph_isDrawing (hW : R.IsWeaklyAdmissible C (C ∪ inside C)) (h
     (hverts : ∀ v ∈ V(S.skel), R.pos v ∈ extra) :
     Graph.IsDrawing (gridExtGraph R gsegs reps Jarc p s ε extra) (gridExtDraw R) := by
   have h₂ := gridAttachGraph_isDrawing (p := p) (ε := ε) (extra := extra) hs hg1 hj1
-  show Graph.IsDrawing
+  change Graph.IsDrawing
     ((S.outerGraph.map R.pos).sumUnion (gridAttachGraph gsegs reps Jarc p s ε extra))
     (Graph.sumDraw R.drawing segmentDrawing)
   refine Graph.IsDrawing.sumUnion (R.isDrawing.of_le (outerPart_le R)) h₂ ?_ ?_ ?_
@@ -739,7 +739,7 @@ theorem isSourceExtensionOver_gridExtGraph (hsep : IsSeparating C)
   -- the union occupies the outer curve together with the pieces
   have hps : Graph.pointSet (gridExtGraph R gsegs reps Jarc p s ε extra) (gridExtDraw R)
       = C ∪ cover (gridAttachPieces gsegs reps Jarc p s ε) := by
-    show Graph.pointSet
+    change Graph.pointSet
       ((S.outerGraph.map R.pos).sumUnion (gridAttachGraph gsegs reps Jarc p s ε extra))
       (Graph.sumDraw R.drawing segmentDrawing) = _
     rw [Graph.pointSet_sumUnion, gridAttachGraph_pointSet,
@@ -760,7 +760,7 @@ theorem isSourceExtensionOver_gridExtGraph (hsep : IsSeparating C)
     rintro z hz
     rw [Realization.vertexSet_graph] at hz
     obtain ⟨v, hv, rfl⟩ := hz
-    show R.pos v ∈ V(S.outerGraph.map R.pos) ∪ V(gridAttachGraph gsegs reps Jarc p s ε extra)
+    change R.pos v ∈ V(S.outerGraph.map R.pos) ∪ V(gridAttachGraph gsegs reps Jarc p s ε extra)
     by_cases hvo : v ∈ V(S.outerGraph)
     · exact Set.mem_union_left _ (by rw [Graph.vertexSet_map]; exact ⟨v, hvo, rfl⟩)
     · exact Set.mem_union_right _ (pos_mem_vertexSet_gridAttachGraph hs hg1 hj1 hverts
@@ -856,9 +856,201 @@ theorem isSourceExtensionOver_gridExtGraph (hsep : IsSeparating C)
       rw [sdiff_outer_eq_inside hsep]
       exact cover_gridAttachPieces_diff_subset hg2 hj2 hgridin ⟨hzcov, hznot⟩
   · -- `|H| ∖ C` connected
-    rw [hps, Set.union_diff_left]
+    rw [hps, Set.union_sdiff_left]
     exact hconn
 
 end Placement
+
+/-! ## The hub of the joining loop -/
+
+/-- The hub of the joining loop: the bottom-left corner of the local grid. -/
+noncomputable def gridHub (p : Plane) (s : ℝ) (k : ℕ) : Plane :=
+  gridPt (localGridX p s k) (localGridY p s k) 0 0
+
+/-- The grid edge at the hub — the degenerate joining arc from the hub to itself, which the
+overlay deduplicates against the grid. -/
+noncomputable def gridHubEdge (p : Plane) (s : ℝ) (k : ℕ) : Piece :=
+  gridHEdge (localGridX p s k) (localGridY p s k) 0 0
+
+theorem gridHubEdge_mem {p : Plane} {s : ℝ} {k : ℕ} (hk : 1 ≤ k) :
+    gridHubEdge p s k ∈ localGridEdges p s k :=
+  (mem_gridEdges_iff hk hk).2 (Or.inl ⟨0, hk, 0, Nat.zero_le _, rfl⟩)
+
+theorem gridHub_mem_seg (p : Plane) (s : ℝ) (k : ℕ) :
+    gridHub p s k ∈ (gridHubEdge p s k).seg :=
+  left_mem_segment ℝ _ _
+
+/-- The drawn 0-cells of a stage, as a list — the prescribed vertices of the overlay. -/
+noncomputable def stageVerts (R : S.Realization) : List Plane :=
+  S.finite_vertexSet.toFinset.toList.map R.pos
+
+theorem pos_mem_stageVerts {v : γ} (hv : v ∈ V(S.skel)) : R.pos v ∈ stageVerts R :=
+  List.mem_map.2 ⟨v, Finset.mem_toList.2 (S.finite_vertexSet.mem_toFinset.2 hv), rfl⟩
+
+/-! ## The joining-arc family, described
+
+The named hypothesis below quantifies over the representative list and the joining-arc
+family; `IsJoinFamily` records exactly what the construction guarantees about them — each
+representative's arc is the segment chain of a *simple* polygonal arc from the hub inside the
+open domain, except at the hub itself, where it is the grid edge at the hub. This is the
+description its discharger runs the ear induction over. -/
+
+/-- What the construction guarantees about the joining-arc family: at each representative,
+either the degenerate hub join, or the chain of a simple polygonal arc from the hub. -/
+def IsJoinFamily (C : Set Plane) (hub : Plane) (E₀ : Piece) (reps : List Plane)
+    (Jarc : Plane → List Piece) : Prop :=
+  ∀ r ∈ reps, (r = hub ∧ Jarc r = [E₀]) ∨
+    (r ≠ hub ∧ ∃ vs, ∃ h : vs ≠ [], vs.head h = hub ∧ vs.getLast h = r ∧
+      poly vs ⊆ inside C ∧ IsArcBetween (poly vs) hub r ∧ Jarc r = segsOf vs)
+
+/-- `Schoenflies.gridJoin` is such a family over any representatives in the open domain. -/
+theorem isJoinFamily_gridJoin (hsep : IsSeparating C) (hhub : hub ∈ inside C)
+    {reps : List Plane} (hreps : ∀ r ∈ reps, r ∈ inside C) :
+    IsJoinFamily C hub E₀ reps (gridJoin C hub E₀) := by
+  intro r hr
+  rcases eq_or_ne r hub with rfl | hne
+  · exact Or.inl ⟨rfl, gridJoin_self⟩
+  · exact Or.inr ⟨hne, gridJoin_spec hsep hhub (hreps r hr) hne⟩
+
+section Assemble
+
+variable {S₀ : CellStructure γ}
+
+/-- **NAMED HYPOTHESIS — 2-connectivity of the assembled union.**
+
+At every admissible stage, mesh and window centre: auxiliary segments `xsegs` (nondegenerate,
+inside the open Jordan domain — the two degenerate cases of `prop:local-grid-attachment` need
+a crosscut attaching the grid to the skeleton twice) and extra cut points `xtra`, such that
+for *any* representative list on the cover off `C` and *any* joining family as
+`Schoenflies.IsJoinFamily` describes, the assembled union `Schoenflies.gridExtGraph` is
+2-connected.
+
+Every other clause of the transfer's hypotheses on this union is proved
+(`Schoenflies.isSourceExtensionOver_gridExtGraph`); this is `lem:subdivision-ear-preserve` +
+`lem:union-two-connected` at the stage, and its discharger has its ingredients on `main`:
+`Schoenflies.pieceListGraph_subdivide_isTwoConnected` and
+`Schoenflies.localGrid_subdivide_isTwoConnected` for the two subdivided families,
+`Graph.IsTwoConnected.replace_edge_by_path` for the outer arcs re-entering as drawn edges,
+`Graph.IsTwoConnected.ear` / `Schoenflies.pieceListGraph_append_crosscut` for the auxiliary
+segments and the joining arcs (each simple, hence a chain of ears between consecutive
+contact points), and `Graph.IsTwoConnected.union` for the final union. -/
+def HasGridUnionTwoConnected (S₀ : CellStructure γ) (C : Set Plane) : Prop :=
+  ∀ P : StagePair S₀ C, P.src.IsAdmissible C (C ∪ inside C) →
+    ∀ ⦃ε : ℝ⦄, 0 < ε → ∀ ⦃b : Plane⦄, b ∈ inside C →
+      ∃ (xsegs : List Piece) (xtra : List Plane),
+        (∀ Q ∈ xsegs, Q.Nondeg) ∧ cover xsegs ⊆ inside C ∧
+        ∀ (reps : List Plane) (Jarc : Plane → List Piece),
+          (∀ r ∈ reps, r ∈ cover ((skeletonSegs P.src ++ xsegs) ++
+            localGridEdges b (windowRadius C ε b) (localGridCount (windowRadius C ε b) ε))
+              \ C) →
+          IsJoinFamily C
+            (gridHub b (windowRadius C ε b) (localGridCount (windowRadius C ε b) ε))
+            (gridHubEdge b (windowRadius C ε b) (localGridCount (windowRadius C ε b) ε))
+            reps Jarc →
+          (gridExtGraph P.src (skeletonSegs P.src ++ xsegs) reps Jarc b (windowRadius C ε b) ε
+            (xtra ++ stageVerts P.src)).IsTwoConnected
+
+/-- **The reduction, composed.** From the single named hypothesis, the extension chooser of
+`Schoenflies/GridSteps.lean`: every other obligation of `prop:local-grid-attachment` at the
+stage is discharged here. -/
+theorem hasGridExtensions_of [Infinite γ] {C : Set Plane} (hsep : IsSeparating C)
+    (h2c : HasGridUnionTwoConnected S₀ C) : HasGridExtensions S₀ C := by
+  intro P hsrc htgt ε hε b hb
+  haveI : Nonempty (γ ⊕ Piece) := ⟨Sum.inr (0, 0)⟩
+  set s := windowRadius C ε b with hs_def
+  set k := localGridCount s ε with hk_def
+  have hC : IsCompact C := hsep.isJordanCurve.isCompact
+  have hCne : C.Nonempty := hsep.isJordanCurve.nonempty
+  have hbC : b ∉ C := fun h => inside_subset_compl hb h
+  have hs : 0 < s := windowRadius_pos hC hCne hbC
+  have hk1 : 1 ≤ k := one_le_localGridCount s ε
+  have hW := hsrc.toIsWeaklyAdmissible
+  -- the window places the grid inside the open Jordan domain
+  have hgridin : cover (localGridEdges b s k) ⊆ inside C :=
+    (cover_localGridEdges_subset_window hC hCne hbC hk1).trans
+      (window_subset_inside hC hCne hsep hb hε)
+  have hgriddisj : Disjoint (cover (localGridEdges b s k)) C :=
+    disjoint_cover_localGridEdges hsep hb hε hk1
+  -- the hub
+  have hhubmem : gridHubEdge b s k ∈ localGridEdges b s k := gridHubEdge_mem hk1
+  have hhubcov : gridHub b s k ∈ cover (localGridEdges b s k) :=
+    mem_cover hhubmem (gridHub_mem_seg b s k)
+  have hhubin : gridHub b s k ∈ inside C := hgridin hhubcov
+  have hE₀sub : (gridHubEdge b s k).seg ⊆ inside C :=
+    fun z hz => hgridin (mem_cover hhubmem hz)
+  have hE₀nd : (gridHubEdge b s k).Nondeg := localGridEdges_nondeg hs hk1 _ hhubmem
+  -- the auxiliary data of the named hypothesis
+  obtain ⟨xsegs, xtra, hxnd, hxin, H2C⟩ := h2c P hsrc hε hb
+  set gsegs := skeletonSegs P.src ++ xsegs with hgsegs_def
+  set extra := xtra ++ stageVerts P.src with hextra_def
+  -- the piece facts
+  have hg1 : ∀ Q ∈ gsegs, Q.Nondeg := by
+    intro Q hQ
+    rcases List.mem_append.1 hQ with h | h
+    exacts [skeletonSegs_nondeg Q h, hxnd Q h]
+  have hg2 : ∀ Q ∈ gsegs, Q.seg \ (P.src.pos '' V(P.str.skel)) ⊆ inside C := by
+    intro Q hQ
+    rcases List.mem_append.1 hQ with h | h
+    · have h' := skeletonSegs_diff_subset hW Q h
+      rwa [sdiff_outer_eq_inside hsep] at h'
+    · exact fun z hz => hxin (mem_cover h hz.1)
+  have hgMF : MeetsFinitely gsegs C :=
+    (meetsFinitely_skeletonSegs hW).append (MeetsFinitely.of_disjoint
+      (Set.disjoint_left.2 fun z hz hzC => inside_subset_compl (hxin hz) hzC))
+  -- the joining family
+  set Jarc := gridJoin C (gridHub b s k) (gridHubEdge b s k) with hJ_def
+  obtain ⟨reps, hrmem, hrcov⟩ := exists_reps_hcov (p := b) (s := s) (ε := ε) hgMF hgriddisj
+  have hcovsub : cover (gsegs ++ localGridEdges b s k) ⊆ C ∪ inside C := by
+    rw [cover_append]
+    refine Set.union_subset ?_ (hgridin.trans Set.subset_union_right)
+    intro z hz
+    obtain ⟨Q, hQ, hzQ⟩ := mem_cover_iff.1 hz
+    by_cases hzv : z ∈ P.src.pos '' V(P.str.skel)
+    · exact hW.skeletonSet_subset (pos_image_subset_skeletonSet P.src hzv)
+    · exact Or.inr (hg2 Q hQ ⟨hzQ, hzv⟩)
+  have hrin : ∀ r ∈ reps, r ∈ inside C := fun r hr =>
+    (hcovsub (hrmem r hr).1).resolve_left (hrmem r hr).2
+  have hjprops := fun r hr =>
+    gridJoin_props hsep hhubin hE₀sub (gridHub_mem_seg b s k) (hrin r hr)
+  have hj1 : ∀ Q ∈ reps.flatMap Jarc, Q.Nondeg := by
+    intro Q hQ
+    obtain ⟨r, -, hQr⟩ := List.mem_flatMap.1 hQ
+    exact gridJoin_nondeg hE₀nd Q hQr
+  have hj2 : ∀ r ∈ reps, cover (Jarc r) ⊆ inside C := fun r hr => (hjprops r hr).2.2.2
+  have hverts : ∀ v ∈ V(P.str.skel), P.src.pos v ∈ extra :=
+    fun v hv => List.mem_append_right _ (pos_mem_stageVerts hv)
+  -- the chains of the nonboundary edges
+  have hchain : ∀ ⦃e⦄, e ∈ E(P.str.skel) → e ∉ E(P.str.outerGraph) →
+      ∀ ⦃q⦄, q ∈ Graph.edgeArc P.src.drawing e →
+      ∃ P', P' ∈ gsegs ∧ q ∈ P'.seg ∧ P'.seg ⊆ Graph.edgeArc P.src.drawing e := by
+    intro e he hne q hq
+    rw [← cover_segsOf_arcChain P.src he (hW.isPolygonal he hne)] at hq
+    obtain ⟨P', hP', hqP'⟩ := mem_cover_iff.1 hq
+    refine ⟨P', List.mem_append_left _
+      (List.mem_flatMap.2 ⟨e, mem_nonboundaryEdgeList.2 ⟨he, hne⟩, hP'⟩), hqP', ?_⟩
+    exact (poly_arcChain (hW.isPolygonal he hne)) ▸ seg_subset_poly_of_mem_segsOf hP'
+  -- clause 1: `|H| ∖ C` connected, by the joining loop at the produced representatives
+  have hr₀ : gridHub b s k ∈ cover (gsegs ++ localGridEdges b s k) \ C :=
+    ⟨by rw [cover_append]; exact Or.inr hhubcov, fun h => inside_subset_compl hhubin h⟩
+  have hconn : IsConnected (cover (gridAttachPieces gsegs reps Jarc b s ε) \ C) := by
+    have := gridAttachGraph_isConnected_diff (extra := extra) hr₀
+      (fun r hr => (hjprops r hr).1) (fun r hr => (hjprops r hr).2.1)
+      (fun r hr => (hjprops r hr).2.2.1)
+      (fun r hr z hz hzC => inside_subset_compl ((hjprops r hr).2.2.2 hz) hzC) hrcov
+    rwa [gridAttachGraph_pointSet] at this
+  -- 2-connectivity: the named hypothesis at the produced data
+  have htc := H2C reps Jarc hrmem (isJoinFamily_gridJoin hsep hhubin hrin)
+  -- assemble and rename
+  refine nonempty_gridExtensionData_of_over
+    (isSourceExtensionOver_gridExtGraph hsep hW hs hg1 hg2 hj1 hj2 hgridin hverts hchain
+      htc hconn) ?_
+  intro z hz
+  change z ∈ Graph.pointSet
+    ((P.str.outerGraph.map P.src.pos).sumUnion (gridAttachGraph gsegs reps Jarc b s ε extra))
+    (Graph.sumDraw P.src.drawing segmentDrawing)
+  rw [Graph.pointSet_sumUnion]
+  exact Or.inr (localGrid_subset_gridAttachGraph hz)
+
+end Assemble
 
 end Schoenflies

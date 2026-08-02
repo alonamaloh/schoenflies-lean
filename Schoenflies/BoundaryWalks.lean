@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Álvaro Begué
 -/
 import Schoenflies.CellulationInvariants
+import Schoenflies.FaceCyclesProof
 
 /-!
 # The boundary walk of a 2-cell, maintained across the elementary operations
@@ -258,6 +259,175 @@ theorem SubstWalk.pathCells {u v : γ} {W W' : List γ} (hsub : d.SubstWalk u W 
       · rintro (⟨rfl | rfl | hc, hce⟩ | hc)
         exacts [Or.inl rfl, Or.inr (Or.inl rfl), Or.inr (Or.inr (Or.inl ⟨hc, hce⟩)),
           Or.inr (Or.inr (Or.inr hc))]
+
+/-- The edges of a corrected walk are the old ones, except that the subdivided edge has become
+the two new ones. -/
+theorem SubstWalk.mem_of_mem {u : γ} {W W' : List γ} (hsub : d.SubstWalk u W W') {g : γ}
+    (hg : g ∈ W') : g ∈ W ∨ g = d.newEdge₁ ∨ g = d.newEdge₂ := by
+  induction hsub with
+  | nil u => simp at hg
+  | forward hs ih =>
+    rcases List.mem_cons.1 hg with rfl | hg'
+    · exact Or.inr (Or.inl rfl)
+    rcases List.mem_cons.1 hg' with rfl | hg''
+    · exact Or.inr (Or.inr rfl)
+    · exact (ih hg'').imp (List.mem_cons_of_mem _) id
+  | backward hs ih =>
+    rcases List.mem_cons.1 hg with rfl | hg'
+    · exact Or.inr (Or.inr rfl)
+    rcases List.mem_cons.1 hg' with rfl | hg''
+    · exact Or.inr (Or.inl rfl)
+    · exact (ih hg'').imp (List.mem_cons_of_mem _) id
+  | other hl hf hs ih =>
+    rcases List.mem_cons.1 hg with rfl | hg'
+    · exact Or.inl List.mem_cons_self
+    · exact (ih hg').imp (List.mem_cons_of_mem _) id
+
+/-- An old edge other than the subdivided one keeps its ends. -/
+theorem skeleton_inc_iff_of_mem_edgeSet {g z : γ} (hg : g ∈ E(S.skel)) (hge : g ≠ d.edge) :
+    d.skeleton.Inc g z ↔ S.skel.Inc g z := by
+  constructor
+  · rintro ⟨y, hy⟩
+    rcases d.skeleton_isLink.1 hy with ⟨hl, -⟩ | ⟨rfl, -⟩ | ⟨rfl, -⟩
+    · exact ⟨y, hl⟩
+    · exact absurd hg d.newEdge₁_notMem_edgeSet
+    · exact absurd hg d.newEdge₂_notMem_edgeSet
+  · rintro ⟨y, hy⟩
+    exact ⟨y, d.skeleton_isLink.2 (Or.inl ⟨hy, hge,
+      fun hh => d.newEdge₁_notMem_edgeSet (hh ▸ hg), fun hh => d.newEdge₂_notMem_edgeSet (hh ▸ hg)⟩)⟩
+
+/-- A walk that never takes the subdivided edge visits the same vertices after the subdivision
+as before. -/
+theorem walkVertices_skeleton_eq {u v : γ} {W : List γ} (h : S.skel.IsWalk u W v)
+    (hW : d.edge ∉ W) : d.skeleton.walkVertices u W = S.skel.walkVertices u W := by
+  have hcov : d.skeleton.coveredVertices W = S.skel.coveredVertices W := by
+    ext z
+    constructor
+    · rintro ⟨g, hg, hz⟩
+      exact ⟨g, hg, (d.skeleton_inc_iff_of_mem_edgeSet (h.edge_mem hg)
+        (fun hh => hW (hh ▸ hg))).1 hz⟩
+    · rintro ⟨g, hg, hz⟩
+      exact ⟨g, hg, (d.skeleton_inc_iff_of_mem_edgeSet (h.edge_mem hg)
+        (fun hh => hW (hh ▸ hg))).2 hz⟩
+  rw [Graph.walkVertices, Graph.walkVertices, hcov]
+
+/-- A corrected walk visits the vertices the old one did, and at most the new one besides. -/
+theorem SubstWalk.walkVertices_subset {u v : γ} {W W' : List γ} (hsub : d.SubstWalk u W W')
+    (h : S.skel.IsWalk u W v) :
+    d.skeleton.walkVertices u W' ⊆ insert d.newVertex (S.skel.walkVertices u W) := by
+  induction hsub generalizing v with
+  | nil u =>
+    rw [Graph.walkVertices_nil, Graph.walkVertices_nil]
+    exact (Set.singleton_subset_iff.2 (mem_insert_of_mem _ rfl))
+  | @forward W₀ W₀' hs ih =>
+    cases h with
+    | cons hl hW =>
+      obtain rfl := d.isLink.right_unique hl
+      have hlink₁ : d.skeleton.IsLink d.newEdge₁ d.left d.newVertex :=
+        d.skeleton_isLink.2 (Or.inr (Or.inl ⟨rfl, rfl⟩))
+      have hlink₂ : d.skeleton.IsLink d.newEdge₂ d.newVertex d.right :=
+        d.skeleton_isLink.2 (Or.inr (Or.inr ⟨rfl, rfl⟩))
+      rw [Graph.walkVertices_cons hlink₁, Graph.walkVertices_cons hlink₂,
+        Graph.walkVertices_cons hl]
+      intro z hz
+      rcases hz with rfl | rfl | hz
+      exacts [mem_insert_of_mem _ (mem_insert _ _), mem_insert _ _,
+        (ih hW hz).elim (fun h => h ▸ mem_insert _ _)
+          fun h => mem_insert_of_mem _ (mem_insert_of_mem _ h)]
+  | @backward W₀ W₀' hs ih =>
+    cases h with
+    | cons hl hW =>
+      obtain rfl := d.isLink.symm.right_unique hl
+      have hlink₂ : d.skeleton.IsLink d.newEdge₂ d.right d.newVertex :=
+        d.skeleton_isLink.2 (Or.inr (Or.inr ⟨rfl, Sym2.eq_swap⟩))
+      have hlink₁ : d.skeleton.IsLink d.newEdge₁ d.newVertex d.left :=
+        d.skeleton_isLink.2 (Or.inr (Or.inl ⟨rfl, Sym2.eq_swap⟩))
+      rw [Graph.walkVertices_cons hlink₂, Graph.walkVertices_cons hlink₁,
+        Graph.walkVertices_cons hl]
+      intro z hz
+      rcases hz with rfl | rfl | hz
+      exacts [mem_insert_of_mem _ (mem_insert _ _), mem_insert _ _,
+        (ih hW hz).elim (fun h => h ▸ mem_insert _ _)
+          fun h => mem_insert_of_mem _ (mem_insert_of_mem _ h)]
+  | @other u₀ w₀ g₀ W₀ W₀' hl hg hs ih =>
+    cases h with
+    | cons hl' hW =>
+      obtain rfl := hl.right_unique hl'
+      have hlink : d.skeleton.IsLink g₀ u₀ w₀ :=
+        d.skeleton_isLink.2 (Or.inl ⟨hl, hg,
+          fun hh => d.newEdge₁_notMem_edgeSet (hh ▸ hl.edge_mem),
+          fun hh => d.newEdge₂_notMem_edgeSet (hh ▸ hl.edge_mem)⟩)
+      rw [Graph.walkVertices_cons hlink, Graph.walkVertices_cons hl]
+      intro z hz
+      rcases hz with rfl | hz
+      exacts [mem_insert_of_mem _ (mem_insert _ _),
+        (ih hW hz).elim (fun h => h ▸ mem_insert _ _)
+          fun h => mem_insert_of_mem _ (mem_insert_of_mem _ h)]
+
+/-- **The corrected replacement of a path is a path.** The new vertex is fresh, so it cannot be
+one the old path already visited, and every other vertex is visited exactly as before. This is
+what carries vertex-simplicity of a boundary cycle across a subdivision. -/
+theorem SubstWalk.isPath {u v : γ} {W W' : List γ} (hsub : d.SubstWalk u W W')
+    (h : S.skel.IsPath u W v) : d.skeleton.IsPath u W' v := by
+  induction hsub generalizing v with
+  | nil u =>
+    cases h with
+    | nil hx =>
+      exact .nil (by rw [d.skeleton_vertexSet]; exact mem_insert_of_mem _ hx)
+  | @forward W₀ W₀' hs ih =>
+    cases h with
+    | cons hl hW hfresh =>
+      obtain rfl := d.isLink.right_unique hl
+      have hnd : d.edge ∉ W₀ :=
+        (List.nodup_cons.1 (Graph.IsPath.cons hl hW hfresh).nodup).1
+      obtain rfl : W₀' = W₀ := hs.eq_of_notMem hnd
+      have hlink₁ : d.skeleton.IsLink d.newEdge₁ d.left d.newVertex :=
+        d.skeleton_isLink.2 (Or.inr (Or.inl ⟨rfl, rfl⟩))
+      have hlink₂ : d.skeleton.IsLink d.newEdge₂ d.newVertex d.right :=
+        d.skeleton_isLink.2 (Or.inr (Or.inr ⟨rfl, rfl⟩))
+      have hvert : d.skeleton.walkVertices d.right _ = S.skel.walkVertices d.right _ :=
+        d.walkVertices_skeleton_eq hW.isWalk hnd
+      refine .cons hlink₁ (.cons hlink₂ (ih hW) ?_) ?_
+      · rw [hvert]
+        exact fun hmem => d.newVertex_notMem
+          (S.mem_cells_of_mem_vertexSet (hW.isWalk.walkVertices_subset hmem))
+      · rw [Graph.walkVertices_cons hlink₂, hvert]
+        rintro (h' | hmem)
+        · exact d.newVertex_notMem (h' ▸ d.left_mem_cells)
+        · exact hfresh hmem
+  | @backward W₀ W₀' hs ih =>
+    cases h with
+    | cons hl hW hfresh =>
+      obtain rfl := d.isLink.symm.right_unique hl
+      have hnd : d.edge ∉ W₀ :=
+        (List.nodup_cons.1 (Graph.IsPath.cons hl hW hfresh).nodup).1
+      obtain rfl : W₀' = W₀ := hs.eq_of_notMem hnd
+      have hlink₂ : d.skeleton.IsLink d.newEdge₂ d.right d.newVertex :=
+        d.skeleton_isLink.2 (Or.inr (Or.inr ⟨rfl, Sym2.eq_swap⟩))
+      have hlink₁ : d.skeleton.IsLink d.newEdge₁ d.newVertex d.left :=
+        d.skeleton_isLink.2 (Or.inr (Or.inl ⟨rfl, Sym2.eq_swap⟩))
+      have hvert : d.skeleton.walkVertices d.left _ = S.skel.walkVertices d.left _ :=
+        d.walkVertices_skeleton_eq hW.isWalk hnd
+      refine .cons hlink₂ (.cons hlink₁ (ih hW) ?_) ?_
+      · rw [hvert]
+        exact fun hmem => d.newVertex_notMem
+          (S.mem_cells_of_mem_vertexSet (hW.isWalk.walkVertices_subset hmem))
+      · rw [Graph.walkVertices_cons hlink₁, hvert]
+        rintro (h' | hmem)
+        · exact d.newVertex_notMem (h' ▸ d.right_mem_cells)
+        · exact hfresh hmem
+  | @other u₀ w₀ g₀ W₀ W₀' hl hg hs ih =>
+    cases h with
+    | cons hl' hW hfresh =>
+      obtain rfl := hl.right_unique hl'
+      have hlink : d.skeleton.IsLink g₀ u₀ w₀ :=
+        d.skeleton_isLink.2 (Or.inl ⟨hl, hg,
+          fun hh => d.newEdge₁_notMem_edgeSet (hh ▸ hl.edge_mem),
+          fun hh => d.newEdge₂_notMem_edgeSet (hh ▸ hl.edge_mem)⟩)
+      refine .cons hlink (ih hW) fun hmem => ?_
+      rcases SubstWalk.walkVertices_subset (d := d) hs hW.isWalk hmem with rfl | hmem'
+      · exact d.newVertex_notMem (S.mem_cells_of_mem_vertexSet hl.left_mem)
+      · exact hfresh hmem'
 
 /-- The subcell relation of a subdivided structure, at a 2-cell: the old subcells minus the
 subdivided edge, plus the three new cells when the edge was one of them. -/

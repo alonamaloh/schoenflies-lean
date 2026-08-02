@@ -459,4 +459,143 @@ theorem overlayGraph_snoc_isSubdivisionOf (hnd : ∀ P ∈ pieces, P.Nondeg)
           rcases hf₂ends with h | h <;> rw [h]
         exacts [Or.inl ⟨rfl, rfl⟩, Or.inr ⟨rfl, rfl⟩, Or.inr ⟨rfl, rfl⟩, Or.inl ⟨rfl, rfl⟩]
 
+/-! ### The descent: 2-connectivity does not depend on extra cut points
+
+Cut points are removed from the far end of the list one at a time; each removal either leaves
+the graph untouched or undoes one subdivision, and 2-connectivity descends by
+`Graph.IsSubdivisionOf.isTwoConnected_descend`. Vertices only accumulate going the other way,
+so the three-vertex clause of every intermediate graph is inherited from the coarsest one. -/
+
+/-- One more cut point never loses a vertex. -/
+theorem overlayGraph_vertexSet_subset_snoc (hnd : ∀ P ∈ pieces, P.Nondeg)
+    (hEnds : EndsAreCut pieces points) (hMeets : MeetsAreCut pieces points) :
+    V(overlayGraph pieces points) ⊆ V(overlayGraph pieces (points ++ [p])) := by
+  by_cases hex : ∃ Q ∈ subdivide pieces points, p ∈ Q.interior
+  · obtain ⟨Q₀, hQ₀, hp⟩ := hex
+    obtain ⟨e, f₁, f₂, -, hsubdiv⟩ :=
+      overlayGraph_snoc_isSubdivisionOf hnd hEnds hMeets hQ₀ hp
+    rw [hsubdiv.vertexSet_eq]
+    exact subset_insert _ _
+  · push Not at hex
+    rw [overlayGraph_snoc_of_no_interior hex]
+
+/-- **2-connectivity of an overlay descends from any extension of its cut list.** The extra
+points are peeled off the end one at a time; each peel is the converse of one subdivision or
+of nothing. The three-vertex hypothesis is the honest price of the banana/triangle boundary
+case, and every consumer has it. -/
+theorem overlayGraph_isTwoConnected_of_extend :
+    ∀ (extra points : List Plane), (∀ P ∈ pieces, P.Nondeg) → EndsAreCut pieces points →
+      MeetsAreCut pieces points → (overlayGraph pieces points).HasThreeVertices →
+      (overlayGraph pieces (points ++ extra)).IsTwoConnected →
+      (overlayGraph pieces points).IsTwoConnected := by
+  intro extra
+  induction extra with
+  | nil =>
+    intro points _ _ _ _ h2
+    rwa [List.append_nil] at h2
+  | cons q rest ih =>
+    intro points hnd hEnds hMeets h3 h2
+    rw [List.append_cons] at h2
+    have h2' := ih (points ++ [q]) hnd (hEnds.mono (List.subset_append_left _ _))
+      (hMeets.mono (List.subset_append_left _ _))
+      (h3.mono (overlayGraph_vertexSet_subset_snoc hnd hEnds hMeets)) h2
+    by_cases hex : ∃ Q ∈ subdivide pieces points, q ∈ Q.interior
+    · obtain ⟨Q₀, hQ₀, hq⟩ := hex
+      obtain ⟨e, f₁, f₂, hend, hsubdiv⟩ :=
+        overlayGraph_snoc_isSubdivisionOf hnd hEnds hMeets hQ₀ hq
+      exact hsubdiv.isTwoConnected_descend h2' hend h3
+    · push Not at hex
+      rwa [overlayGraph_snoc_of_no_interior hex] at h2'
+
+/-! ### The mesh side of the core -/
+
+/-- The mesh-restricted overlay is a subgraph of any overlay of a larger piece list at the
+same cut points: `subdivide` is monotone in the piece list, and orienting and deduplicating
+preserve membership. (General-purpose; a candidate for hoisting into
+`Schoenflies/OverlayGraph.lean`.) -/
+theorem overlayGraph_mono_pieces {l l' : List Piece} (h : l ⊆ l') (points : List Plane) :
+    overlayGraph l points ≤ overlayGraph l' points where
+  vertexSet_mono := by
+    rintro v ⟨g, hg, hv⟩
+    obtain ⟨Q, hQ, rfl⟩ := mem_overlayPieces.1 hg
+    exact ⟨orientPiece Q,
+      mem_overlayPieces.2 ⟨Q, subdivide_mono points (fun P hP => h hP) Q hQ, rfl⟩, hv⟩
+  isLink_mono := by
+    rintro g a b ⟨hg, hab⟩
+    obtain ⟨Q, hQ, rfl⟩ := mem_overlayPieces.1 hg
+    exact ⟨mem_overlayPieces.2 ⟨Q, subdivide_mono points (fun P hP => h hP) Q hQ, rfl⟩, hab⟩
+
+/-- The mesh always keeps three vertices: three corners of the outer ring are ends of listed
+segments, hence cut points, hence vertices of the overlay — for *any* valid cut list. -/
+theorem overlayGraph_meshSegments_hasThreeVertices {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
+    {pts : List Plane} (hEnds : EndsAreCut (meshSegments N fresh) pts) :
+    (overlayGraph (meshSegments N fresh) pts).HasThreeVertices := by
+  have hvert : ∀ R ∈ ringPieces (1 : ℝ), R.1 ∈ V(overlayGraph (meshSegments N fresh) pts) := by
+    intro R hR
+    have hmem : R ∈ meshSegments N fresh := outer_ringPieces_mem hN hR
+    exact overlay_mem_vertexSet_of_cut (hEnds R hmem R.1 (Or.inl rfl)) hmem
+      (left_mem_segment ℝ _ _)
+  have h1 : ((Plane.mk 1 1, Plane.mk (-1) 1) : Piece) ∈ ringPieces (1 : ℝ) := by
+    simp [ringPieces]
+  have h2 : ((Plane.mk (-1) 1, Plane.mk (-1) (-1)) : Piece) ∈ ringPieces (1 : ℝ) := by
+    simp [ringPieces]
+  have h3 : ((Plane.mk (-1) (-1), Plane.mk 1 (-1)) : Piece) ∈ ringPieces (1 : ℝ) := by
+    simp [ringPieces]
+  exact ⟨Plane.mk 1 1, hvert _ h1, Plane.mk (-1) 1, hvert _ h2, Plane.mk (-1) (-1), hvert _ h3,
+    mk_ne_mk_of_fst (by norm_num), mk_ne_mk_of_fst (by norm_num),
+    mk_ne_mk_of_snd (by norm_num)⟩
+
+variable {γ : Type*}
+
+/-- **The mesh side of the overlay core, discharged.** The subgraph is the overlay of the mesh
+segments alone at the full overlay's cut points. Taking those cut points as the anchors of
+`Schoenflies.meshGraph` exhibits the same graph, further cut at the mesh's own points, as
+2-connected (`Schoenflies.meshGraph_isTwoConnected`, from the two distinct fresh points); the
+extra points then descend away one subdivision at a time. -/
+theorem hasTwoConnectedMeshCores (S₀ : CellStructure γ) (C : Set Plane) :
+    HasTwoConnectedMeshCores S₀ C := by
+  intro P hsrc htgt ε hε fresh hfresh hne2 joins hjoins
+  obtain ⟨z, hz, w, hw, hzw⟩ := hne2
+  have hfresh' : ∀ x ∈ fresh, x ∈ modelCurve := fun x hx => (hfresh x hx).1
+  have hN : 2 ≤ meshCount ε := two_le_meshCount ε
+  have hndsegs : ∀ Q ∈ meshSegments (meshCount ε) fresh, Q.Nondeg :=
+    meshSegments_nondeg hN hfresh'
+  have hsub : meshSegments (meshCount ε) fresh ⊆ meshOverlayPieces P ε fresh joins :=
+    List.subset_append_left _ _
+  have hEndsFull := meshOverlayPoints_endsAreCut P ε fresh joins
+  have hMeetsFull := meshOverlayPoints_meetsAreCut P ε fresh joins
+  have hEnds : EndsAreCut (meshSegments (meshCount ε) fresh)
+      (meshOverlayPoints P ε fresh joins) :=
+    fun Q hQ z' hz' => hEndsFull Q (hsub hQ) z' hz'
+  have hMeets : MeetsAreCut (meshSegments (meshCount ε) fresh)
+      (meshOverlayPoints P ε fresh joins) :=
+    fun Q hQ R hR hne hmeet => hMeetsFull Q (hsub hQ) R (hsub hR) hne hmeet
+  -- the mesh graph anchored at the overlay's cut points is the extended overlay, 2-connected
+  have hfine : (overlayGraph (meshSegments (meshCount ε) fresh)
+      (meshOverlayPoints P ε fresh joins ++ meshCutPoints (meshCount ε) fresh)).IsTwoConnected :=
+    meshGraph_isTwoConnected hN hfresh' (meshOverlayPoints P ε fresh joins) hz hw hzw
+  have h2K : (overlayGraph (meshSegments (meshCount ε) fresh)
+      (meshOverlayPoints P ε fresh joins)).IsTwoConnected :=
+    overlayGraph_isTwoConnected_of_extend (meshCutPoints (meshCount ε) fresh) _
+      hndsegs hEnds hMeets (overlayGraph_meshSegments_hasThreeVertices hN hEnds) hfine
+  refine ⟨overlayGraph (meshSegments (meshCount ε) fresh) (meshOverlayPoints P ε fresh joins),
+    overlayGraph_mono_pieces hsub _, h2K, ?_⟩
+  -- coverage: an overlay vertex is a cut point, and a cut point on the mesh is a vertex here
+  intro x hxV hxcov
+  have hxpts : x ∈ meshOverlayPoints P ε fresh joins := by
+    obtain ⟨g, hg, hxg⟩ := hxV
+    exact overlayPieces_ends_cut hEndsFull g hg x hxg
+  obtain ⟨R, hR, hxR⟩ := mem_cover_iff.1 hxcov
+  exact overlay_mem_vertexSet_of_cut hxpts hR hxR
+
+/-- The interface, exercised end to end: with the skeleton side as the one remaining
+hypothesis, the mesh side just proved carries Phase 3's stage sequence down to
+`Schoenflies.HasMeshSteps` through `Schoenflies.hasTwoConnectedCores_of`. -/
+example {C : Set Plane} (hC : IsJordanCurve C) (hg : HasGridSteps initialStructure C)
+    (hskel : HasTwoConnectedSkelCores initialStructure C) :
+    Nonempty (StageSequence InitialCell initialStructure C) :=
+  ⟨stageSequence_of_isJordanCurve hC hg
+    (hasMeshSteps_of_cores combInvariants_initialStructure (jordan_curve_theorem hC)
+      (hasTwoConnectedCores_of (hasTwoConnectedMeshCores initialStructure C) hskel))⟩
+
 end Schoenflies

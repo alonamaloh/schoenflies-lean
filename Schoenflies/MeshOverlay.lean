@@ -672,4 +672,214 @@ theorem meshOverlayGraph_unique_edge
   · rw [hintf]; exact ⟨s, ⟨hsf, hs1⟩, rfl⟩
   · rw [hintg]; exact ⟨s, ⟨hsg, hs1⟩, rfl⟩
 
+/-! ### Connectivity off `S`
+
+`|H| ∖ S` is connected: the mesh off `S` is connected and contains the base point, the outer
+material vanishes off `S`, and `JoinsFor.connects` ties every remaining point to the base
+point. The joining arcs are load-bearing here — mesh ∪ skeleton alone can leave a nonboundary
+component stranded. -/
+
+/-- A list inclusion pushes covers forward. (General-purpose; a candidate for hoisting into
+`Schoenflies/Subdivide.lean`.) -/
+theorem cover_mono {l l' : List Piece} (h : l ⊆ l') : cover l ⊆ cover l' := by
+  intro x hx
+  obtain ⟨Q, hQ, hxQ⟩ := mem_cover_iff.1 hx
+  exact mem_cover_iff.2 ⟨Q, h hQ, hxQ⟩
+
+/-- The drawn arc of an outer 1-cell lies on `S`. -/
+theorem outer_arc_subset_modelCurve
+    (htgt : P.tgt.IsAdmissible modelCurve (Plane.closedSquare 0 1)) {e : γ}
+    (hout : e ∈ E(P.str.outerGraph)) :
+    Graph.edgeArc P.tgt.drawing e ⊆ modelCurve := by
+  have houter : Graph.edgeArc P.tgt.drawing e ⊆ P.tgt.outerSet :=
+    Graph.edgeArc_subset_pointSet
+      (show e ∈ E(P.str.outerGraph.map P.tgt.pos) by rwa [edgeSet_map])
+  rwa [htgt.outerSet_eq] at houter
+
+/-- **`|H| ∖ S` is connected.** -/
+theorem meshOverlayGraph_isConnected
+    (htgt : P.tgt.IsAdmissible modelCurve (Plane.closedSquare 0 1))
+    (hfresh : ∀ z ∈ fresh, z ∈ modelCurve) (hjoins : JoinsFor P ε joins)
+    {z₀ : Plane} (hz₀ : z₀ ∈ fresh) :
+    IsConnected
+      (Graph.pointSet (meshOverlayGraph P ε fresh joins) segmentDrawing \ modelCurve) := by
+  rw [meshOverlayGraph_pointSet, cover_meshOverlayPieces]
+  have hmesh : IsConnected (cover (meshSegments (meshCount ε) fresh) \ modelCurve) :=
+    isConnected_cover_diff_modelCurve (two_le_meshCount ε) hfresh hz₀
+  have hbase : meshBase ε ∈ cover (meshSegments (meshCount ε) fresh) \ modelCurve :=
+    ⟨meshBase_mem_cover_meshSegments ε fresh, meshBase_notMem_modelCurve ε⟩
+  have hmesh_sub : cover (meshSegments (meshCount ε) fresh) \ modelCurve
+      ⊆ (cover (meshSegments (meshCount ε) fresh)
+          ∪ (cover (skelPieces P) ∪ cover joins)) \ modelCurve :=
+    fun w hw => ⟨Or.inl hw.1, hw.2⟩
+  -- the connecting set delivered by `JoinsFor`, pushed into the full cover
+  have hAin : ∀ A : Set Plane,
+      A ⊆ (cover (skelNbPieces P) ∪ cover joins ∪ {meshBase ε}) \ modelCurve →
+      A ⊆ (cover (meshSegments (meshCount ε) fresh)
+          ∪ (cover (skelPieces P) ∪ cover joins)) \ modelCurve := by
+    intro A hA w hw
+    obtain ⟨hw1, hw2⟩ := hA hw
+    refine ⟨?_, hw2⟩
+    rcases hw1 with (hw1 | hw1) | hw1
+    · exact Or.inr (Or.inl (cover_mono (skelNbPieces_subset P) hw1))
+    · exact Or.inr (Or.inr hw1)
+    · rw [mem_singleton_iff] at hw1
+      exact hw1 ▸ Or.inl (meshBase_mem_cover_meshSegments ε fresh)
+  refine ⟨⟨meshBase ε, hmesh_sub hbase⟩, isPreconnected_of_forall (meshBase ε) ?_⟩
+  rintro y ⟨hy, hyS⟩
+  -- a point off the mesh reaches the base point through its `JoinsFor` connecting set
+  have viaJoins : y ∈ (cover (skelNbPieces P) ∪ cover joins) \ modelCurve →
+      ∃ t, t ⊆ (cover (meshSegments (meshCount ε) fresh)
+          ∪ (cover (skelPieces P) ∪ cover joins)) \ modelCurve ∧
+        meshBase ε ∈ t ∧ y ∈ t ∧ IsPreconnected t := by
+    intro hynb
+    obtain ⟨A, hAsub, hAconn, hyA, hbA⟩ := hjoins.connects y hynb
+    exact ⟨A, hAin A hAsub, hbA, hyA, hAconn⟩
+  rcases hy with hy | hy
+  · -- on the mesh: the mesh off `S` is one connected set through the base point
+    exact ⟨cover (meshSegments (meshCount ε) fresh) \ modelCurve, hmesh_sub, hbase,
+      ⟨hy, hyS⟩, hmesh.isPreconnected⟩
+  rcases hy with hy | hy
+  · -- on the skeleton: outer pieces vanish off `S`, nonboundary ones go through the joins
+    obtain ⟨R, hRmem, hyR⟩ := mem_cover_iff.1 hy
+    obtain ⟨e, he, hRe⟩ := mem_skelPieces.1 hRmem
+    by_cases hout : e ∈ E(P.str.outerGraph)
+    · exact absurd (outer_arc_subset_modelCurve htgt hout
+        (seg_subset_edgeArc P he hRe hyR)) hyS
+    · exact viaJoins ⟨Or.inl (mem_cover_iff.2 ⟨R, mem_skelNbPieces.2 ⟨e, ⟨he, hout⟩, hRe⟩,
+        hyR⟩), hyS⟩
+  · -- on a joining arc
+    exact viaJoins ⟨Or.inr hy, hyS⟩
+
+/-! ### The joining arcs exist
+
+`Schoenflies.exists_reps_cover_diff` produces finitely many representatives meeting every
+component of the nonboundary skeleton off `S` — each nonboundary piece meets `S` in at most
+the two drawn endpoints of its 1-cell, which is the `MeetsFinitely` input — and
+`Schoenflies.exists_poly_of_isPreconnected` joins each representative to the mesh base point
+inside the open square. -/
+
+/-- Each nonboundary skeleton piece meets `S` finitely: in at most the two drawn endpoints of
+its 1-cell. -/
+theorem skelNbPieces_meetsFinitely
+    (htgt : P.tgt.IsAdmissible modelCurve (Plane.closedSquare 0 1)) :
+    MeetsFinitely (skelNbPieces P) modelCurve := by
+  intro Q hQ
+  obtain ⟨e, ⟨he, hout⟩, hQe⟩ := mem_skelNbPieces.1 hQ
+  obtain ⟨a, b, hl⟩ := exists_isLink_of_mem_edgeSet he
+  have hsub : Q.seg ∩ modelCurve ⊆ {P.tgt.pos a, P.tgt.pos b} := by
+    rintro x ⟨hx1, hx2⟩
+    by_contra hcon
+    have hxcell : x ∈ P.tgt.cell e := by
+      rw [P.tgt.cell_edge hl]
+      exact ⟨seg_subset_edgeArc P he hQe hx1, hcon⟩
+    exact (htgt.cell_subset he hout hxcell).2 hx2
+  exact (Set.finite_singleton _ |>.insert _).subset hsub
+
+/-- **Joining arcs exist.** This is what makes the 2-connectivity hypothesis below
+non-vacuous: its existential over `joins` always has a witness satisfying `JoinsFor`. -/
+theorem exists_joinsFor (htgt : P.tgt.IsAdmissible modelCurve (Plane.closedSquare 0 1))
+    (ε : ℝ) : ∃ joins : List Piece, JoinsFor P ε joins := by
+  obtain ⟨reps, hrmem, hrcov⟩ :=
+    exists_reps_cover_diff (skelNbPieces P) (skelNbPieces_meetsFinitely htgt)
+  -- every representative sits in the open square
+  have hrepΩ : ∀ r ∈ reps, r ∈ Plane.openSquare 0 1 := by
+    intro r hr
+    obtain ⟨hr1, hr2⟩ := hrmem r hr
+    obtain ⟨Q, hQ, hrQ⟩ := mem_cover_iff.1 hr1
+    obtain ⟨e, ⟨he, -⟩, hQe⟩ := mem_skelNbPieces.1 hQ
+    have hsq : r ∈ Plane.closedSquare 0 1 := htgt.skeletonSet_subset
+      (arc_subset_skeletonSet P he (seg_subset_edgeArc P he hQe hrQ))
+    exact mem_openSquare_zero_one.2
+      (lt_of_le_of_ne (mem_closedSquare_zero_one.1 hsq) fun h => hr2 h)
+  have hΩo : IsOpen (Plane.openSquare 0 1) := Plane.isOpen_openSquare 0 1
+  have hΩc : IsPreconnected (Plane.openSquare 0 1) :=
+    (Plane.convex_openSquare 0 1).isPreconnected
+  have hbΩ : meshBase ε ∈ Plane.openSquare 0 1 := meshBase_mem_openSquare ε
+  -- a chain from each representative to the base point, inside the open square
+  have key : ∀ rs : List Plane, (∀ r ∈ rs, r ∈ Plane.openSquare 0 1) →
+      ∃ js : List Piece, (∀ Q ∈ js, Q.Nondeg) ∧ cover js ⊆ Plane.openSquare 0 1 ∧
+        (∀ r ∈ rs, ∃ A : Set Plane, A ⊆ cover js ∪ {meshBase ε} ∧ IsPreconnected A ∧
+          r ∈ A ∧ meshBase ε ∈ A) ∧
+        (∀ x ∈ cover js, ∃ A : Set Plane, A ⊆ cover js ∪ {meshBase ε} ∧ IsPreconnected A ∧
+          x ∈ A ∧ meshBase ε ∈ A) := by
+    intro rs
+    induction rs with
+    | nil => exact fun _ => ⟨[], by simp, by simp, by simp, by simp⟩
+    | cons r rs ih =>
+      intro hmem
+      obtain ⟨js, hnd, hsub, hreps, hpts⟩ := ih fun w hw => hmem w (List.mem_cons_of_mem _ hw)
+      obtain ⟨vs, hne, hvsub, hhead, hlast⟩ :=
+        exists_poly_of_isPreconnected hΩo hΩc (hmem r List.mem_cons_self) hbΩ
+      have hcs : cover (segsOf vs) ⊆ poly vs := by
+        rcases cover_segsOf vs with h | ⟨h1, -⟩
+        · exact h.le
+        · rw [h1, cover_nil]; exact empty_subset _
+      -- the chain's carrier connects everything on it — including `r` — to the base point
+      have hchain : ∀ x ∈ poly vs, ∃ A : Set Plane,
+          A ⊆ cover (segsOf vs ++ js) ∪ {meshBase ε} ∧ IsPreconnected A ∧
+            x ∈ A ∧ meshBase ε ∈ A := by
+        intro x hx
+        rcases cover_segsOf vs with hcov | ⟨-, hsing⟩
+        · refine ⟨poly vs, ?_, (isConnected_poly hne).isPreconnected, hx,
+            hlast ▸ getLast_mem_poly hne⟩
+          rw [cover_append, ← hcov]
+          exact fun w hw => Or.inl (Or.inl hw)
+        · -- the chain collapsed to the base point
+          have hxb : x = meshBase ε :=
+            hsing hx (hlast ▸ getLast_mem_poly hne)
+          exact ⟨{meshBase ε}, fun w hw => Or.inr hw, isPreconnected_singleton,
+            hxb ▸ rfl, rfl⟩
+      refine ⟨segsOf vs ++ js, ?_, ?_, ?_, ?_⟩
+      · intro Q hQ
+        rcases List.mem_append.1 hQ with h | h
+        · exact segsOf_nondeg vs Q h
+        · exact hnd Q h
+      · rw [cover_append]
+        exact union_subset (hcs.trans hvsub) hsub
+      · intro w hw
+        rcases List.mem_cons.1 hw with rfl | hw'
+        · exact hchain w (hhead ▸ head_mem_poly hne)
+        · obtain ⟨A, hA, hAc, hwA, hbA⟩ := hreps w hw'
+          refine ⟨A, hA.trans ?_, hAc, hwA, hbA⟩
+          rw [cover_append]
+          exact union_subset_union_left _ subset_union_right
+      · intro x hx
+        rw [cover_append] at hx
+        rcases hx with hx | hx
+        · exact hchain x (hcs hx)
+        · obtain ⟨A, hA, hAc, hxA, hbA⟩ := hpts x hx
+          refine ⟨A, hA.trans ?_, hAc, hxA, hbA⟩
+          rw [cover_append]
+          exact union_subset_union_left _ subset_union_right
+  obtain ⟨js, hnd, hsub, hreps, hpts⟩ := key reps hrepΩ
+  -- assemble `JoinsFor`: the joining cover misses `S`, so the sets stay off `S`
+  have hjS : ∀ w ∈ cover js ∪ ({meshBase ε} : Set Plane), w ∉ modelCurve := by
+    rintro w (hw | hw) hwS
+    · exact absurd (show Plane.supNorm w = 1 from hwS)
+        (ne_of_lt (mem_openSquare_zero_one.1 (hsub hw)))
+    · rw [mem_singleton_iff] at hw
+      exact meshBase_notMem_modelCurve ε (hw ▸ hwS)
+  refine ⟨js, hnd, hsub, ?_⟩
+  rintro x ⟨hx, hxS⟩
+  rcases hx with hx | hx
+  · -- on the nonboundary skeleton: representative first, then its chain
+    obtain ⟨r, hr, A₀, hA₀sub, hA₀conn, hxA₀, hrA₀⟩ := hrcov x ⟨hx, hxS⟩
+    obtain ⟨A₁, hA₁sub, hA₁conn, hrA₁, hbA₁⟩ := hreps r hr
+    refine ⟨A₀ ∪ A₁, ?_, IsPreconnected.union r hrA₀ hrA₁ hA₀conn hA₁conn,
+      Or.inl hxA₀, Or.inr hbA₁⟩
+    rintro w (hw | hw)
+    · obtain ⟨hw1, hw2⟩ := hA₀sub hw
+      exact ⟨Or.inl (Or.inl hw1), hw2⟩
+    · rcases hA₁sub hw with hw' | hw'
+      · exact ⟨Or.inl (Or.inr hw'), hjS w (Or.inl hw')⟩
+      · exact ⟨Or.inr hw', hjS w (Or.inr hw')⟩
+  · -- on a joining arc
+    obtain ⟨A, hA, hAc, hxA, hbA⟩ := hpts x hx
+    refine ⟨A, ?_, hAc, hxA, hbA⟩
+    intro w hw
+    rcases hA hw with hw' | hw'
+    · exact ⟨Or.inl (Or.inr hw'), hjS w (Or.inl hw')⟩
+    · exact ⟨Or.inr hw', hjS w (Or.inr hw')⟩
+
 end Schoenflies

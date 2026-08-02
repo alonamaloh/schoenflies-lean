@@ -294,6 +294,40 @@ def HasMeshSteps (S₀ : CellStructure γ) (C : Set Plane) : Prop :=
     P.tgt.IsAdmissible modelCurve (Plane.closedSquare 0 1) →
     ∀ ⦃ε : ℝ⦄, 0 < ε → Nonempty (MeshStepData P ε)
 
+/-! ### The stage-0 target bound
+
+`StageSequence.diam_tgtStar_le` demands a bound at *every* stage, and stage 0 precedes the
+first mesh step. There the crude bound suffices: every target star lies in the closed square,
+whose diameter is `2√2 ≤ 4`, and the recursion's mesh sequence starts at `4`. -/
+
+/-- The closed unit square has diameter at most `4` (it is `2√2`). -/
+theorem diam_closedSquare_le_four : diam (Plane.closedSquare 0 1) ≤ 4 := by
+  have hsqrt : Real.sqrt 2 ≤ 2 := by
+    nlinarith [Real.sq_sqrt (by norm_num : (0 : ℝ) ≤ 2), Real.sqrt_nonneg 2]
+  refine diam_le_of_forall_dist_le (by norm_num) fun x hx y hy => ?_
+  have hx' : Plane.supDist x 0 ≤ 1 := hx
+  have hy' : Plane.supDist 0 y ≤ 1 := by
+    rw [Plane.supDist_comm]; exact hy
+  have htri : Plane.supDist x y ≤ Plane.supDist x 0 + Plane.supDist 0 y :=
+    Plane.supDist_triangle x 0 y
+  have hnorm : ‖x - y‖ ≤ Real.sqrt 2 * Plane.supNorm (x - y) :=
+    Plane.norm_le_sqrt_two_mul_supNorm _
+  have hsup : Plane.supNorm (x - y) = Plane.supDist x y := rfl
+  have hs2 : (0 : ℝ) ≤ Real.sqrt 2 := Real.sqrt_nonneg 2
+  rw [dist_eq_norm]
+  nlinarith
+
+omit [Nonempty γ] in
+/-- Every target star of a stage pair lies in the closed square, so its diameter is at most
+`4` — the `n = 0` case of the uniform star bound. -/
+theorem diam_tgt_star_le_four (h₀ : S₀.CombInvariants) (P : StagePair S₀ C) (σ : γ) :
+    diam (P.tgt.star σ) ≤ 4 := by
+  have hsub : P.tgt.star σ ⊆ Plane.closedSquare 0 1 := by
+    have h := P.tgt_isCellDecomposition.star_subset_closure_domain
+      (P.combInvariants h₀) (σ := σ)
+    rwa [IsClosed.closure_eq (Plane.isClosed_closedSquare 0 1)] at h
+  exact le_trans (diam_mono hsub (Plane.isBounded_closedSquare 0 1)) diam_closedSquare_le_four
+
 /-! ### The recursion -/
 
 /-- One stage of the recursion: a stage pair together with the strong admissibility of both
@@ -408,6 +442,120 @@ theorem diam_stages_star_anti {x : Plane} (hxD : x ∈ C ∪ inside C) {n m : �
     exact le_trans
       ((nextStage_step hsep hgrid hmesh _ _).diam_star_carrier_le h₀ hsep hxD) ih
 
+/-! ### The `StageSequence` -/
+
+/-- **The recursion of *Quantitative refinement*, assembled.**
+
+From the two enlargement choosers, the combinatorial invariants of the base, `thm:jordan` for
+`C` and an admissible stage 0, the recursion produces a `Schoenflies.StageSequence` — the
+Phase 3 deliverable, from which `StageSequence.limitTower` and `StageSequence.isHomeoOn_F`
+follow with nothing further to prove.
+
+Every field is either read off one recursion step (`nextStage_step`), or is one of the two
+halves of `prop:shrinking-stars`, proved here: the uniform half from the mesh chooser's 2-cell
+bound through `lem:star-face-mesh`(a), the pointwise half from the grid chooser's window bound
+through the catch-and-monotonicity argument of the blueprint. -/
+noncomputable def stageSequence : StageSequence γ S₀ C where
+  stage n := (stages hsep hgrid hmesh s₀ n).pair
+  par n := stepPar hsep hgrid hmesh (stages hsep hgrid hmesh s₀ n) n
+  refines_src n :=
+    (nextStage_step hsep hgrid hmesh (stages hsep hgrid hmesh s₀ n) n).refines_src
+  refines_tgt n :=
+    (nextStage_step hsep hgrid hmesh (stages hsep hgrid hmesh s₀ n) n).refines_tgt
+  skeletonSet_mono n :=
+    (nextStage_step hsep hgrid hmesh (stages hsep hgrid hmesh s₀ n) n).skeletonSet_subset
+  skelHomeo_succ n :=
+    (nextStage_step hsep hgrid hmesh (stages hsep hgrid hmesh s₀ n) n).homeo_eqOn
+  eps n := 4 * ((2 : ℝ) ^ n)⁻¹
+  diam_tgtStar_le := by
+    intro n σ hσ
+    cases n with
+    | zero => simpa using diam_tgt_star_le_four h₀ s₀.pair σ
+    | succ n =>
+      -- The stage-`n + 1` pair is the output of the mesh half of step `n`, whose closed
+      -- 2-cells are below the mesh; `lem:star-face-mesh`(a) doubles that to the star bound.
+      have hM :=
+        (meshStage hsep hgrid hmesh (stages hsep hgrid hmesh s₀ n) n).diam_closure_cell_le
+      have hb := (stages hsep hgrid hmesh s₀ (n + 1)).pair.tgt_isCellDecomposition.diam_star_le
+        ((stages hsep hgrid hmesh s₀ (n + 1)).pair.combInvariants h₀)
+        (Plane.isBounded_closedSquare 0 1) hσ (fun F hF _ => hM hF)
+      calc diam ((stages hsep hgrid hmesh s₀ (n + 1)).pair.tgt.star σ)
+          ≤ 2 * ((2 : ℝ) ^ n)⁻¹ := hb
+        _ = 4 * ((2 : ℝ) ^ (n + 1))⁻¹ := by rw [pow_succ, mul_inv]; ring
+  tendsto_eps := by
+    have h := tendsto_two_pow_neg.const_mul (4 : ℝ)
+    simpa using h
+  tendsto_diam_srcStar := by
+    intro x hx
+    have hxD : x ∈ C ∪ inside C := Or.inr hx
+    have hCcpt : IsCompact C := hsep.isJordanCurve.isCompact
+    have hCne : C.Nonempty := hsep.isJordanCurve.nonempty
+    have hxC : x ∉ C := fun h => inside_subset_compl hx h
+    have hd : 0 < supRadius C x := supRadius_pos hCcpt hCne hxC
+    rw [Metric.tendsto_atTop]
+    intro ε hε
+    -- The blueprint's `b`: a dense-sequence value within `d/8` of `x`, inside the domain.
+    obtain ⟨b, hbB, hbU, hbx⟩ := exists_mem_rat_supDist_lt
+      (TopologicalSpace.denseRange_denseSeq Plane) hsep.isOpen_inside hx
+      (by linarith : 0 < supRadius C x / 8)
+    obtain ⟨k, hk⟩ := hbB
+    -- A stage late enough that the mesh is below both `d/8` and `ε/4`.
+    have hmin : 0 < min (supRadius C x / 8) (ε / 4) := lt_min (by linarith) (by linarith)
+    obtain ⟨N, hN⟩ :=
+      Filter.eventually_atTop.1 (tendsto_two_pow_neg.eventually_lt_const hmin)
+    -- The candidate `b` recurs at an index `n ≥ N`; stage `n` is scheduled at `b`.
+    obtain ⟨n, hnN, hrec⟩ := exists_le_recur_eq (TopologicalSpace.denseSeq Plane) k N
+    have hb' : recur (TopologicalSpace.denseSeq Plane) n ∈ inside C := by
+      rw [hrec, hk]; exact hbU
+    -- `x` is caught by the stage-`n` window: the arithmetic of `prop:shrinking-stars`.
+    have hxw : x ∈ openWindow C (((2 : ℝ) ^ n)⁻¹)
+        (recur (TopologicalSpace.denseSeq Plane) n) := by
+      rw [hrec, hk]
+      exact mem_openWindow_of_supDist_lt hCcpt hCne hbx
+        (lt_of_lt_of_le (hN n hnN) (min_le_left _ _))
+    have hcatch := nextStage_diam_star_le h₀ hsep hgrid hmesh
+      (stages hsep hgrid hmesh s₀ n) hb' hxw hxD
+    refine ⟨n + 1, fun m hm => ?_⟩
+    -- Once small, always small: the bound at the catch stage survives to every later stage.
+    have hmono := diam_stages_star_anti h₀ hsep hgrid hmesh s₀ hxD hm
+    have hlt : 2 * ((2 : ℝ) ^ n)⁻¹ < ε := by
+      have := lt_of_lt_of_le (hN n hnN) (min_le_right _ _)
+      linarith
+    have hnonneg : (0 : ℝ) ≤ diam ((stages hsep hgrid hmesh s₀ m).pair.src.star
+        ((stages hsep hgrid hmesh s₀ m).pair.src.carrier x)) := diam_nonneg
+    rw [Real.dist_eq, sub_zero, abs_of_nonneg hnonneg]
+    exact lt_of_le_of_lt (le_trans hmono hcatch) hlt
+  base := h₀
+  isSeparating := hsep
+
 end Recursion
+
+/-! ### The concrete base
+
+Stage 0 is `prop:initial-pair` packaged as `InitialData.generatedPair`, whose two strong
+admissibility clauses are `generatedPair_src_isAdmissible` / `generatedPair_tgt_isAdmissible`;
+`thm:jordan` supplies the separation and `combInvariants_initialStructure` the base invariants.
+Nothing beyond the two choosers remains. -/
+
+/-- **Phase 3 for a Jordan curve**: given the two enlargement choosers over the concrete base
+`initialStructure`, every Jordan curve carries a stage sequence. -/
+noncomputable def stageSequence_of_isJordanCurve {C : Set Plane} (hC : IsJordanCurve C)
+    (hgrid : HasGridSteps initialStructure C) (hmesh : HasMeshSteps initialStructure C) :
+    StageSequence InitialCell initialStructure C :=
+  stageSequence combInvariants_initialStructure (jordan_curve_theorem hC) hgrid hmesh
+    ⟨(initialData hC).generatedPair, (initialData hC).generatedPair_src_isAdmissible,
+      (initialData hC).generatedPair_tgt_isAdmissible⟩
+
+/-! ### The interface, exercised
+
+A machine-checked statement that the constructed sequence delivers what Phase 4 consumes:
+`prop:interior-homeomorphism` in the `IsHomeoOn` shape of `HasLimitHomeomorphism`'s third
+conjunct, with no hypothesis beyond the two choosers. -/
+example {C : Set Plane} (hC : IsJordanCurve C) (hg : HasGridSteps initialStructure C)
+    (hm : HasMeshSteps initialStructure C) :
+    IsHomeoOn (stageSequence_of_isJordanCurve hC hg hm).limitTower.F
+      (stageSequence_of_isJordanCurve hC hg hm).limitTower.inv (inside C)
+      (Plane.openSquare 0 1) :=
+  (stageSequence_of_isJordanCurve hC hg hm).isHomeoOn_F
 
 end Schoenflies

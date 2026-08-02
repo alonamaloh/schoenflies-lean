@@ -455,4 +455,306 @@ example (hu : IsHomeoOn u v C modelCurve) {a : Plane} (ha : a ∈ T.anchors) :
 
 end AnchoredStageSequence
 
+/-! ### The enriched step data
+
+`Schoenflies.stageSequence` cannot produce an `AnchoredStageSequence`: its mesh steps choose
+their fresh points through `Nonempty.some` and `MeshStepData` records nothing about the
+choice. This wave's instance of the recurring "one invariant short" finding is that
+`MeshStepData` is *four* fields short — the fresh list, its density, the anchor-vertex
+invariant at `next`, and one-step persistence — and `GridStepData` is one short (persistence).
+The recursion is therefore rebuilt below on the two enriched choosers; every per-step lemma of
+`StageRecursion.lean` is reused. -/
+
+/-- **NAMED HYPOTHESIS (data) — one anchored source-grid step.** A `GridStepData` together
+with the persistence of anchor vertices across it.
+
+Its discharger is the discharger of `Schoenflies.HasGridSteps` (`GridExtensionData` /
+`nonempty_gridExtensionData_of_over`, `GridSteps.lean`) plus one further piece of bookkeeping
+the transfer's conclusion does not carry: a grid step's extension `H` meets the boundary
+nowhere (`prop:local-grid-attachment` draws the grid strictly inside the window, whose closure
+is in `D`), so the common subdivision leaves every outer 0-cell and every nonboundary edge
+incident with it in place, subdividing at most the spoke's interior — the sentence of
+`lem:anchor-density`'s proof "at all later stages an initial subedge of that spoke remains
+incident with it", read across one direction-(a) step. -/
+structure AnchoredGridStepData (P : StagePair S₀ C) (ε : ℝ) (b : Plane)
+    extends GridStepData P ε b where
+  /-- Anchor vertices of the old stage survive the step. -/
+  anchor_preserved : ∀ ⦃z⦄, IsAnchorVertexAt P z → IsAnchorVertexAt next z
+
+/-- **NAMED HYPOTHESIS (data) — one anchored target-mesh step.** A `MeshStepData` together
+with the anchor bookkeeping of `prop:anchored-square-mesh` clauses 3–4 carried through the
+transfer, which `MeshStepData` (deliberately, and now visibly) forgets.
+
+Its discharger is the discharger of `Schoenflies.HasMeshTransfers`
+(`Schoenflies.HasMeshOverlays` + `Schoenflies.meshTransfer_of_extension`, `MeshTransfer.lean`)
+plus the pieces the transfer's conclusion `IsTransferOfTgt` does not export:
+
+* `fresh`, `fresh_mem_curve`, `fresh_freshDense` — already produced by
+  `Schoenflies.exists_fresh_anchor_supply` and recorded in `Schoenflies.MeshTransfer`; they
+  merely have to be *kept* (the projection to `MeshStepData` drops them);
+* `fresh_anchorAt` — each fresh point is a vertex of the overlay `H` (a spoke endpoint,
+  `Schoenflies.squareMesh`), hence a drawn target 0-cell of `next` by the transfer's
+  `vertexSet_subset`; its name lies on the outer graph because the common subdivision
+  (`GeneratedPair.exists_subdivide_finite_tgt`) inserts it into the outer cycle; and its
+  incident nonboundary edge is the spoke, `Schoenflies.squareMesh_inner_edge_at_fresh`
+  carried through the ear induction. None of the three clauses is derivable from
+  `IsTransferOfTgt` alone — see the module docstring;
+* `anchor_preserved` — old anchor vertices are vertices of `H` (the overlay contains the old
+  skeleton, `MeshOverlayExtension.vertexSet_subset`), and the spoke of an old anchor is an old
+  nonboundary edge, of which an initial subedge survives every subdivision. -/
+structure AnchoredMeshStepData (P : StagePair S₀ C) (ε : ℝ) extends MeshStepData P ε where
+  /-- The fresh boundary anchors of the mesh. -/
+  fresh : List Plane
+  /-- They lie on the boundary of the square. -/
+  fresh_mem_curve : ∀ z ∈ fresh, z ∈ modelCurve
+  /-- They are `ε`-dense along `S`. -/
+  fresh_freshDense : FreshDense fresh ε
+  /-- Each becomes an anchor vertex of the refined stage. -/
+  fresh_anchorAt : ∀ z ∈ fresh, IsAnchorVertexAt next z
+  /-- Anchor vertices of the old stage survive the step. -/
+  anchor_preserved : ∀ ⦃z⦄, IsAnchorVertexAt P z → IsAnchorVertexAt next z
+
+/-- **NAMED HYPOTHESIS — the anchored source-grid chooser.** `Schoenflies.HasGridSteps` with
+persistence of anchor vertices; see `Schoenflies.AnchoredGridStepData` for the discharger. -/
+def HasAnchoredGridSteps (S₀ : CellStructure γ) (C : Set Plane) : Prop :=
+  ∀ P : StagePair S₀ C, P.src.IsAdmissible C (C ∪ inside C) →
+    P.tgt.IsAdmissible modelCurve (Plane.closedSquare 0 1) →
+    ∀ ⦃ε : ℝ⦄, 0 < ε → ∀ ⦃b : Plane⦄, b ∈ inside C → Nonempty (AnchoredGridStepData P ε b)
+
+/-- **NAMED HYPOTHESIS — the anchored target-mesh chooser.** `Schoenflies.HasMeshSteps` with
+the anchor bookkeeping; see `Schoenflies.AnchoredMeshStepData` for the discharger. -/
+def HasAnchoredMeshSteps (S₀ : CellStructure γ) (C : Set Plane) : Prop :=
+  ∀ P : StagePair S₀ C, P.src.IsAdmissible C (C ∪ inside C) →
+    P.tgt.IsAdmissible modelCurve (Plane.closedSquare 0 1) →
+    ∀ ⦃ε : ℝ⦄, 0 < ε → Nonempty (AnchoredMeshStepData P ε)
+
+/-- The anchored grid chooser is in particular the plain one — so any discharge of the
+enriched hypothesis also retires `Schoenflies.HasGridSteps`. -/
+theorem HasAnchoredGridSteps.hasGridSteps (h : HasAnchoredGridSteps S₀ C) :
+    HasGridSteps S₀ C := fun P h1 h2 _ε hε _b hb =>
+  (h P h1 h2 hε hb).elim fun d => ⟨d.toGridStepData⟩
+
+omit [Nonempty γ] in
+/-- The anchored mesh chooser is in particular the plain one. -/
+theorem HasAnchoredMeshSteps.hasMeshSteps (h : HasAnchoredMeshSteps S₀ C) :
+    HasMeshSteps S₀ C := fun P h1 h2 _ε hε =>
+  (h P h1 h2 hε).elim fun d => ⟨d.toMeshStepData⟩
+
+/-! ### The anchored recursion
+
+`Schoenflies.stageSequence` re-run on the enriched choosers. The definitions and the two
+quantitative proofs mirror `StageRecursion.lean` clause for clause — they cannot be reused as
+terms, because the original recursion's steps are `Nonempty.some` of the *plain* chooser and
+carry no anchor data — but every per-step lemma (`IsRefinementStep.trans`,
+`.diam_star_carrier_le`, `diam_tgt_star_le_four`, the window arithmetic) is consumed from
+there rather than reproved. -/
+
+section AnchoredRecursion
+
+variable (h₀ : S₀.CombInvariants) (hsep : IsSeparating C)
+  (hgrid : HasAnchoredGridSteps S₀ C) (hmesh : HasAnchoredMeshSteps S₀ C)
+  (s₀ : AdmissibleStage S₀ C)
+
+/-- The grid half of anchored step `n`. -/
+noncomputable def anchoredGridStage (s : AdmissibleStage S₀ C) (n : ℕ) :
+    AnchoredGridStepData s.pair (((2 : ℝ) ^ n)⁻¹) (stageCenter hsep n) :=
+  (hgrid s.pair s.src_isAdmissible s.tgt_isAdmissible (two_pow_neg_pos n)
+    (stageCenter_mem hsep n)).some
+
+/-- The mesh half of anchored step `n`, applied to the output of the grid half. -/
+noncomputable def anchoredMeshStage (s : AdmissibleStage S₀ C) (n : ℕ) :
+    AnchoredMeshStepData (anchoredGridStage hsep hgrid s n).next (((2 : ℝ) ^ n)⁻¹) :=
+  (hmesh (anchoredGridStage hsep hgrid s n).next
+    (anchoredGridStage hsep hgrid s n).step.src_isAdmissible
+    (anchoredGridStage hsep hgrid s n).step.tgt_isAdmissible (two_pow_neg_pos n)).some
+
+/-- One full anchored recursion step. -/
+noncomputable def anchoredNextStage (s : AdmissibleStage S₀ C) (n : ℕ) :
+    AdmissibleStage S₀ C :=
+  ⟨(anchoredMeshStage hsep hgrid hmesh s n).next,
+    (anchoredMeshStage hsep hgrid hmesh s n).step.src_isAdmissible,
+    (anchoredMeshStage hsep hgrid hmesh s n).step.tgt_isAdmissible⟩
+
+/-- The parent map of one full anchored step. -/
+noncomputable def anchoredStepPar (s : AdmissibleStage S₀ C) (n : ℕ) : γ → γ :=
+  (anchoredGridStage hsep hgrid s n).par ∘ (anchoredMeshStage hsep hgrid hmesh s n).par
+
+/-- One full anchored step is a refinement step along the composed parent map. -/
+theorem anchoredNextStage_step (s : AdmissibleStage S₀ C) (n : ℕ) :
+    IsRefinementStep (anchoredNextStage hsep hgrid hmesh s n).pair s.pair
+      (anchoredStepPar hsep hgrid hmesh s n) :=
+  (anchoredMeshStage hsep hgrid hmesh s n).step.trans
+    (anchoredGridStage hsep hgrid s n).step
+
+include h₀ in
+/-- The catch estimate of `StageRecursion.lean`, for the anchored recursion. -/
+theorem anchoredNextStage_diam_star_le (s : AdmissibleStage S₀ C) {n : ℕ}
+    (hb : recur (TopologicalSpace.denseSeq Plane) n ∈ inside C) {x : Plane}
+    (hx : x ∈ openWindow C (((2 : ℝ) ^ n)⁻¹) (recur (TopologicalSpace.denseSeq Plane) n))
+    (hxD : x ∈ C ∪ inside C) :
+    diam ((anchoredNextStage hsep hgrid hmesh s n).pair.src.star
+        ((anchoredNextStage hsep hgrid hmesh s n).pair.src.carrier x)) ≤
+      2 * ((2 : ℝ) ^ n)⁻¹ := by
+  have hx' : x ∈ openWindow C (((2 : ℝ) ^ n)⁻¹) (stageCenter hsep n) := by
+    rwa [stageCenter_eq hsep hb]
+  exact le_trans
+    ((anchoredMeshStage hsep hgrid hmesh s n).step.diam_star_carrier_le h₀ hsep hxD)
+    ((anchoredGridStage hsep hgrid s n).diam_star_le hx')
+
+/-- The stages of the anchored recursion. -/
+noncomputable def anchoredStages : ℕ → AdmissibleStage S₀ C
+  | 0 => s₀
+  | n + 1 => anchoredNextStage hsep hgrid hmesh (anchoredStages n) n
+
+@[simp] theorem anchoredStages_zero : anchoredStages hsep hgrid hmesh s₀ 0 = s₀ := rfl
+
+theorem anchoredStages_succ (n : ℕ) :
+    anchoredStages hsep hgrid hmesh s₀ (n + 1) =
+      anchoredNextStage hsep hgrid hmesh (anchoredStages hsep hgrid hmesh s₀ n) n := rfl
+
+include h₀ in
+/-- Once small, always small, along the anchored stages. -/
+theorem diam_anchoredStages_star_anti {x : Plane} (hxD : x ∈ C ∪ inside C) {n m : ℕ}
+    (hnm : n ≤ m) :
+    diam ((anchoredStages hsep hgrid hmesh s₀ m).pair.src.star
+        ((anchoredStages hsep hgrid hmesh s₀ m).pair.src.carrier x)) ≤
+      diam ((anchoredStages hsep hgrid hmesh s₀ n).pair.src.star
+        ((anchoredStages hsep hgrid hmesh s₀ n).pair.src.carrier x)) := by
+  induction hnm with
+  | refl => exact le_rfl
+  | step _ ih =>
+    exact le_trans
+      ((anchoredNextStage_step hsep hgrid hmesh _ _).diam_star_carrier_le h₀ hsep hxD) ih
+
+/-- **The anchored recursion, assembled.** `Schoenflies.stageSequence` re-proved over the
+enriched choosers, together with the anchor fields of `Schoenflies.AnchoredStageSequence`:
+the fresh lists are those the mesh steps chose, their invariants are the choosers' clauses,
+the boundary identification at the base is the hypothesis `hbase` (for the concrete base it is
+`InitialData.skeletonHomeo_eq_u`), and per-stage admissibility is read off the recursion. -/
+noncomputable def anchoredStageSequence {u : Plane → Plane}
+    (hbase : Set.EqOn s₀.pair.homeo.toFun u C) :
+    AnchoredStageSequence γ S₀ C u where
+  stage n := (anchoredStages hsep hgrid hmesh s₀ n).pair
+  par n := anchoredStepPar hsep hgrid hmesh (anchoredStages hsep hgrid hmesh s₀ n) n
+  refines_src n :=
+    (anchoredNextStage_step hsep hgrid hmesh (anchoredStages hsep hgrid hmesh s₀ n) n).refines_src
+  refines_tgt n :=
+    (anchoredNextStage_step hsep hgrid hmesh (anchoredStages hsep hgrid hmesh s₀ n) n).refines_tgt
+  skeletonSet_mono n :=
+    (anchoredNextStage_step hsep hgrid hmesh
+      (anchoredStages hsep hgrid hmesh s₀ n) n).skeletonSet_subset
+  skelHomeo_succ n :=
+    (anchoredNextStage_step hsep hgrid hmesh (anchoredStages hsep hgrid hmesh s₀ n) n).homeo_eqOn
+  eps n := 4 * ((2 : ℝ) ^ n)⁻¹
+  diam_tgtStar_le := by
+    intro n τ hτ
+    cases n with
+    | zero => simpa using diam_tgt_star_le_four h₀ s₀.pair τ
+    | succ n =>
+      have hM := (anchoredMeshStage hsep hgrid hmesh
+        (anchoredStages hsep hgrid hmesh s₀ n) n).diam_closure_cell_le
+      have hb := (anchoredStages hsep hgrid hmesh s₀
+          (n + 1)).pair.tgt_isCellDecomposition.diam_star_le
+        ((anchoredStages hsep hgrid hmesh s₀ (n + 1)).pair.combInvariants h₀)
+        (Plane.isBounded_closedSquare 0 1) hτ (fun F hF _ => hM hF)
+      calc diam ((anchoredStages hsep hgrid hmesh s₀ (n + 1)).pair.tgt.star τ)
+          ≤ 2 * ((2 : ℝ) ^ n)⁻¹ := hb
+        _ = 4 * ((2 : ℝ) ^ (n + 1))⁻¹ := by rw [pow_succ, mul_inv]; ring
+  tendsto_eps := by
+    have h := tendsto_two_pow_neg.const_mul (4 : ℝ)
+    simpa using h
+  tendsto_diam_srcStar := by
+    intro x hx
+    have hxD : x ∈ C ∪ inside C := Or.inr hx
+    have hCcpt : IsCompact C := hsep.isJordanCurve.isCompact
+    have hCne : C.Nonempty := hsep.isJordanCurve.nonempty
+    have hxC : x ∉ C := fun h => inside_subset_compl hx h
+    have hd : 0 < supRadius C x := supRadius_pos hCcpt hCne hxC
+    rw [Metric.tendsto_atTop]
+    intro ε hε
+    obtain ⟨b, hbB, hbU, hbx⟩ := exists_mem_rat_supDist_lt
+      (TopologicalSpace.denseRange_denseSeq Plane) hsep.isOpen_inside hx
+      (by linarith : 0 < supRadius C x / 8)
+    obtain ⟨k, hk⟩ := hbB
+    have hmin : 0 < min (supRadius C x / 8) (ε / 4) := lt_min (by linarith) (by linarith)
+    obtain ⟨N, hN⟩ :=
+      Filter.eventually_atTop.1 (tendsto_two_pow_neg.eventually_lt_const hmin)
+    obtain ⟨n, hnN, hrec⟩ := exists_le_recur_eq (TopologicalSpace.denseSeq Plane) k N
+    have hb' : recur (TopologicalSpace.denseSeq Plane) n ∈ inside C := by
+      rw [hrec, hk]; exact hbU
+    have hxw : x ∈ openWindow C (((2 : ℝ) ^ n)⁻¹)
+        (recur (TopologicalSpace.denseSeq Plane) n) := by
+      rw [hrec, hk]
+      exact mem_openWindow_of_supDist_lt hCcpt hCne hbx
+        (lt_of_lt_of_le (hN n hnN) (min_le_left _ _))
+    have hcatch := anchoredNextStage_diam_star_le h₀ hsep hgrid hmesh
+      (anchoredStages hsep hgrid hmesh s₀ n) hb' hxw hxD
+    refine ⟨n + 1, fun m hm => ?_⟩
+    have hmono := diam_anchoredStages_star_anti h₀ hsep hgrid hmesh s₀ hxD hm
+    have hlt : 2 * ((2 : ℝ) ^ n)⁻¹ < ε := by
+      have := lt_of_lt_of_le (hN n hnN) (min_le_right _ _)
+      linarith
+    have hnonneg : (0 : ℝ) ≤
+        diam ((anchoredStages hsep hgrid hmesh s₀ m).pair.src.star
+          ((anchoredStages hsep hgrid hmesh s₀ m).pair.src.carrier x)) := diam_nonneg
+    rw [Real.dist_eq, sub_zero, abs_of_nonneg hnonneg]
+    exact lt_of_le_of_lt (le_trans hmono hcatch) hlt
+  base := h₀
+  isSeparating := hsep
+  fresh n := (anchoredMeshStage hsep hgrid hmesh (anchoredStages hsep hgrid hmesh s₀ n) n).fresh
+  fresh_mem_curve n :=
+    (anchoredMeshStage hsep hgrid hmesh (anchoredStages hsep hgrid hmesh s₀ n) n).fresh_mem_curve
+  freshDense n :=
+    (anchoredMeshStage hsep hgrid hmesh
+      (anchoredStages hsep hgrid hmesh s₀ n) n).fresh_freshDense.mono
+      (by nlinarith [two_pow_neg_pos n] : ((2 : ℝ) ^ n)⁻¹ ≤ 4 * ((2 : ℝ) ^ n)⁻¹)
+  fresh_anchorAt n z hz :=
+    (anchoredMeshStage hsep hgrid hmesh
+      (anchoredStages hsep hgrid hmesh s₀ n) n).fresh_anchorAt z hz
+  anchorAt_succ n z h :=
+    (anchoredMeshStage hsep hgrid hmesh
+      (anchoredStages hsep hgrid hmesh s₀ n) n).anchor_preserved
+      ((anchoredGridStage hsep hgrid (anchoredStages hsep hgrid hmesh s₀ n) n).anchor_preserved h)
+  homeo_eq_u := hbase
+  isConnected_src n :=
+    (anchoredStages hsep hgrid hmesh s₀ n).src_isAdmissible.isConnected_nonboundary
+
+end AnchoredRecursion
+
+/-! ### The concrete base, and the interface exercised -/
+
+/-- `Schoenflies.IsSetHomeoOn` (the shape `InitialData.homeo` carries) is
+`Schoenflies.IsHomeoOn` (the shape `BoundaryContinuity2.lean` consumes). The two structures
+record the same six facts. -/
+theorem IsSetHomeoOn.isHomeoOn {f g : Plane → Plane} {X Y : Set Plane}
+    (h : IsSetHomeoOn f g X Y) : IsHomeoOn f g X Y :=
+  ⟨h.mapsTo, h.mapsTo_inv, h.continuousOn, h.continuousOn_inv, ⟨h.leftInvOn, h.rightInvOn⟩⟩
+
+/-- **The anchored Phase 3 deliverable over the concrete base.** From an initial pair `d` and
+the two anchored choosers, the anchored stage tower for the boundary map `d.u`, launched at
+`InitialData.generatedPair` with `InitialData.skeletonHomeo_eq_u` as the carried clause 2 of
+`def:matched-pair`. -/
+noncomputable def anchoredStageSequence_of_initialData {C : Set Plane} (hC : IsJordanCurve C)
+    (hgrid : HasAnchoredGridSteps initialStructure C)
+    (hmesh : HasAnchoredMeshSteps initialStructure C) (d : InitialData C) :
+    AnchoredStageSequence InitialCell initialStructure C d.u :=
+  anchoredStageSequence combInvariants_initialStructure (jordan_curve_theorem hC) hgrid hmesh
+    ⟨d.generatedPair, d.generatedPair_src_isAdmissible, d.generatedPair_tgt_isAdmissible⟩
+    (fun _x hx => d.skeletonHomeo_eq_u hx)
+
+/-- **The composition, machine-checked**: over the concrete base, the two anchored choosers
+produce the full body of `Schoenflies.HasLimitHomeomorphism` for the curve `C` and the
+boundary map of the initial pair — all four conjuncts, `lem:anchor-density` included. What
+still separates this from `HasLimitHomeomorphism` itself is only that the boundary map is
+`d.u` rather than an arbitrarily prescribed one; see the module docstring. -/
+example {C : Set Plane} (hC : IsJordanCurve C)
+    (hgrid : HasAnchoredGridSteps initialStructure C)
+    (hmesh : HasAnchoredMeshSteps initialStructure C) (d : InitialData C) :
+    ∃ (𝒜 : Set Plane) (F F' : Plane → Plane), 𝒜 ⊆ C ∧ C ⊆ closure 𝒜 ∧
+      IsHomeoOn F F' (inside C) (Plane.openSquare 0 1) ∧
+      HasAnchorCrosscuts C 𝒜 d.u F ∧ HasSpokes C 𝒜 d.u F := by
+  have T := anchoredStageSequence_of_initialData hC hgrid hmesh d
+  exact ⟨T.anchors, T.toStageSequence.limitTower.F, T.toStageSequence.limitTower.inv,
+    T.hasLimitHomeomorphism_conjuncts hC d.homeo.isHomeoOn⟩
+
 end Schoenflies

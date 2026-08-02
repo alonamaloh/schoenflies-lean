@@ -919,6 +919,7 @@ noncomputable def generatedPair :
   tgt_isCellDecomposition := d.tgt_isCellDecomposition
   src_isFaceJordan := d.src_isFaceJordan
   tgt_isFaceJordan := d.tgt_isFaceJordan
+  tgt_isPolygonal := fun _ he => d.isPolygonal_tgt_edgeArc he
   src_isWeaklyAdmissible := d.src_isWeaklyAdmissible
   tgt_isWeaklyAdmissible := d.tgt_isWeaklyAdmissible
   walks := initialBoundaryWalks

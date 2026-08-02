@@ -385,9 +385,11 @@ end GeneratedPair
 with every nonboundary edge polygonal, and with `|H| ∖ C` connected.*
 
 "Contains a subdivision of `Γ`" is recorded by three clauses: every old vertex is a vertex of
-`H`; the old skeleton is inside `|H|`; and any edge of `H` that meets an *open* old edge lies
-inside that old edge. Together those say that each old edge is cut into a chain of `H`-edges and
-nothing else runs along it, which is exactly what a subdivision is.
+`H`; the old skeleton is inside `|H|`; and any edge of `H` that meets an *open* old edge at a
+non-vertex of `H` lies inside that old edge. Together those say that each old edge is cut into a
+chain of `H`-edges and nothing else runs along it, which is exactly what a subdivision is — while
+an `H`-edge remains free to *end* on an old open 1-cell, at one of its own vertices, which is
+what a mesh spoke at a fresh boundary point and a grid edge at a crossing point both do.
 
 "With outer cycle `C`, with every nonboundary edge polygonal" is `edge_dichotomy`: each edge of
 `H` either lies inside the outer curve or is polygonal with its interior in the open domain.
@@ -408,10 +410,26 @@ structure IsSourceExtension {S : CellStructure γ} (R : S.Realization) (outer do
   vertexSet_subset : V(R.graph) ⊆ V(H)
   /-- `|Γ| ⊆ |H|`. -/
   skeletonSet_subset : R.skeletonSet ⊆ pointSet H Hdraw
-  /-- An edge of `H` meeting an open edge of `Γ` runs inside it: `H` subdivides `Γ` rather than
-  crossing it. -/
-  edge_subset : ∀ ⦃e⦄, e ∈ E(S.skel) → ∀ ⦃f⦄, f ∈ E(H) →
-    (edgeArc Hdraw f ∩ R.cell e).Nonempty → edgeArc Hdraw f ⊆ edgeArc R.drawing e
+  /-- An edge of `H` meeting an open edge of `Γ` **at a point that is not a vertex of `H`**
+  runs inside it: `H` subdivides `Γ` rather than crossing it.
+
+  The witness clause `q ∉ V(H)` is the overlay convention of
+  `rem:polygonal-overlay-convention`: the common subdivision turns every intersection of a new
+  edge with an old one into a vertex, so an edge of `H` may *touch* an old open 1-cell at a
+  vertex — a mesh spoke ending at a fresh boundary point in direction (b), a grid edge ending
+  at a crossing point in direction (a) — and is forced to run inside the old edge only when it
+  passes through the open 1-cell away from every vertex. (By `IsDrawing.vertex_mem_edgeArc`
+  the vertices of `H` on the arc of `f` are exactly the two ends of `f`, so this is the same
+  as allowing touches at the `H`-edge's own endpoints.)
+
+  The earlier form of this field triggered on a bare `(edgeArc Hdraw f ∩ R.cell e).Nonempty`
+  and made the hypotheses of `thm:finite-transfer`(b) jointly unsatisfiable for every mesh
+  overlay; `Schoenflies/MeshSteps.lean` keeps the machine-checked record. What the strong form
+  gave beyond this one is recovered, for the edges that lie on the old skeleton, by
+  `Schoenflies.IsSourceExtension.edge_subset_of_edgeArc_subset_skeletonSet`
+  (`CommonSubdiv.lean`). -/
+  edge_subset : ∀ ⦃e⦄, e ∈ E(S.skel) → ∀ ⦃f⦄, f ∈ E(H) → ∀ ⦃q⦄, q ∈ edgeArc Hdraw f →
+    q ∈ R.cell e → q ∉ V(H) → edgeArc Hdraw f ⊆ edgeArc R.drawing e
   /-- `H` is drawn in the closed domain. -/
   pointSet_subset : pointSet H Hdraw ⊆ dom
   /-- Each edge of `H` is an outer edge or a polygonal nonboundary edge with interior in the

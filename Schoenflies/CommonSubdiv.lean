@@ -25,11 +25,18 @@ is forced too, and it is what this module builds.
 
 The second is where the hypotheses on the extension are spent, and only two of them: `|Γ| ⊆ |H|`
 puts every skeleton point on `H`, and `edge_subset` — *an edge of `H` meeting an open edge of
-`Γ` runs inside it* — turns "this edge of `H` touches `|Γ|` away from the 0-cells" into "this
-edge of `H` lies inside `|Γ|`". That second hypothesis is the whole of "`H` contains a
-subdivision of `Γ`" as far as step 1 is concerned: it is what says `H` does not *cross* `Γ`,
-so that the blueprint's overlay has, in the Lean formulation, already been performed by the
-hypothesis.
+`Γ` at a non-vertex of `H` runs inside it* — turns "this edge of `H` passes through `|Γ|` away
+from all vertices" into "this edge of `H` lies inside `|Γ|`". That second hypothesis is the
+whole of "`H` contains a subdivision of `Γ`" as far as step 1 is concerned: it is what says `H`
+does not *cross* `Γ`, so that the blueprint's overlay has, in the Lean formulation, already been
+performed by the hypothesis. A skeleton point that is a vertex of `H` — where an `H`-edge is
+allowed to merely *touch* an old open 1-cell — needs no edge at all: it survives `sourcePart`'s
+vertex restriction directly.
+
+This module also carries `IsSourceExtension.edge_subset_of_edgeArc_subset_skeletonSet`, the
+recovery of the pre-repair `edge_subset` for the edges drawn *on* the old skeleton — the one
+fact about the weakened field that direction (b)'s fresh-anchor bookkeeping needs beyond the
+field itself.
 
 ## The third clause, and why it was the hard one
 
@@ -110,8 +117,10 @@ theorem edgeArc_subset_of_mem_edgeSet_sourcePart {f : γ} (hf : f ∈ E(sourcePa
 
 `⊆` is the definition. `⊇` is where `H` being an extension is spent: a skeleton point is a
 0-cell — hence a vertex of `H`, hence of the part — or an interior point of a drawn 1-cell, and
-then the edge of `H` carrying it meets that open 1-cell, so `IsSourceExtension.edge_subset`
-puts the whole of that edge inside the 1-cell's arc and therefore inside `|Γ|`. -/
+then either it is itself a vertex of `H` — an `H`-edge is allowed to *end* on an open old
+1-cell — and survives the vertex restriction, or the edge of `H` carrying it meets that open
+1-cell away from the vertices, so `IsSourceExtension.edge_subset` puts the whole of that edge
+inside the 1-cell's arc and therefore inside `|Γ|`. -/
 theorem pointSet_sourcePart (hH : IsSourceExtension R outer dom H Hdraw) :
     pointSet (sourcePart R H Hdraw) Hdraw = R.skeletonSet := by
   refine Set.Subset.antisymm (Set.union_subset Set.inter_subset_right
@@ -119,15 +128,121 @@ theorem pointSet_sourcePart (hH : IsSourceExtension R outer dom H Hdraw) :
   -- A 0-cell is a vertex of `H`, so it survives the vertex restriction.
   rcases Realization.mem_vertexSet_or_exists_cell hp with hv | ⟨e, he, hpe⟩
   · exact Or.inl ⟨hH.vertexSet_subset hv, hp⟩
-  -- Otherwise `p` lies on some edge of `H`, and that edge meets the open 1-cell it lies in.
+  -- A vertex of `H` on the skeleton survives the vertex restriction too, wherever it sits.
+  by_cases hpV : p ∈ V(H)
+  · exact Or.inl ⟨hpV, hp⟩
+  -- Otherwise `p` lies on some edge of `H` which meets the open 1-cell away from the vertices.
   rcases hH.skeletonSet_subset hp with hv | hedge
-  · exact Or.inl ⟨hv, hp⟩
+  · exact absurd hv hpV
   obtain ⟨f, hf, hpf⟩ := Set.mem_iUnion₂.1 hedge
   have harc : edgeArc Hdraw f ⊆ R.skeletonSet :=
-    (hH.edge_subset he hf ⟨p, hpf, hpe⟩).trans
+    (hH.edge_subset he hf hpf hpe hpV).trans
       (Graph.edgeArc_subset_pointSet (by rwa [Realization.edgeSet_graph]))
   exact Or.inr (Set.mem_iUnion₂.2
     ⟨f, mem_edgeSet_sourcePart hH hf harc, hpf⟩)
+
+/-- **An extension edge lying on the old skeleton that meets an open old 1-cell runs inside
+it.** This recovers, for the edges on which it is *true*, what the pre-repair form of
+`IsSourceExtension.edge_subset` asserted of every edge: the weakened field exempts only a touch
+at a vertex of `H`, and an edge whose whole arc lies on the old skeleton cannot merely touch —
+its arc continues *inside the skeleton* past the meeting point, and near a point of an open
+1-cell the skeleton is nothing but that 1-cell, so the arc re-enters the open cell at a
+non-vertex parameter and the weakened field fires after all.
+
+This is what keeps the fresh-anchor bookkeeping of `thm:finite-transfer`(b) sound after the
+repair: an old skeleton edge cannot end at a fresh boundary point, only a *new* edge can. -/
+theorem IsSourceExtension.edge_subset_of_edgeArc_subset_skeletonSet
+    (hH : IsSourceExtension R outer dom H Hdraw) {f : γ} (hf : f ∈ E(H))
+    (harc : edgeArc Hdraw f ⊆ R.skeletonSet) {e : γ} (he : e ∈ E(S.skel))
+    {p : Plane} (hp : p ∈ edgeArc Hdraw f) (hpe : p ∈ R.cell e) :
+    edgeArc Hdraw f ⊆ edgeArc R.drawing e := by
+  classical
+  obtain ⟨x, y, hl⟩ := Graph.exists_isLink_of_mem_edgeSet he
+  -- If the arc meets the open 1-cell away from the vertices of `H`, the subdivision clause
+  -- closes immediately; the rest of the proof rules the alternative out.
+  by_cases hwit : ∃ q, (q ∈ edgeArc Hdraw f ∧ q ∈ R.cell e) ∧ q ∉ V(H)
+  · obtain ⟨q, ⟨hq, hqe⟩, hqV⟩ := hwit
+    exact hH.edge_subset he hf hq hqe hqV
+  push Not at hwit
+  exfalso
+  -- The closed set the point avoids: the drawn vertices and every other edge's arc.
+  set K : Set Plane :=
+    V(R.graph) ∪ ⋃ e' ∈ E(S.skel) \ {e}, edgeArc R.drawing e' with hK
+  have hKcl : IsClosed K := by
+    refine (Graph.finite_vertexSet R.graph).isClosed.union
+      (Set.Finite.isClosed_biUnion (S.finite_edgeSet.subset Set.sdiff_subset)
+        fun e' he' => ?_)
+    exact (R.isDrawing.isCompact_edgeArc
+      (by rw [Graph.edgeSet_map]; exact he'.1)).isClosed
+  have hparc : p ∈ edgeArc R.drawing e := by rw [R.cell_edge hl] at hpe; exact hpe.1
+  -- `p` is not a drawn vertex …
+  have hpV : p ∉ V(S.skel.map R.pos) := by
+    intro hv
+    rcases R.isDrawing.vertex_mem_edgeArc (hl.map R.pos) hv hparc with h | h <;>
+      · rw [R.cell_edge hl] at hpe
+        exact hpe.2 (by simp [h])
+  -- … and on no other edge's arc, so it is off `K`.
+  have hpK : p ∉ K := by
+    rintro (hv | hedge)
+    · exact hpV hv
+    · obtain ⟨e', he', hpe'⟩ := Set.mem_iUnion₂.1 hedge
+      refine hpV (R.isDrawing.edge_inter
+        (by rw [Graph.edgeSet_map]; exact he'.1) (by rw [Graph.edgeSet_map]; exact he)
+        (fun h => he'.2 (by simp [h])) hpe' hparc).1
+  -- Near `p`, the skeleton is inside the open 1-cell of `e`.
+  have hlocal : ∀ ⦃z⦄, z ∈ R.skeletonSet → z ∉ K → z ∈ R.cell e := by
+    intro z hz hzK
+    rcases hz with hzv | hze
+    · exact absurd (Set.mem_union_left _ hzv) hzK
+    obtain ⟨e', he', hze'⟩ := Set.mem_iUnion₂.1 hze
+    have he'' : e' ∈ E(S.skel) := by rwa [Realization.edgeSet_graph] at he'
+    by_cases hee : e' = e
+    · subst hee
+      rw [R.cell_edge hl]
+      refine ⟨hze', fun hmem => hzK (Set.mem_union_left _ ?_)⟩
+      have hzxy : z = R.pos x ∨ z = R.pos y := by simpa using hmem
+      rw [Realization.vertexSet_graph]
+      rcases hzxy with rfl | rfl
+      · exact ⟨x, hl.left_mem, rfl⟩
+      · exact ⟨y, hl.right_mem, rfl⟩
+    · exact absurd (Set.mem_union_right _
+        (Set.mem_biUnion (show e' ∈ E(S.skel) \ {e} from
+          ⟨he'', fun hs => hee (by simpa using hs)⟩) hze')) hzK
+  -- Every meeting point is a vertex of `H`, hence an end parameter of the arc of `f`.
+  obtain ⟨hc, hi, hlf⟩ := hH.isDrawing.edge_param hf
+  have hend : ∀ ⦃t : ℝ⦄, t ∈ I → Hdraw f t ∈ R.cell e → t = 0 ∨ t = 1 := by
+    intro t htI htcell
+    have htV : Hdraw f t ∈ V(H) := hwit _ ⟨⟨t, htI, rfl⟩, htcell⟩
+    rcases hH.isDrawing.vertex_mem_edgeArc hlf htV ⟨t, htI, rfl⟩ with h | h
+    · exact Or.inl (hi htI zero_mem_I h)
+    · exact Or.inr (hi htI one_mem_I h)
+  obtain ⟨t₀, ht₀, hpt₀⟩ := hp
+  have ht₀end : t₀ = 0 ∨ t₀ = 1 := hend ht₀ (by rw [hpt₀]; exact hpe)
+  -- The ball around `p` off `K`, and the modulus that keeps the arc of `f` inside it: a
+  -- parameter strictly inside the interval and close to the end parameter of `p` lands the
+  -- arc in the open 1-cell at a non-vertex, which `hend` forbids.
+  obtain ⟨ε, hε, hball⟩ := Metric.isOpen_iff.1 hKcl.isOpen_compl p hpK
+  obtain ⟨δ, hδ, hcont⟩ := Metric.continuousWithinAt_iff.1 (hc t₀ ht₀) ε hε
+  have key : ∀ t : ℝ, t ∈ Set.Ioo (0 : ℝ) 1 → dist t t₀ < δ → False := by
+    intro t ht htδ
+    have htI : t ∈ I := ⟨ht.1.le, ht.2.le⟩
+    have hqK : Hdraw f t ∈ Kᶜ := by
+      refine hball ?_
+      rw [Metric.mem_ball, ← hpt₀]
+      exact hcont htI htδ
+    rcases hend htI (hlocal (harc ⟨t, htI, rfl⟩) hqK) with h | h
+    · exact ht.1.ne' h
+    · exact ht.2.ne h
+  have hmin0 : 0 < min (δ / 2) (2⁻¹ : ℝ) := lt_min (by linarith) (by norm_num)
+  have hmin2 : min (δ / 2) (2⁻¹ : ℝ) ≤ 2⁻¹ := min_le_right _ _
+  have hminδ : min (δ / 2) (2⁻¹ : ℝ) ≤ δ / 2 := min_le_left _ _
+  rcases ht₀end with rfl | rfl
+  · refine key (min (δ / 2) 2⁻¹) ⟨hmin0, by linarith⟩ ?_
+    rw [Real.dist_eq, sub_zero, abs_of_pos hmin0]
+    linarith
+  · refine key (1 - min (δ / 2) 2⁻¹) ⟨by linarith, by linarith⟩ ?_
+    rw [Real.dist_eq, abs_of_nonpos (by linarith : (1 : ℝ) - min (δ / 2) 2⁻¹ - 1 ≤ 0)]
+    linarith
 
 /-! ### Step 1, assembled on the edge matching alone
 

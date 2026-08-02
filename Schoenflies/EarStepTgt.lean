@@ -35,12 +35,15 @@ different.
 Let `z` be an ear endpoint whose *source* position lies on `C`; then its target position `p` lies
 on `S`, and the ear's own first edge is a nonboundary edge of `H` through `p`.
 
-* `unique_edge` — at most one nonboundary edge of `H` reaches `p` — makes the ear's edge the only
-  one, and the ear's edges are not edges of `B` (this is the non-degenerate branch), so **no
-  nonboundary edge of `B` reaches `p`**. That is the antecedent of the transfer invariant's
-  anchor clause, and it is also, through `Graph.closure_pointSet_diff_subset`, the statement that
-  `p` is off the closure of what `B` leaves outside `S` — the blueprint's "`K` … does not contain
-  `a`", transported to the source by the skeleton homeomorphism.
+* `unique_edge` — at most one *new* nonboundary edge of `H` reaches `p` — makes the ear's edge
+  the only new one, and the ear's edges are not edges of `B` (this is the non-degenerate
+  branch); an edge of `B` at `p` drawn *on* the old skeleton is a boundary edge by
+  `Schoenflies.edgeArc_subset_outer_of_subset_skeletonSet`, since an old-skeleton edge cannot
+  merely touch the outer open 1-cell the fresh point sits in. So **no nonboundary edge of `B`
+  reaches `p`**. That is the antecedent of the transfer invariant's anchor clause, and it is
+  also, through `Graph.closure_pointSet_diff_subset`, the statement that `p` is off the closure
+  of what `B` leaves outside `S` — the blueprint's "`K` … does not contain `a`", transported to
+  the source by the skeleton homeomorphism.
 * `notMem_vertexSet` — `p` is not a 0-cell of `Γ'` — makes the ancestor `par z` a *1-cell*, and
   `Realization.mem_edgeSet_outerGraph_of_cell_meets_outerSet` makes it an **outer** 1-cell, which
   is the other antecedent of the anchor clause. So `CellStructure.UniqueFaceAt z` follows, which
@@ -66,10 +69,21 @@ open CellStructure Graph
 
 variable {γ : Type*} {S₀ : CellStructure γ} {srcOuter srcDom tgtOuter tgtDom : Set Plane}
 
-/-- **A point of the outer curve that a nonboundary edge of the extension reaches.** In
-`thm:finite-transfer`(b) these are exactly the fresh points `u(a)`. -/
-def NonboundaryAt (H : Graph Plane γ) (Hdraw : γ → ℝ → Plane) (outer : Set Plane) (p : Plane) :
-    Prop := ∃ f ∈ E(H), p ∈ Graph.edgeArc Hdraw f ∧ ¬ Graph.edgeArc Hdraw f ⊆ outer
+/-- **A point of the outer curve that a *new* nonboundary edge of the extension reaches**: an
+edge whose arc lies neither in the outer curve nor on the old skeleton `old`. In
+`thm:finite-transfer`(b) — where `old` is instantiated with `|Γ'|` — these are exactly the fresh
+points `u(a)`.
+
+The `old` clause is the blueprint's `H' ∖ Γ'`, and it is not slack: the old nonboundary edges of
+`Γ'` — crosscuts of earlier stages — reach `S` at old 0-cells, which are neither fresh nor
+strongly accessible anchors, so quantifying the fresh-anchor clauses over *all* nonboundary
+edges made them unsatisfiable for every refinement of a stage with a crosscut. Pre-repair the
+clause was missing; `Schoenflies/MeshSteps.lean` keeps the machine-checked record of what that
+cost. -/
+def NonboundaryAt (H : Graph Plane γ) (Hdraw : γ → ℝ → Plane) (outer old : Set Plane)
+    (p : Plane) : Prop :=
+  ∃ f ∈ E(H), p ∈ Graph.edgeArc Hdraw f ∧ ¬ Graph.edgeArc Hdraw f ⊆ outer ∧
+    ¬ Graph.edgeArc Hdraw f ⊆ old
 
 /-- **The second sentence of `thm:finite-transfer`(b).**
 
@@ -79,17 +93,28 @@ edge is incident with each such fresh boundary point.*
 
 Three clauses, and each is spent exactly once; see the module docstring. None of them mentions an
 intermediate stage — they are conditions on `H` and on the base pair — which is what lets the ear
-induction quantify over stages freely. -/
+induction quantify over stages freely.
+
+Every clause quantifies over the **new** edges only — `¬ edgeArc ⊆ P.tgt.skeletonSet`, the
+blueprint's `H' ∖ Γ'` — because at an old 0-cell on `S` several *old* nonboundary edges may
+meet, none of them fresh and none anchored; see `Schoenflies.NonboundaryAt`. What the consumer
+loses by the restriction is recovered by
+`Schoenflies.IsSourceExtension.edge_subset_of_edgeArc_subset_skeletonSet`: an edge of `H` drawn
+*on* the old skeleton cannot reach a fresh boundary point except inside the outer curve. -/
 structure HasFreshAnchors (P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom)
     (H : Graph Plane γ) (Hdraw : γ → ℝ → Plane) : Prop where
   /-- **Exactly one new nonboundary edge is incident with each fresh boundary point.** -/
   unique_edge : ∀ ⦃p⦄, p ∈ tgtOuter → ∀ ⦃f g⦄, f ∈ E(H) → g ∈ E(H) →
     p ∈ Graph.edgeArc Hdraw f → p ∈ Graph.edgeArc Hdraw g →
-    ¬ Graph.edgeArc Hdraw f ⊆ tgtOuter → ¬ Graph.edgeArc Hdraw g ⊆ tgtOuter → f = g
+    ¬ Graph.edgeArc Hdraw f ⊆ tgtOuter → ¬ Graph.edgeArc Hdraw g ⊆ tgtOuter →
+    ¬ Graph.edgeArc Hdraw f ⊆ P.tgt.skeletonSet →
+    ¬ Graph.edgeArc Hdraw g ⊆ P.tgt.skeletonSet → f = g
   /-- **The endpoint on `S` is a fresh point**: not a 0-cell of `Γ'`. -/
-  notMem_vertexSet : ∀ ⦃p⦄, p ∈ tgtOuter → NonboundaryAt H Hdraw tgtOuter p → p ∉ V(P.tgt.graph)
+  notMem_vertexSet : ∀ ⦃p⦄, p ∈ tgtOuter →
+    NonboundaryAt H Hdraw tgtOuter P.tgt.skeletonSet p → p ∉ V(P.tgt.graph)
   /-- **It is `u(a)` with `a ∈ 𝒜`**: its source partner is strongly accessible. -/
-  stronglyAccessible : ∀ ⦃p⦄, p ∈ tgtOuter → NonboundaryAt H Hdraw tgtOuter p →
+  stronglyAccessible : ∀ ⦃p⦄, p ∈ tgtOuter →
+    NonboundaryAt H Hdraw tgtOuter P.tgt.skeletonSet p →
     StronglyAccessible (srcDom \ srcOuter) (P.homeo.invFun p)
 
 /-! ### The two bridges the anchor case needs -/
@@ -140,6 +165,52 @@ theorem invFun_pos_eq (hT : IsPartialTransferOfTgt T P B Hdraw par) {z : γ}
   rw [← T.homeo.pos_apply hz, hT.homeo_eqOn hsub]
   exact P.homeo.leftInvOn hsub
 
+/-- **An extension edge on the old skeleton reaching the outer curve at a fresh point lies
+inside the outer curve.** The fresh point is off the drawn 0-cells, so it sits in the open
+1-cell of an *outer* edge of the base pair — the decomposition of the pre-repair defect proof,
+now fed an honest hypothesis — and
+`IsSourceExtension.edge_subset_of_edgeArc_subset_skeletonSet` pins the whole arc of the meeting
+edge to that outer edge's arc, which is part of the outer curve.
+
+This is the complement of the `H' ∖ Γ'` restriction of `Schoenflies.HasFreshAnchors`: at a
+fresh boundary point, an edge of the extension is either new — and then the fresh-anchor
+clauses speak about it — or drawn on the old skeleton — and then it is a boundary edge, by
+this. -/
+theorem edgeArc_subset_outer_of_subset_skeletonSet {H : Graph Plane γ}
+    (hH : IsSourceExtension P.tgt tgtOuter tgtDom H Hdraw) {f : γ} (hf : f ∈ E(H))
+    (hfold : Graph.edgeArc Hdraw f ⊆ P.tgt.skeletonSet) {p : Plane}
+    (hp : p ∈ Graph.edgeArc Hdraw f) (hpS : p ∈ tgtOuter) (hpV : p ∉ V(P.tgt.graph)) :
+    Graph.edgeArc Hdraw f ⊆ tgtOuter := by
+  -- `p` lies on the realized outer cycle: on a drawn outer 0-cell — excluded — or on the arc
+  -- of an outer edge.
+  have hpOut : p ∈ P.tgt.outerSet := by
+    rw [P.tgt_isWeaklyAdmissible.outerSet_eq]; exact hpS
+  rcases hpOut with hv | hedge
+  · refine absurd ?_ hpV
+    rw [Graph.vertexSet_map] at hv
+    obtain ⟨v, hv, rfl⟩ := hv
+    rw [Realization.vertexSet_graph]
+    exact ⟨v, P.str.outerGraph_le.vertexSet_mono hv, rfl⟩
+  · obtain ⟨e, he, hpe⟩ := Set.mem_iUnion₂.1 hedge
+    have heO : e ∈ E(P.str.outerGraph) := by rwa [Graph.edgeSet_map] at he
+    have heE : e ∈ E(P.str.skel) := P.str.outerGraph_le.edgeSet_mono heO
+    obtain ⟨x, y, hl⟩ := Graph.exists_isLink_of_mem_edgeSet heE
+    -- off the drawn 0-cells, `p` lies in the *open* 1-cell of `e`
+    have hpcell : p ∈ P.tgt.cell e := by
+      rw [P.tgt.cell_edge hl]
+      refine ⟨hpe, fun hmem => hpV ?_⟩
+      have hOrEq : p = P.tgt.pos x ∨ p = P.tgt.pos y := by simpa using hmem
+      rw [Realization.vertexSet_graph]
+      rcases hOrEq with h | h
+      · exact ⟨x, hl.left_mem, h.symm⟩
+      · exact ⟨y, hl.right_mem, h.symm⟩
+    -- an edge on the skeleton cannot merely touch the open 1-cell, so it runs inside it
+    refine (hH.edge_subset_of_edgeArc_subset_skeletonSet hf hfold heE hp hpcell).trans ?_
+    have houtE : Graph.edgeArc P.tgt.drawing e ⊆ P.tgt.outerSet :=
+      Graph.edgeArc_subset_pointSet (by rwa [Graph.edgeSet_map])
+    refine houtE.trans ?_
+    rw [P.tgt_isWeaklyAdmissible.outerSet_eq]
+
 /-! ### The step -/
 
 /-- **One ear insertion, direction (b).** `Schoenflies.EarStepTgt`, discharged.
@@ -174,6 +245,12 @@ theorem earStepTgt [Infinite γ] {P : GeneratedPair S₀ srcOuter srcDom tgtOute
     have h1 : T.tgt.outerSet ⊆ T.tgt.skeletonSet := T.tgt.outerSet_subset_skeletonSet
     rwa [T.tgt_isWeaklyAdmissible.outerSet_eq] at h1
   have hBout : tgtOuter ⊆ pointSet B Hdraw := hT.skeletonSet_eq ▸ htgtOut
+  -- The base pair's target skeleton is already occupied by the current subgraph, so an ear
+  -- edge — whose interior is fresh — is a *new* edge in the sense of `H' ∖ Γ'`.
+  have hPskel : P.tgt.skeletonSet ⊆ pointSet B Hdraw := by
+    have h1 := hT.refines_tgt.skeletonSet_subset P.tgt_isCellDecomposition
+      T.tgt_isCellDecomposition
+    rwa [hT.skeletonSet_eq] at h1
   have hdisj : Disjoint (walkPointSet H Hdraw a D \ {a, b}) (pointSet B Hdraw) :=
     disjoint_walkPointSet_diff hdrawH hBH hpath hint hdeg
   -- The target side: the split data and the drawn ear, where `H` draws it.
@@ -193,6 +270,8 @@ theorem earStepTgt [Infinite γ] {P : GeneratedPair S₀ srcOuter srcDom tgtOute
     · obtain ⟨g, hgD, hgp⟩ := hear
       have hgnb : ¬ edgeArc Hdraw g ⊆ tgtOuter :=
         notSubset_of_mem_ear hdrawH hBH hpath hdisj hBout ha hb hgD
+      have hgnew : ¬ edgeArc Hdraw g ⊆ P.tgt.skeletonSet :=
+        notSubset_of_mem_ear hdrawH hBH hpath hdisj hPskel ha hb hgD
       -- the target position is on `S`, because the skeleton map carries `C` onto it
       have hp : T.tgt.pos z ∈ tgtOuter := by
         have himgo := T.homeo.image_outerSet
@@ -200,16 +279,21 @@ theorem earStepTgt [Infinite γ] {P : GeneratedPair S₀ srcOuter srcDom tgtOute
         have hmem : T.homeo.toFun (T.src.pos z) ∈ T.homeo.toFun '' srcOuter := ⟨_, hoff, rfl⟩
         have hx : T.homeo.toFun (T.src.pos z) ∈ tgtOuter := himgo.subset hmem
         rwa [T.homeo.pos_apply hz] at hx
-      have hnb : NonboundaryAt H Hdraw tgtOuter (T.tgt.pos z) :=
-        ⟨g, hpath.edge_mem hgD, hgp, hgnb⟩
-      -- **no nonboundary edge of `B` reaches the anchor**: the ear's is the only one, and it is
-      -- not an edge of `B`
+      have hnb : NonboundaryAt H Hdraw tgtOuter P.tgt.skeletonSet (T.tgt.pos z) :=
+        ⟨g, hpath.edge_mem hgD, hgp, hgnb, hgnew⟩
+      -- **no nonboundary edge of `B` reaches the anchor**: an edge of `B` at the anchor is
+      -- either drawn on the old skeleton — a boundary edge, since an old-skeleton edge cannot
+      -- merely touch the outer 1-cell the fresh point sits in — or new, and then it is the
+      -- ear's own edge, which is not in `B`
       have huntouched : ∀ ⦃f⦄, f ∈ E(B) → T.tgt.pos z ∈ edgeArc Hdraw f →
           edgeArc Hdraw f ⊆ tgtOuter := by
         intro f hfB hfp
-        by_contra hcon
-        exact hdeg g hgD (hA.unique_edge hp (hBH.edgeSet_mono hfB) (hpath.edge_mem hgD) hfp hgp
-          hcon hgnb ▸ hfB)
+        by_cases hfold : edgeArc Hdraw f ⊆ P.tgt.skeletonSet
+        · exact edgeArc_subset_outer_of_subset_skeletonSet hH (hBH.edgeSet_mono hfB) hfold hfp
+            hp (hA.notMem_vertexSet hp hnb)
+        · by_contra hcon
+          exact hdeg g hgD (hA.unique_edge hp (hBH.edgeSet_mono hfB) (hpath.edge_mem hgD) hfp
+            hgp hcon hgnb hfold hgnew ▸ hfB)
       have hu : T.str.UniqueFaceAt z := hT.anchor_uniqueFaceAt hz
         (parent_mem_edgeSet_outerGraph hT hz hp (hA.notMem_vertexSet hp hnb)) huntouched
       have hacc : StronglyAccessible (srcDom \ srcOuter) (T.src.pos z) := by

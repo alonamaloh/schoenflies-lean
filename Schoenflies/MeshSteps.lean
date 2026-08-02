@@ -18,46 +18,72 @@ skeleton and transferred back by `thm:finite-transfer`(b).
 
 This module proves the whole *quantitative* half of that route, and confines the
 *combinatorial* half — the overlay and the transfer — to one named hypothesis, cut at the
-transfer's **conclusion**. The reason the cut is there and not at the transfer's hypotheses is
-a genuine interface defect, recorded as a theorem below.
+transfer's **conclusion**. The cut was placed there, and not at the transfer's hypotheses,
+because those hypotheses carried a genuine interface defect, found by this module and since
+repaired; the defect and the repair are both recorded below.
 
-## The interface defect, machine-checked
+## The interface defect, machine-checked — and the repair
 
-`Schoenflies.finite_transfer_back'` (`EarStepTgt.lean`) consumes
-`IsSourceExtension P.tgt tgtOuter tgtDom H Hdraw` and `HasFreshAnchors P H Hdraw`. These two
-hypotheses are **jointly unsatisfiable for every extension the mesh step needs**:
+As first stated, the two hypotheses of `Schoenflies.finite_transfer_back'` (`EarStepTgt.lean`)
+— `IsSourceExtension P.tgt tgtOuter tgtDom H Hdraw` and `HasFreshAnchors P H Hdraw` — were
+**jointly unsatisfiable for every extension the mesh step needs**:
 
-* `IsSourceExtension.edge_subset` says an edge of `H` whose arc meets an *open* old 1-cell
+* `IsSourceExtension.edge_subset` said an edge of `H` whose arc meets an *open* old 1-cell
   runs inside that old edge's arc. A mesh spoke reaching `S` at a fresh point `z` touches, at
-  `z` itself, the open 1-cell of the old outer edge `z` subdivides — so `edge_subset` forces
+  `z` itself, the open 1-cell of the old outer edge `z` subdivides — so `edge_subset` forced
   the spoke inside `S`, which it is not.
 * The escape — make `z` a 0-cell first, by subdividing the outer edge at `z` before proposing
-  `H` — is closed off by `HasFreshAnchors.notMem_vertexSet`, which demands that a boundary
+  `H` — was closed off by `HasFreshAnchors.notMem_vertexSet`, which demands that a boundary
   point reached by a nonboundary edge of `H` *not* be a drawn 0-cell of the base pair; and the
   anchor bookkeeping of `IsPartialTransferOfTgt.anchor_uniqueFaceAt` genuinely needs that
   freshness, since it recognises fresh points by their ancestor being an outer *edge*.
 
-`Schoenflies.edgeArc_subset_outer_of_hasFreshAnchors` is the formal statement: under the two
-hypotheses of `finite_transfer_back'`, **every** edge of `H` meeting the outer curve lies
-inside it. Consequently no nonboundary edge of `H` reaches `S` at all, `HasFreshAnchors` is
-vacuous, and `H` cannot contain a mesh spoke — while `prop:anchored-square-mesh` clauses 1 and
-5 (`squareMesh_face_small`, `squareMesh_isConnected_diff`) both *require* spokes. The same
-overshoot of `edge_subset` also affects direction (a) — a grid edge attaches at a crossing
-point inside an old open 1-cell — but there the base pair can be subdivided at the crossing
-points first (`GeneratedPair.exists_subdivide_finite`), because direction (a) has no freshness
-clause; direction (b) cannot pre-subdivide its fresh points. The repair therefore belongs to
-the direction-(b) interface: either weaken `edge_subset` to allow an edge of `H` to *touch* an
-open old 1-cell at its own endpoints (the touch points are exactly the overlay's subdivision
-vertices), or extend the anchor invariant to fresh points that are 0-cells of the base
-incident with a unique face. Both repairs change only hypotheses of existing theorems; the
-conclusion `IsTransferOfTgt` is untouched, which is why the named hypothesis below is stated
-against it and survives the repair verbatim.
+`Schoenflies.edgeArc_subset_outer_of_strong_hypotheses` keeps the machine-checked record:
+under the two pre-repair hypotheses — stated below as explicit local hypotheses, because the
+live structures no longer carry them — **every** edge of `H` meeting the outer curve lies
+inside it, so no nonboundary edge of `H` reaches `S` at all
+(`not_nonboundaryAt_of_strong_hypotheses`), `HasFreshAnchors` is vacuous, and `H` can contain
+no mesh spoke — while `prop:anchored-square-mesh` clauses 1 and 5 (`squareMesh_face_small`,
+`squareMesh_isConnected_diff`) both *require* spokes.
+
+**The repair** (`FiniteTransfer.lean`, `CommonSubdiv.lean`, `EarStepTgt.lean`) is the first of
+the two candidates this docstring used to offer, chosen because it keeps the proof corpus most
+intact — the strong `edge_subset` had exactly one consumer (`pointSet_sourcePart`), which
+absorbed the weakening in a two-line case split, and the anchor-tracking machinery
+(`anchor_uniqueFaceAt`, `UniqueFaceAt`, `PropagatesUniqueFace`) is untouched, where the second
+candidate (pre-subdividing the outer edge at fresh points) would have rebuilt the anchor
+invariant around fresh 0-cells through the whole common-subdivision and ear stack:
+
+* `IsSourceExtension.edge_subset` now triggers only on a meeting point that is **not a vertex
+  of `H`** — the overlay convention of `rem:polygonal-overlay-convention`, under which every
+  intersection has already become a vertex. A spoke touching the old open 1-cell at its own
+  endpoint satisfies the clause vacuously (`edge_subset_clause_of_inter_subset_vertexSet`
+  below, the satisfiability half of the record). The weakening automatically frees direction
+  (a)'s grid edges at interior crossing points as well — the parallel overshoot this module's
+  report warned about — since `IsSourceExtension` is direction-agnostic.
+* `HasFreshAnchors` now quantifies over the **new** edges only — `Schoenflies.NonboundaryAt`
+  gained the clause `¬ edgeArc ⊆ P.tgt.skeletonSet`, the blueprint's `H' ∖ Γ'` (the second
+  sentence of `thm:finite-transfer`(b) restricts to new edges, and the Lean statement had
+  dropped the restriction).
+* What the strong forms provided to `earStepTgt` is re-proved, not assumed:
+  `IsSourceExtension.edge_subset_of_edgeArc_subset_skeletonSet` recovers the strong
+  `edge_subset` for the edges drawn *on* the old skeleton (an edge lying on the skeleton
+  cannot merely touch an open 1-cell — its arc continues inside the skeleton, which near a
+  point of an open 1-cell is nothing but that 1-cell), and
+  `Schoenflies.edgeArc_subset_outer_of_subset_skeletonSet` derives from it that an
+  old-skeleton edge reaching a fresh boundary point is a boundary edge — which is exactly the
+  dichotomy the anchor clause of the transfer invariant needs.
+
+The conclusion `IsTransferOfTgt` was untouched by the repair, as predicted: the named
+hypothesis below is stated against it and survives verbatim. What keeps it a hypothesis now is
+only that its discharger — the overlay of the mesh with the target skeleton, fed to the
+repaired `finite_transfer_back'` — is not yet written; no known defect stands in the way.
 
 ## What is proved here
 
 * the square-side domain fact `frontier (Q ∖ S) ⊆ S` that any direction-(b) discharger feeds
   to `earStepTgt` (the other three of the four ambient facts are already on `main`);
-* the defect theorem above;
+* the defect record and the clause-level satisfiability theorem above;
 * **the mesh bound through the transfer**: if the transferred target skeleton contains the
   anchored mesh of size `ε` (with `ε`-dense fresh points), then every closed target 2-cell of
   the transferred stage has diameter at most `ε` —
@@ -78,18 +104,23 @@ set of strongly accessible points of `C` (`exists_countable_dense_stronglyAccess
 that they are `ε`-dense on `S` and avoid the finite vertex set of the stage; overlay
 `squareMesh ε fresh anchors` with the polygonal target skeleton (`lem:polygonal-overlay`,
 `overlayGraph`, with 2-connectivity from `squareMesh_isTwoConnected` and the
-`Graph.IsTwoConnected.union` toolkit); and run the *repaired* `thm:finite-transfer`(b), whose
+`Graph.IsTwoConnected.union` toolkit); and run the repaired `thm:finite-transfer`(b), whose
 fresh-anchor clauses are clauses 3–4 of the mesh proposition (`squareMesh_inner_edge_at_fresh`,
 `squareMesh_unique_inner_edge`) and strong accessibility of the chosen anchors. Every clause
 of the bundle is a clause of that route's conclusion, so nothing here restates a goal of this
-module; what keeps the bundle conditional is the defect above, not any missing mathematics.
+module; what keeps the bundle conditional is that the overlay-and-apply discharger is not yet
+written — the interface defect that used to stand in its way is repaired.
 
 ## Blueprint
 
 * `Schoenflies.frontier_closedSquare_sdiff_modelCurve` — the square half of "both regions are
   closed Jordan regions" in the form the transfer consumes.
-* `Schoenflies.edgeArc_subset_outer_of_hasFreshAnchors` — the finding: the stated hypotheses
-  of `thm:finite-transfer`(b) admit no extension with a boundary-reaching nonboundary edge.
+* `Schoenflies.edgeArc_subset_outer_of_strong_hypotheses`,
+  `Schoenflies.not_nonboundaryAt_of_strong_hypotheses` — the finding, as the historical
+  record: the *pre-repair* hypotheses of `thm:finite-transfer`(b) admitted no extension with a
+  boundary-reaching nonboundary edge.
+* `Schoenflies.edge_subset_clause_of_inter_subset_vertexSet` — the repair verified at the
+  clause level: the repaired `edge_subset` accepts the spoke the pre-repair clause forbade.
 * `Schoenflies.IsLoop.not_meets_both_arcs`, `Schoenflies.IsLoop.exists_param_modulus`,
   `Schoenflies.freshDense_of_param_dense`, `Schoenflies.IsLoop.exists_param_window_of_dense`,
   `Schoenflies.exists_freshDense_of_dense` — the blueprint's "choose `z_0, …, z_{m-1}` in
@@ -141,32 +172,46 @@ theorem frontier_closedSquare_sdiff_modelCurve :
   have h2 : ¬ Plane.supNorm x < 1 := fun h => hx.2 (mem_openSquare_zero_one.2 h)
   exact le_antisymm h1 (not_lt.1 h2)
 
-/-! ### The interface defect of `thm:finite-transfer`(b), machine-checked -/
+/-! ### The interface defect of `thm:finite-transfer`(b): the record, and the repair verified
 
-/-- **The hypotheses of `Schoenflies.finite_transfer_back'` admit no boundary-reaching
-nonboundary edge.** If `H` is an `IsSourceExtension` of the target realization and its fresh
-anchors satisfy `HasFreshAnchors`, then every edge of `H` that meets the outer curve lies
-inside it.
+The two theorems below are the **historical record** of the deadlock, compiling against the
+pre-repair hypotheses restated as explicit local hypotheses — `hstrong` is the pre-repair
+`IsSourceExtension.edge_subset` (triggering on a bare nonempty intersection with the open
+1-cell) and `hfreshV` is the pre-repair `HasFreshAnchors.notMem_vertexSet` (quantifying over
+all nonboundary edges, with no `H' ∖ Γ'` clause). **The live structures no longer satisfy
+either**: `edge_subset` now exempts meeting points that are vertices of `H`, and
+`notMem_vertexSet` now requires the reaching edge to be new. The third theorem is the
+satisfiability half: the repaired `edge_subset` clause holds outright in the exact
+configuration — a spoke meeting the old open 1-cell only at a vertex of `H` — that `hstrong`
+is shown to forbid. -/
 
-The proof is short because the two hypotheses close every door: the meeting point is not a
-drawn 0-cell of the stage (`HasFreshAnchors.notMem_vertexSet` — this is where a nonboundary
-edge at the point is used), so it lies in the *open* 1-cell of an outer edge, and
-`IsSourceExtension.edge_subset` then forces the whole arc of the meeting edge into that outer
-edge's arc, which is part of the outer curve.
+/-- **The pre-repair deadlock, kept as the record.** Under the pre-repair forms of
+`edge_subset` and `notMem_vertexSet`, no extension admits a boundary-reaching nonboundary
+edge: every edge of `H` that meets the outer curve lies inside it.
+
+The proof is short because the two strong hypotheses close every door: the meeting point is
+not a drawn 0-cell of the stage (`hfreshV` — this is where a nonboundary edge at the point is
+used), so it lies in the *open* 1-cell of an outer edge, and `hstrong` then forces the whole
+arc of the meeting edge into that outer edge's arc, which is part of the outer curve.
 
 Read contrapositively: an extension with a mesh spoke — an edge reaching `S` without lying in
-`S` — can never satisfy both hypotheses, whatever the fresh points are. This is why the named
-hypothesis of this module is stated against the transfer's *conclusion* and not against its
-hypotheses; see the module docstring for the two candidate repairs. -/
-theorem edgeArc_subset_outer_of_hasFreshAnchors
+`S` — could never satisfy both pre-repair hypotheses, whatever the fresh points were. This is
+what forced the repair recorded in the module docstring, and why the named hypothesis of this
+module was stated against the transfer's *conclusion*, which the repair left untouched. -/
+theorem edgeArc_subset_outer_of_strong_hypotheses
     {P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom} {H : Graph Plane γ}
     {Hdraw : γ → ℝ → Plane}
-    (hH : IsSourceExtension P.tgt tgtOuter tgtDom H Hdraw) (hA : HasFreshAnchors P H Hdraw)
+    (hstrong : ∀ ⦃e⦄, e ∈ E(P.str.skel) → ∀ ⦃f⦄, f ∈ E(H) →
+      (Graph.edgeArc Hdraw f ∩ P.tgt.cell e).Nonempty →
+      Graph.edgeArc Hdraw f ⊆ Graph.edgeArc P.tgt.drawing e)
+    (hfreshV : ∀ ⦃p⦄, p ∈ tgtOuter →
+      (∃ f ∈ E(H), p ∈ Graph.edgeArc Hdraw f ∧ ¬ Graph.edgeArc Hdraw f ⊆ tgtOuter) →
+      p ∉ V(P.tgt.graph))
     {f : γ} (hf : f ∈ E(H)) {p : Plane} (hp : p ∈ Graph.edgeArc Hdraw f)
     (hpS : p ∈ tgtOuter) : Graph.edgeArc Hdraw f ⊆ tgtOuter := by
   by_contra hnot
   -- `p` is reached by a nonboundary edge of `H`, so it is not a drawn 0-cell of the stage.
-  have hpV : p ∉ V(P.tgt.graph) := hA.notMem_vertexSet hpS ⟨f, hf, hp, hnot⟩
+  have hpV : p ∉ V(P.tgt.graph) := hfreshV hpS ⟨f, hf, hp, hnot⟩
   -- `p` lies on the realized outer cycle: on a drawn outer 0-cell — excluded — or on the arc
   -- of an outer edge.
   have hpOut : p ∈ P.tgt.outerSet := by
@@ -190,20 +235,40 @@ theorem edgeArc_subset_outer_of_hasFreshAnchors
       rcases hOrEq with h | h
       · exact ⟨x, hl.left_mem, h.symm⟩
       · exact ⟨y, hl.right_mem, h.symm⟩
-    -- and `edge_subset` forces the whole of `f` into the outer curve
-    refine hnot ((hH.edge_subset heE hf ⟨p, hp, hpcell⟩).trans ?_)
+    -- and the pre-repair `edge_subset` forces the whole of `f` into the outer curve
+    refine hnot ((hstrong heE hf ⟨p, hp, hpcell⟩).trans ?_)
     refine (Realization.edgeArc_subset_outerSet P.tgt heO).trans ?_
     rw [P.tgt_isWeaklyAdmissible.outerSet_eq]
 
-/-- The anchor clauses of `thm:finite-transfer`(b), as stated, are vacuous: under the two
-hypotheses of `finite_transfer_back'` no point of the outer curve is `NonboundaryAt` at all. -/
-theorem not_nonboundaryAt_of_hasFreshAnchors
+/-- The fresh-anchor clauses were vacuous under the pre-repair hypotheses: no point of the
+outer curve was reached by any nonboundary edge at all — the pre-repair reading of
+`NonboundaryAt` is spelled out, since the live `Schoenflies.NonboundaryAt` now carries the
+`H' ∖ Γ'` clause. -/
+theorem not_nonboundaryAt_of_strong_hypotheses
     {P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom} {H : Graph Plane γ}
     {Hdraw : γ → ℝ → Plane}
-    (hH : IsSourceExtension P.tgt tgtOuter tgtDom H Hdraw) (hA : HasFreshAnchors P H Hdraw)
-    {p : Plane} (hpS : p ∈ tgtOuter) : ¬ NonboundaryAt H Hdraw tgtOuter p := by
+    (hstrong : ∀ ⦃e⦄, e ∈ E(P.str.skel) → ∀ ⦃f⦄, f ∈ E(H) →
+      (Graph.edgeArc Hdraw f ∩ P.tgt.cell e).Nonempty →
+      Graph.edgeArc Hdraw f ⊆ Graph.edgeArc P.tgt.drawing e)
+    (hfreshV : ∀ ⦃p⦄, p ∈ tgtOuter →
+      (∃ f ∈ E(H), p ∈ Graph.edgeArc Hdraw f ∧ ¬ Graph.edgeArc Hdraw f ⊆ tgtOuter) →
+      p ∉ V(P.tgt.graph))
+    {p : Plane} (hpS : p ∈ tgtOuter) :
+    ¬ ∃ f ∈ E(H), p ∈ Graph.edgeArc Hdraw f ∧ ¬ Graph.edgeArc Hdraw f ⊆ tgtOuter := by
   rintro ⟨f, hf, hp, hnot⟩
-  exact hnot (edgeArc_subset_outer_of_hasFreshAnchors hH hA hf hp hpS)
+  exact hnot (edgeArc_subset_outer_of_strong_hypotheses hstrong hfreshV hf hp hpS)
+
+/-- **The deadlock is gone at the clause level.** The repaired
+`IsSourceExtension.edge_subset` clause is satisfied outright by any edge meeting the old open
+1-cell only in vertices of `H` — which is exactly the situation of a mesh spoke at its fresh
+boundary point, the situation `edgeArc_subset_outer_of_strong_hypotheses` shows the
+pre-repair clause forbade. -/
+theorem edge_subset_clause_of_inter_subset_vertexSet {S : CellStructure γ} {R : S.Realization}
+    {H : Graph Plane γ} {Hdraw : γ → ℝ → Plane} {e f : γ}
+    (h : Graph.edgeArc Hdraw f ∩ R.cell e ⊆ V(H)) :
+    ∀ ⦃q⦄, q ∈ Graph.edgeArc Hdraw f → q ∈ R.cell e → q ∉ V(H) →
+      Graph.edgeArc Hdraw f ⊆ Graph.edgeArc R.drawing e :=
+  fun _ hq hqe hqV => absurd (h ⟨hq, hqe⟩) hqV
 
 /-! ### `FreshDense` from parameter-dense fresh points
 
@@ -680,13 +745,13 @@ variable [Nonempty γ] {C : Set Plane}
 
 The blueprint's mesh step, cut at the conclusion of `thm:finite-transfer`(b): an `ε`-dense
 fresh list on `S`, an extension containing the anchored mesh of size `ε`, and the completed
-transfer. The cut is at the conclusion because the *hypotheses* of
-`Schoenflies.finite_transfer_back'` are jointly unsatisfiable for a mesh overlay
-(`Schoenflies.edgeArc_subset_outer_of_hasFreshAnchors`); the conclusion `IsTransferOfTgt` is
-untouched by either candidate repair of that interface, so this bundle is stable under the
-repair.
+transfer. The cut was placed at the conclusion because the *hypotheses* of
+`Schoenflies.finite_transfer_back'` were, pre-repair, jointly unsatisfiable for a mesh overlay
+(`Schoenflies.edgeArc_subset_outer_of_strong_hypotheses`); the conclusion `IsTransferOfTgt`
+was untouched by the repair, so the bundle survived it verbatim, as designed.
 
-Discharged by (once the direction-(b) interface is repaired; see the module docstring):
+Discharged by (the direction-(b) interface being repaired, what remains is to write this out;
+see the module docstring):
 
 * `fresh`/`hdense` — the `P.homeo`-images of strongly accessible points of `C`
   (`Schoenflies.exists_countable_dense_stronglyAccessible`), chosen `ε`-dense along `S` and

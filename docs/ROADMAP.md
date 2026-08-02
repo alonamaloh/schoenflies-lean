@@ -188,10 +188,27 @@ and 1c are done and `sorry`-free; 1d is blocked on one interface change, describ
   new vertex, while 2-connectedness on its own permits loops. Consumers get looplessness from
   `Graph.IsDrawing.not_isLoopAt`, which `transfer_of_ears` already passes around.
 
-  What is left of 1d′ is the other four clauses of `IsWeaklyAdmissible` — `outerSet_eq`,
-  `isPolygonal`, `cell_subset`, `skeletonSet_subset` — for both operations, which should be
-  read off the realization constructors, and then `GeneratedPair.subdivideEdge` /
-  `.splitFace` themselves.
+  The `isPolygonal` clause looked like the next gap and is now closed too:
+  `IsArcBetween.isPolygonal_of_subset` (`PolygonalCut.lean`) — an arc inside a polygonal arc is
+  polygonal, which is what the two halves of a subdivided edge and each edge arc of a drawn ear
+  need. It is *not* list surgery on polylines: `exists_simple_poly_of_isPolygonal` already
+  produces some polygonal arc between the two points inside the ambient one, and the content is
+  that there is only one such arc (`subarc_subset_of_isPreconnected`, where the parametrisation
+  being a closed map does the work).
+
+  What is left of 1d′ is `outerSet_eq`, `cell_subset` and `skeletonSet_subset` for both
+  operations — read off the realization constructors, with `skeletonSet_realize` already there
+  — and then `GeneratedPair.subdivideEdge` / `.splitFace` themselves.
+
+  **An interface reading worth checking before writing `EarStep`.** The blueprint's step 3 is
+  "at most two edge subdivisions followed by one split", the subdivisions being what turns the
+  ear's endpoints into 0-cells. In the Lean formulation they may be unnecessary:
+  `IsPartialTransferOf.vertexSet_subset` says `V(B) ⊆ V(T.src.graph)`, and `EarStep` hypothesises
+  `a ∈ V(B)`, `b ∈ V(B)` — so both ends are *already* drawn 0-cells of the current stage, and
+  `Realization.injOn_pos` names the 0-cells they are. If that reading holds, `EarStep` is one
+  split with no subdivision, and the subdivision half of everything above is needed only by
+  `CommonSubdivision` (1e), not by the ear induction. Not formalised — it is a reading of two
+  fields, and the first thing to test when 1d is written.
 * **1e. `CommonSubdivision`.** Independent of 1b–1d and pure assembly:
   `exists_overlay_of_biUnion_finite` gives the overlay, `SubdivData.realizeHomeo` transports one
   subdivision to the other realization, and the induction over the overlay's finitely many new

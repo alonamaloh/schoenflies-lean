@@ -115,6 +115,21 @@ theorem cells_isComponent_in (hcd : R.IsCellDecomposition dom) (hJ : R.IsFaceJor
   ⟨(cell_subset_sdiff hcd houter hF).trans Set.diff_subset,
     (hJ.nonempty hF).choose, (cell_isComponent hcd hJ houter hF (hJ.nonempty hF).choose_spec).symm⟩
 
+/-- **The boundary curve of a 2-cell lies in the drawn skeleton.** Its frontier is the union of
+the open cells strictly below it (assertions (i) and (vii)), and none of those is a 2-cell —
+that is assertion (viii), `IsCellDecomposition.sub_face_eq`. So they are 0-cells and 1-cells,
+which are part of the skeleton.
+
+This is the clause `Schoenflies.exists_target_ear` asks of the Jordan curve it is handed. -/
+theorem frontier_cell_subset_skeletonSet (hcd : R.IsCellDecomposition dom) (hJ : R.IsFaceJordan)
+    (hF : F ∈ S.faces) : frontier (R.cell F) ⊆ R.skeletonSet := by
+  rw [← hJ.faceBoundary_eq hcd hF, faceBoundary]
+  refine cellUnion_subset fun σ hσ => ?_
+  obtain ⟨⟨hσc, hsub⟩, hσne⟩ := hσ
+  rcases hσc with hσv | hσf
+  · exact cell_subset_skeletonSet hσv
+  · exact absurd (hcd.sub_face_eq hJ hσf hF hsub) hσne
+
 /-- **`Schoenflies.CellsAbsorb`, discharged.** The hypothesis that has been carried through three
 modules as an assumption is a consequence of assertions (i) and (vii) at any stage. -/
 theorem cellsAbsorb (hcd : R.IsCellDecomposition dom) (hJ : R.IsFaceJordan)

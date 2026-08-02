@@ -5,6 +5,7 @@ Authors: Álvaro Begué
 -/
 import Schoenflies.SubdivStage
 import Schoenflies.EarPaths
+import Schoenflies.AnchorFace
 
 /-!
 # Making finitely many skeleton points into 0-cells
@@ -209,7 +210,12 @@ same 1-cell, `Realization.exists_param_of_mem_cell` reads off the source paramet
 source edge at `t`* — says the target subdivision point is the prescribed one on the nose. -/
 
 /-- **One point of the target skeleton made a 0-cell.** The mirror of
-`GeneratedPair.exists_subdivide_at`, for direction (b). -/
+`GeneratedPair.exists_subdivide_at`, for direction (b).
+
+The last clause is for `thm:finite-transfer`(b) alone: the fresh anchors it inserts into the
+outer cycle have to inherit `lem:cellulation-invariants`(vi) from the outer edge they are
+inserted into, and `CellStructure.SubdivData.propagatesUniqueFace` is that inheritance in the
+form that survives the iteration below. -/
 theorem GeneratedPair.exists_subdivide_at_tgt [Infinite γ] (h₀ : S₀.CombInvariants)
     (T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom) {q : Plane}
     (hq : q ∈ T.tgt.skeletonSet) :
@@ -217,9 +223,11 @@ theorem GeneratedPair.exists_subdivide_at_tgt [Infinite γ] (h₀ : S₀.CombInv
       T'.src.Refines T.src par ∧ T'.tgt.Refines T.tgt par ∧
         T'.tgt.skeletonSet = T.tgt.skeletonSet ∧
         V(T.tgt.graph) ⊆ V(T'.tgt.graph) ∧ q ∈ V(T'.tgt.graph) ∧
-        V(T'.tgt.graph) ⊆ insert q V(T.tgt.graph) := by
+        V(T'.tgt.graph) ⊆ insert q V(T.tgt.graph) ∧
+        CellStructure.PropagatesUniqueFace T'.str T.str par := by
   rcases Realization.mem_vertexSet_or_exists_cell hq with hv | ⟨e, he, hqe⟩
-  · exact ⟨T, id, .refl _, .refl _, rfl, subset_rfl, hv, subset_insert _ _⟩
+  · exact ⟨T, id, .refl _, .refl _, rfl, subset_rfl, hv, subset_insert _ _,
+      CellStructure.propagatesUniqueFace_id _⟩
   -- The corresponding source point of the same open 1-cell.
   have hqim : q ∈ T.homeo.toFun '' T.src.cell e := by
     rw [T.homeo.image_cell (Set.mem_union_right _ he)]; exact hqe
@@ -232,7 +240,8 @@ theorem GeneratedPair.exists_subdivide_at_tgt [Infinite γ] (h₀ : S₀.CombInv
     rw [d.drawing_targetParam T.homeo (Set.Ioo_subset_Icc_self ht), hde, hpt, hpq]
   have hgraph : (T.subdivideEdge (T.combInvariants h₀) d hds ht).tgt.graph
       = d.realizeGraph T.tgt (d.targetParam T.homeo t) := rfl
-  refine ⟨T.subdivideEdge (T.combInvariants h₀) d hds ht, d.parent, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  refine ⟨T.subdivideEdge (T.combInvariants h₀) d hds ht, d.parent, ?_, ?_, ?_, ?_, ?_, ?_,
+    d.propagatesUniqueFace⟩
   · exact (T.refines_subdivideEdge (T.combInvariants h₀) d hds ht).1
   · exact (T.refines_subdivideEdge (T.combInvariants h₀) d hds ht).2
   · exact CellStructure.SubdivData.skeletonSet_realize (d.targetParam_mem_Ioo T.homeo ht)
@@ -251,18 +260,21 @@ theorem GeneratedPair.exists_subdivide_finite_tgt [Infinite γ] (h₀ : S₀.Com
         T'.src.Refines T.src par ∧ T'.tgt.Refines T.tgt par ∧
           T'.tgt.skeletonSet = T.tgt.skeletonSet ∧
           V(T.tgt.graph) ⊆ V(T'.tgt.graph) ∧ Q ⊆ V(T'.tgt.graph) ∧
-          V(T'.tgt.graph) ⊆ V(T.tgt.graph) ∪ Q := by
+          V(T'.tgt.graph) ⊆ V(T.tgt.graph) ∪ Q ∧
+          CellStructure.PropagatesUniqueFace T'.str T.str par := by
   induction Q, hQ using Set.Finite.induction_on with
   | empty =>
-    exact fun T _ => ⟨T, id, .refl _, .refl _, rfl, subset_rfl, empty_subset _, subset_union_left⟩
+    exact fun T _ => ⟨T, id, .refl _, .refl _, rfl, subset_rfl, empty_subset _, subset_union_left,
+      CellStructure.propagatesUniqueFace_id _⟩
   | @insert a s ha hs ih =>
     intro T hQK
-    obtain ⟨T₁, par₁, hr₁, hr₁', hK₁, hV₁, haV, hV₁'⟩ :=
+    obtain ⟨T₁, par₁, hr₁, hr₁', hK₁, hV₁, haV, hV₁', hp₁⟩ :=
       T.exists_subdivide_at_tgt h₀ (hQK (mem_insert a s))
-    obtain ⟨T₂, par₂, hr₂, hr₂', hK₂, hV₂, hsV, hV₂'⟩ :=
+    obtain ⟨T₂, par₂, hr₂, hr₂', hK₂, hV₂, hsV, hV₂', hp₂⟩ :=
       ih T₁ (hK₁ ▸ (subset_insert a s).trans hQK)
     refine ⟨T₂, par₁ ∘ par₂, hr₂.trans hr₁, hr₂'.trans hr₁', hK₂.trans hK₁, hV₁.trans hV₂,
-      insert_subset (hV₂ haV) hsV, hV₂'.trans (union_subset ?_ ?_)⟩
+      insert_subset (hV₂ haV) hsV, hV₂'.trans (union_subset ?_ ?_),
+      hp₂.trans hp₁ fun _ hσ => hr₂'.parent_mem_cells hσ⟩
     · exact hV₁'.trans (insert_subset (mem_union_right _ (mem_insert a s)) subset_union_left)
     · exact subset_union_of_subset_right (subset_insert a s) _
 

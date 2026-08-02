@@ -80,6 +80,22 @@ named hypothesis `Schoenflies.HasMeshOverlayCores`:
 open Metric Set
 open scoped Graph
 
+namespace Graph
+
+variable {α β : Type*} {G : Graph α β} {u w : α}
+
+/-- In a connected graph with a second vertex, every vertex has an incident edge. The walk to
+the second vertex cannot be empty, and its first step is the edge. (General-purpose; a
+candidate for hoisting into `Schoenflies/Graph/Walk.lean`.) -/
+theorem Connected.exists_isLink_left (h : G.Connected) (hu : u ∈ V(G)) (hw : w ∈ V(G))
+    (hne : u ≠ w) : ∃ e x, G.IsLink e u x := by
+  obtain ⟨W, hW⟩ := h.reaches hu hw
+  cases hW with
+  | nil hx => exact absurd rfl hne
+  | cons hl hW' => exact ⟨_, _, hl⟩
+
+end Graph
+
 namespace Schoenflies
 
 open CellStructure Graph
@@ -346,5 +362,100 @@ theorem fresh_mem_vertexSet_meshOverlayGraph {z : Plane} (hz : z ∈ fresh) :
   exact overlay_mem_vertexSet_of_cut
     (meshOverlayPoints_endsAreCut P ε fresh joins _ hspoke z (Or.inl rfl))
     hspoke (left_mem_segment ℝ _ _)
+
+/-! ### The containment clauses
+
+Every drawn 0-cell is a vertex, the old skeleton is part of the overlay, and the overlay stays
+in the closed square. The 0-cell clause rests on the stage's 2-connectivity: a 0-cell of a
+connected graph with a second vertex is an end of some 1-cell, hence lies on a drawn arc,
+hence — being a prescribed cut point — is an end of an overlay piece. -/
+
+/-- The drawn skeleton of the stage. -/
+theorem arc_subset_skeletonSet (P : StagePair S₀ C) {e : γ} (he : e ∈ E(P.str.skel)) :
+    Graph.edgeArc P.tgt.drawing e ⊆ P.tgt.skeletonSet :=
+  Graph.edgeArc_subset_pointSet (by rwa [Realization.edgeSet_graph])
+
+/-- Every drawn 0-cell of an admissible stage lies on the drawn arc of one of its 1-cells. -/
+theorem pos_mem_edgeArc_of_vertex (htgt : P.tgt.IsAdmissible modelCurve (Plane.closedSquare 0 1))
+    {v : γ} (hv : v ∈ V(P.str.skel)) :
+    ∃ e ∈ E(P.str.skel), P.tgt.pos v ∈ Graph.edgeArc P.tgt.drawing e := by
+  have hposv : P.tgt.pos v ∈ V(P.tgt.graph) := by
+    rw [Realization.vertexSet_graph]; exact ⟨v, hv, rfl⟩
+  -- 2-connectivity supplies a second vertex, connectivity a first step towards it
+  obtain ⟨a, ha, b, hb, -, -, hab, -, -⟩ := htgt.isTwoConnected.hasThreeVertices
+  have hw : ∃ w ∈ V(P.tgt.graph), w ≠ P.tgt.pos v := by
+    by_cases h : a = P.tgt.pos v
+    · exact ⟨b, hb, fun hbv => hab (h.trans hbv.symm)⟩
+    · exact ⟨a, ha, h⟩
+  obtain ⟨w, hwV, hwne⟩ := hw
+  obtain ⟨e, x, hl⟩ :=
+    htgt.isTwoConnected.connected.exists_isLink_left hposv hwV (Ne.symm hwne)
+  have he : e ∈ E(P.str.skel) := by
+    have := hl.edge_mem
+    rwa [Realization.edgeSet_graph] at this
+  -- the ends of the parametrization are the ends of the edge, so `pos v` is one of them
+  have hlink : (P.tgt.graph).IsLink e (P.tgt.drawing e 0) (P.tgt.drawing e 1) :=
+    (P.tgt.isDrawing.edge_param (by rwa [edgeSet_map] : e ∈ E(P.str.skel.map P.tgt.pos))).2.2
+  rcases hl.left_eq_or_eq hlink with h0 | h1
+  · exact ⟨e, he, h0 ▸ ⟨0, zero_mem_I, rfl⟩⟩
+  · exact ⟨e, he, h1 ▸ ⟨1, one_mem_I, rfl⟩⟩
+
+/-- A piece of the chain of a 1-cell is a listed overlay segment. -/
+theorem skelSeg_mem_meshOverlayPieces {e : γ} (he : e ∈ E(P.str.skel)) {R : Piece}
+    (hR : R ∈ segsOf (skelChain P e)) : R ∈ meshOverlayPieces P ε fresh joins :=
+  List.mem_append_right _ (List.mem_append_left _ (mem_skelPieces.2 ⟨e, he, hR⟩))
+
+/-- **Every drawn 0-cell of the stage is a vertex of the overlay.** -/
+theorem meshOverlayGraph_vertexSet_subset
+    (htgt : P.tgt.IsAdmissible modelCurve (Plane.closedSquare 0 1)) :
+    V(P.tgt.graph) ⊆ V(meshOverlayGraph P ε fresh joins) := by
+  intro x hx
+  rw [Realization.vertexSet_graph] at hx
+  obtain ⟨v, hv, rfl⟩ := hx
+  obtain ⟨e, he, hmem⟩ := pos_mem_edgeArc_of_vertex htgt hv
+  rw [← cover_skelSegs P he] at hmem
+  obtain ⟨R, hR, hmemR⟩ := mem_cover_iff.1 hmem
+  exact overlay_mem_vertexSet_of_cut (pos_mem_meshOverlayPoints hv)
+    (skelSeg_mem_meshOverlayPieces he hR) hmemR
+
+/-- **The old drawn skeleton is part of the overlay.** -/
+theorem meshOverlayGraph_skeletonSet_subset
+    (htgt : P.tgt.IsAdmissible modelCurve (Plane.closedSquare 0 1)) :
+    P.tgt.skeletonSet ⊆ Graph.pointSet (meshOverlayGraph P ε fresh joins) segmentDrawing := by
+  intro x hx
+  obtain ⟨κ, hκ, hcell⟩ := Realization.exists_cell_of_mem_skeletonSet hx
+  rcases hκ with hκ | hκ
+  · -- a 0-cell: its position is a vertex of the overlay
+    rw [P.tgt.cell_vertex hκ, mem_singleton_iff] at hcell
+    subst hcell
+    exact Graph.vertexSet_subset_pointSet (meshOverlayGraph_vertexSet_subset htgt
+      (by rw [Realization.vertexSet_graph]; exact ⟨κ, hκ, rfl⟩))
+  · -- a 1-cell: its open arc lies inside the drawn arc, which the overlay covers
+    obtain ⟨a, b, hl⟩ := exists_isLink_of_mem_edgeSet hκ
+    rw [P.tgt.cell_edge hl] at hcell
+    rw [meshOverlayGraph_pointSet, cover_meshOverlayPieces]
+    refine Or.inr (Or.inl ?_)
+    rw [cover_skelPieces]
+    exact mem_iUnion₂.2 ⟨κ, hκ, hcell.1⟩
+
+/-- The open square sits inside the closed square off the model curve. -/
+theorem openSquare_subset_closedSquare_diff :
+    Plane.openSquare 0 1 ⊆ Plane.closedSquare 0 1 \ modelCurve := fun x hx =>
+  ⟨mem_closedSquare_zero_one.2 (le_of_lt (mem_openSquare_zero_one.1 hx)),
+    fun hS => absurd (show Plane.supNorm x = 1 from hS)
+      (ne_of_lt (mem_openSquare_zero_one.1 hx))⟩
+
+/-- **The overlay is drawn in the closed square.** -/
+theorem meshOverlayGraph_pointSet_subset
+    (htgt : P.tgt.IsAdmissible modelCurve (Plane.closedSquare 0 1))
+    (hfresh : ∀ z ∈ fresh, z ∈ modelCurve) (hjoins : cover joins ⊆ Plane.openSquare 0 1) :
+    Graph.pointSet (meshOverlayGraph P ε fresh joins) segmentDrawing
+      ⊆ Plane.closedSquare 0 1 := by
+  rw [meshOverlayGraph_pointSet, cover_meshOverlayPieces]
+  refine union_subset (cover_meshSegments_subset (two_le_meshCount ε) hfresh)
+    (union_subset ?_ (hjoins.trans (fun x hx => (openSquare_subset_closedSquare_diff hx).1)))
+  rw [cover_skelPieces]
+  exact iUnion₂_subset fun e he =>
+    (arc_subset_skeletonSet P he).trans htgt.skeletonSet_subset
 
 end Schoenflies

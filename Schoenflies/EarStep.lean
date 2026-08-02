@@ -99,12 +99,9 @@ theorem earStep [Infinite γ] {P : GeneratedPair S₀ srcOuter srcDom tgtOuter t
       d.face_mem
   have hfr := SplitData.frontier_cell_face (d := d) T.tgt_isCellDecomposition T.tgt_isFaceJordan
   have hsubsrc : ∀ {c : γ}, c ∈ V(T.str.skel) → T.str.sub c d.face →
-      T.src.pos c ∈ closure (T.src.cell d.face) := by
-    intro c hc hsub
-    have hcv := T.src_isCellDecomposition.subset_closure (T.str.mem_cells_of_mem_vertexSet hc)
-      (T.str.mem_cells_of_mem_faces d.face_mem) hsub
-    rw [T.src.cell_vertex hc] at hcv
-    exact hcv rfl
+      T.src.pos c ∈ closure (T.src.cell d.face) := fun hc hsub =>
+    Realization.IsCellDecomposition.pos_mem_closure_cell_of_sub T.src_isCellDecomposition hc
+      d.face_mem hsub
   obtain ⟨Pset, hPpoly, hParc, hPsub, -⟩ :=
     exists_target_ear T.src_isCellDecomposition T.tgt_isCellDecomposition T.tgt_isPolygonal
       htgtQ (htgtFr.trans htgtOut)

@@ -114,7 +114,7 @@ checker under proof irrelevance.
 
 `Graph.union_eq_left_of_le`, `Graph.IsPath.eq_singleton_of_inc`, `Graph.pointSet_pathGraphOf`, `Graph.IsDrawing.isPolygonal_walkPointSet`, `Graph.disjoint_walkPointSet_diff`, `Graph.notMem_of_mem_edgeArc_diff`, `Graph.notSubset_of_mem_ear`, `Schoenflies.exists_earCrosscut`, `Schoenflies.isPartialTransferOf_union_of_mem_edgeSet`
 
-## Schoenflies/EarStep.lean  (161 lines)
+## Schoenflies/EarStep.lean  (158 lines)
 
 `Schoenflies.earStep`, `Schoenflies.finite_transfer_toward_square_of_commonSubdivision`
 
@@ -138,9 +138,9 @@ checker under proof irrelevance.
 
 `Schoenflies.IsArcBetween.eq_of_subset`, `Schoenflies.poly_append_join`, `Schoenflies.poly_append_of_eq`, `Schoenflies.connectedComponentIn_diff`, `Schoenflies.IsArcBetween.exists_poly_eq`, `Graph.IsPath.append`, `Graph.IsPath.split_meet`, `Graph.IsWalk.walkVertices_eq_covered`, `Graph.IsWalk.walkVertices_reverse_eq`, `Graph.IsCycleThrough.split_aux`, `Graph.IsCycleThrough.split_at`, `Graph.coveredVertices_congr_of_le`, `Graph.walkVertices_congr_of_le`, `Graph.exists_spliced_cycle`, `Graph.IsDrawing.exists_poly_eq_edgesCover`, `Graph.IsCycleThrough.isWalk_cons`, `Graph.IsDrawing.cycle_isSeparating`, `Graph.IsDrawing.inc_mem_edgeArc`, `Graph.IsDrawing.pointSet_pathGraphOf`, `Graph.IsDrawing.pointSet_cycleGraph`, `Graph.IsFaceCycle`, `Graph.IsFaceCycle.frontier_eq`, `Graph.IsFaceCycle.eq_inside_or_outside`, `Graph.IsFaceCycle.eq_inside_of_isBounded`, `Graph.IsFaceCycle.mono`, `Graph.HasFaceCycles`, `Graph.IsDrawing.hasFaceCycles_cycleGraph`, `Graph.IsDrawing.mem_walkVertices_of_mem_edgesCover`, `Graph.IsDrawing.arcs_of_split`, `Schoenflies.CrosscutSplitsRegion`, `Graph.edgesCover_append`, `Graph.edgesCover_perm`, `Graph.edgesCover_reverse`, `Graph.IsDrawing.hasFaceCycles_union`, `Graph.face_cycles`
 
-## Schoenflies/FiniteTransfer.lean  (827 lines)
+## Schoenflies/FiniteTransfer.lean  (882 lines)
 
-`Schoenflies.CellStructure.Realization.IsWeaklyAdmissible`, `Schoenflies.CellStructure.Realization.IsAdmissible`, `Schoenflies.CellStructure.Realization.mem_faces_of_notMem_skeletonSet`, `Schoenflies.CellStructure.Realization.IsCellDecomposition.sub_of_pos_mem_closure_cell`, `Schoenflies.CellStructure.Realization.IsCellDecomposition.exists_unique_face_subset_cell`, `Schoenflies.CellStructure.Realization.IsCellDecomposition.exists_face_of_ear`, `Schoenflies.GeneratedPair`, `Schoenflies.GeneratedPair.combInvariants`, `Schoenflies.GeneratedPair.src_nonboundary_eq`, `Schoenflies.GeneratedPair.tgt_isAdmissible`, `Schoenflies.GeneratedPair.src_isAdmissible`, `Schoenflies.IsSourceExtension`, `Schoenflies.IsSourceExtension.not_isLoopAt`, `Schoenflies.IsPartialTransferOf`, `Schoenflies.IsTransferOf`, `Schoenflies.CommonSubdivision`, `Schoenflies.EarStep`, `Schoenflies.transfer_of_ears`, `Schoenflies.finite_transfer_toward_square`, `Schoenflies.isOpen_isPreconnected_disjoint_of_target_cell`, `Schoenflies.exists_target_crosscut`, `Schoenflies.exists_target_crosscut_split`, `Schoenflies.CellStructure.Realization.pos_mem_closure_cell_congr`, `Schoenflies.exists_target_ear`, `Schoenflies.exists_overlay_of_biUnion_finite`
+`Schoenflies.CellStructure.Realization.IsWeaklyAdmissible`, `Schoenflies.CellStructure.Realization.IsAdmissible`, `Schoenflies.CellStructure.Realization.mem_faces_of_notMem_skeletonSet`, `Schoenflies.CellStructure.Realization.IsCellDecomposition.sub_of_pos_mem_closure_cell`, `Schoenflies.CellStructure.Realization.IsCellDecomposition.pos_mem_closure_cell_of_sub`, `Schoenflies.CellStructure.Realization.IsCellDecomposition.exists_unique_face_subset_cell`, `Schoenflies.CellStructure.Realization.IsCellDecomposition.exists_face_of_ear`, `Schoenflies.GeneratedPair`, `Schoenflies.GeneratedPair.combInvariants`, `Schoenflies.GeneratedPair.src_nonboundary_eq`, `Schoenflies.GeneratedPair.tgt_isAdmissible`, `Schoenflies.GeneratedPair.src_isAdmissible`, `Schoenflies.IsSourceExtension`, `Schoenflies.IsSourceExtension.not_isLoopAt`, `Schoenflies.IsPartialTransferOf`, `Schoenflies.IsTransferOf`, `Schoenflies.CommonSubdivision`, `Schoenflies.EarStep`, `Schoenflies.transfer_of_ears`, `Schoenflies.finite_transfer_toward_square`, `Schoenflies.isOpen_isPreconnected_disjoint_of_target_cell`, `Schoenflies.exists_crosscut_of_accessible_ends`, `Schoenflies.exists_crosscut_split_of_accessible_ends`, `Schoenflies.exists_target_crosscut`, `Schoenflies.exists_target_crosscut_split`, `Schoenflies.CellStructure.Realization.pos_mem_closure_cell_congr`, `Schoenflies.exists_target_ear`, `Schoenflies.exists_overlay_of_biUnion_finite`
 
 ## Schoenflies/FiniteTransferBack.lean  (129 lines)
 
@@ -429,6 +429,10 @@ checker under proof irrelevance.
 ## Schoenflies/SourceAccess.lean  (127 lines)
 
 `Schoenflies.CellStructure.Realization.nonboundaryGraph`, `Schoenflies.CellStructure.Realization.nonboundaryGraph_le`, `Schoenflies.CellStructure.Realization.mem_edgeSet_nonboundaryGraph`, `Schoenflies.CellStructure.Realization.isDrawing_nonboundaryGraph`, `Schoenflies.CellStructure.Realization.finite_nonboundaryGraph`, `Schoenflies.CellStructure.Realization.isCompact_outerSet`, `Schoenflies.CellStructure.Realization.pointSet_nonboundaryGraph_union`, `Schoenflies.CellStructure.Realization.polyAccessible_of_notMem_outer`
+
+## Schoenflies/SourceEar.lean  (147 lines)
+
+`Schoenflies.GeneratedPair.polyAccessible_src_of_notMem_outer`, `Schoenflies.GeneratedPair.polyAccessible_src_of_stronglyAccessible`, `Schoenflies.GeneratedPair.exists_source_ear`
 
 ## Schoenflies/SplitStage.lean  (240 lines)
 

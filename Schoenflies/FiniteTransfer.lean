@@ -220,6 +220,18 @@ theorem sub_of_pos_mem_closure_cell (h : R.IsCellDecomposition D) {a F : γ}
   rw [R.cell_vertex ha]
   exact Set.singleton_subset_iff.2 hmem
 
+/-- **A 0-cell below a 2-cell is drawn in its closure** — the converse of
+`sub_of_pos_mem_closure_cell`, and assertion (ix) read the other way. Both ear steps use it to
+turn the abstract incidence of an ear's end with its 2-cell into the geometric hypothesis the
+crosscut construction asks for. -/
+theorem pos_mem_closure_cell_of_sub (h : R.IsCellDecomposition D) {a F : γ}
+    (ha : a ∈ V(S.skel)) (hF : F ∈ S.faces) (hsub : S.sub a F) :
+    R.pos a ∈ closure (R.cell F) := by
+  have hmem := h.subset_closure (S.mem_cells_of_mem_vertexSet ha)
+    (S.mem_cells_of_mem_faces hF) hsub
+  rw [R.cell_vertex ha] at hmem
+  exact hmem rfl
+
 /-- **An ear lies in a single current face.** A nonempty connected subset of the closed domain
 disjoint from the realized skeleton lies inside one open 2-cell, and inside only that one. -/
 theorem exists_unique_face_subset_cell (h : R.IsCellDecomposition D)
@@ -607,6 +619,63 @@ theorem isOpen_isPreconnected_disjoint_of_target_cell [G.Finite] (h : IsDrawing 
   exact ⟨hopen.connectedComponentIn, isPreconnected_connectedComponentIn,
     Set.disjoint_left.2 fun _ hx => (connectedComponentIn_subset _ _ hx).2⟩
 
+/-- **The crosscut of a 2-cell, from the accessibility of its two endpoints.**
+
+Two distinct points of a curve `J` bounding an open connected set `F`, each polygonally
+accessible from `F`, are joined by a simple polygonal arc lying in `F` apart from its two
+endpoints and meeting `J` exactly there. This is `lem:accessible-endpoints` in its crosscut form
+and nothing else; the accessibility is the hypothesis.
+
+**Where the accessibility comes from is what separates the two directions of
+`thm:finite-transfer`.** On the target side it is `lem:polygonal-side-accessibility` applied to a
+graph all of whose edges are polygonal (`Schoenflies.exists_target_crosscut` below). On the
+source side no such graph exists — the outer edges are subarcs of the wild curve — and the two
+halves of the argument are `Realization.polyAccessible_of_notMem_outer` at a point off `C` and
+`Schoenflies.polyAccessible_of_stronglyAccessible` at one on it. Keeping the accessibility a
+hypothesis is what lets both directions share this theorem. -/
+theorem exists_crosscut_of_accessible_ends (hopen : IsOpen F) (hconn : IsPreconnected F)
+    (hdisj : Disjoint F J) (hvw : v ≠ w) (hvJ : v ∈ J) (hwJ : w ∈ J)
+    (hav : PolyAccessible F v) (haw : PolyAccessible F w) :
+    ∃ P : Set Plane, IsPolygonal P ∧ IsArcBetween P v w ∧ P \ {v, w} ⊆ F ∧ P ∩ J = {v, w} := by
+  obtain ⟨ws, -, -, -, hsub, harc, hmeet⟩ :=
+    exists_crosscut_of_polyAccessible hopen hconn hdisj hvw hvJ hwJ hav haw
+  exact ⟨poly ws, ⟨ws, rfl⟩, harc, hsub, hmeet⟩
+
+/-- **The crosscut splits the 2-cell into exactly two Jordan regions.** By
+`lem:cellulation-invariants`(vii) the 2-cell `F` is the bounded complementary region of the
+Jordan curve `J` realizing its boundary walk; the crosscut of
+`Schoenflies.exists_crosscut_of_accessible_ends` is then a crosscut of `J` in the sense of
+`thm:general-crosscut`, which decomposes `F` into the two Jordan regions bounded by the crosscut
+together with the two boundary paths.
+
+The conclusion is returned in the shape assertion (i) consumes at a 2-cell split
+(`Schoenflies.crosscut_cell_partition`): the old open 2-cell is the disjoint union of the two new
+open 2-cells and the open crosscut, each new 2-cell is open and nonempty, and the closure of each
+is that open 2-cell together with its own boundary curve. -/
+theorem exists_crosscut_split_of_accessible_ends (hopen : IsOpen F) (hconn : IsPreconnected F)
+    (hdisj : Disjoint F J) (hJc : IsJordanCurve J) (hFJ : F = inside J)
+    (hvw : v ≠ w) (hvJ : v ∈ J) (hwJ : w ∈ J)
+    (hav : PolyAccessible F v) (haw : PolyAccessible F w) (hcut : IsCutPair J v w A₁ A₂) :
+    ∃ P : Set Plane, IsPolygonal P ∧ IsArcBetween P v w ∧ P \ {v, w} ⊆ F ∧ P ∩ J = {v, w} ∧
+      IsCrosscut J P v w ∧
+      F = inside (A₁ ∪ P) ∪ inside (A₂ ∪ P) ∪ (P \ {v, w}) ∧
+      Disjoint (inside (A₁ ∪ P)) (inside (A₂ ∪ P)) ∧
+      Disjoint (inside (A₁ ∪ P)) (P \ {v, w}) ∧
+      Disjoint (inside (A₂ ∪ P)) (P \ {v, w}) ∧
+      IsOpen (inside (A₁ ∪ P)) ∧ IsOpen (inside (A₂ ∪ P)) ∧
+      (inside (A₁ ∪ P)).Nonempty ∧ (inside (A₂ ∪ P)).Nonempty ∧
+      closure (inside (A₁ ∪ P)) = inside (A₁ ∪ P) ∪ (A₁ ∪ P) ∧
+      closure (inside (A₂ ∪ P)) = inside (A₂ ∪ P) ∪ (A₂ ∪ P) := by
+  obtain ⟨P, hPpoly, hParc, hPsub, hPmeet⟩ :=
+    exists_crosscut_of_accessible_ends hopen hconn hdisj hvw hvJ hwJ hav haw
+  have hcross : IsCrosscut J P v w :=
+    ⟨hJc, hParc, hPpoly, hvJ, hwJ, by rw [← hFJ]; exact hPsub⟩
+  have hpart := crosscut_cell_partition (fun _ hS => jordan_curve_theorem hS) hcross hcut
+    hcross.hasArcCollars
+  exact ⟨P, hPpoly, hParc, hPsub, hPmeet, hcross, by rw [hFJ]; exact hpart.1, hpart.2.1,
+    hpart.2.2.1, hpart.2.2.2.1, hpart.2.2.2.2.1, hpart.2.2.2.2.2.1, hpart.2.2.2.2.2.2.1,
+    hpart.2.2.2.2.2.2.2.1, hpart.2.2.2.2.2.2.2.2.1, hpart.2.2.2.2.2.2.2.2.2⟩
+
 /-- **The target crosscut of `thm:finite-transfer`(a), step 4.** Two distinct points of a curve
 `J` inside the target skeleton, both in the closure of a target 2-cell `F`, are joined by a
 simple polygonal arc lying in `F` apart from its two endpoints and meeting `J` exactly there.
@@ -622,25 +691,16 @@ theorem exists_target_crosscut [G.Finite] (h : IsDrawing G drawing)
     (hvw : v ≠ w) (hvJ : v ∈ J) (hwJ : w ∈ J)
     (hv : v ∈ closure F) (hw : w ∈ closure F) :
     ∃ P : Set Plane, IsPolygonal P ∧ IsArcBetween P v w ∧ P \ {v, w} ⊆ F ∧ P ∩ J = {v, w} := by
-  obtain ⟨hopen, hconn, hdisj⟩ :=
-    isOpen_isPreconnected_disjoint_of_target_cell h hQ hcell hF
-  obtain ⟨ws, -, -, -, hsub, harc, hmeet⟩ :=
-    exists_crosscut_of_polyAccessible hopen hconn (hdisj.mono_right hJ) hvw hvJ hwJ
-      (Graph.polygonal_side_accessibility_target h hpoly hQ hQK hcell hF hv)
-      (Graph.polygonal_side_accessibility_target h hpoly hQ hQK hcell hF hw)
-  exact ⟨poly ws, ⟨ws, rfl⟩, harc, hsub, hmeet⟩
+  obtain ⟨hopen, hconn, hdisj⟩ := isOpen_isPreconnected_disjoint_of_target_cell h hQ hcell hF
+  exact exists_crosscut_of_accessible_ends hopen hconn (hdisj.mono_right hJ) hvw hvJ hwJ
+    (Graph.polygonal_side_accessibility_target h hpoly hQ hQK hcell hF hv)
+    (Graph.polygonal_side_accessibility_target h hpoly hQ hQK hcell hF hw)
 
-/-- **Step 4 in full: the target crosscut splits the target face into exactly two Jordan
-regions.** By `lem:cellulation-invariants`(vii) the target 2-cell `F` is the bounded
-complementary region of the Jordan curve `J` realizing its boundary walk; the crosscut of
-`Schoenflies.exists_target_crosscut` is then a crosscut of `J` in the sense of
-`thm:general-crosscut`, which decomposes `F` into the two Jordan regions bounded by the crosscut
-together with the two boundary paths.
-
-The conclusion is returned in the shape assertion (i) consumes at a 2-cell split
-(`Schoenflies.crosscut_cell_partition`): the old open 2-cell is the disjoint union of the two new
-open 2-cells and the open crosscut, each new 2-cell is open and nonempty, and the closure of each
-is that open 2-cell together with its own boundary curve. -/
+/-- **Step 4 in full, on the target side**: the crosscut of
+`Schoenflies.exists_target_crosscut` splits the target face into exactly two Jordan regions.
+`Schoenflies.exists_crosscut_split_of_accessible_ends` with the accessibility supplied by
+`lem:polygonal-side-accessibility`, which is available on the target side because every target
+edge is polygonal. -/
 theorem exists_target_crosscut_split [G.Finite] (h : IsDrawing G drawing)
     (hpoly : ∀ e ∈ E(G), IsPolygonal (edgeArc drawing e))
     (hQ : IsOpen Q) (hQK : frontier Q ⊆ pointSet G drawing)
@@ -658,15 +718,10 @@ theorem exists_target_crosscut_split [G.Finite] (h : IsDrawing G drawing)
       (inside (A₁ ∪ P)).Nonempty ∧ (inside (A₂ ∪ P)).Nonempty ∧
       closure (inside (A₁ ∪ P)) = inside (A₁ ∪ P) ∪ (A₁ ∪ P) ∧
       closure (inside (A₂ ∪ P)) = inside (A₂ ∪ P) ∪ (A₂ ∪ P) := by
-  obtain ⟨P, hPpoly, hParc, hPsub, hPmeet⟩ :=
-    exists_target_crosscut h hpoly hQ hQK hcell hF hJ hvw hvJ hwJ hv hw
-  have hcross : IsCrosscut J P v w :=
-    ⟨hJc, hParc, hPpoly, hvJ, hwJ, by rw [← hFJ]; exact hPsub⟩
-  have hpart := crosscut_cell_partition (fun _ hS => jordan_curve_theorem hS) hcross hcut
-    hcross.hasArcCollars
-  exact ⟨P, hPpoly, hParc, hPsub, hPmeet, hcross, by rw [hFJ]; exact hpart.1, hpart.2.1,
-    hpart.2.2.1, hpart.2.2.2.1, hpart.2.2.2.2.1, hpart.2.2.2.2.2.1, hpart.2.2.2.2.2.2.1,
-    hpart.2.2.2.2.2.2.2.1, hpart.2.2.2.2.2.2.2.2.1, hpart.2.2.2.2.2.2.2.2.2⟩
+  obtain ⟨hopen, hconn, hdisj⟩ := isOpen_isPreconnected_disjoint_of_target_cell h hQ hcell hF
+  exact exists_crosscut_split_of_accessible_ends hopen hconn (hdisj.mono_right hJ) hJc hFJ hvw
+    hvJ hwJ (Graph.polygonal_side_accessibility_target h hpoly hQ hQK hcell hF hv)
+    (Graph.polygonal_side_accessibility_target h hpoly hQ hQK hcell hF hw) hcut
 
 end TargetEar
 

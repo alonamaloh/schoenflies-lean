@@ -1,0 +1,327 @@
+/-
+Copyright (c) 2026 Álvaro Begué. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Álvaro Begué
+-/
+import Schoenflies.StageRecursion
+import Schoenflies.SkeletonCrosscuts
+import Schoenflies.SquareMesh
+
+/-!
+# The target-mesh chooser: `Schoenflies.HasMeshSteps` from one mesh transfer per stage
+
+`Schoenflies.HasMeshSteps` (`StageRecursion.lean`) is the target-mesh chooser of the stage
+recursion: at every admissible stage `P` and every `ε > 0`, a refinement step all of whose
+closed target 2-cells have diameter at most `ε`. Its intended discharger is
+`prop:anchored-square-mesh` (done, `SquareMesh*.lean`) overlaid with the current target
+skeleton and transferred back by `thm:finite-transfer`(b).
+
+This module proves the whole *quantitative* half of that route, and confines the
+*combinatorial* half — the overlay and the transfer — to one named hypothesis, cut at the
+transfer's **conclusion**. The reason the cut is there and not at the transfer's hypotheses is
+a genuine interface defect, recorded as a theorem below.
+
+## The interface defect, machine-checked
+
+`Schoenflies.finite_transfer_back'` (`EarStepTgt.lean`) consumes
+`IsSourceExtension P.tgt tgtOuter tgtDom H Hdraw` and `HasFreshAnchors P H Hdraw`. These two
+hypotheses are **jointly unsatisfiable for every extension the mesh step needs**:
+
+* `IsSourceExtension.edge_subset` says an edge of `H` whose arc meets an *open* old 1-cell
+  runs inside that old edge's arc. A mesh spoke reaching `S` at a fresh point `z` touches, at
+  `z` itself, the open 1-cell of the old outer edge `z` subdivides — so `edge_subset` forces
+  the spoke inside `S`, which it is not.
+* The escape — make `z` a 0-cell first, by subdividing the outer edge at `z` before proposing
+  `H` — is closed off by `HasFreshAnchors.notMem_vertexSet`, which demands that a boundary
+  point reached by a nonboundary edge of `H` *not* be a drawn 0-cell of the base pair; and the
+  anchor bookkeeping of `IsPartialTransferOfTgt.anchor_uniqueFaceAt` genuinely needs that
+  freshness, since it recognises fresh points by their ancestor being an outer *edge*.
+
+`Schoenflies.edgeArc_subset_outer_of_hasFreshAnchors` is the formal statement: under the two
+hypotheses of `finite_transfer_back'`, **every** edge of `H` meeting the outer curve lies
+inside it. Consequently no nonboundary edge of `H` reaches `S` at all, `HasFreshAnchors` is
+vacuous, and `H` cannot contain a mesh spoke — while `prop:anchored-square-mesh` clauses 1 and
+5 (`squareMesh_face_small`, `squareMesh_isConnected_diff`) both *require* spokes. The same
+overshoot of `edge_subset` also affects direction (a) — a grid edge attaches at a crossing
+point inside an old open 1-cell — but there the base pair can be subdivided at the crossing
+points first (`GeneratedPair.exists_subdivide_finite`), because direction (a) has no freshness
+clause; direction (b) cannot pre-subdivide its fresh points. The repair therefore belongs to
+the direction-(b) interface: either weaken `edge_subset` to allow an edge of `H` to *touch* an
+open old 1-cell at its own endpoints (the touch points are exactly the overlay's subdivision
+vertices), or extend the anchor invariant to fresh points that are 0-cells of the base
+incident with a unique face. Both repairs change only hypotheses of existing theorems; the
+conclusion `IsTransferOfTgt` is untouched, which is why the named hypothesis below is stated
+against it and survives the repair verbatim.
+
+## What is proved here
+
+* the square-side domain fact `frontier (Q ∖ S) ⊆ S` that any direction-(b) discharger feeds
+  to `earStepTgt` (the other three of the four ambient facts are already on `main`);
+* the defect theorem above;
+* **the mesh bound through the transfer**: if the transferred target skeleton contains the
+  anchored mesh of size `ε` (with `ε`-dense fresh points), then every closed target 2-cell of
+  the transferred stage has diameter at most `ε` —
+  `Schoenflies.diam_closure_cell_le_of_mesh_subset`. This is `lem:diameter-closure` plus the
+  blueprint's radial estimate, with the 2-cell read as a connected set missing the mesh
+  (`Realization.cell_subset_sdiff` + `radial_diam_bound`), so nothing combinatorial about
+  "which mesh face contains the cell" is needed;
+* the assembly `Schoenflies.hasMeshSteps`: the named hypothesis implies `HasMeshSteps S₀ C`,
+  with no other hypothesis — not even `S₀.CombInvariants` or `thm:jordan`.
+
+## The named hypothesis
+
+`Schoenflies.HasMeshTransfers`: at every admissible stage and every `ε > 0` there is a
+`MeshTransfer` — an `ε`-dense fresh list, an extension `H` containing the anchored mesh of
+size `ε`, and a completed direction-(b) transfer of `H`. Its discharger is exactly the
+blueprint's mesh step: choose the fresh points among the `P.homeo`-images of a countable dense
+set of strongly accessible points of `C` (`exists_countable_dense_stronglyAccessible`), so
+that they are `ε`-dense on `S` and avoid the finite vertex set of the stage; overlay
+`squareMesh ε fresh anchors` with the polygonal target skeleton (`lem:polygonal-overlay`,
+`overlayGraph`, with 2-connectivity from `squareMesh_isTwoConnected` and the
+`Graph.IsTwoConnected.union` toolkit); and run the *repaired* `thm:finite-transfer`(b), whose
+fresh-anchor clauses are clauses 3–4 of the mesh proposition (`squareMesh_inner_edge_at_fresh`,
+`squareMesh_unique_inner_edge`) and strong accessibility of the chosen anchors. Every clause
+of the bundle is a clause of that route's conclusion, so nothing here restates a goal of this
+module; what keeps the bundle conditional is the defect above, not any missing mathematics.
+
+## Blueprint
+
+* `Schoenflies.frontier_closedSquare_sdiff_modelCurve` — the square half of "both regions are
+  closed Jordan regions" in the form the transfer consumes.
+* `Schoenflies.edgeArc_subset_outer_of_hasFreshAnchors` — the finding: the stated hypotheses
+  of `thm:finite-transfer`(b) admit no extension with a boundary-reaching nonboundary edge.
+* `Schoenflies.diam_closure_cell_le_of_mesh_subset` — "every closed target 2-cell of `Γ'_n`
+  has diameter `< ε_n`": the mesh sentence of *Quantitative refinement*, from
+  `prop:anchored-square-mesh` clause 1's radial estimate and `lem:diameter-closure`.
+* `Schoenflies.MeshTransfer`, `Schoenflies.HasMeshTransfers` — the mesh step of
+  *Quantitative refinement* up to its transfer, as one named hypothesis.
+* `Schoenflies.MeshTransfer.meshStepData`, `Schoenflies.hasMeshSteps` — the discharge of
+  `Schoenflies.HasMeshSteps` from it.
+-/
+
+open Metric Set
+open scoped Graph
+
+namespace Schoenflies
+
+open CellStructure Graph
+
+variable {γ : Type*} {S₀ : CellStructure γ} {srcOuter srcDom tgtOuter tgtDom : Set Plane}
+
+/-! ### The square-side domain facts
+
+`earStepTgt` takes the two regions in one shape: `dom ∖ outer` open with frontier inside
+`outer`. On the source side `Schoenflies.isOpen_sdiff_outer_of_isSeparating` and its companion
+discharge both from `thm:jordan`; on the square side the openness half is
+`Schoenflies.isOpen_closedSquare_sdiff_modelCurve` (`StageTower.lean`) and the frontier half is
+proved here. -/
+
+/-- The frontier of the open square is inside the model curve — the last of the four ambient
+facts of `thm:finite-transfer`, and the only one that was not yet on `main`. -/
+theorem frontier_closedSquare_sdiff_modelCurve :
+    frontier (Plane.closedSquare 0 1 \ modelCurve) ⊆ modelCurve := by
+  rw [closedSquare_sdiff_modelCurve, (Plane.isOpen_openSquare 0 1).frontier_eq]
+  intro x hx
+  have hcl : x ∈ Plane.closedSquare 0 1 :=
+    closure_minimal (fun y hy => mem_closedSquare_zero_one.2 (mem_openSquare_zero_one.1 hy).le)
+      (Plane.isClosed_closedSquare 0 1) hx.1
+  have h1 : Plane.supNorm x ≤ 1 := mem_closedSquare_zero_one.1 hcl
+  have h2 : ¬ Plane.supNorm x < 1 := fun h => hx.2 (mem_openSquare_zero_one.2 h)
+  exact le_antisymm h1 (not_lt.1 h2)
+
+/-! ### The interface defect of `thm:finite-transfer`(b), machine-checked -/
+
+/-- **The hypotheses of `Schoenflies.finite_transfer_back'` admit no boundary-reaching
+nonboundary edge.** If `H` is an `IsSourceExtension` of the target realization and its fresh
+anchors satisfy `HasFreshAnchors`, then every edge of `H` that meets the outer curve lies
+inside it.
+
+The proof is short because the two hypotheses close every door: the meeting point is not a
+drawn 0-cell of the stage (`HasFreshAnchors.notMem_vertexSet` — this is where a nonboundary
+edge at the point is used), so it lies in the *open* 1-cell of an outer edge, and
+`IsSourceExtension.edge_subset` then forces the whole arc of the meeting edge into that outer
+edge's arc, which is part of the outer curve.
+
+Read contrapositively: an extension with a mesh spoke — an edge reaching `S` without lying in
+`S` — can never satisfy both hypotheses, whatever the fresh points are. This is why the named
+hypothesis of this module is stated against the transfer's *conclusion* and not against its
+hypotheses; see the module docstring for the two candidate repairs. -/
+theorem edgeArc_subset_outer_of_hasFreshAnchors
+    {P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom} {H : Graph Plane γ}
+    {Hdraw : γ → ℝ → Plane}
+    (hH : IsSourceExtension P.tgt tgtOuter tgtDom H Hdraw) (hA : HasFreshAnchors P H Hdraw)
+    {f : γ} (hf : f ∈ E(H)) {p : Plane} (hp : p ∈ Graph.edgeArc Hdraw f)
+    (hpS : p ∈ tgtOuter) : Graph.edgeArc Hdraw f ⊆ tgtOuter := by
+  by_contra hnot
+  -- `p` is reached by a nonboundary edge of `H`, so it is not a drawn 0-cell of the stage.
+  have hpV : p ∉ V(P.tgt.graph) := hA.notMem_vertexSet hpS ⟨f, hf, hp, hnot⟩
+  -- `p` lies on the realized outer cycle: on a drawn outer 0-cell — excluded — or on the arc
+  -- of an outer edge.
+  have hpOut : p ∈ P.tgt.outerSet := by
+    rw [P.tgt_isWeaklyAdmissible.outerSet_eq]; exact hpS
+  rcases hpOut with hv | hedge
+  · refine hpV ?_
+    rw [Graph.vertexSet_map] at hv
+    obtain ⟨v, hv, rfl⟩ := hv
+    rw [Realization.vertexSet_graph]
+    exact ⟨v, P.str.outerGraph_le.vertexSet_mono hv, rfl⟩
+  · obtain ⟨e, he, hpe⟩ := Set.mem_iUnion₂.1 hedge
+    have heO : e ∈ E(P.str.outerGraph) := by rwa [Graph.edgeSet_map] at he
+    have heE : e ∈ E(P.str.skel) := P.str.outerGraph_le.edgeSet_mono heO
+    obtain ⟨x, y, hl⟩ := Graph.exists_isLink_of_mem_edgeSet heE
+    -- off the drawn 0-cells, `p` lies in the *open* 1-cell of `e`
+    have hpcell : p ∈ P.tgt.cell e := by
+      rw [P.tgt.cell_edge hl]
+      refine ⟨hpe, fun hmem => hpV ?_⟩
+      have hOrEq : p = P.tgt.pos x ∨ p = P.tgt.pos y := by simpa using hmem
+      rw [Realization.vertexSet_graph]
+      rcases hOrEq with h | h
+      · exact ⟨x, hl.left_mem, h.symm⟩
+      · exact ⟨y, hl.right_mem, h.symm⟩
+    -- and `edge_subset` forces the whole of `f` into the outer curve
+    refine hnot ((hH.edge_subset heE hf ⟨p, hp, hpcell⟩).trans ?_)
+    refine (Realization.edgeArc_subset_outerSet P.tgt heO).trans ?_
+    rw [P.tgt_isWeaklyAdmissible.outerSet_eq]
+
+/-- The anchor clauses of `thm:finite-transfer`(b), as stated, are vacuous: under the two
+hypotheses of `finite_transfer_back'` no point of the outer curve is `NonboundaryAt` at all. -/
+theorem not_nonboundaryAt_of_hasFreshAnchors
+    {P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom} {H : Graph Plane γ}
+    {Hdraw : γ → ℝ → Plane}
+    (hH : IsSourceExtension P.tgt tgtOuter tgtDom H Hdraw) (hA : HasFreshAnchors P H Hdraw)
+    {p : Plane} (hpS : p ∈ tgtOuter) : ¬ NonboundaryAt H Hdraw tgtOuter p := by
+  rintro ⟨f, hf, hp, hnot⟩
+  exact hnot (edgeArc_subset_outer_of_hasFreshAnchors hH hA hf hp hpS)
+
+/-! ### The mesh bound through the transfer
+
+The blueprint carries clause 1 of `prop:anchored-square-mesh` through the overlay as "every
+open target 2-cell of `Γ'_n` lies in an open 2-cell of `T_n`". The formal route is shorter and
+avoids the face correspondence entirely: a 2-cell of the transferred stage is a *connected* set
+(`IsFaceJordan.isConnected`) inside the open square and disjoint from the drawn skeleton
+(`Realization.cell_subset_sdiff`), and the drawn skeleton contains the mesh segments; so the
+blueprint's own radial estimate `Schoenflies.radial_diam_bound` bounds its diameter directly,
+and `Metric.diam_closure` (`lem:diameter-closure`) moves the bound to the closed 2-cell. -/
+
+/-- **Every closed target 2-cell of a stage whose skeleton contains the anchored mesh of size
+`ε` has diameter at most `ε`.** The mesh sentence of one step of *Quantitative refinement*. -/
+theorem diam_closure_cell_le_of_mesh_subset
+    {T : GeneratedPair S₀ srcOuter srcDom modelCurve (Plane.closedSquare 0 1)}
+    {fresh : List Plane} {ε : ℝ} (hε : 0 < ε) (hdense : FreshDense fresh ε)
+    (hmesh : cover (meshSegments (meshCount ε) fresh) ⊆ T.tgt.skeletonSet)
+    {F : γ} (hF : F ∈ T.str.faces) : diam (closure (T.tgt.cell F)) ≤ ε := by
+  have hJ := T.tgt_isFaceJordan
+  have houter : modelCurve ⊆ T.tgt.skeletonSet := by
+    have h1 := T.tgt.outerSet_subset_skeletonSet
+    rwa [T.tgt_isWeaklyAdmissible.outerSet_eq] at h1
+  have hsub : T.tgt.cell F ⊆
+      (Plane.closedSquare 0 1 \ modelCurve) \ T.tgt.skeletonSet :=
+    Realization.cell_subset_sdiff T.tgt_isCellDecomposition houter hF
+  -- a base point of the 2-cell, inside the open square
+  obtain ⟨b, hb⟩ := hJ.nonempty hF
+  have hbase : Plane.supNorm b < 1 := by
+    have h1 := (hsub hb).1
+    rw [closedSquare_sdiff_modelCurve] at h1
+    exact mem_openSquare_zero_one.1 h1
+  -- the 2-cell misses the mesh, because it misses the whole drawn skeleton
+  have hdisj : ∀ x ∈ T.tgt.cell F, x ∉ cover (meshSegments (meshCount ε) fresh) :=
+    fun x hx hmem => (hsub hx).2 (hmesh hmem)
+  have hNδ : 2 * Real.sqrt 2 ≤ ε * (meshCount ε : ℝ) := (meshCount_spec hε).le
+  obtain ⟨-, hd⟩ := radial_diam_bound (two_le_meshCount ε) hNδ hdense
+    (hJ.isConnected hF).isPreconnected hdisj hb hbase
+  -- the arithmetic: `ε/2 + √2/N ≤ ε` because `2√2 ≤ εN`
+  have hNR : (0 : ℝ) < (meshCount ε : ℝ) := by
+    exact_mod_cast lt_of_lt_of_le two_pos (two_le_meshCount ε)
+  have hhalf : Real.sqrt 2 / (meshCount ε : ℝ) ≤ ε / 2 := by
+    rw [div_le_iff₀ hNR]
+    nlinarith [hNδ]
+  have h0 : (0 : ℝ) ≤ ε / 2 + Real.sqrt 2 / (meshCount ε : ℝ) :=
+    add_nonneg (by linarith) (div_nonneg (Real.sqrt_nonneg 2) hNR.le)
+  rw [Metric.diam_closure]
+  calc diam (T.tgt.cell F) ≤ ε / 2 + Real.sqrt 2 / (meshCount ε : ℝ) :=
+        diam_le_of_forall_dist_le h0 hd
+    _ ≤ ε := by linarith
+
+/-! ### The named hypothesis and the discharge -/
+
+variable [Nonempty γ] {C : Set Plane}
+
+/-- **NAMED HYPOTHESIS (data): one mesh transfer at stage `P` with mesh `ε`.**
+
+The blueprint's mesh step, cut at the conclusion of `thm:finite-transfer`(b): an `ε`-dense
+fresh list on `S`, an extension containing the anchored mesh of size `ε`, and the completed
+transfer. The cut is at the conclusion because the *hypotheses* of
+`Schoenflies.finite_transfer_back'` are jointly unsatisfiable for a mesh overlay
+(`Schoenflies.edgeArc_subset_outer_of_hasFreshAnchors`); the conclusion `IsTransferOfTgt` is
+untouched by either candidate repair of that interface, so this bundle is stable under the
+repair.
+
+Discharged by (once the direction-(b) interface is repaired; see the module docstring):
+
+* `fresh`/`hdense` — the `P.homeo`-images of strongly accessible points of `C`
+  (`Schoenflies.exists_countable_dense_stronglyAccessible`), chosen `ε`-dense along `S` and
+  avoiding the finite drawn vertex set of the stage; this is the blueprint's "choose
+  `z_0, …, z_{m-1}` in cyclic order", in the order-free form `Schoenflies.FreshDense` was
+  designed for.
+* `H`/`Hdraw`/`mesh_subset` — `Schoenflies.squareMesh ε fresh anchors` overlaid with the
+  polygonal target skeleton (`tgt_isPolygonal`) by the `lem:polygonal-overlay` machinery
+  (`Schoenflies.overlayGraph`, `Schoenflies.attachGraph`), which only ever adds points, so the
+  mesh cover survives into the overlay's point set and hence — by the transfer's
+  `skeletonSet_eq` — into the new target skeleton.
+* `transfer` — the repaired `thm:finite-transfer`(b), its fresh-anchor clauses supplied by
+  clauses 3–4 of `prop:anchored-square-mesh` (`Schoenflies.squareMesh_inner_edge_at_fresh`,
+  `Schoenflies.squareMesh_unique_inner_edge`), its 2-connectivity by
+  `Schoenflies.squareMesh_isTwoConnected` (`hdense` and `ε < 4` give the two distinct fresh
+  points) with the `Graph.IsTwoConnected.union` toolkit for the overlay, its connectedness
+  clause by `Schoenflies.squareMesh_isConnected_diff`, and the four ambient facts by
+  `Schoenflies.isOpen_sdiff_outer_of_isSeparating`,
+  `Schoenflies.frontier_sdiff_outer_of_isSeparating`,
+  `Schoenflies.isOpen_closedSquare_sdiff_modelCurve` and
+  `Schoenflies.frontier_closedSquare_sdiff_modelCurve` above. -/
+structure MeshTransfer (P : StagePair S₀ C) (ε : ℝ) where
+  /-- The fresh boundary points of the mesh. -/
+  fresh : List Plane
+  /-- They are `ε`-dense along `S` — what makes every mesh face small. -/
+  hdense : FreshDense fresh ε
+  /-- The proposed extension: the mesh overlaid with the current target skeleton. -/
+  H : Graph Plane γ
+  /-- Its drawing. -/
+  Hdraw : γ → ℝ → Plane
+  /-- The transferred stage. -/
+  next : StagePair S₀ C
+  /-- The parent map of the transfer. -/
+  par : γ → γ
+  /-- The completed direction-(b) transfer — the conclusion of `thm:finite-transfer`(b) for
+  the overlay. -/
+  transfer : IsTransferOfTgt next P H Hdraw par
+  /-- The overlay contains the anchored mesh of size `ε`. -/
+  mesh_subset : cover (meshSegments (meshCount ε) fresh) ⊆ Graph.pointSet H Hdraw
+
+/-- **NAMED HYPOTHESIS — the mesh transfer chooser**: at every admissible stage and every
+`ε > 0`, some mesh transfer exists. `Schoenflies.hasMeshSteps` turns it into the target-mesh
+chooser of the stage recursion; see `Schoenflies.MeshTransfer` for who discharges it. -/
+def HasMeshTransfers (S₀ : CellStructure γ) (C : Set Plane) : Prop :=
+  ∀ P : StagePair S₀ C, P.src.IsAdmissible C (C ∪ inside C) →
+    P.tgt.IsAdmissible modelCurve (Plane.closedSquare 0 1) →
+    ∀ ⦃ε : ℝ⦄, 0 < ε → Nonempty (MeshTransfer P ε)
+
+/-- **One mesh transfer is one mesh step.** The step relation is
+`Schoenflies.IsTransferOfTgt.isRefinementStep`; the 2-cell bound is the mesh carried through
+the transfer's `skeletonSet_eq` into `Schoenflies.diam_closure_cell_le_of_mesh_subset`. -/
+def MeshTransfer.meshStepData {P : StagePair S₀ C} {ε : ℝ} (hε : 0 < ε)
+    (M : MeshTransfer P ε) : MeshStepData P ε where
+  next := M.next
+  par := M.par
+  step := M.transfer.isRefinementStep
+  diam_closure_cell_le := fun _F hF =>
+    diam_closure_cell_le_of_mesh_subset hε M.hdense
+      (M.transfer.skeletonSet_eq ▸ M.mesh_subset) hF
+
+omit [Nonempty γ] in
+/-- **The discharge of the target-mesh chooser.** Given one mesh transfer per admissible stage
+and mesh size, `Schoenflies.HasMeshSteps` holds — with no further hypothesis: the quantitative
+sentence of the recursion step is proved, not assumed. -/
+theorem hasMeshSteps (hM : HasMeshTransfers S₀ C) : HasMeshSteps S₀ C :=
+  fun P hsrc htgt _ε hε => (hM P hsrc htgt hε).elim fun M => ⟨M.meshStepData hε⟩
+
+end Schoenflies

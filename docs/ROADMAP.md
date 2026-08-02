@@ -512,6 +512,20 @@ if a future discharger does need recursion-specific facts, the hypotheses must b
 
 What is left of the phase is discharging the two choosers, and the missing pieces are:
 
+0. **`lem:grid-star-estimate` is done** — `Schoenflies.StagePair.diam_star_le_of_grid`
+   (`GridStarEstimate.lean`), whose conclusion is verbatim the `GridStepData.diam_star_le`
+   field. One hypothesis, `hgrid`: the local grid cover over the window is inside the stage's
+   source skeleton, supplied by `localGrid_subset_gridAttachGraph` composed with
+   `IsPartialTransferOf.skeletonSet_eq` after the transfer. **A renaming obligation surfaced
+   there**: `gridAttachGraph` names its edges by `Piece = Plane × Plane` while the transfer
+   fixes `H : Graph Plane γ`, and this repo deliberately has no edge relabelling — the
+   `HasGridSteps` discharger must rebuild the grid graph over `γ` (the `InitialCell.aux` spare-
+   constructor route) before invoking `finite_transfer_toward_square'`. The renaming preserves
+   the drawn point set, which is all `hgrid` reads. Note also the trapping step deliberately
+   bypasses `cells_isComponent_in` (wrong complement — the argument runs against the grid
+   cover, not the whole skeleton) and uses its two ingredients `IsFaceJordan.isConnected` and
+   `disjoint_cell_skeletonSet` directly.
+
 1. **`hΓ`** of `gridAttachGraph_isTwoConnected` — 2-connectivity of `Γ` with the case's crosscut
    and the loop's joining arcs appended and everything subdivided at the crossings. Not provable
    in `GridAttach.lean`, which never sees `Γ`'s drawing; every ingredient exists

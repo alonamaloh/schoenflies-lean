@@ -87,34 +87,24 @@ one field of `CellStructure` on which no axiom is imposed. The route is therefor
 * preserve it under the two constructors. The split constructor is where the two paths come
   from and where they go: `SplitData` already carries `path₁`, `path₂` as data, so the new
   2-cells' walks are built from them and the ear. The subdivision constructor needs the repair
-  `CellulationInvariants.lean` already built and explains at length —
-  `SubdivData.SubstWalk`, because `subdivideEdge`'s current update replaces the subdivided edge
-  by the fixed list `[newEdge₁, newEdge₂]`, which is **orientation-blind and wrong**: an
-  interior edge lies on the boundary of two 2-cells whose walks cross it in opposite
-  directions, and `SubdivData.not_isWalk_boundary_of_head` is that failure, machine-checked.
+  `CellulationInvariants.lean` built and `GeneratedStructure.lean` now consumes —
+  `SubdivData.SubstWalk`.
 
-So `SubstWalk` was built for precisely this, and this is the first consumer that needs it.
-
-**The design point, worked out but not yet written in Lean.** `SubstWalk` is a *relation*, not a
+**The boundary-update design point is implemented.** `SubstWalk` is a *relation*, not a
 function of the list — which of `[newEdge₁, newEdge₂]` and `[newEdge₂, newEdge₁]` is correct is
-determined by the walk, and the list alone does not record it. So the corrected boundary update
-cannot simply replace `subdivideEdge`'s current
+determined by the walk, and the list alone does not record it. `SubdivData` therefore carries
+`newBoundary : γ → List γ` and `boundary_subst`, which says that every old face boundary is a
+closed walk and that the corresponding new list is its orientation-aware `SubstWalk` image.
+`subdivideEdge` uses that data directly, and `SubdivData.boundary_isWalk` proves that every
+updated face boundary is again closed. The old orientation-blind `flatMap` update and its
+machine-checked counterexample have been removed.
 
-```
-boundary F := (S.boundary F).flatMap fun f => if f = d.edge then [e₁, e₂] else [f]
-```
-
-by another closed-form expression. The corrected walks have to *arrive as data*: either
-`SubdivData` gains a field `newBoundary : γ → List γ` together with the property that it is a
-`SubstWalk`-image of `S.boundary`, or `subdivideEdge` takes that function as an extra argument.
-The first is the better fit — `SubdivData` is already the bundle of everything one subdivision
-chooses, `exists_substWalk` shows the data always exists, and it keeps `subdivideEdge` a
-function of its data alone. Either way it is a change to `GeneratedStructure.lean` that ripples
-into `CellulationInvariants.lean`, so it is worth doing before anything else is built on the
-current update. Nothing yet constructs a `SubdivData`, so it is still cheap — the same window
-that made the `SplitData.paths_meet` repair cheap, and it will close.
-
-That is the next thing to build, and everything downstream is assembly on top of it:
+What remains at this level is the stronger invariant needed by `EarStep`: the cells strictly
+below a face are exactly the cells of its boundary cycle, with enough simplicity to cut the
+cycle at two distinct boundary vertices. The base facts are already
+`isWalk_initBoundary_false`, `isWalk_initBoundary_true` and `mem_faceCells_iff`; the two
+constructor-preservation proofs and the general cycle-cut lemma are the next proof obligation.
+Everything downstream is assembly on top of it:
 
 1. face boundary cycles, hence `EarStep`; `CommonSubdivision` alongside it;
 2. `thm:finite-transfer` (a) unconditional, and (b) — whose one extra ingredient, accessibility

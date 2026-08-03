@@ -252,10 +252,37 @@ each; the relation `≼_abs` is extended by declaring `v ≼ e₁` and `v ≼ e�
 `e` a subcell of its adjacent new edge, and `v, e₁, e₂` subcells of exactly the old strict
 supercells of `e`; all pairs not involving `e` are unchanged." -/
 
+/-- **The orientation-aware replacement of a subdivided edge in a walk.**
+`SubstWalk S edge left right newEdge₁ newEdge₂ u W W'` says that `W'` is obtained from `W`
+by replacing each traversal of `edge` by the two new edges in the order in which the walk
+crosses them.  The departing vertex `u` supplies the orientation information that the edge
+list alone does not contain. -/
+inductive SubstWalk (S : CellStructure γ) (edge left right newEdge₁ newEdge₂ : γ) :
+    γ → List γ → List γ → Prop
+  /-- The empty walk is unchanged. -/
+  | nil (u : γ) : SubstWalk S edge left right newEdge₁ newEdge₂ u [] []
+  /-- Crossing the subdivided edge from `left` to `right`. -/
+  | forward {W W' : List γ}
+      (h : SubstWalk S edge left right newEdge₁ newEdge₂ right W W') :
+      SubstWalk S edge left right newEdge₁ newEdge₂ left (edge :: W)
+        (newEdge₁ :: newEdge₂ :: W')
+  /-- Crossing the subdivided edge from `right` to `left`. -/
+  | backward {W W' : List γ}
+      (h : SubstWalk S edge left right newEdge₁ newEdge₂ left W W') :
+      SubstWalk S edge left right newEdge₁ newEdge₂ right (edge :: W)
+        (newEdge₂ :: newEdge₁ :: W')
+  /-- Any other edge is kept. -/
+  | other {u w f : γ} {W W' : List γ} (hl : S.skel.IsLink f u w) (hf : f ≠ edge)
+      (h : SubstWalk S edge left right newEdge₁ newEdge₂ w W W') :
+      SubstWalk S edge left right newEdge₁ newEdge₂ u (f :: W) (f :: W')
+
 /-- The data of one **edge subdivision**: the edge to be subdivided together with its two
 endpoints, and three names — fresh, i.e. not cells of `S` — for the new vertex and the two new
-edges. The operation is a `def` of this data, not an existential: everything downstream refers
-to `d.newVertex`, `d.newEdge₁`, `d.newEdge₂` by name. -/
+edges. It also carries the orientation-aware replacement of every 2-cell boundary walk: the
+direction in which a walk traverses an edge cannot be recovered from the edge list alone.
+
+The operation is a `def` of this data, not an existential: everything downstream refers to
+`d.newVertex`, `d.newEdge₁`, `d.newEdge₂` and `d.newBoundary` by name. -/
 structure SubdivData (S : CellStructure γ) where
   /-- The subdivided 1-cell. -/
   edge : γ
@@ -283,10 +310,21 @@ structure SubdivData (S : CellStructure γ) where
   newVertex_ne₂ : newVertex ≠ newEdge₂
   /-- The three new names are distinct. -/
   newEdge_ne : newEdge₁ ≠ newEdge₂
+  /-- The boundary lists after subdivision, chosen with the orientation of each old walk. -/
+  newBoundary : γ → List γ
+  /-- Every face boundary is a closed walk, and its new boundary is obtained by the
+  orientation-aware edge replacement from the same starting vertex. -/
+  boundary_subst : ∀ ⦃F⦄, F ∈ S.faces → ∃ u,
+    S.skel.IsWalk u (S.boundary F) u ∧
+      SubstWalk S edge left right newEdge₁ newEdge₂ u (S.boundary F) (newBoundary F)
 
 namespace SubdivData
 
 variable {S : CellStructure γ} (d : S.SubdivData)
+
+/-- The orientation-aware replacement relation specialized to the subdivision data. -/
+abbrev SubstWalk : γ → List γ → List γ → Prop :=
+  CellStructure.SubstWalk S d.edge d.left d.right d.newEdge₁ d.newEdge₂
 
 /-- The three cells the subdivision creates. -/
 def newCells : Set γ := {d.newVertex, d.newEdge₁, d.newEdge₂}
@@ -390,17 +428,15 @@ open scoped Classical in
 /-- **Elementary operation 1: edge subdivision.** The abstract-data update of
 `def:generated-structure`, operation 1.
 
-The boundary walks are updated by replacing every occurrence of the subdivided edge by the two
-new edges. `boundary` is a raw datum of `CellStructure` and the blueprint's update list does
-not spell out its behaviour under a subdivision; the orientation of the replacement is
-therefore *not* guaranteed to make the walk a walk, and nothing below reads it. -/
+The boundary walks are the orientation-aware replacements carried by `SubdivData`.  They must
+arrive as data because an edge list does not determine the direction in which its walk crosses
+the subdivided edge; the two incident face boundaries can traverse it in opposite directions. -/
 noncomputable def subdivideEdge (S : CellStructure γ) (d : S.SubdivData) : CellStructure γ where
   skel := d.skeleton
   faces := S.faces
   outerGraph := d.outer
   outerGraph_le := d.outer_le_skeleton
-  boundary F := (S.boundary F).flatMap fun f =>
-    if f = d.edge then [d.newEdge₁, d.newEdge₂] else [f]
+  boundary := d.newBoundary
   sub := d.subRel
   finite_vertexSet := by
     rw [d.skeleton_vertexSet]; exact S.finite_vertexSet.insert _

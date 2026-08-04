@@ -814,6 +814,10 @@ structure IsPartialTransferOf (T P : GeneratedPair S₀ srcOuter srcDom tgtOuter
   /-- The new target realization refines the old one along the *same* parent map. That sharing
   is `lem:refinement-compatibility`(c). -/
   refines_tgt : T.tgt.Refines P.tgt par
+  /-- The evolving source skeleton contains the original source skeleton. -/
+  sourceSkeletonSet_subset : P.src.skeletonSet ⊆ T.src.skeletonSet
+  /-- On the original source skeleton, the evolving skeleton map is still the original map. -/
+  homeo_eqOn : Set.EqOn T.homeo.toFun P.homeo.toFun P.src.skeletonSet
   /-- The new source skeleton occupies exactly what the current subgraph occupies. -/
   skeletonSet_eq : T.src.skeletonSet = pointSet B Hdraw
   /-- Every vertex of the current subgraph is a 0-cell of the new structure: the new structure
@@ -889,6 +893,17 @@ theorem isPartialTransferOf_pair
   refines_tgt :=
     ((w.splitData.isCellDecomposition_and_isFaceJordan_realize w.tgtCrosscut
       T.str_combInvariants T.tgt_isCellDecomposition T.tgt_isFaceJordan).2.2).trans hT.refines_tgt
+  sourceSkeletonSet_subset :=
+    hT.sourceSkeletonSet_subset.trans
+      (w.splitData.skeletonSet_subset_realize w.srcCrosscut)
+  homeo_eqOn := by
+    intro x hx
+    calc
+      w.pair.homeo.toFun x = T.homeo.toFun x :=
+        w.splitData.splitHomeo_eqOn
+          (g := T.homeo) (hE₁ := w.srcCrosscut) (hE₂ := w.tgtCrosscut)
+          (m := w.earHomeo) (hT.sourceSkeletonSet_subset hx)
+      _ = P.homeo.toFun x := hT.homeo_eqOn hx
   skeletonSet_eq := by
     change (w.splitData.realize T.src w.srcPos w.srcDraw w.srcCrosscut).skeletonSet = _
     rw [w.splitData.skeletonSet_realize, hT.skeletonSet_eq, w.srcEarSet_eq,

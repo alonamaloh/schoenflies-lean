@@ -100,6 +100,7 @@ import Schoenflies.FiniteTransfer
 import Schoenflies.FreshAccess
 import Schoenflies.GridAttach
 import Schoenflies.Windows
+import Schoenflies.StageTransition
 import Schoenflies.StageTower
 import Schoenflies.RealizeSubdiv
 import Schoenflies.RealizeSplit

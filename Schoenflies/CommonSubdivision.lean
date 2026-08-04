@@ -1093,6 +1093,8 @@ structure SubdivideSetData
   refines_tgt : pair.tgt.Refines P.tgt parent
   /-- Subdivision does not change the occupied source skeleton. -/
   skeletonSet_eq : pair.src.skeletonSet = P.src.skeletonSet
+  /-- The transported skeleton map agrees with the old one on that unchanged skeleton. -/
+  homeo_eqOn : Set.EqOn pair.homeo.toFun P.homeo.toFun P.src.skeletonSet
   /-- Every requested point is a vertex of the final source graph. -/
   vertexSet_subset : s ⊆ V(pair.src.graph)
 
@@ -1110,6 +1112,7 @@ theorem exists_subdivideSetData [Infinite γ]
         refines_src := CellStructure.Realization.Refines.refl P.src
         refines_tgt := CellStructure.Realization.Refines.refl P.tgt
         skeletonSet_eq := rfl
+        homeo_eqOn := fun _ _ => rfl
         vertexSet_subset := Set.empty_subset _
       }⟩
   | @insert a s ha hs ih =>
@@ -1126,6 +1129,12 @@ theorem exists_subdivideSetData [Infinite γ]
         refines_src := q.refines_src.trans w.refines_src
         refines_tgt := q.refines_tgt.trans w.refines_tgt
         skeletonSet_eq := q.skeletonSet_eq.trans w.skeletonSet_eq
+        homeo_eqOn := by
+          intro x hx
+          calc
+            q.pair.homeo.toFun x = w.pair.homeo.toFun x :=
+              q.homeo_eqOn (by rwa [w.skeletonSet_eq])
+            _ = P.homeo.toFun x := w.homeo_eqOn hx
         vertexSet_subset := by
           intro x hx
           rw [q.vertexSet_eq]
@@ -1257,6 +1266,8 @@ noncomputable def commonSubdivisionData [Infinite γ]
     isPartialTransferOf := {
       refines_src := w.refines_src
       refines_tgt := w.refines_tgt
+      sourceSkeletonSet_subset := by rw [w.skeletonSet_eq]
+      homeo_eqOn := w.homeo_eqOn
       skeletonSet_eq := w.skeletonSet_eq.trans (trace_pointSet hH).symm
       vertexSet_subset := w.vertexSet_subset
     }

@@ -3,7 +3,7 @@ Copyright (c) 2026 Álvaro Begué. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Álvaro Begué
 -/
-import Schoenflies.FiniteTransfer
+import Schoenflies.StageTransition
 import Schoenflies.LimitMap
 import Schoenflies.BoundaryContinuity2
 
@@ -102,19 +102,10 @@ produces it; none is a property of a single stage, which is why they cannot live
 structure StageSequence (γ : Type*) [Nonempty γ] (S₀ : CellStructure γ) (C : Set Plane) where
   /-- The stage-`n` matched cellulation `(Γ_n, Γ'_n)`, with both realizations. -/
   stage : ℕ → GeneratedPair S₀ C (C ∪ inside C) modelCurve (Plane.closedSquare 0 1)
-  /-- The parent map from stage `n + 1` to stage `n`, shared by the two sides —
-  `lem:refinement-compatibility`(c). -/
+  /-- The parent map from stage `n + 1` to stage `n`, shared by the two sides. -/
   par : ℕ → γ → γ
-  /-- The source realizations refine along it. -/
-  refines_src : ∀ n, (stage (n + 1)).src.Refines (stage n).src (par n)
-  /-- So do the target realizations, along the *same* map. -/
-  refines_tgt : ∀ n, (stage (n + 1)).tgt.Refines (stage n).tgt (par n)
-  /-- The realized source skeletons grow: every stage is an extension of its predecessor. -/
-  skeletonSet_mono : ∀ n, (stage n).src.skeletonSet ⊆ (stage (n + 1)).src.skeletonSet
-  /-- **The skeleton maps are nested.** An edge subdivision leaves the skeleton map unchanged as
-  a point map, and a 2-cell split extends it by the chosen homeomorphism on the new ear. -/
-  skelHomeo_succ : ∀ n,
-    Set.EqOn (stage (n + 1)).homeo.toFun (stage n).homeo.toFun (stage n).src.skeletonSet
+  /-- Both compatible refinements, source-skeleton growth, and nesting of the skeleton maps. -/
+  transition : ∀ n, StageTransition (stage (n + 1)) (stage n) (par n)
   /-- The uniform target mesh, `2 ε_n` of the blueprint. -/
   eps : ℕ → ℝ
   /-- **`prop:shrinking-stars`, the uniform half.** -/
@@ -133,6 +124,27 @@ structure StageSequence (γ : Type*) [Nonempty γ] (S₀ : CellStructure γ) (C 
 namespace StageSequence
 
 variable (T : StageSequence γ S₀ C)
+
+/-- Consecutive source realizations refine along the recorded parent map. -/
+theorem refines_src (n : ℕ) :
+    (T.stage (n + 1)).src.Refines (T.stage n).src (T.par n) :=
+  (T.transition n).refines_src
+
+/-- The target realizations refine along the same parent map. -/
+theorem refines_tgt (n : ℕ) :
+    (T.stage (n + 1)).tgt.Refines (T.stage n).tgt (T.par n) :=
+  (T.transition n).refines_tgt
+
+/-- The realized source skeletons grow from one stage to the next. -/
+theorem skeletonSet_mono (n : ℕ) :
+    (T.stage n).src.skeletonSet ⊆ (T.stage (n + 1)).src.skeletonSet :=
+  (T.transition n).sourceSkeletonSet_subset
+
+/-- Consecutive skeleton homeomorphisms agree on the preceding source skeleton. -/
+theorem skelHomeo_succ (n : ℕ) :
+    Set.EqOn (T.stage (n + 1)).homeo.toFun (T.stage n).homeo.toFun
+      (T.stage n).src.skeletonSet :=
+  (T.transition n).homeo_eqOn
 
 /-- **The tower the limit section consumes.** Every field is read off the stages or is one of
 the four facts about the two concrete domains; there is no mathematics here beyond the two

@@ -37,8 +37,7 @@ Schoenflies.CellStructure.LimitTower.isHomeoOn_F      ← the fields of LimitTow
 | `Schoenflies.HasLimitHomeomorphism` | `BoundaryContinuity2.lean` | `thm:square-extension` | four conjuncts: a dense anchor set, the interior homeomorphism, `HasAnchorCrosscuts`, `HasSpokes`. **`LimitTower` supplies the second; the other three need the construction.** |
 | the fields of `CellStructure.LimitTower` | `LimitMap.lean` | the interior homeomorphism | ~14 fields, each an obligation on whoever builds the nested sequence: the cell decompositions, the shared parent maps, the two halves of `prop:shrinking-stars`, and the nesting of the skeleton maps. See the module docstring |
 | `Schoenflies.CommonSubdivision` | `FiniteTransfer.lean` | `thm:finite-transfer`(a) | step 1. The overlay itself is proved (`exists_overlay_of_biUnion_finite`); what is missing is carrying each new subdivision point through the chosen edge parametrization to the *other* realization. `RealizeSubdivHomeo.lean` now supplies exactly that transport for one subdivision (`SubdivData.targetParam`, `realizeHomeo`), so this is assembly, not new mathematics |
-| `Schoenflies.EarStep` | `FiniteTransfer.lean` | `thm:finite-transfer`(a) | step 3, one ear. Carries `[Infinite γ]` — see below. The two boundary paths are now constructed from the maintained cycle invariant; what remains is assembling the freshly relabelled abstract ear and the two realized split constructors |
-| `Schoenflies.CellsAbsorb` | `SkeletonAccess.lean`, `FiniteTransfer.lean`, `FreshAccess.lean` | `lem:polygonal-side-accessibility`, ear placement | one clause of `lem:cellulation-invariants`; `cellsAbsorb_of_isComponent_in` discharges it when the cells are the components |
+| `Schoenflies.CellsAbsorb` | `SkeletonAccess.lean`, `FreshAccess.lean` | `lem:polygonal-side-accessibility` | one clause of `lem:cellulation-invariants`; finite transfer now derives it directly as `IsCellDecomposition.cellsAbsorb` from assertions (i) and (vii) |
 
 ### The atom is closed
 
@@ -112,13 +111,29 @@ The constructor-preservation proof is also closed in `BoundaryCyclesGenerated.le
 Two-edge cycles are deliberately allowed: splitting along an ear can create a legitimate
 digon, so an invariant demanding a third boundary vertex would not be constructor-stable.
 
-The next `EarStep` work is assembly on top of this invariant: choose fresh abstract names for
-the finite ear and its two new faces, identify the source face containing the open ear, build
-the source and target `EarCrosscut` data, and feed them to `SplitData.realize` and
-`SplitData.splitHomeo`.  Everything downstream is then:
+The entire `EarStep` construction is now closed:
 
-1. assemble `EarStep` from the now-available boundary paths and split constructors;
-   `CommonSubdivision` alongside it;
+* `exists_source_face_of_ear` identifies the source face and its abstract endpoints;
+* `GeneratedPair.exists_target_crosscut` constructs the target polygonal crosscut;
+* `Graph.relabelEdges` and `Graph.relabelDrawing` preserve paths and drawings under fresh edge
+  names;
+* `exists_sourceEarStepData` allocates fresh internal vertices, edges and faces, builds the
+  abstract `SplitData`, and realizes exactly the ambient source path;
+* `MatchedArc.lean` proves that subarcs of a polygonal arc are polygonal and constructs the
+  endpoint-preserving parameter-matching homeomorphism between any two arcs;
+* `EarCrosscut.exists_matched_target` transports every abstract source edge to its target
+  counterpart, proving the resulting drawing and each target edge polygonal;
+* `GeneratedPair.split` builds both realized splits and the extended skeleton homeomorphism;
+* `EarCrosscut.isWeaklyAdmissible_realize` proves weak admissibility instead of asking the
+  caller for it;
+* `EarStepData.isPartialTransferOf_pair` composes refinements and proves the exact enlarged
+  source carrier;
+* `earStepConstruction` and `earStep` assemble the nontrivial and already-present branches.
+
+Everything downstream is now:
+
+1. discharge `CommonSubdivision`, the sole remaining hypothesis of
+   `finite_transfer_toward_square_of_commonSubdivision`;
 2. `thm:finite-transfer` (a) unconditional, and (b) — whose one extra ingredient, accessibility
    at a fresh anchor on the wild curve, is closed in `FreshAccess.lean`;
 3. the stage recursion, which is where `GridAttach.lean`, `SquareMeshClosed.lean` and
@@ -284,7 +299,7 @@ path is now the two **realization constructors** they are stated against, and th
 | `lem:cellulation-invariants` | done | (ii), (iii), (iv), (v), (vi), (viii), (ix) and (i) at the subdivision constructor in `GeneratedStructure.lean`; **(i) at the split constructor and (vii)** in `CellulationInvariants.lean` (`SplitData.IsCrosscutSplit.isCellDecomposition_and_isFaceJordan`, `SubdivData.IsRefinement.isCellDecomposition_and_isFaceJordan`). Both are *step* theorems, stated against a realization of the refined structure — see the row above for what is still missing |
 | `lem:refinement-compatibility`, `lem:star-intersection`, `lem:star-face-mesh`, `lem:cell-neighborhood` | done | `RefinementStars.lean`. The carrier is a total function and refinement is abstract, which is what lets the limit section be built against an interface |
 | `lem:polygonal-side-accessibility` | conditional (`Schoenflies.CellsAbsorb`) | `SkeletonAccess.lean` — both halves, on one clause of `lem:cellulation-invariants` |
-| `thm:finite-transfer` (a) | conditional (`CommonSubdivision`, `EarStep`) | `FiniteTransfer.lean` — steps 2 and 4 and the last paragraph unconditional, the induction scheme closed, steps 1 and 3 named. See the live-obligations table |
+| `thm:finite-transfer` (a) | conditional (`CommonSubdivision`) | `FiniteTransfer.lean` — step 3 is now the unconditional theorem `earStep`; `finite_transfer_toward_square_of_commonSubdivision` is conditional only on step 1. See the live-obligations table |
 | `thm:finite-transfer` (b) | partial | its one ingredient beyond (a), source accessibility at a fresh anchor on the wild curve, is closed in `FreshAccess.lean` (`polyAccessible_of_stronglyAccessible`). The statement itself is not yet written |
 | `prop:local-grid-attachment` | conditional (`hΓ`, `hcov`) | `LocalGrid.lean` (`localGrid`, the diameter clause) + `GridAttach.lean` (the overlay, the crosscut factory, the component-joining loop, and the construction as `def`s). The blueprint's three cases collapse to one; the joining loop is done by representatives rather than by a decreasing component count. `hΓ` is 2-connectivity of `Γ` with the auxiliary arcs appended — not provable there, because `C` is not drawn by segments so `Γ` is not a `pieceListGraph`; `hcov` is "finitely many representatives meet every component of `|L| ∖ C`", where the blueprint's finiteness lives |
 | `lem:grid-star-estimate`, `prop:shrinking-stars`, `lem:anchor-density` | open | quantitative refinement; they consume the stage recursion, which does not exist yet. The metric half is ready: `Windows.lean` has `supRadius` (the ℓ^∞ distance to a compact set, with attainment, positivity and the 1-Lipschitz property), `windowRadius` / `window` / `openWindow` with the blueprint's three inequalities and `W_n(p) ⊆ D`, the arithmetic of `prop:shrinking-stars` (`mem_openWindow_of_supDist_lt`), and the two sequences (`recur`, `tendsto_two_pow_neg`) |

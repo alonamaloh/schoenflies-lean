@@ -650,6 +650,36 @@ theorem isOpen_cellSet_face (H : HexData)
   cases k
   exacts [hopen1, hopen2]
 
+/-- **Assertion (vii) for the initial hexagonal cellulation.**  Each of its two faces was
+defined as the inside of the curve obtained by joining one boundary arc to the crosscut; the
+crosscut theorem says that curve is Jordan. -/
+theorem isFaceJordan (H : HexData)
+    (hcross : IsCrosscut H.outerArcs H.chordSet (H.pos 1) (H.pos 4))
+    (hcut : IsCutPair H.outerArcs (H.pos 1) (H.pos 4) (H.arcOf false) (H.arcOf true)) :
+    H.realization.IsFaceJordan where
+  isJordanCurve := by
+    intro F hF
+    obtain ⟨k, rfl⟩ := hF
+    cases k
+    · change IsJordanCurve (frontier (H.cellSet (.face false)))
+      rw [H.cellSet_face,
+        (jordan_curve_theorem (hcross.isJordanCurve_union hcut)).frontier_inside]
+      exact hcross.isJordanCurve_union hcut
+    · change IsJordanCurve (frontier (H.cellSet (.face true)))
+      rw [H.cellSet_face,
+        (jordan_curve_theorem (hcross.isJordanCurve_union hcut.symm)).frontier_inside]
+      exact hcross.isJordanCurve_union hcut.symm
+  cell_eq_inside := by
+    intro F hF
+    obtain ⟨k, rfl⟩ := hF
+    cases k
+    · change inside (H.arcOf false ∪ H.chordSet) =
+        inside (frontier (inside (H.arcOf false ∪ H.chordSet)))
+      rw [(jordan_curve_theorem (hcross.isJordanCurve_union hcut)).frontier_inside]
+    · change inside (H.arcOf true ∪ H.chordSet) =
+        inside (frontier (inside (H.arcOf true ∪ H.chordSet)))
+      rw [(jordan_curve_theorem (hcross.isJordanCurve_union hcut.symm)).frontier_inside]
+
 /-- **`def:admissible-graph` minus the connectedness clause, for a realization of the initial
 structure.** The 2-connectivity is `HexData.isTwoConnected_graph`; the outer cycle is the union
 of the six outer arcs by construction; the one nonboundary edge is the crosscut, which is
@@ -775,11 +805,30 @@ noncomputable def generatedPair :
     GeneratedPair initialStructure C (C ∪ inside C) modelCurve (Plane.closedSquare 0 1) where
   str := initialStructure
   generated := GeneratedStructure.base
+  str_combInvariants := combInvariants_initialStructure
+  str_boundaryCycles := boundaryCycles_initialStructure
   src := d.sourceRealization
   tgt := d.targetRealization
   homeo := d.skeletonHomeo
   src_isCellDecomposition := d.src_isCellDecomposition
   tgt_isCellDecomposition := d.tgt_isCellDecomposition
+  src_isFaceJordan := d.src.isFaceJordan d.isCrosscut_src
+    (by rw [d.src_outerArcs]; exact d.isCutPair)
+  tgt_isFaceJordan := d.tgt.isFaceJordan d.isCrosscut_tgt
+    (by rw [d.tgt_outerArcs]; exact d.isCutPairTarget)
+  tgtInterior_isOpen := by
+    rw [closedSquare_sdiff_modelCurve]
+    exact Plane.isOpen_openSquare 0 1
+  tgtInterior_frontier_subset := by
+    rw [closedSquare_sdiff_modelCurve]
+    refine (Plane.frontier_openSquare_subset 0 1).trans ?_
+    rw [← modelCurve_eq_frontier, ← d.tgt_isWeaklyAdmissible.outerSet_eq]
+    exact d.targetRealization.outerSet_subset_skeletonSet
+  tgt_isPolygonal := by
+    intro e he
+    change e ∈ E(initSkel) at he
+    change IsPolygonal (Graph.edgeArc d.tgt.draw e)
+    exact d.isPolygonal_tgt_edgeArc he
   src_isWeaklyAdmissible := d.src_isWeaklyAdmissible
   tgt_isWeaklyAdmissible := d.tgt_isWeaklyAdmissible
 

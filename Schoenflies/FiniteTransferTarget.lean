@@ -71,10 +71,32 @@ structure IsTargetPartialTransferOf
   refines_src : T.src.Refines P.src par
   /-- The new target realization refines the original target realization along the same map. -/
   refines_tgt : T.tgt.Refines P.tgt par
+  /-- The evolving source skeleton contains the original source skeleton. -/
+  sourceSkeletonSet_subset : P.src.skeletonSet ⊆ T.src.skeletonSet
+  /-- On the original source skeleton, the evolving skeleton map is still the original map. -/
+  homeo_eqOn : Set.EqOn T.homeo.toFun P.homeo.toFun P.src.skeletonSet
   /-- The new target skeleton occupies exactly the current target subgraph. -/
   skeletonSet_eq : T.tgt.skeletonSet = pointSet B Hdraw
   /-- Every current target-graph vertex is a 0-cell of the new pair. -/
   vertexSet_subset : V(B) ⊆ V(T.tgt.graph)
+
+/-- A current abstract vertex lying over the original target skeleton has the original source
+preimage.  This is the pointwise compatibility needed to recognize prescribed source anchors
+after any number of reverse-ear insertions. -/
+theorem IsTargetPartialTransferOf.source_pos_eq_invFun_target_pos
+    {T P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom}
+    {B : Graph Plane γ} {Hdraw : γ → ℝ → Plane} {par : γ → γ}
+    (hT : IsTargetPartialTransferOf T P B Hdraw par) {v : γ}
+    (hv : v ∈ V(T.str.skel)) (hvP : T.tgt.pos v ∈ P.tgt.skeletonSet) :
+    T.src.pos v = P.homeo.invFun (T.tgt.pos v) := by
+  have hinvP : P.homeo.invFun (T.tgt.pos v) ∈ P.src.skeletonSet := by
+    rw [← P.homeo.symm.image_skeletonSet]
+    exact ⟨T.tgt.pos v, hvP, rfl⟩
+  apply T.homeo.injOn
+  · exact T.src.pos_mem_skeletonSet hv
+  · exact hT.sourceSkeletonSet_subset hinvP
+  · rw [T.homeo.pos_apply hv, hT.homeo_eqOn hinvP,
+      P.homeo.rightInvOn hvP]
 
 /-- The final conclusion of direction (b): a target extension reproduced by an admissible
 matched pair on both sides. -/
@@ -169,6 +191,17 @@ theorem isTargetPartialTransferOf_pair
     ((w.splitData.isCellDecomposition_and_isFaceJordan_realize w.tgtCrosscut
       T.str_combInvariants T.tgt_isCellDecomposition T.tgt_isFaceJordan).2.2).trans
       hT.refines_tgt
+  sourceSkeletonSet_subset :=
+    hT.sourceSkeletonSet_subset.trans
+      (w.splitData.skeletonSet_subset_realize w.srcCrosscut)
+  homeo_eqOn := by
+    intro x hx
+    calc
+      w.pair.homeo.toFun x = T.homeo.toFun x :=
+        w.splitData.splitHomeo_eqOn
+          (g := T.homeo) (hE₁ := w.srcCrosscut) (hE₂ := w.tgtCrosscut)
+          (m := w.earHomeo) (hT.sourceSkeletonSet_subset hx)
+      _ = P.homeo.toFun x := hT.homeo_eqOn hx
   skeletonSet_eq := by
     change (w.splitData.realize T.tgt w.tgtPos w.tgtDraw w.tgtCrosscut).skeletonSet = _
     rw [w.splitData.skeletonSet_realize, hT.skeletonSet_eq, w.tgtEarSet_eq,
@@ -903,6 +936,9 @@ noncomputable def targetCommonSubdivisionData [Infinite γ]
     isTargetPartialTransferOf := {
       refines_src := w.refines_src
       refines_tgt := w.refines_tgt
+      sourceSkeletonSet_subset := by
+        rw [w.sourceSkeletonSet_eq]
+      homeo_eqOn := w.homeo_eqOn
       skeletonSet_eq := w.skeletonSet_eq.trans (trace_pointSet hH).symm
       vertexSet_subset := w.vertexSet_subset
     }

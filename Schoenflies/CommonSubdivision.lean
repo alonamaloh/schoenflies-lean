@@ -953,6 +953,8 @@ structure SubdivideAtData
   skeletonSet_eq : pair.src.skeletonSet = P.src.skeletonSet
   /-- Subdivision does not change the occupied target skeleton. -/
   targetSkeletonSet_eq : pair.tgt.skeletonSet = P.tgt.skeletonSet
+  /-- The transported skeleton map is the old map as a point map. -/
+  homeo_eqOn : Set.EqOn pair.homeo.toFun P.homeo.toFun P.src.skeletonSet
   /-- The requested point and every old vertex are vertices of the new source graph. -/
   vertexSet_eq : V(pair.src.graph) = insert p V(P.src.graph)
   /-- The corresponding target point and every old target vertex are vertices as well. -/
@@ -972,6 +974,7 @@ theorem exists_subdivideAtData [Infinite γ]
       refines_tgt := CellStructure.Realization.Refines.refl P.tgt
       skeletonSet_eq := rfl
       targetSkeletonSet_eq := rfl
+      homeo_eqOn := fun _ _ => rfl
       vertexSet_eq := (Set.insert_eq_of_mem hpV).symm
       targetVertexSet_eq := by
         rw [P.src.vertexSet_graph] at hpV
@@ -1026,6 +1029,7 @@ theorem exists_subdivideAtData [Infinite γ]
         skeletonSet_eq := d.skeletonSet_realize htIoo
         targetSkeletonSet_eq :=
           d.skeletonSet_realize (d.targetParam_mem_Ioo P.homeo htIoo)
+        homeo_eqOn := fun _ _ => rfl
         vertexSet_eq := by
           change V(d.realizeGraph P.src t) = _
           rw [d.realizeGraph_vertexSet, hdedge]
@@ -1050,6 +1054,8 @@ structure SubdivideTargetAtData
   sourceSkeletonSet_eq : pair.src.skeletonSet = P.src.skeletonSet
   /-- The occupied target skeleton is unchanged. -/
   skeletonSet_eq : pair.tgt.skeletonSet = P.tgt.skeletonSet
+  /-- The transported skeleton map agrees with the old one. -/
+  homeo_eqOn : Set.EqOn pair.homeo.toFun P.homeo.toFun P.src.skeletonSet
   /-- The requested point and every old vertex are target vertices of the new pair. -/
   vertexSet_eq : V(pair.tgt.graph) = insert p V(P.tgt.graph)
 
@@ -1069,6 +1075,7 @@ theorem exists_subdivideTargetAtData [Infinite γ]
     refines_tgt := w.refines_tgt
     sourceSkeletonSet_eq := w.skeletonSet_eq
     skeletonSet_eq := w.targetSkeletonSet_eq
+    homeo_eqOn := w.homeo_eqOn
     vertexSet_eq := by
       rw [w.targetVertexSet_eq, P.homeo.rightInvOn hp]
   }⟩
@@ -1142,6 +1149,8 @@ structure SubdivideTargetSetData
   sourceSkeletonSet_eq : pair.src.skeletonSet = P.src.skeletonSet
   /-- The occupied target skeleton is unchanged. -/
   skeletonSet_eq : pair.tgt.skeletonSet = P.tgt.skeletonSet
+  /-- The final skeleton map agrees with the original one on the original source skeleton. -/
+  homeo_eqOn : Set.EqOn pair.homeo.toFun P.homeo.toFun P.src.skeletonSet
   /-- Every requested point is a vertex of the final target graph. -/
   vertexSet_subset : s ⊆ V(pair.tgt.graph)
 
@@ -1160,6 +1169,7 @@ theorem exists_subdivideTargetSetData [Infinite γ]
         refines_tgt := CellStructure.Realization.Refines.refl P.tgt
         sourceSkeletonSet_eq := rfl
         skeletonSet_eq := rfl
+        homeo_eqOn := fun _ _ => rfl
         vertexSet_subset := Set.empty_subset _
       }⟩
   | @insert a s ha hs ih =>
@@ -1177,6 +1187,12 @@ theorem exists_subdivideTargetSetData [Infinite γ]
         refines_tgt := q.refines_tgt.trans w.refines_tgt
         sourceSkeletonSet_eq := q.sourceSkeletonSet_eq.trans w.sourceSkeletonSet_eq
         skeletonSet_eq := q.skeletonSet_eq.trans w.skeletonSet_eq
+        homeo_eqOn := by
+          intro x hx
+          calc
+            q.pair.homeo.toFun x = w.pair.homeo.toFun x :=
+              q.homeo_eqOn (by rwa [w.sourceSkeletonSet_eq])
+            _ = P.homeo.toFun x := w.homeo_eqOn hx
         vertexSet_subset := by
           intro x hx
           rw [q.vertexSet_eq]

@@ -114,4 +114,5 @@ import Schoenflies.CommonSubdivision
 import Schoenflies.FiniteTransferTarget
 import Schoenflies.FiniteTransferTargetMesh
 import Schoenflies.TargetOverlay
+import Schoenflies.FreshDenseSelection
 import Schoenflies.MatchedSplit

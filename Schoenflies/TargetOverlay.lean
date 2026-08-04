@@ -27,7 +27,9 @@ together with the radial mesh estimate, shows that every sufficiently fine dense
 every cover piece.  Consequently the combined overlay is a complete source extension at some
 positive scale below `4`.  Relative boundary anchoring and no-new-nonouter-incidence are proved
 for clean fresh lists and transported through edge relabelling, so the overlay now feeds directly
-into reverse finite transfer.  Constructing the finite fresh separator list at that scale remains.
+into reverse finite transfer.  `FreshDenseSelection.lean` constructs the required finite clean
+separator list from the dense strongly-accessible boundary points and packages the resulting
+reverse-transfer stage.
 
 ## Blueprint
 
@@ -618,6 +620,37 @@ def FreshAvoidsTargetNonouterEdges
     (fresh : List Plane) : Prop :=
   ∀ z ∈ fresh, ∀ e ∈ E(P.str.skel), e ∉ E(P.str.outerGraph) →
     z ∉ edgeArc P.tgt.drawing e
+
+/-- A nonouter target edge can meet the distinguished boundary only at an old target vertex.
+This turns the cleanliness requirement into avoidance of one finite vertex set. -/
+theorem mem_targetVertex_of_mem_nonouter_edgeArc_modelCurve
+    {e : γ} (he : e ∈ E(P.str.skel)) (heNotOuter : e ∉ E(P.str.outerGraph))
+    {z : Plane} (hze : z ∈ edgeArc P.tgt.drawing e) (hz : z ∈ modelCurve) :
+    z ∈ V(P.tgt.graph) := by
+  have hzOuter : z ∈ P.tgt.outerSet := by
+    rw [P.tgt_isWeaklyAdmissible.outerSet_eq]
+    exact hz
+  rcases hzOuter with hzV | hzE
+  · exact (P.str.outerGraph_le.map P.tgt.pos).vertexSet_mono hzV
+  · obtain ⟨f, hfOuter, hzf⟩ := Set.mem_iUnion₂.1 hzE
+    have hf : f ∈ E(P.str.outerGraph) := by
+      rwa [Graph.edgeSet_map] at hfOuter
+    have heTgt : e ∈ E(P.tgt.graph) := by rwa [P.tgt.edgeSet_graph]
+    have hfTgt : f ∈ E(P.tgt.graph) := by
+      rw [P.tgt.edgeSet_graph]
+      exact P.str.outerGraph_le.edgeSet_mono hf
+    exact (P.tgt.isDrawing.edge_inter heTgt hfTgt
+      (fun hef => heNotOuter (hef ▸ hf)) hze hzf).1
+
+/-- Avoiding the finite old target vertex set is sufficient for clean fresh anchors. -/
+theorem freshAvoidsTargetNonouterEdges_of_avoids_targetVertices
+    {fresh : List Plane} (hfresh : ∀ z ∈ fresh, z ∈ modelCurve)
+    (havoid : ∀ z ∈ fresh, z ∉ V(P.tgt.graph)) :
+    FreshAvoidsTargetNonouterEdges P fresh := by
+  intro z hzFresh e he heNotOuter hze
+  exact havoid z hzFresh
+    (mem_targetVertex_of_mem_nonouter_edgeArc_modelCurve he heNotOuter hze
+      (hfresh z hzFresh))
 
 /-- Incidence with an edge of the target/mesh overlay means being one of the two endpoints of
 that piece. -/
@@ -1394,6 +1427,54 @@ theorem finite_transfer_toward_source_relabelledMeshOverlay_of_outerCycle
     (Q.noNewNonouterIncidenceAtBoundary_relabelledMeshOverlay
       hfresh havoid delta anchors name hname)
     hcycle
+
+/-- At a locally wide scale, the dense clean overlay automatically supplies both the source
+extension and its reverse finite transfer; fresh abstract edge names are chosen internally. -/
+theorem exists_finite_transfer_toward_source_meshOverlay_of_locallyWider
+    [Infinite γ] (Q : TargetSegmentCover P)
+    {fresh : List Plane} (hfresh : ∀ z ∈ fresh, z ∈ modelCurve)
+    (hstrong : ∀ z ∈ fresh,
+      StronglyAccessible (srcDom \ srcOuter) (P.homeo.invFun z))
+    (havoid : FreshAvoidsTargetNonouterEdges P fresh)
+    {delta : ℝ} (hdelta : 0 < delta) (hdense : FreshDense fresh delta)
+    (hdelta4 : delta < 4) (hwide : OpenTargetLocallyWiderThan P delta)
+    (anchors : List Plane) (hcycle : S₀.OuterEdgesFormCycle) :
+    ∃ (name : Piece → γ) (hname : InjOn name E(Q.meshOverlay delta fresh anchors))
+        (T : GeneratedPair S₀ srcOuter srcDom modelCurve (Plane.closedSquare 0 1))
+        (par : γ → γ),
+      IsTargetTransferOf T P
+        ((Q.meshOverlay delta fresh anchors).relabelEdges name hname)
+        ((Q.meshOverlay delta fresh anchors).relabelDrawing name segmentDrawing) par := by
+  obtain ⟨name, hname, -⟩ := Q.exists_meshOverlay_edgeRelabeling delta fresh anchors
+  have hH := Q.isSourceExtension_relabelledMeshOverlay_of_locallyWider
+    hfresh hdelta hdense hdelta4 hwide anchors name hname
+  obtain ⟨T, par, hT⟩ :=
+    Q.finite_transfer_toward_source_relabelledMeshOverlay_of_outerCycle
+      hfresh hstrong havoid delta anchors name hname hH hcycle
+  exact ⟨name, hname, T, par, hT⟩
+
+/-- Every generated target has one positive scale below `4` at which any dense, accessible,
+clean fresh list produces the complete reverse finite transfer through the combined overlay. -/
+theorem exists_scale_finite_transfer_toward_source_meshOverlay
+    [Infinite γ] (Q : TargetSegmentCover P) (hcycle : S₀.OuterEdgesFormCycle) :
+    ∃ delta : ℝ, 0 < delta ∧ delta < 4 ∧
+      ∀ (fresh anchors : List Plane),
+        (∀ z ∈ fresh, z ∈ modelCurve) →
+        (∀ z ∈ fresh,
+          StronglyAccessible (srcDom \ srcOuter) (P.homeo.invFun z)) →
+        FreshAvoidsTargetNonouterEdges P fresh → FreshDense fresh delta →
+        ∃ (name : Piece → γ)
+            (hname : InjOn name E(Q.meshOverlay delta fresh anchors))
+            (T : GeneratedPair S₀ srcOuter srcDom modelCurve (Plane.closedSquare 0 1))
+            (par : γ → γ),
+          IsTargetTransferOf T P
+            ((Q.meshOverlay delta fresh anchors).relabelEdges name hname)
+            ((Q.meshOverlay delta fresh anchors).relabelDrawing name segmentDrawing) par := by
+  obtain ⟨delta, hdelta, hdelta4, hwide⟩ := exists_fine_openTarget_scale P
+  refine ⟨delta, hdelta, hdelta4, ?_⟩
+  intro fresh anchors hfresh hstrong havoid hdense
+  exact Q.exists_finite_transfer_toward_source_meshOverlay_of_locallyWider
+    hfresh hstrong havoid hdelta hdense hdelta4 hwide anchors hcycle
 
 end TargetSegmentCover
 

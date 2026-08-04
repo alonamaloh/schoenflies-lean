@@ -21,9 +21,12 @@ prove the subdivision clause after transverse intersections have been made verti
 `TargetSegmentCover.meshOverlay` is the combined graph.  It overlays the target cover with the
 already-subdivided edges of the anchored mesh, and its cut list contains both the mesh anchors
 and every old target vertex.  The basic carrier, drawing, containment, edge-source, and
-2-connectivity facts are established here.  Connectedness off the boundary is reduced to the
-quantitative statement that the mesh meets every connected piece of the old open skeleton;
-that mesh-hitting statement and the fresh boundary-incidence property remain.
+2-connectivity facts are established here.  The nonouter target-edge carriers form a canonical
+finite connected cover of the old open skeleton.  A uniform positive width for this cover,
+together with the radial mesh estimate, shows that every sufficiently fine dense mesh meets
+every cover piece.  Consequently the combined overlay is a complete source extension at some
+positive scale below `4`.  Constructing the finite fresh separator list at that scale and proving
+the fresh boundary-incidence property needed by reverse transfer remain.
 
 ## Blueprint
 
@@ -37,6 +40,12 @@ that mesh-hitting statement and the fresh boundary-incidence property remain.
   the union of the two carriers.
 * `Schoenflies.TargetSegmentCover.meshOverlay_isTwoConnected` — the two subdivision traces glue
   along two fresh boundary vertices to make the combined overlay 2-connected.
+* `Schoenflies.finiteOpenTargetCover` — the nonouter edge carriers, with the model curve
+  removed, form a finite connected nontrivial cover of the old open target skeleton.
+* `Schoenflies.exists_fine_openTarget_scale` — every generated target has a positive scale
+  below `4` at which all pieces of that cover are wider than the mesh.
+* `Schoenflies.TargetSegmentCover.exists_scale_isSourceExtension_relabelledMeshOverlay` — at
+  that scale, every dense anchored mesh gives the complete relabelled source extension.
 -/
 
 open Set
@@ -492,8 +501,310 @@ theorem meshOverlay_edge_dichotomy (Q : TargetSegmentCover P)
       rw [hRR', edgeArc_segmentDrawing]
       exact hR'A.trans hA.2
 
+/-- A quantitative local-width condition on the old open target skeleton.  Every point lies in
+a connected subset containing two points farther apart than the proposed mesh scale. -/
+def OpenTargetLocallyWiderThan (P : GeneratedPair S₀ srcOuter srcDom modelCurve
+    (Plane.closedSquare 0 1)) (delta : ℝ) : Prop :=
+  ∀ z ∈ P.tgt.skeletonSet \ modelCurve,
+    ∃ A : Set Plane, A ⊆ P.tgt.skeletonSet \ modelCurve ∧
+      IsPreconnected A ∧ z ∈ A ∧
+        ∃ x ∈ A, ∃ y ∈ A, delta < dist x y
+
+/-- Finitely many nontrivial connected pieces cover the old open target skeleton.  This is the
+purely target-side finiteness datum from which a uniform positive mesh scale is extracted. -/
+structure FiniteOpenTargetCover
+    (P : GeneratedPair S₀ srcOuter srcDom modelCurve (Plane.closedSquare 0 1)) where
+  /-- The connected pieces. -/
+  pieces : List (Set Plane)
+  /-- Every open-skeleton point lies in one listed piece. -/
+  covers : ∀ z ∈ P.tgt.skeletonSet \ modelCurve, ∃ A ∈ pieces, z ∈ A
+  /-- Every listed piece lies in the old open skeleton. -/
+  subset_open : ∀ A ∈ pieces, A ⊆ P.tgt.skeletonSet \ modelCurve
+  /-- Every listed piece is connected. -/
+  preconnected : ∀ A ∈ pieces, IsPreconnected A
+  /-- No listed piece is a singleton. -/
+  nontrivial : ∀ A ∈ pieces, ∃ x ∈ A, ∃ y ∈ A, x ≠ y
+
+/-- The interior of a nondegenerate arc contains two distinct points. -/
+theorem IsArcBetween.exists_two_mem_diff {A : Set Plane} {p q : Plane}
+    (h : IsArcBetween A p q) :
+    ∃ x ∈ A \ {p, q}, ∃ y ∈ A \ {p, q}, x ≠ y := by
+  obtain ⟨f, -, hinj, himage, hzero, hone⟩ := h
+  let x := f (1 / 3)
+  let y := f (2 / 3)
+  have hxI : (1 / 3 : ℝ) ∈ unitInterval := by norm_num [unitInterval]
+  have hyI : (2 / 3 : ℝ) ∈ unitInterval := by norm_num [unitInterval]
+  have hzeroI : (0 : ℝ) ∈ unitInterval := zero_mem_I
+  have honeI : (1 : ℝ) ∈ unitInterval := one_mem_I
+  have hxA : x ∈ A := by
+    rw [← himage]
+    exact ⟨1 / 3, hxI, rfl⟩
+  have hyA : y ∈ A := by
+    rw [← himage]
+    exact ⟨2 / 3, hyI, rfl⟩
+  have hxEnds : x ∉ ({p, q} : Set Plane) := by
+    rintro (hxp | hxq)
+    · have hfun : f (1 / 3) = f 0 := by
+        calc f (1 / 3) = x := rfl
+          _ = p := hxp
+          _ = f 0 := hzero.symm
+      have : (1 / 3 : ℝ) = 0 := hinj hxI hzeroI hfun
+      norm_num at this
+    · have hxq' : x = q := by simpa using hxq
+      have hfun : f (1 / 3) = f 1 := by
+        calc f (1 / 3) = x := rfl
+          _ = q := hxq'
+          _ = f 1 := hone.symm
+      have : (1 / 3 : ℝ) = 1 := hinj hxI honeI hfun
+      norm_num at this
+  have hyEnds : y ∉ ({p, q} : Set Plane) := by
+    rintro (hyp | hyq)
+    · have hfun : f (2 / 3) = f 0 := by
+        calc f (2 / 3) = y := rfl
+          _ = p := hyp
+          _ = f 0 := hzero.symm
+      have : (2 / 3 : ℝ) = 0 := hinj hyI hzeroI hfun
+      norm_num at this
+    · have hyq' : y = q := by simpa using hyq
+      have hfun : f (2 / 3) = f 1 := by
+        calc f (2 / 3) = y := rfl
+          _ = q := hyq'
+          _ = f 1 := hone.symm
+      have : (2 / 3 : ℝ) = 1 := hinj hyI honeI hfun
+      norm_num at this
+  refine ⟨x, ⟨hxA, hxEnds⟩, y, ⟨hyA, hyEnds⟩, ?_⟩
+  intro hxy
+  have : (1 / 3 : ℝ) = 2 / 3 := hinj hxI hyI hxy
+  norm_num at this
+
+/-- The finite family of nonouter target-edge carriers, with the model curve removed. -/
+noncomputable def openTargetEdgePieces
+    (P : GeneratedPair S₀ srcOuter srcDom modelCurve (Plane.closedSquare 0 1)) :
+    List (Set Plane) := by
+  classical
+  letI : P.str.skel.Finite :=
+    ⟨P.str.finite_vertexSet, P.str.finite_edgeSet⟩
+  exact (P.str.skel.edgeFinset.filter fun e => e ∉ E(P.str.outerGraph)).toList.map
+    fun e => edgeArc P.tgt.drawing e \ modelCurve
+
+@[simp] theorem mem_openTargetEdgePieces
+    {P : GeneratedPair S₀ srcOuter srcDom modelCurve (Plane.closedSquare 0 1)}
+    {A : Set Plane} :
+    A ∈ openTargetEdgePieces P ↔
+      ∃ e ∈ E(P.str.skel), e ∉ E(P.str.outerGraph) ∧
+        A = edgeArc P.tgt.drawing e \ modelCurve := by
+  letI : P.str.skel.Finite :=
+    ⟨P.str.finite_vertexSet, P.str.finite_edgeSet⟩
+  simp only [openTargetEdgePieces, List.mem_map, Finset.mem_toList, Finset.mem_filter,
+    Graph.mem_edgeFinset]
+  constructor
+  · rintro ⟨e, ⟨he, hnot⟩, hEq⟩
+    exact ⟨e, he, hnot, hEq.symm⟩
+  · rintro ⟨e, he, hnot, hEq⟩
+    exact ⟨e, ⟨he, hnot⟩, hEq.symm⟩
+
+/-- The nonouter edge carriers form a finite connected, nontrivial cover of the whole old open
+target skeleton. -/
+noncomputable def finiteOpenTargetCover
+    (P : GeneratedPair S₀ srcOuter srcDom modelCurve (Plane.closedSquare 0 1)) :
+    FiniteOpenTargetCover P where
+  pieces := openTargetEdgePieces P
+  covers := by
+    intro z hz
+    have edge_mem_open : ∀ {e : γ}, e ∈ E(P.str.skel) →
+        e ∉ E(P.str.outerGraph) → z ∈ edgeArc P.tgt.drawing e →
+        ∃ A ∈ openTargetEdgePieces P, z ∈ A := by
+      intro e he hnot hze
+      refine ⟨edgeArc P.tgt.drawing e \ modelCurve,
+        mem_openTargetEdgePieces.2 ⟨e, he, hnot, rfl⟩, hze, hz.2⟩
+    rcases hz.1 with hzV | hzE
+    · rw [P.tgt.vertexSet_graph] at hzV
+      obtain ⟨v, hv, rfl⟩ := hzV
+      have hvNotOuter : v ∉ V(P.str.outerGraph) := by
+        intro hvOuter
+        have hmem : P.tgt.pos v ∈ P.tgt.outerSet := Or.inl (by
+          rw [Graph.vertexSet_map]
+          exact ⟨v, hvOuter, rfl⟩)
+        rw [P.tgt_isWeaklyAdmissible.outerSet_eq] at hmem
+        exact hz.2 hmem
+      obtain ⟨w, hw, hwv, -⟩ :=
+        P.tgt_isWeaklyAdmissible.isTwoConnected.hasThreeVertices.exists_ne_ne
+          (P.tgt.pos v) (P.tgt.pos v)
+      have hvReal : P.tgt.pos v ∈ V(P.tgt.graph) := by
+        rw [P.tgt.vertexSet_graph]
+        exact ⟨v, hv, rfl⟩
+      obtain ⟨D, hD⟩ :=
+        (P.tgt_isWeaklyAdmissible.isTwoConnected.connected.reaches hvReal hw).exists_isPath
+      obtain ⟨e, -, hinc⟩ := hD.isWalk.exists_inc_source
+        (hD.ne_nil (Ne.symm hwv))
+      change (P.str.skel.map P.tgt.pos).Inc e (P.tgt.pos v) at hinc
+      rw [Graph.map_inc] at hinc
+      obtain ⟨a, hinca, hva⟩ := hinc
+      have hav : v = a := P.tgt.injOn_pos hv hinca.vertex_mem hva
+      have hincv : P.str.skel.Inc e v := by rwa [hav]
+      obtain ⟨b, hab⟩ := hincv
+      have heNotOuter : e ∉ E(P.str.outerGraph) := by
+        intro heOuter
+        have hlinkOuter := isLink_of_le_of_mem_edgeSet P.str.outerGraph_le heOuter hab
+        exact hvNotOuter hlinkOuter.left_mem
+      apply edge_mem_open hab.edge_mem heNotOuter
+      have hArc := P.tgt.isDrawing.edge_isArcBetween (hab.map P.tgt.pos)
+      exact hArc.left_mem
+    · obtain ⟨e, he, hze⟩ := Set.mem_iUnion₂.1 hzE
+      have heS : e ∈ E(P.str.skel) := by rwa [P.tgt.edgeSet_graph] at he
+      have heNotOuter : e ∉ E(P.str.outerGraph) := by
+        intro heOuter
+        have hmem : z ∈ P.tgt.outerSet := Or.inr (Set.mem_iUnion₂_of_mem (by
+          rw [Graph.edgeSet_map]
+          exact heOuter) hze)
+        rw [P.tgt_isWeaklyAdmissible.outerSet_eq] at hmem
+        exact hz.2 hmem
+      exact edge_mem_open heS heNotOuter hze
+  subset_open := by
+    intro A hA
+    obtain ⟨e, he, ⟨-, rfl⟩⟩ := mem_openTargetEdgePieces.1 hA
+    exact Set.sdiff_subset_sdiff_left (Graph.edgeArc_subset_pointSet (by
+      rwa [P.tgt.edgeSet_graph]))
+  preconnected := by
+    intro A hA
+    obtain ⟨e, he, ⟨heNotOuter, rfl⟩⟩ := mem_openTargetEdgePieces.1 hA
+    obtain ⟨a, b, hab⟩ := P.str.skel.exists_isLink_of_mem_edgeSet he
+    have hArc := P.tgt.isDrawing.edge_isArcBetween (hab.map P.tgt.pos)
+    have hcell : P.tgt.cell e =
+        edgeArc P.tgt.drawing e \ {P.tgt.pos a, P.tgt.pos b} := P.tgt.cell_edge hab
+    apply hArc.isPreconnected_diff.subset_closure
+    · intro x hx
+      have hxCell : x ∈ P.tgt.cell e := by
+        rw [hcell]
+        exact hx
+      exact ⟨hx.1, (P.tgt_isWeaklyAdmissible.cell_subset he heNotOuter hxCell).2⟩
+    · rw [Schoenflies.IsArcBetween.closure_diff_eq hArc]
+      exact Set.sdiff_subset
+  nontrivial := by
+    intro A hA
+    obtain ⟨e, he, ⟨heNotOuter, rfl⟩⟩ := mem_openTargetEdgePieces.1 hA
+    obtain ⟨a, b, hab⟩ := P.str.skel.exists_isLink_of_mem_edgeSet he
+    have hArc := P.tgt.isDrawing.edge_isArcBetween (hab.map P.tgt.pos)
+    obtain ⟨x, hx, y, hy, hxy⟩ := IsArcBetween.exists_two_mem_diff hArc
+    have hcell : P.tgt.cell e =
+        edgeArc P.tgt.drawing e \ {P.tgt.pos a, P.tgt.pos b} := P.tgt.cell_edge hab
+    have hsub : edgeArc P.tgt.drawing e \ {P.tgt.pos a, P.tgt.pos b} ⊆
+        edgeArc P.tgt.drawing e \ modelCurve := by
+      intro u hu
+      have huCell : u ∈ P.tgt.cell e := by
+        rw [hcell]
+        exact hu
+      exact ⟨hu.1, (P.tgt_isWeaklyAdmissible.cell_subset he heNotOuter huCell).2⟩
+    exact ⟨x, hsub hx, y, hsub hy, hxy⟩
+
+/-- A finite list of nontrivial sets has a uniform positive lower bound on one pairwise
+distance chosen from each set. -/
+theorem exists_uniform_piece_width (pieces : List (Set Plane))
+    (hnontrivial : ∀ A ∈ pieces, ∃ x ∈ A, ∃ y ∈ A, x ≠ y) :
+    ∃ delta : ℝ, 0 < delta ∧
+      ∀ A ∈ pieces, ∃ x ∈ A, ∃ y ∈ A, delta < dist x y := by
+  induction pieces with
+  | nil => exact ⟨1, one_pos, by simp⟩
+  | cons A pieces ih =>
+      have htail : ∀ B ∈ pieces, ∃ x ∈ B, ∃ y ∈ B, x ≠ y :=
+        fun B hB => hnontrivial B (List.mem_cons_of_mem A hB)
+      obtain ⟨delta, hdelta, hwide⟩ := ih htail
+      obtain ⟨x, hx, y, hy, hxy⟩ := hnontrivial A (List.mem_cons_self ..)
+      let epsilon := min (delta / 2) (dist x y / 2)
+      have hdist : 0 < dist x y := dist_pos.2 hxy
+      have hepsilon : 0 < epsilon := by
+        dsimp only [epsilon]
+        positivity
+      refine ⟨epsilon, hepsilon, ?_⟩
+      intro B hB
+      rcases List.mem_cons.1 hB with rfl | hB
+      · refine ⟨x, hx, y, hy, ?_⟩
+        dsimp only [epsilon]
+        linarith [min_le_right (delta / 2) (dist x y / 2)]
+      · obtain ⟨u, hu, v, hv, huv⟩ := hwide B hB
+        refine ⟨u, hu, v, hv, ?_⟩
+        dsimp only [epsilon]
+        linarith [min_le_left (delta / 2) (dist x y / 2)]
+
+/-- A finite open-target cover supplies a positive scale at which every open-skeleton point
+has a connected neighborhood wider than the mesh. -/
+theorem FiniteOpenTargetCover.exists_locallyWiderThan
+    (C : FiniteOpenTargetCover P) :
+    ∃ delta : ℝ, 0 < delta ∧ OpenTargetLocallyWiderThan P delta := by
+  obtain ⟨delta, hdelta, hwide⟩ :=
+    exists_uniform_piece_width C.pieces C.nontrivial
+  refine ⟨delta, hdelta, ?_⟩
+  intro z hz
+  obtain ⟨A, hA, hzA⟩ := C.covers z hz
+  obtain ⟨x, hx, y, hy, hxy⟩ := hwide A hA
+  exact ⟨A, C.subset_open A hA, C.preconnected A hA, hzA, x, hx, y, hy, hxy⟩
+
+/-- The local-width condition is preserved when the proposed mesh scale is decreased. -/
+theorem OpenTargetLocallyWiderThan.mono
+    {delta epsilon : ℝ} (h : OpenTargetLocallyWiderThan P delta)
+    (hle : epsilon ≤ delta) : OpenTargetLocallyWiderThan P epsilon := by
+  intro z hz
+  obtain ⟨A, hA, hconn, hzA, x, hx, y, hy, hxy⟩ := h z hz
+  exact ⟨A, hA, hconn, hzA, x, hx, y, hy, lt_of_le_of_lt hle hxy⟩
+
+/-- Every generated target has a positive mesh scale below `4` at which all of its open edge
+pieces are wider than the mesh. -/
+theorem exists_fine_openTarget_scale
+    (P : GeneratedPair S₀ srcOuter srcDom modelCurve (Plane.closedSquare 0 1)) :
+    ∃ delta : ℝ, 0 < delta ∧ delta < 4 ∧ OpenTargetLocallyWiderThan P delta := by
+  obtain ⟨delta, hdelta, hwide⟩ :=
+    (finiteOpenTargetCover P).exists_locallyWiderThan
+  let epsilon := min delta 1
+  have hepsilon : 0 < epsilon := by
+    dsimp only [epsilon]
+    positivity
+  exact ⟨epsilon, hepsilon, lt_of_le_of_lt (min_le_right delta 1) (by norm_num),
+    hwide.mono (min_le_left delta 1)⟩
+
+/-- A connected old-skeleton piece wider than the mesh scale must meet the mesh.  Otherwise the
+radial mesh estimate bounds all of its pairwise distances by a number strictly below `delta`. -/
+theorem mesh_hits_openTarget_of_locallyWider
+    (P : GeneratedPair S₀ srcOuter srcDom modelCurve (Plane.closedSquare 0 1))
+    {fresh : List Plane}
+    {delta : ℝ} (hdelta : 0 < delta) (hdense : FreshDense fresh delta)
+    (hwide : OpenTargetLocallyWiderThan P delta) (anchors : List Plane) :
+    ∀ z ∈ P.tgt.skeletonSet \ modelCurve,
+      ∃ A : Set Plane, A ⊆ P.tgt.skeletonSet \ modelCurve ∧
+        IsPreconnected A ∧ z ∈ A ∧
+          (A ∩ (Graph.pointSet (squareMesh delta fresh anchors) segmentDrawing \
+            modelCurve)).Nonempty := by
+  intro z hz
+  obtain ⟨A, hA, hAconn, hzA, x, hxA, y, hyA, hxy⟩ := hwide z hz
+  refine ⟨A, hA, hAconn, hzA, ?_⟩
+  have hmeet :
+      (A ∩ Graph.pointSet (squareMesh delta fresh anchors) segmentDrawing).Nonempty := by
+    by_contra hempty
+    rw [Set.not_nonempty_iff_eq_empty, Set.eq_empty_iff_forall_notMem] at hempty
+    have hdisj : ∀ u ∈ A, u ∉ cover (meshSegments (meshCount delta) fresh) := by
+      intro u huA huMesh
+      apply hempty u
+      refine ⟨huA, ?_⟩
+      rwa [squareMesh_pointSet]
+    have hzOpen := hA hzA
+    have hzlt : Plane.supNorm z < 1 := by
+      refine lt_of_le_of_ne
+        (mem_closedSquare_zero_one.1
+          (P.tgt_isWeaklyAdmissible.skeletonSet_subset hzOpen.1)) ?_
+      exact hzOpen.2
+    obtain ⟨-, hdist⟩ := radial_diam_bound (two_le_meshCount delta)
+      (meshCount_spec hdelta).le hdense hAconn hdisj hzA hzlt
+    have hNpos : (0 : ℝ) < meshCount delta := by
+      exact_mod_cast Nat.zero_lt_of_lt (two_le_meshCount delta)
+    have hthin : Real.sqrt 2 / (meshCount delta : ℝ) < delta / 2 := by
+      rw [div_lt_div_iff₀ hNpos two_pos]
+      linarith [meshCount_spec hdelta]
+    have := hdist x hxA y hyA
+    linarith
+  obtain ⟨u, huA, huMesh⟩ := hmeet
+  exact ⟨u, huA, huMesh, (hA huA).2⟩
+
 /-- If every connected piece of the old open skeleton meets the connected open part of the
-mesh, their union is connected.  This is the set-theoretic core of the remaining quantitative
+mesh, their union is connected.  This is the set-theoretic core of the quantitative
 mesh-hitting argument. -/
 theorem meshOverlay_isConnected_diff_of_hits (Q : TargetSegmentCover P)
     {fresh : List Plane} (hfresh : ∀ z ∈ fresh, z ∈ modelCurve)
@@ -616,6 +927,38 @@ theorem isSourceExtension_relabelledMeshOverlay_of_dense_hits
   obtain ⟨z, hz, -, -, -⟩ := exists_two_distinct_fresh_of_freshDense hdense hdelta
   exact Q.isSourceExtension_relabelledMeshOverlay_of_hits hfresh hz delta anchors name hname
     (Q.meshOverlay_isTwoConnected hfresh hdense hdelta anchors) hhit
+
+/-- A sufficiently fine mesh gives the target extension from the local-width condition alone:
+the radial diameter estimate supplies the mesh hits, while density supplies 2-connectivity. -/
+theorem isSourceExtension_relabelledMeshOverlay_of_locallyWider
+    (Q : TargetSegmentCover P)
+    {fresh : List Plane} (hfresh : ∀ z ∈ fresh, z ∈ modelCurve)
+    {delta : ℝ} (hdelta : 0 < delta) (hdense : FreshDense fresh delta)
+    (hdelta4 : delta < 4) (hwide : OpenTargetLocallyWiderThan P delta)
+    (anchors : List Plane) (name : Piece → γ)
+    (hname : InjOn name E(Q.meshOverlay delta fresh anchors)) :
+    IsSourceExtension P.tgt modelCurve (Plane.closedSquare 0 1)
+      ((Q.meshOverlay delta fresh anchors).relabelEdges name hname)
+      ((Q.meshOverlay delta fresh anchors).relabelDrawing name segmentDrawing) :=
+  Q.isSourceExtension_relabelledMeshOverlay_of_dense_hits hfresh hdense hdelta4 anchors
+    name hname (mesh_hits_openTarget_of_locallyWider P hdelta hdense hwide anchors)
+
+/-- There is a positive scale below `4` such that every dense anchored mesh at that scale,
+after fresh injective edge relabelling, is a complete target source extension. -/
+theorem exists_scale_isSourceExtension_relabelledMeshOverlay
+    (Q : TargetSegmentCover P) :
+    ∃ delta : ℝ, 0 < delta ∧ delta < 4 ∧
+      ∀ (fresh anchors : List Plane) (name : Piece → γ),
+        (∀ z ∈ fresh, z ∈ modelCurve) → FreshDense fresh delta →
+        (hname : InjOn name E(Q.meshOverlay delta fresh anchors)) →
+        IsSourceExtension P.tgt modelCurve (Plane.closedSquare 0 1)
+          ((Q.meshOverlay delta fresh anchors).relabelEdges name hname)
+          ((Q.meshOverlay delta fresh anchors).relabelDrawing name segmentDrawing) := by
+  obtain ⟨delta, hdelta, hdelta4, hwide⟩ := exists_fine_openTarget_scale P
+  refine ⟨delta, hdelta, hdelta4, ?_⟩
+  intro fresh anchors name hfresh hdense hname
+  exact Q.isSourceExtension_relabelledMeshOverlay_of_locallyWider
+    hfresh hdelta hdense hdelta4 hwide anchors name hname
 
 /-- Fresh cell names for every edge of the combined target overlay, avoiding all names already
 used by the current generated structure. -/

@@ -97,16 +97,13 @@ survives verbatim is what the construction uses downstream — the occupied set,
   through the induction, `Schoenflies.IsPartialTransferOf`, asks only for *weak* admissibility,
   and connectedness of the open nonboundary part is restored only at the very end.
 
-## What is **not** proved here, and is named rather than `sorry`-ed
+## Completion of step 1
 
-* **The second half of step 1**, the common subdivision. The overlay itself is proved
-  (`Schoenflies.exists_overlay_of_biUnion_finite`, below); what is missing is that the *old
-  skeleton* is literally a subgraph of the overlay **on both sides**, which needs each new
-  subdivision point carried through the chosen edge parametrization to the other realization,
-  using `SubdivData.realizeHomeo` to carry each new subdivision point to the other side. The
-  hypothesis
-  `Schoenflies.CommonSubdivision` is the interface: it says that the extension can be
-  presented over a subdivided pair, and it is a strictly weaker statement than the theorem.
+This module keeps `Schoenflies.CommonSubdivision` as the compositional interface consumed by the
+ear induction.  `Schoenflies/CommonSubdivision.lean` constructs it: it traces the part of `H`
+supported on the old skeleton, proves that trace 2-connected, and carries all of its finitely many
+vertices through matched source/target edge subdivisions.  Consequently direction (a) is exposed
+there as `Schoenflies.finite_transfer_toward_square_unconditional`.
 
 ## Blueprint
 
@@ -136,8 +133,8 @@ survives verbatim is what the construction uses downstream — the occupied set,
 * `Schoenflies.exists_overlay_of_biUnion_finite` — `lem:polygonal-overlay` and
   `rem:polygonal-overlay-convention`, for a finite family of polygonal sets: the first half of
   step 1.
-* `Schoenflies.earStep` — step 3, now a theorem; `Schoenflies.CommonSubdivision` — the remaining
-  named hypothesis for step 1.
+* `Schoenflies.earStep` — step 3; `Schoenflies.CommonSubdivision` — the step-1 interface,
+  discharged by `Schoenflies.commonSubdivision` in `CommonSubdivision.lean`.
 * `Schoenflies.transfer_of_ears`, `Schoenflies.finite_transfer_toward_square` —
   `thm:finite-transfer`(a).
 -/
@@ -1384,8 +1381,7 @@ transferred to an admissible target realization `H'`; the resulting generated ma
 refines the old one by an explicit parent map.
 
 This compatibility form accepts both step interfaces as arguments. `earStep` discharges the
-second unconditionally, and `finite_transfer_toward_square_of_commonSubdivision` below exposes
-the current sharp form, conditional only on step 1. -/
+second, while `commonSubdivision` in `CommonSubdivision.lean` discharges the first. -/
 theorem finite_transfer_toward_square [Infinite γ]
     {P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom}
     {H : Graph Plane γ} {Hdraw : γ → ℝ → Plane}
@@ -1598,8 +1594,7 @@ theorem earStep [Infinite γ]
     (hH : IsSourceExtension P.src srcOuter srcDom H Hdraw) : EarStep P H Hdraw :=
   earStep_of_data hH (earStepConstruction P H Hdraw hH)
 
-/-- Steps 2 and 3 of finite transfer now require only the still-separate common-subdivision
-construction. -/
+/-- Steps 2 and 3 of finite transfer, parametrized by the step-1 interface. -/
 theorem transfer_of_ears_of_commonSubdivision [Infinite γ]
     {P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom}
     {H : Graph Plane γ} {Hdraw : γ → ℝ → Plane}
@@ -1609,7 +1604,7 @@ theorem transfer_of_ears_of_commonSubdivision [Infinite γ]
       IsPartialTransferOf T P H Hdraw par :=
   transfer_of_ears hH hsub (earStep P H Hdraw hH)
 
-/-- **Finite transfer toward the square, conditional only on common subdivision.** -/
+/-- **Finite transfer toward the square from an explicitly supplied common subdivision.** -/
 theorem finite_transfer_toward_square_of_commonSubdivision [Infinite γ]
     {P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom}
     {H : Graph Plane γ} {Hdraw : γ → ℝ → Plane}
@@ -1709,9 +1704,9 @@ The nondegeneracy hypothesis is necessary, not cosmetic: a one-point set is poly
 (`poly [a] = {a}`) and is not the point set of any overlay graph, whose vertices are the ends of
 nondegenerate segments.
 
-What remains of step 1 — that the *old skeleton* is literally a subgraph of the overlay on both
-sides, which needs each new subdivision point carried through the chosen edge parametrization to
-the other realization — is `Schoenflies.CommonSubdivision`, assumed. -/
+The matching-subdivision half of step 1 is completed in `CommonSubdivision.lean`: every source
+subdivision point is transported through the chosen edge parametrization to the other
+realization. -/
 
 /-- **`lem:polygonal-overlay` for a finite family of polygonal sets.** The union of finitely many
 nondegenerate polygonal sets is the point set of a finite plane graph whose edges are straight

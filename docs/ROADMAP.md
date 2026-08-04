@@ -36,7 +36,6 @@ Schoenflies.CellStructure.LimitTower.isHomeoOn_F      ← the fields of LimitTow
 | `Schoenflies.SquareExtension` | `Endgame.lean` | `thm:main` | discharged by `square_extension` below, so not really open |
 | `Schoenflies.HasLimitHomeomorphism` | `BoundaryContinuity2.lean` | `thm:square-extension` | four conjuncts: a dense anchor set, the interior homeomorphism, `HasAnchorCrosscuts`, `HasSpokes`. **`LimitTower` supplies the second; the other three need the construction.** |
 | the fields of `CellStructure.LimitTower` | `LimitMap.lean` | the interior homeomorphism | ~14 fields, each an obligation on whoever builds the nested sequence: the cell decompositions, the shared parent maps, the two halves of `prop:shrinking-stars`, and the nesting of the skeleton maps. See the module docstring |
-| `Schoenflies.CommonSubdivision` | `FiniteTransfer.lean` | `thm:finite-transfer`(a) | step 1. The overlay itself is proved (`exists_overlay_of_biUnion_finite`); what is missing is carrying each new subdivision point through the chosen edge parametrization to the *other* realization. `RealizeSubdivHomeo.lean` now supplies exactly that transport for one subdivision (`SubdivData.targetParam`, `realizeHomeo`), so this is assembly, not new mathematics |
 | `Schoenflies.CellsAbsorb` | `SkeletonAccess.lean`, `FreshAccess.lean` | `lem:polygonal-side-accessibility` | one clause of `lem:cellulation-invariants`; finite transfer now derives it directly as `IsCellDecomposition.cellsAbsorb` from assertions (i) and (vii) |
 
 ### The atom is closed
@@ -132,13 +131,12 @@ The entire `EarStep` construction is now closed:
 
 Everything downstream is now:
 
-1. discharge `CommonSubdivision`, the sole remaining hypothesis of
-   `finite_transfer_toward_square_of_commonSubdivision`;
-2. `thm:finite-transfer` (a) unconditional, and (b) — whose one extra ingredient, accessibility
+1. `thm:finite-transfer` (b) — direction (a) is unconditional in
+   `finite_transfer_toward_square_unconditional`, while (b)'s one extra ingredient, accessibility
    at a fresh anchor on the wild curve, is closed in `FreshAccess.lean`;
-3. the stage recursion, which is where `GridAttach.lean`, `SquareMeshClosed.lean` and
+2. the stage recursion, which is where `GridAttach.lean`, `SquareMeshClosed.lean` and
    `Windows.lean` are spent, giving `lem:grid-star-estimate` and `prop:shrinking-stars`;
-4. `HasAnchorCrosscuts` and `HasSpokes` from the stages, and `thm:main` becomes unconditional.
+3. `HasAnchorCrosscuts` and `HasSpokes` from the stages, and `thm:main` becomes unconditional.
 
 Everything that *consumes* those is done.
 
@@ -299,7 +297,7 @@ path is now the two **realization constructors** they are stated against, and th
 | `lem:cellulation-invariants` | done | (ii), (iii), (iv), (v), (vi), (viii), (ix) and (i) at the subdivision constructor in `GeneratedStructure.lean`; **(i) at the split constructor and (vii)** in `CellulationInvariants.lean` (`SplitData.IsCrosscutSplit.isCellDecomposition_and_isFaceJordan`, `SubdivData.IsRefinement.isCellDecomposition_and_isFaceJordan`). Both are *step* theorems, stated against a realization of the refined structure — see the row above for what is still missing |
 | `lem:refinement-compatibility`, `lem:star-intersection`, `lem:star-face-mesh`, `lem:cell-neighborhood` | done | `RefinementStars.lean`. The carrier is a total function and refinement is abstract, which is what lets the limit section be built against an interface |
 | `lem:polygonal-side-accessibility` | conditional (`Schoenflies.CellsAbsorb`) | `SkeletonAccess.lean` — both halves, on one clause of `lem:cellulation-invariants` |
-| `thm:finite-transfer` (a) | conditional (`CommonSubdivision`) | `FiniteTransfer.lean` — step 3 is now the unconditional theorem `earStep`; `finite_transfer_toward_square_of_commonSubdivision` is conditional only on step 1. See the live-obligations table |
+| `thm:finite-transfer` (a) | **done** | `FiniteTransfer.lean` supplies the ear induction and `earStep`; `CommonSubdivision.lean` proves `commonSubdivision` by tracing the old skeleton and iterating matched edge subdivisions, then exposes `finite_transfer_toward_square_unconditional` |
 | `thm:finite-transfer` (b) | partial | its one ingredient beyond (a), source accessibility at a fresh anchor on the wild curve, is closed in `FreshAccess.lean` (`polyAccessible_of_stronglyAccessible`). The statement itself is not yet written |
 | `prop:local-grid-attachment` | conditional (`hΓ`, `hcov`) | `LocalGrid.lean` (`localGrid`, the diameter clause) + `GridAttach.lean` (the overlay, the crosscut factory, the component-joining loop, and the construction as `def`s). The blueprint's three cases collapse to one; the joining loop is done by representatives rather than by a decreasing component count. `hΓ` is 2-connectivity of `Γ` with the auxiliary arcs appended — not provable there, because `C` is not drawn by segments so `Γ` is not a `pieceListGraph`; `hcov` is "finitely many representatives meet every component of `|L| ∖ C`", where the blueprint's finiteness lives |
 | `lem:grid-star-estimate`, `prop:shrinking-stars`, `lem:anchor-density` | open | quantitative refinement; they consume the stage recursion, which does not exist yet. The metric half is ready: `Windows.lean` has `supRadius` (the ℓ^∞ distance to a compact set, with attainment, positivity and the 1-Lipschitz property), `windowRadius` / `window` / `openWindow` with the blueprint's three inequalities and `W_n(p) ⊆ D`, the arithmetic of `prop:shrinking-stars` (`mem_openWindow_of_supDist_lt`), and the two sequences (`recur`, `tendsto_two_pow_neg`) |

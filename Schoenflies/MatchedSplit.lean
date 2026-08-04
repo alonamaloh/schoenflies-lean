@@ -28,6 +28,8 @@ skeleton homeomorphism has to be carried across. That is what this module does.
   is the old one together with the drawn ear**, as a point set. Everything else rests on this.
 * `Schoenflies.CellStructure.SplitData.EarHomeo` — the chosen homeomorphism between the two
   drawn ears (see the next section).
+* `Schoenflies.CellStructure.SplitData.EarHomeo.symm` — the same chosen matching with source
+  and target reversed, used by finite-transfer direction (b).
 * `Schoenflies.CellStructure.SplitData.splitMap` / `splitInvMap` — the transported map and its
   inverse, as plain functions `Plane → Plane`: `g` on the old skeleton, the ear map off it.
 * `Schoenflies.CellStructure.SplitData.splitHomeo` — the `SkeletonHomeo` between the two split
@@ -238,6 +240,33 @@ theorem mapsTo_invFun :
   obtain ⟨x, hx, rfl⟩ := hy
   rw [m.leftInvOn hx]
   exact hx
+
+/-- Reverse a chosen matching of two realized ears.  Direction (b) of finite transfer first
+constructs the ear on the target side, so it naturally obtains the matching in the opposite
+direction from the one consumed by `GeneratedPair.split`. -/
+def symm : d.EarHomeo earPos₂ earDraw₂ earPos₁ earDraw₁ where
+  toFun := m.invFun
+  invFun := m.toFun
+  continuousOn_toFun := m.continuousOn_invFun
+  continuousOn_invFun := m.continuousOn_toFun
+  leftInvOn := m.rightInvOn
+  rightInvOn := m.leftInvOn
+  earPos_apply := by
+    intro z hz
+    rw [← m.earPos_apply hz]
+    apply m.leftInvOn
+    exact Graph.vertexSet_subset_pointSet (by
+      rw [d.vertexSet_earGraph]
+      exact ⟨z, hz, rfl⟩)
+  edgeArc_image := by
+    intro f hf
+    rw [← m.edgeArc_image hf]
+    exact m.leftInvOn.image_image'
+      (Graph.edgeArc_subset_pointSet (by rw [d.edgeSet_earGraph]; exact hf))
+
+@[simp] theorem symm_toFun : m.symm.toFun = m.invFun := rfl
+
+@[simp] theorem symm_invFun : m.symm.invFun = m.toFun := rfl
 
 variable {R₁ R₂ : S.Realization}
 

@@ -67,9 +67,14 @@ cone, and the induction is what will discharge it.
 * `Schoenflies.accessCone_subset_cell` — "its punctured part is connected, lies in the
   complement of the current skeleton, and accumulates at `a`; therefore it lies in the unique
   current source 2-cell", from `lem:cellulation-invariants`(i) in the `CellsAbsorb` reading.
+* `Schoenflies.CellsAbsorbIn`, `Schoenflies.accessCone_subset_cell_in` — the domain-restricted
+  form actually used in direction (b): the access cone already lies in the Jordan domain, so
+  absorption is needed only for connected subsets of that domain.
 * `Schoenflies.polyAccessible_of_stronglyAccessible` — the whole paragraph: a strongly
   accessible point of the wild curve is polygonally accessible from the current source 2-cell
   incident with it. This is the one input direction (b) needs beyond direction (a).
+* `Schoenflies.polyAccessible_of_stronglyAccessible_in` — the same conclusion from the
+  domain-restricted absorption interface.
 -/
 
 open Metric Set
@@ -182,6 +187,17 @@ theorem exists_accessCone_disjoint (h : StronglyAccessible D a) (hK : IsCompact 
 
 /-! ### Which cell the cone lies in -/
 
+/-- Absorption by cells for connected sets already known to lie in an ambient domain.  This is
+the precise form needed for a tangent cone inside a Jordan domain when `K` contains only the
+closed nonboundary edges and not the wild boundary itself. -/
+def CellsAbsorbIn (D K : Set Plane) (cells : Set (Set Plane)) : Prop :=
+  ∀ N : Set Plane, N ⊆ D → IsPreconnected N → Disjoint N K →
+    ∀ R ∈ cells, (N ∩ R).Nonempty → N ⊆ R
+
+/-- Global absorption implies its domain-restricted form. -/
+theorem CellsAbsorb.cellsAbsorbIn (h : CellsAbsorb K cells) : CellsAbsorbIn D K cells :=
+  fun N _ hN hdisj R hR hmeet => h N hN hdisj R hR hmeet
+
 /-- **"Therefore it lies in the unique current source 2-cell just identified."** A connected set
 disjoint from the current skeleton, contained in a region the cells cover, lies in a single
 cell; the closure clause then names it.
@@ -205,6 +221,20 @@ theorem accessCone_subset_cell (habs : CellsAbsorb K cells)
   rw [← hunique R hR (closure_mono hsub (mem_closure_accessCone hv hs))]
   exact hsub
 
+/-- The unique-cell argument with absorption required only inside the ambient domain. -/
+theorem accessCone_subset_cell_in (habs : CellsAbsorbIn D K cells)
+    (hcover : ∀ x ∈ D, x ∉ K → ∃ R ∈ cells, x ∈ R)
+    (hunique : ∀ R ∈ cells, a ∈ closure R → R = F)
+    (hv : ‖v‖ = 1) (hs : 0 < s) (hD : accessCone a v s ⊆ D)
+    (hdisj : Disjoint (accessCone a v s) K) :
+    accessCone a v s ⊆ F := by
+  obtain ⟨x, hx⟩ := accessCone_nonempty hv hs
+  obtain ⟨R, hR, hxR⟩ := hcover x (hD hx) (Set.disjoint_left.1 hdisj hx)
+  have hsub : accessCone a v s ⊆ R :=
+    habs _ hD (isPreconnected_accessCone a v s) hdisj R hR ⟨x, hx, hxR⟩
+  rw [← hunique R hR (closure_mono hsub (mem_closure_accessCone hv hs))]
+  exact hsub
+
 /-! ### The paragraph -/
 
 /-- **The source access arc at a fresh anchor** — the one input `thm:finite-transfer`(b) needs
@@ -225,5 +255,16 @@ theorem polyAccessible_of_stronglyAccessible (h : StronglyAccessible D a) (hK : 
   obtain ⟨v, s, hv, hs, hD, hdisj⟩ := exists_accessCone_disjoint h hK ha
   exact polyAccessible_accessCone hv hs
     (accessCone_subset_cell habs hcover hunique hv hs hD hdisj)
+
+/-- The fresh-anchor paragraph with the absorption invariant stated only inside the Jordan
+domain, where the tangent cone is already known to lie. -/
+theorem polyAccessible_of_stronglyAccessible_in (h : StronglyAccessible D a)
+    (hK : IsCompact K) (ha : a ∉ K) (habs : CellsAbsorbIn D K cells)
+    (hcover : ∀ x ∈ D, x ∉ K → ∃ R ∈ cells, x ∈ R)
+    (hunique : ∀ R ∈ cells, a ∈ closure R → R = F) :
+    PolyAccessible F a := by
+  obtain ⟨v, s, hv, hs, hD, hdisj⟩ := exists_accessCone_disjoint h hK ha
+  exact polyAccessible_accessCone hv hs
+    (accessCone_subset_cell_in habs hcover hunique hv hs hD hdisj)
 
 end Schoenflies

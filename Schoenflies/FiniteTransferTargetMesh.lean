@@ -96,19 +96,17 @@ theorem nonouterIncidenceUniqueAtBoundary_squareMesh
   intro z P Q hz hP hQ hPinc hQinc hPnot hQnot
   exact squareMesh_nonouter_incident_eq hfresh delta hz hP hQ hPinc hQinc hPnot hQnot
 
-/-- A finite square mesh can have all of its edges injectively renamed into any infinite cell
-name type, avoiding any prescribed finite set of names. -/
-theorem exists_squareMesh_edgeRelabeling_avoiding (γ : Type*) [Infinite γ]
-    (delta : ℝ) (fresh anchors : List Plane) (used : Set γ) (hused : used.Finite) :
-    ∃ name : Piece → γ, InjOn name E(squareMesh delta fresh anchors) ∧
-      ∀ e ∈ E(squareMesh delta fresh anchors), name e ∉ used := by
+/-- The edges of any finite graph can be injectively renamed into an infinite type while
+avoiding a prescribed finite set of names. -/
+theorem exists_finiteGraph_edgeRelabeling_avoiding
+    {β : Type*} (γ : Type*) [Infinite γ] (H : Graph Plane β) [H.Finite]
+    (used : Set γ) (hused : used.Finite) :
+    ∃ name : β → γ, InjOn name E(H) ∧ ∀ e ∈ E(H), name e ∉ used := by
   classical
-  let H := squareMesh delta fresh anchors
-  letI : H.Finite := squareMesh_finite delta fresh anchors
   obtain ⟨freshName, hfreshName, havoid⟩ :=
     exists_injective_avoiding used hused E(H)
   let fallback : γ := Classical.choice (inferInstance : Nonempty γ)
-  let name : Piece → γ := fun e =>
+  let name : β → γ := fun e =>
     if he : e ∈ E(H) then freshName ⟨e, he⟩ else fallback
   refine ⟨name, ?_, ?_⟩
   · intro e he g hg heg
@@ -121,6 +119,14 @@ theorem exists_squareMesh_edgeRelabeling_avoiding (γ : Type*) [Infinite γ]
     dsimp only [name]
     rw [dif_pos he]
     exact havoid (⟨e, he⟩ : E(H))
+
+/-- A finite square mesh can have all of its edges injectively renamed into any infinite cell
+name type, avoiding any prescribed finite set of names. -/
+theorem exists_squareMesh_edgeRelabeling_avoiding (γ : Type*) [Infinite γ]
+    (delta : ℝ) (fresh anchors : List Plane) (used : Set γ) (hused : used.Finite) :
+    ∃ name : Piece → γ, InjOn name E(squareMesh delta fresh anchors) ∧
+      ∀ e ∈ E(squareMesh delta fresh anchors), name e ∉ used :=
+  exists_finiteGraph_edgeRelabeling_avoiding γ (squareMesh delta fresh anchors) used hused
 
 /-- A relabelled square mesh is finite. -/
 theorem squareMesh_relabelEdges_finite {γ : Type*}
@@ -208,7 +214,8 @@ theorem isSourceExtension_relabelledSquareMesh
       Graph.pointSet (squareMesh delta fresh anchors) segmentDrawing)
     (hedge : ∀ ⦃e : γ⦄, e ∈ E(P.str.skel) → ∀ ⦃f : Piece⦄,
       f ∈ E(squareMesh delta fresh anchors) →
-      (edgeArc segmentDrawing f ∩ P.tgt.cell e).Nonempty →
+      (edgeArc segmentDrawing f ∩
+        (P.tgt.cell e \ V(squareMesh delta fresh anchors))).Nonempty →
       edgeArc segmentDrawing f ⊆ edgeArc P.tgt.drawing e)
     (hpointSet : Graph.pointSet (squareMesh delta fresh anchors) segmentDrawing ⊆ tgtDom)
     (hdichotomy : ∀ ⦃f⦄, f ∈ E(squareMesh delta fresh anchors) →
@@ -233,7 +240,8 @@ theorem isSourceExtension_relabelledSquareMesh
   edge_subset := by
     intro e he d hd hmeet
     obtain ⟨f, hf, rfl⟩ := hd
-    rw [Graph.edgeArc_relabelDrawing hname hf] at hmeet ⊢
+    rw [Graph.edgeArc_relabelDrawing hname hf, Graph.vertexSet_relabelEdges] at hmeet
+    rw [Graph.edgeArc_relabelDrawing hname hf]
     exact hedge he hf hmeet
   pointSet_subset := by
     rw [squareMesh_pointSet_relabelEdges]
@@ -261,7 +269,8 @@ theorem isSourceExtension_relabelledSquareMesh_closedSquare
       Graph.pointSet (squareMesh delta fresh anchors) segmentDrawing)
     (hedge : ∀ ⦃e : γ⦄, e ∈ E(P.str.skel) → ∀ ⦃f : Piece⦄,
       f ∈ E(squareMesh delta fresh anchors) →
-      (edgeArc segmentDrawing f ∩ P.tgt.cell e).Nonempty →
+      (edgeArc segmentDrawing f ∩
+        (P.tgt.cell e \ V(squareMesh delta fresh anchors))).Nonempty →
       edgeArc segmentDrawing f ⊆ edgeArc P.tgt.drawing e) :
     IsSourceExtension P.tgt modelCurve (Plane.closedSquare 0 1)
       ((squareMesh delta fresh anchors).relabelEdges name hname)

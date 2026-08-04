@@ -256,7 +256,7 @@ theorem trace_absorb (hH : IsSourceExtension R outer dom H Hdraw) :
         exact ⟨b, hab.right_mem, rfl⟩)
     exact (hH.edge_subset heS hf ⟨z, hzf, by
       rw [R.cell_edge hab]
-      exact ⟨hze, by simp [hza, hzb]⟩⟩).trans
+      exact ⟨hze, by simp [hza, hzb]⟩, hznotH⟩).trans
         (Graph.edgeArc_subset_pointSet heR)
 
 /-- The extension trace on the old skeleton occupies exactly the old skeleton. -/
@@ -292,7 +292,7 @@ theorem edge_trace_pointSet (hH : IsSourceExtension R outer dom H Hdraw)
       exact ⟨b, hab.right_mem, rfl⟩)
   exact hH.edge_subset he hf ⟨z, hzf, by
     rw [R.cell_edge hab]
-    exact ⟨hze, by simp [hza, hzb]⟩⟩
+    exact ⟨hze, by simp [hza, hzb]⟩, hznotH⟩
 
 /-- Every old edge is the drawn carrier of a path in the extension graph. -/
 theorem exists_edge_trace (hH : IsSourceExtension R outer dom H Hdraw)

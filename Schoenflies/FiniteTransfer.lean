@@ -662,9 +662,10 @@ end GeneratedPair
 with every nonboundary edge polygonal, and with `|H| ∖ C` connected.*
 
 "Contains a subdivision of `Γ`" is recorded by three clauses: every old vertex is a vertex of
-`H`; the old skeleton is inside `|H|`; and any edge of `H` that meets an *open* old edge lies
-inside that old edge. Together those say that each old edge is cut into a chain of `H`-edges and
-nothing else runs along it, which is exactly what a subdivision is.
+`H`; the old skeleton is inside `|H|`; and any edge of `H` whose nonvertex part meets an *open*
+old edge lies inside that old edge. Together those say that each old edge is cut into a chain of
+`H`-edges. A transverse crossing is allowed only at a vertex of `H`, exactly as produced by the
+polygonal overlay.
 
 "With outer cycle `C`, with every nonboundary edge polygonal" is `edge_dichotomy`: each edge of
 `H` either lies inside the outer curve or is polygonal with its interior in the open domain.
@@ -685,10 +686,13 @@ structure IsSourceExtension {S : CellStructure γ} (R : S.Realization) (outer do
   vertexSet_subset : V(R.graph) ⊆ V(H)
   /-- `|Γ| ⊆ |H|`. -/
   skeletonSet_subset : R.skeletonSet ⊆ pointSet H Hdraw
-  /-- An edge of `H` meeting an open edge of `Γ` runs inside it: `H` subdivides `Γ` rather than
-  crossing it. -/
+  /-- An edge of `H` whose interior meets an open edge of `Γ` runs inside it.  Intersections at
+  vertices of `H` are deliberately excluded: a transverse crossing is first made a vertex by
+  the polygonal overlay, and does not make either of its two incident branches part of the old
+  edge. -/
   edge_subset : ∀ ⦃e⦄, e ∈ E(S.skel) → ∀ ⦃f⦄, f ∈ E(H) →
-    (edgeArc Hdraw f ∩ R.cell e).Nonempty → edgeArc Hdraw f ⊆ edgeArc R.drawing e
+    (edgeArc Hdraw f ∩ (R.cell e \ V(H))).Nonempty →
+      edgeArc Hdraw f ⊆ edgeArc R.drawing e
   /-- `H` is drawn in the closed domain. -/
   pointSet_subset : pointSet H Hdraw ⊆ dom
   /-- Each edge of `H` is an outer edge or a polygonal nonboundary edge with interior in the

@@ -557,6 +557,59 @@ theorem IsDrawing.exists_cover [G.Finite] (h : IsDrawing G drawing)
   rw [hvs e he] at hm0 hm1
   rw [cover_segsOf_eq hm0 hm1 h01, ← hvs e he]
 
+/-- A finite polygonal plane graph without isolated vertices is carried exactly by finitely
+many nondegenerate straight segments.  The incidence hypothesis removes the isolated-vertex
+term from `IsDrawing.exists_cover`: every vertex already belongs to the segment cover. -/
+theorem IsDrawing.exists_segmentCover [G.Finite] (h : IsDrawing G drawing)
+    (hpoly : ∀ e ∈ E(G), IsPolygonal (edgeArc drawing e))
+    (hincident : ∀ z ∈ V(G), ∃ e, G.Inc e z) :
+    ∃ ps : List Piece, (∀ P ∈ ps, P.Nondeg) ∧ cover ps = pointSet G drawing ∧
+      ∀ P ∈ ps, ∃ e ∈ E(G), P.seg ⊆ edgeArc drawing e := by
+  classical
+  choose! vs hvs using hpoly
+  let ps := (Graph.edgeFinset G).toList.flatMap fun e => segsOf (vs e)
+  have hnd : ∀ P ∈ ps, P.Nondeg := by
+    intro P hP
+    obtain ⟨e, -, hPe⟩ := List.mem_flatMap.1 hP
+    exact segsOf_nondeg _ P hPe
+  have hcover : cover ps = ⋃ e ∈ E(G), edgeArc drawing e := by
+    dsimp only [ps]
+    rw [cover_flatMap_list]
+    ext z
+    simp only [mem_iUnion, exists_prop, Finset.mem_toList, mem_edgeFinset]
+    refine exists_congr fun e => and_congr_right fun he => ?_
+    have h01 : drawing e 0 ≠ drawing e 1 := by
+      intro hcontra
+      have := (h.edge_param he).2.1 zero_mem_I one_mem_I hcontra
+      norm_num at this
+    have hm0 : drawing e 0 ∈ edgeArc drawing e := ⟨0, zero_mem_I, rfl⟩
+    have hm1 : drawing e 1 ∈ edgeArc drawing e := ⟨1, one_mem_I, rfl⟩
+    rw [hvs e he] at hm0 hm1
+    rw [cover_segsOf_eq hm0 hm1 h01, ← hvs e he]
+  have hvertices : V(G) ⊆ ⋃ e ∈ E(G), edgeArc drawing e := by
+    intro z hz
+    obtain ⟨e, hinc⟩ := hincident z hz
+    obtain ⟨w, hlink⟩ := hinc
+    exact Set.mem_iUnion₂_of_mem hlink.edge_mem
+      (h.edge_isArcBetween hlink).left_mem
+  refine ⟨ps, hnd, ?_, ?_⟩
+  · rw [hcover, pointSet]
+    exact (Set.union_eq_right.mpr hvertices).symm
+  · intro P hP
+    obtain ⟨e, heList, hPe⟩ := List.mem_flatMap.1 hP
+    have he : e ∈ E(G) := by
+      rwa [Finset.mem_toList, mem_edgeFinset] at heList
+    have h01 : drawing e 0 ≠ drawing e 1 := by
+      intro hcontra
+      have := (h.edge_param he).2.1 zero_mem_I one_mem_I hcontra
+      norm_num at this
+    have hm0 : drawing e 0 ∈ edgeArc drawing e := ⟨0, zero_mem_I, rfl⟩
+    have hm1 : drawing e 1 ∈ edgeArc drawing e := ⟨1, one_mem_I, rfl⟩
+    rw [hvs e he] at hm0 hm1
+    refine ⟨e, he, fun z hz => ?_⟩
+    rw [hvs e he, ← cover_segsOf_eq hm0 hm1 h01]
+    exact Set.mem_iUnion₂_of_mem hPe hz
+
 /-- **Local structure of a polygonal skeleton** (`lem:local-skeleton-structure`): a point of a
 finite polygonal plane graph has a local radius, hence a disk in which the graph is exactly
 finitely many radial segments. -/

@@ -113,4 +113,5 @@ import Schoenflies.RealizeSubdivHomeo
 import Schoenflies.CommonSubdivision
 import Schoenflies.FiniteTransferTarget
 import Schoenflies.FiniteTransferTargetMesh
+import Schoenflies.TargetOverlay
 import Schoenflies.MatchedSplit

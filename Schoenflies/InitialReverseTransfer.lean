@@ -21,8 +21,9 @@ cell name.  Edge relabelling preserves the ambient boundary geometry used by rev
   for all edges of one finite square mesh.
 * `Schoenflies.finite_transfer_toward_source_initial_relabelledSquareMesh` — direction (b) for
   the relabelled mesh, with the initial outer-cycle base case discharged.
-* `Schoenflies.exists_finite_transfer_toward_source_initial_squareMesh` — the stage-facing form:
-  choose the fresh names, assemble the extension, and run reverse transfer.
+* `Schoenflies.exists_finite_transfer_toward_source_initial_squareMesh` — the bare-square-mesh
+  specialization: choose the fresh names, assemble the extension from the three explicit
+  subdivision hypotheses, and run reverse transfer.
 -/
 
 open Set
@@ -66,10 +67,12 @@ theorem finite_transfer_toward_source_initial_relabelledSquareMesh
   finite_transfer_toward_source_relabelledSquareMesh_of_outerCycle
     P hfresh hstrong delta name hname hH outerEdgesFormCycle_initialStructure
 
-/-- **Stage-facing reverse square-mesh transfer.**  Fresh abstract edge names are chosen
-automatically.  The square-mesh theorems discharge finiteness, drawing, 2-connectivity, domain
-containment, boundary-edge geometry, and connectedness off the model curve.  What remains is
-exactly the assertion that the concrete mesh subdivides the current target skeleton. -/
+/-- **Reverse transfer specialized to a bare square mesh.**  Fresh abstract edge names are
+chosen automatically.  The square-mesh theorems discharge finiteness, drawing, 2-connectivity,
+domain containment, boundary-edge geometry, and connectedness off the model curve.  The three
+remaining hypotheses assert that this particular mesh subdivides the current target skeleton;
+they need not hold for an arbitrary current polygonal skeleton, whose stage construction uses
+the combined overlay in `Schoenflies.TargetOverlay`. -/
 theorem exists_finite_transfer_toward_source_initial_squareMesh
     {srcOuter srcDom : Set Plane}
     (P : GeneratedPair initialStructure srcOuter srcDom modelCurve
@@ -83,7 +86,8 @@ theorem exists_finite_transfer_toward_source_initial_squareMesh
       Graph.pointSet (squareMesh delta fresh anchors) segmentDrawing)
     (hedge : ∀ ⦃e : InitialCell⦄, e ∈ E(P.str.skel) → ∀ ⦃f : Piece⦄,
       f ∈ E(squareMesh delta fresh anchors) →
-      (edgeArc segmentDrawing f ∩ P.tgt.cell e).Nonempty →
+      (edgeArc segmentDrawing f ∩
+        (P.tgt.cell e \ V(squareMesh delta fresh anchors))).Nonempty →
       edgeArc segmentDrawing f ⊆ edgeArc P.tgt.drawing e) :
     ∃ (name : Piece → InitialCell)
         (hname : InjOn name E(squareMesh delta fresh anchors))

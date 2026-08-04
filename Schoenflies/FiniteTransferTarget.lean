@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Álvaro Begué
 -/
 import Schoenflies.CommonSubdivision
+import Schoenflies.CrosscutExists
 import Schoenflies.FreshAccess
 import Schoenflies.Graph.VertexSquares
 
@@ -686,6 +687,188 @@ def CellStructure.OuterIncidenceAtMostTwo (S : CellStructure γ) (v : γ) : Prop
 /-- The distinguished outer graph is locally at most two-branched at every vertex. -/
 def CellStructure.OuterIncidenceAtMostTwoEverywhere (S : CellStructure γ) : Prop :=
   ∀ v, S.OuterIncidenceAtMostTwo v
+
+/-- The edge set of the distinguished outer graph is exactly one simple cycle.  Isolated
+vertices are intentionally irrelevant: reverse transfer only reads edge incidence. -/
+def CellStructure.OuterEdgesFormCycle (S : CellStructure γ) : Prop :=
+  ∃ e u v D, S.outerGraph.IsCycleThrough e u v D ∧
+    E(S.outerGraph) = {f | f ∈ e :: D}
+
+/-- A graph whose outer edges form one simple cycle is locally at most two-branched.  Rotate
+the cycle to one incident edge; every other edge at that endpoint lies on the complementary
+simple path, which has only one incident edge at either end. -/
+theorem CellStructure.OuterEdgesFormCycle.outerIncidenceAtMostTwoEverywhere
+    {S : CellStructure γ} (h : S.OuterEdgesFormCycle) :
+    S.OuterIncidenceAtMostTwoEverywhere := by
+  obtain ⟨e, u, v, D, hc, hE⟩ := h
+  intro z f g k hf hg hk
+  have hfC : f ∈ e :: D := by
+    change f ∈ ({f | f ∈ e :: D} : Set γ)
+    rw [← hE]
+    exact hf.edge_mem
+  have hgC : g ∈ e :: D := by
+    change g ∈ ({f | f ∈ e :: D} : Set γ)
+    rw [← hE]
+    exact hg.edge_mem
+  have hkC : k ∈ e :: D := by
+    change k ∈ ({f | f ∈ e :: D} : Set γ)
+    rw [← hE]
+    exact hk.edge_mem
+  obtain ⟨a, b, W, hrot, hperm⟩ := hc.rotate hfC
+  have hg' : g = f ∨ g ∈ W := List.mem_cons.1 (hperm.mem_iff.2 hgC)
+  have hk' : k = f ∨ k ∈ W := List.mem_cons.1 (hperm.mem_iff.2 hkC)
+  rcases hf.eq_or_eq_of_isLink hrot.isLink with rfl | rfl
+  · rcases hg' with rfl | hgW
+    · exact Or.inl rfl
+    rcases hk' with rfl | hkW
+    · exact Or.inr (Or.inl rfl)
+    · exact Or.inr (Or.inr
+        (hrot.isPath.inc_source_unique hgW hkW hg hk))
+  · rcases hg' with rfl | hgW
+    · exact Or.inl rfl
+    rcases hk' with rfl | hkW
+    · exact Or.inr (Or.inl rfl)
+    · exact Or.inr (Or.inr (hrot.isPath.reverse.inc_source_unique
+        (by simpa using hgW) (by simpa using hkW) hg hk))
+
+namespace CellStructure.SubdivData
+
+/-- Every abstract walk admits the orientation-aware edge substitution prescribed by a
+subdivision. -/
+theorem exists_substWalk_of_isWalk {S : CellStructure γ} (d : S.SubdivData)
+    {u v : γ} {W : List γ} (hW : S.skel.IsWalk u W v) :
+  ∃ W', d.SubstWalk u W W' := by
+  induction hW with
+  | nil _ =>
+      refine ⟨[], ?_⟩
+      exact CellStructure.SubstWalk.nil (S := S) (edge := d.edge)
+        (left := d.left) (right := d.right) (newEdge₁ := d.newEdge₁)
+        (newEdge₂ := d.newEdge₂) _
+  | @cons u w v f W hl hW ih =>
+      obtain ⟨W', hsub⟩ := ih
+      by_cases hfe : f = d.edge
+      · subst f
+        rcases hl.eq_and_eq_or_eq_and_eq d.isLink with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
+        · exact ⟨d.newEdge₁ :: d.newEdge₂ :: W', .forward hsub⟩
+        · exact ⟨d.newEdge₂ :: d.newEdge₁ :: W', .backward hsub⟩
+      · exact ⟨f :: W', .other hl hfe hsub⟩
+
+/-- If the subdivided edge occurs in the input, both replacement edges occur in the output. -/
+theorem SubstWalk.newEdges_mem_output_of_mem_input {S : CellStructure γ}
+    {d : S.SubdivData} {u : γ} {W W' : List γ}
+    (hsub : d.SubstWalk u W W') (he : d.edge ∈ W) :
+    d.newEdge₁ ∈ W' ∧ d.newEdge₂ ∈ W' := by
+  induction hsub with
+  | nil => simp at he
+  | forward => simp
+  | backward => simp
+  | @other u w f W W' hl hne hs ih =>
+      have heW : d.edge ∈ W := by
+        rcases List.mem_cons.1 he with h | h
+        · exact absurd h.symm hne
+        · exact h
+      exact ⟨List.mem_cons_of_mem _ (ih heW).1, List.mem_cons_of_mem _ (ih heW).2⟩
+
+/-- With the subdivided edge present, the output edge names are exactly the two replacements
+and the surviving input names. -/
+theorem SubstWalk.mem_output_iff_of_mem_input {S : CellStructure γ}
+    {d : S.SubdivData} {u x : γ} {W W' : List γ}
+    (hsub : d.SubstWalk u W W') (he : d.edge ∈ W) :
+    x ∈ W' ↔ x = d.newEdge₁ ∨ x = d.newEdge₂ ∨ (x ∈ W ∧ x ≠ d.edge) := by
+  constructor
+  · intro hx
+    rcases hsub.mem_input_of_mem_output hx with rfl | rfl | hxW
+    · exact Or.inl rfl
+    · exact Or.inr (Or.inl rfl)
+    · exact Or.inr (Or.inr ⟨hxW, fun h => hsub.edge_notMem_output (h ▸ hx)⟩)
+  · rintro (rfl | rfl | ⟨hxW, hne⟩)
+    · exact (hsub.newEdges_mem_output_of_mem_input he).1
+    · exact (hsub.newEdges_mem_output_of_mem_input he).2
+    · exact hsub.mem_output_of_mem_input_of_ne hxW hne
+
+/-- Edge subdivision preserves the fact that the distinguished outer edges form one simple
+cycle.  When the subdivided edge is outer, substitute it in the closed cycle walk and pull the
+resulting cycle down from the new skeleton to the new outer graph. -/
+theorem outerEdgesFormCycle {S : CellStructure γ} (d : S.SubdivData)
+    (hcycle : S.OuterEdgesFormCycle) :
+    (S.subdivideEdge d).OuterEdgesFormCycle := by
+  by_cases heOuter : d.edge ∈ E(S.outerGraph)
+  · obtain ⟨e, u, v, D, hc, hE⟩ := hcycle
+    have heList : d.edge ∈ e :: D := by
+      change d.edge ∈ ({f | f ∈ e :: D} : Set γ)
+      rw [← hE]
+      exact heOuter
+    have hclosedOuter : S.outerGraph.IsWalk v (e :: D) v :=
+      .cons hc.isLink.symm hc.isPath.isWalk
+    have hclosed : S.skel.IsWalk v (e :: D) v := hclosedOuter.mono S.outerGraph_le
+    obtain ⟨W', hsub⟩ := d.exists_substWalk_of_isWalk hclosed
+    obtain ⟨e', u', D', hW', hc'⟩ :=
+      SubstWalk.exists_isCycleThrough hsub hclosed (hc.mono S.outerGraph_le)
+    have houtput : ∀ f ∈ W', f ∈ E(d.outer) := by
+      intro f hf
+      rw [d.outer_edgeSet_of_mem heOuter]
+      rcases (hsub.mem_output_iff_of_mem_input heList).1 hf with rfl | rfl | ⟨hfC, hfe⟩
+      · exact Set.mem_insert _ _
+      · exact Set.mem_insert_of_mem _ (Set.mem_insert _ _)
+      · have hfOld : f ∈ E(S.outerGraph) := by
+          rw [hE]
+          exact hfC
+        have hfDiff : f ∈ E(S.outerGraph) \ {d.edge} := ⟨hfOld, by simpa using hfe⟩
+        exact Set.mem_insert_of_mem _ (Set.mem_insert_of_mem _ hfDiff)
+    have hcOuter : d.outer.IsCycleThrough e' u' v D' := by
+      apply hc'.anti d.outer_le_skeleton
+      intro f hf
+      exact houtput f (hW' ▸ hf)
+    refine ⟨e', u', v, D', hcOuter, ?_⟩
+    have hEdges : E(d.outer) = {f | f ∈ W'} := by
+      ext f
+      rw [d.outer_edgeSet_of_mem heOuter]
+      change (f = d.newEdge₁ ∨ f = d.newEdge₂ ∨
+          (f ∈ E(S.outerGraph) ∧ f ≠ d.edge)) ↔ f ∈ W'
+      rw [hsub.mem_output_iff_of_mem_input heList]
+      constructor
+      · rintro (h | h | ⟨hf, hne⟩)
+        · exact Or.inl h
+        · exact Or.inr (Or.inl h)
+        · exact Or.inr (Or.inr ⟨by
+            change f ∈ ({f | f ∈ e :: D} : Set γ)
+            rwa [← hE], hne⟩)
+      · rintro (h | h | ⟨hf, hne⟩)
+        · exact Or.inl h
+        · exact Or.inr (Or.inl h)
+        · exact Or.inr (Or.inr ⟨by
+            rw [hE]
+            exact hf, hne⟩)
+    simpa only [CellStructure.subdivideEdge_outerGraph, hW'] using hEdges
+  · unfold CellStructure.OuterEdgesFormCycle
+    rw [CellStructure.subdivideEdge_outerGraph, d.outer_eq heOuter]
+    exact hcycle
+
+end CellStructure.SubdivData
+
+/-- Splitting a face leaves the distinguished outer graph unchanged. -/
+theorem CellStructure.SplitData.outerEdgesFormCycle {S : CellStructure γ}
+    (d : S.SplitData) (hcycle : S.OuterEdgesFormCycle) :
+    (S.splitFace d).OuterEdgesFormCycle := by
+  unfold CellStructure.OuterEdgesFormCycle
+  rw [CellStructure.splitFace_outerGraph]
+  exact hcycle
+
+/-- Every generated structure keeps one simple cycle as its distinguished outer edge set. -/
+theorem GeneratedStructure.outerEdgesFormCycle {S₀ S : CellStructure γ}
+    (h : GeneratedStructure S₀ S) (h₀ : S₀.OuterEdgesFormCycle) :
+    S.OuterEdgesFormCycle := by
+  induction h with
+  | base => exact h₀
+  | subdivideEdge _ d ih => exact d.outerEdgesFormCycle ih
+  | splitFace _ d ih => exact d.outerEdgesFormCycle ih
+
+/-- The local two-branch condition needed by square-mesh reverse transfer is therefore a
+generated-structure invariant as soon as the base outer edges form a simple cycle. -/
+theorem GeneratedStructure.outerIncidenceAtMostTwoEverywhere
+    {S₀ S : CellStructure γ} (h : GeneratedStructure S₀ S)
+    (h₀ : S₀.OuterEdgesFormCycle) : S.OuterIncidenceAtMostTwoEverywhere :=
+  (h.outerEdgesFormCycle h₀).outerIncidenceAtMostTwoEverywhere
 
 /-- A vertex on a nonloop simple cycle has two distinct incident cycle edges.  The face-cycle
 application obtains nonloopness from either geometric realization. -/

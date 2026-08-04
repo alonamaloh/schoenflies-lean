@@ -104,6 +104,7 @@ import Schoenflies.StageTower
 import Schoenflies.RealizeSubdiv
 import Schoenflies.RealizeSplit
 import Schoenflies.InitialGenerated
+import Schoenflies.InitialOuterCycle
 import Schoenflies.SquareMeshClosed
 import Schoenflies.ArcMonotone
 import Schoenflies.RealizeSubdivHomeo

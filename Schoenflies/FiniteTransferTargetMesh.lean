@@ -26,6 +26,8 @@ condition follows with no ear-order argument.
 * `Schoenflies.targetEarFreshCombinatorics_squareMesh_of_outerIncidenceAtMostTwo` — mesh
   uniqueness and the local two-branch property of the generated outer cycle discharge the
   evolving fresh-incidence input.
+* `Schoenflies.targetEarFreshCombinatorics_squareMesh_of_outerCycle` — the preceding local
+  property follows from one simple-cycle check on the base structure.
 * `Schoenflies.finite_transfer_toward_source_squareMesh` — direction (b) for an anchored square
   mesh, reduced only to the evolving fresh-incidence combinatorics.
 * `Schoenflies.finite_transfer_toward_source_squareMesh_of_outerIncidenceAtMostTwo` — the same
@@ -216,6 +218,19 @@ theorem targetEarFreshCombinatorics_squareMesh_of_outerIncidenceAtMostTwo
       T.unique_source_face_of_outerOnly d.target_mem_skel d.face_mem htargetSub
         houter (htwoT d.target)⟩
 
+/-- It is enough to verify once, on the base cell structure, that the distinguished outer
+edges form a simple cycle.  The two generated-structure constructors preserve that fact. -/
+theorem targetEarFreshCombinatorics_squareMesh_of_outerCycle
+    (P : GeneratedPair S₀ srcOuter srcDom modelCurve tgtDom)
+    {fresh anchors : List Plane} (hfresh : ∀ z ∈ fresh, z ∈ modelCurve)
+    (delta : ℝ)
+    (hH : IsSourceExtension P.tgt modelCurve tgtDom
+      (squareMesh delta fresh anchors) segmentDrawing)
+    (hcycle : S₀.OuterEdgesFormCycle) :
+    TargetEarFreshCombinatorics P (squareMesh delta fresh anchors) segmentDrawing :=
+  targetEarFreshCombinatorics_squareMesh_of_outerIncidenceAtMostTwo
+    P hfresh delta hH fun _ h => h.outerIncidenceAtMostTwoEverywhere hcycle
+
 /-- Reverse finite transfer for an anchored square mesh.  Strong accessibility is completely
 discharged from the mesh's fresh-point clause; only carrier freshness and unique current-face
 incidence remain for the prescribed ear order. -/
@@ -234,8 +249,8 @@ theorem finite_transfer_toward_source_squareMesh
   finite_transfer_toward_source_of_boundaryAnchored hH
     (targetBoundaryAnchored_squareMesh P hfresh hstrong delta) hcomb
 
-/-- Reverse finite transfer for an anchored square mesh, reduced to the single static outer
-cycle invariant that remains to be propagated through generated structures. -/
+/-- Reverse finite transfer for an anchored square mesh, reduced to a supplied propagation of
+the static local outer-cycle invariant. -/
 theorem finite_transfer_toward_source_squareMesh_of_outerIncidenceAtMostTwo
     (P : GeneratedPair S₀ srcOuter srcDom modelCurve tgtDom)
     {fresh anchors : List Plane} (hfresh : ∀ z ∈ fresh, z ∈ modelCurve)
@@ -251,5 +266,21 @@ theorem finite_transfer_toward_source_squareMesh_of_outerIncidenceAtMostTwo
   finite_transfer_toward_source_squareMesh P hfresh hstrong delta hH
     (targetEarFreshCombinatorics_squareMesh_of_outerIncidenceAtMostTwo
       P hfresh delta hH htwo)
+
+/-- Reverse finite transfer for an anchored square mesh from the natural base invariant: its
+distinguished outer edges form a simple cycle. -/
+theorem finite_transfer_toward_source_squareMesh_of_outerCycle
+    (P : GeneratedPair S₀ srcOuter srcDom modelCurve tgtDom)
+    {fresh anchors : List Plane} (hfresh : ∀ z ∈ fresh, z ∈ modelCurve)
+    (hstrong : ∀ z ∈ fresh,
+      StronglyAccessible (srcDom \ srcOuter) (P.homeo.invFun z))
+    (delta : ℝ)
+    (hH : IsSourceExtension P.tgt modelCurve tgtDom
+      (squareMesh delta fresh anchors) segmentDrawing)
+    (hcycle : S₀.OuterEdgesFormCycle) :
+    ∃ (T : GeneratedPair S₀ srcOuter srcDom modelCurve tgtDom) (par : Piece → Piece),
+      IsTargetTransferOf T P (squareMesh delta fresh anchors) segmentDrawing par :=
+  finite_transfer_toward_source_squareMesh P hfresh hstrong delta hH
+    (targetEarFreshCombinatorics_squareMesh_of_outerCycle P hfresh delta hH hcycle)
 
 end Schoenflies

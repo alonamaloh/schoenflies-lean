@@ -5,6 +5,7 @@ Authors: Álvaro Begué
 -/
 import Schoenflies.CommonSubdivision
 import Schoenflies.FreshAccess
+import Schoenflies.Graph.VertexSquares
 
 /-!
 # Finite transfer, direction (b): toward the Jordan domain
@@ -606,6 +607,20 @@ theorem exists_targetSideEarStepData [Infinite γ]
     rw [hearGraph, Graph.vertexSet_relabelEdges]
     exact hxQ
 
+/-- The skeleton homeomorphism sends an abstract vertex on the source outer curve to the
+corresponding abstract vertex on the target outer curve. -/
+theorem GeneratedPair.target_pos_mem_outer_of_source_pos_mem_outer
+    (T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom) {v : γ}
+    (hv : v ∈ V(T.str.skel)) (hx : T.src.pos v ∈ srcOuter) :
+    T.tgt.pos v ∈ tgtOuter := by
+  have hxOuter : T.src.pos v ∈ T.src.outerSet :=
+    T.src_isWeaklyAdmissible.outerSet_eq.symm ▸ hx
+  have himage : T.homeo.toFun (T.src.pos v) ∈ T.tgt.outerSet := by
+    rw [← T.homeo.image_outerSet]
+    exact Set.mem_image_of_mem T.homeo.toFun hxOuter
+  rw [T.homeo.pos_apply hv] at himage
+  rwa [T.tgt_isWeaklyAdmissible.outerSet_eq] at himage
+
 /-- The anchored-boundary condition supplies the strong-accessibility half of readiness at both
 outer endpoints of a nontrivial target ear.  Compatibility of the evolving skeleton map with
 the original one identifies those endpoints with the original inverse images. -/
@@ -636,16 +651,6 @@ theorem targetEarEndpointStronglyAccessible_of_boundaryAnchored
   obtain ⟨eₜ, heₜ, hincₜ⟩ :=
     hpath.reverse.isWalk.exists_inc_source (hpath.reverse.ne_nil (Ne.symm hab))
   have heₜD : eₜ ∈ D := by simpa using heₜ
-  have target_mem_outer : ∀ {v : γ}, v ∈ V(T.str.skel) →
-      T.src.pos v ∈ srcOuter → T.tgt.pos v ∈ tgtOuter := by
-    intro v hv hx
-    have hxOuter : T.src.pos v ∈ T.src.outerSet :=
-      T.src_isWeaklyAdmissible.outerSet_eq.symm ▸ hx
-    have himage : T.homeo.toFun (T.src.pos v) ∈ T.tgt.outerSet := by
-      rw [← T.homeo.image_outerSet]
-      exact Set.mem_image_of_mem T.homeo.toFun hxOuter
-    rw [T.homeo.pos_apply hv] at himage
-    exact (Set.ext_iff.mp T.tgt_isWeaklyAdmissible.outerSet_eq (T.tgt.pos v)).mp himage
   have target_mem_original : ∀ {v : γ}, T.tgt.pos v ∈ tgtOuter →
       T.tgt.pos v ∈ P.tgt.skeletonSet := by
     intro v hv
@@ -653,13 +658,13 @@ theorem targetEarEndpointStronglyAccessible_of_boundaryAnchored
     exact (Set.ext_iff.mp P.tgt_isWeaklyAdmissible.outerSet_eq (T.tgt.pos v)).mpr hv
   constructor
   · intro hx
-    have hy := target_mem_outer d.source_mem_skel hx
+    have hy := T.target_pos_mem_outer_of_source_pos_mem_outer d.source_mem_skel hx
     have haOuter : a ∈ tgtOuter := by rwa [← w.target_pos_source]
     rw [hT.source_pos_eq_invFun_target_pos d.source_mem_skel
       (target_mem_original hy), w.target_pos_source]
     exact hanchor (hpath.edge_mem heₛ) hincₛ haOuter (hnotOuter eₛ heₛ)
   · intro hx
-    have hy := target_mem_outer d.target_mem_skel hx
+    have hy := T.target_pos_mem_outer_of_source_pos_mem_outer d.target_mem_skel hx
     have hbOuter : b ∈ tgtOuter := by rwa [← w.target_pos_target]
     rw [hT.source_pos_eq_invFun_target_pos d.target_mem_skel
       (target_mem_original hy), w.target_pos_target]
@@ -671,6 +676,142 @@ theorem targetEarEndpointStronglyAccessible_of_boundaryAnchored
 to the distinguished outer graph. -/
 def CellStructure.OuterOnlyAt (S : CellStructure γ) (v : γ) : Prop :=
   ∀ {e : γ}, S.skel.Inc e v → e ∈ E(S.outerGraph)
+
+/-- At most two distinct outer edges are incident with the vertex.  This is the exact local
+consequence of "the distinguished outer graph is a cycle" used by reverse transfer. -/
+def CellStructure.OuterIncidenceAtMostTwo (S : CellStructure γ) (v : γ) : Prop :=
+  ∀ ⦃e f g : γ⦄, S.outerGraph.Inc e v → S.outerGraph.Inc f v →
+    S.outerGraph.Inc g v → e = f ∨ e = g ∨ f = g
+
+/-- The distinguished outer graph is locally at most two-branched at every vertex. -/
+def CellStructure.OuterIncidenceAtMostTwoEverywhere (S : CellStructure γ) : Prop :=
+  ∀ v, S.OuterIncidenceAtMostTwo v
+
+/-- A vertex on a nonloop simple cycle has two distinct incident cycle edges.  The face-cycle
+application obtains nonloopness from either geometric realization. -/
+theorem CellStructure.FaceCycle.exists_distinct_incident_edges
+    {S : CellStructure γ} {F v : γ} (c : S.FaceCycle F)
+    (hloopless : ∀ ⦃e x y : γ⦄, S.skel.IsLink e x y → x ≠ y)
+    (hv : v ∈ V(S.skel)) (hvF : S.sub v F) :
+    ∃ e f, e ≠ f ∧ e ∈ c.edge :: c.walk ∧ f ∈ c.edge :: c.walk ∧
+      S.skel.Inc e v ∧ S.skel.Inc f v := by
+  have hvW := c.mem_walk_of_vertex_sub hv hvF
+  have huv : c.source ≠ c.target := hloopless c.isCycle.isLink
+  by_cases hvu : v = c.source
+  · subst hvu
+    obtain ⟨f, hf, hfinc⟩ :=
+      c.isCycle.isPath.isWalk.exists_inc_source (c.isCycle.isPath.ne_nil huv)
+    exact ⟨c.edge, f, fun hef => c.isCycle.notMem (hef ▸ hf),
+      List.mem_cons_self, List.mem_cons_of_mem _ hf, c.isCycle.isLink.inc_left, hfinc⟩
+  by_cases hvq : v = c.target
+  · subst hvq
+    obtain ⟨f, hf, hfinc⟩ := c.isCycle.isPath.reverse.isWalk.exists_inc_source
+      (c.isCycle.isPath.reverse.ne_nil (Ne.symm huv))
+    have hfD : f ∈ c.walk := by simpa using hf
+    exact ⟨c.edge, f, fun hef => c.isCycle.notMem (hef ▸ hfD),
+      List.mem_cons_self, List.mem_cons_of_mem _ hfD, c.isCycle.isLink.inc_right, hfinc⟩
+  obtain ⟨W₁, W₂, hwalk, h₁, h₂, -⟩ := c.isCycle.isPath.split hvW
+  obtain ⟨e, he, heinc⟩ :=
+    h₁.reverse.isWalk.exists_inc_source (h₁.reverse.ne_nil hvu)
+  obtain ⟨f, hf, hfinc⟩ := h₂.isWalk.exists_inc_source (h₂.ne_nil hvq)
+  have heW₁ : e ∈ W₁ := by simpa using he
+  have hef : e ≠ f := by
+    intro heq
+    have hnodup : (W₁ ++ W₂).Nodup := hwalk ▸ c.isCycle.isPath.nodup
+    apply List.disjoint_of_nodup_append hnodup heW₁
+    rwa [heq]
+  have heD : e ∈ c.walk := hwalk ▸ List.mem_append_left W₂ heW₁
+  have hfD : f ∈ c.walk := hwalk ▸ List.mem_append_right W₁ hf
+  exact ⟨e, f, hef, List.mem_cons_of_mem _ heD, List.mem_cons_of_mem _ hfD, heinc, hfinc⟩
+
+/-- A nonouter edge of the evolving abstract skeleton incident at a current ambient vertex
+produces a nonouter edge of the ambient graph incident at the same geometric point.  No edge
+labels need to agree: a sufficiently small vertex square meets only ambient edges incident at
+that vertex, while the open cell of the abstract edge accumulates at its endpoint. -/
+theorem IsTargetPartialTransferOf.exists_ambient_nonouter_incident
+    {P T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom}
+    {B : Graph Plane γ} {Hdraw : γ → ℝ → Plane} {par : γ → γ}
+    [B.Finite]
+    (hT : IsTargetPartialTransferOf T P B Hdraw par)
+    (hBdraw : B.IsDrawing Hdraw) {v e : γ}
+    (hvB : T.tgt.pos v ∈ V(B)) (hvOuter : T.tgt.pos v ∈ tgtOuter)
+    (hinc : T.str.skel.Inc e v) (heOuter : e ∉ E(T.str.outerGraph)) :
+    ∃ f ∈ E(B), B.Inc f (T.tgt.pos v) ∧
+      ¬ edgeArc Hdraw f ⊆ tgtOuter := by
+  obtain ⟨w, hl⟩ := hinc
+  have harc := T.tgt.isDrawing.edge_isArcBetween (hl.map T.tgt.pos)
+  have hclosure : T.tgt.pos v ∈ closure (T.tgt.cell e) := by
+    rw [T.tgt.cell_edge hl]
+    exact harc.left_mem_closure_diff
+  obtain ⟨r, hr, hvert, hedge⟩ := hBdraw.exists_square_at hvB
+  obtain ⟨z, hzNear, hzCell⟩ := mem_closure_iff.1 hclosure
+    (Plane.openSquare (T.tgt.pos v) r) (Plane.isOpen_openSquare _ _)
+    (Plane.mem_openSquare_self hr)
+  have hzClosed : z ∈ Plane.closedSquare (T.tgt.pos v) r :=
+    Plane.openSquare_subset_closedSquare _ _ hzNear
+  have hzOuter : z ∉ tgtOuter :=
+    (T.tgt_isWeaklyAdmissible.cell_subset hl.edge_mem heOuter hzCell).2
+  have hzSkel : z ∈ T.tgt.skeletonSet :=
+    T.tgt.cell_subset_skeletonSet (Or.inr hl.edge_mem) hzCell
+  have hzB : z ∈ pointSet B Hdraw := by
+    rw [← hT.skeletonSet_eq]
+    exact hzSkel
+  rcases hzB with hzV | hzE
+  · have hzv : z = T.tgt.pos v := by
+      by_contra hne
+      exact hvert z hzV hne hzClosed
+    exact absurd (hzv ▸ hvOuter) hzOuter
+  · obtain ⟨f, hf, hzf⟩ := Set.mem_iUnion₂.1 hzE
+    have hfinc : B.Inc f (T.tgt.pos v) := by
+      by_contra hninc
+      exact Set.disjoint_left.1 (hedge f hf hninc) hzClosed hzf
+    exact ⟨f, hf, hfinc, fun hsub => hzOuter (hsub hzf)⟩
+
+/-- At an outer-only vertex with at most two outer branches, the selected incident face is the
+only incident face.  Each simple face boundary contributes two distinct edges at the vertex;
+the two-branch bound forces two such face boundaries to share an outer edge, and
+`CombInvariants.outerEdge_unique` then identifies their face names. -/
+theorem GeneratedPair.unique_source_face_of_outerOnly
+    (T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom) {v F : γ}
+    (hv : v ∈ V(T.str.skel)) (hF : F ∈ T.str.faces) (hvF : T.str.sub v F)
+    (houter : T.str.OuterOnlyAt v) (htwo : T.str.OuterIncidenceAtMostTwo v) :
+    ∀ R ∈ {A : Set Plane | ∃ Z ∈ T.str.faces, A = T.src.cell Z},
+      T.src.pos v ∈ closure R → R = T.src.cell F := by
+  have hloopless : ∀ ⦃e x y : γ⦄, T.str.skel.IsLink e x y → x ≠ y := by
+    intro e x y hxy hxyEq
+    exact T.tgt.isDrawing.ne_of_isLink (hxy.map T.tgt.pos) (congrArg T.tgt.pos hxyEq)
+  have face_edges : ∀ {Z : γ}, Z ∈ T.str.faces → T.str.sub v Z →
+      ∃ e f, e ≠ f ∧ T.str.outerGraph.Inc e v ∧ T.str.outerGraph.Inc f v ∧
+        T.str.sub e Z ∧ T.str.sub f Z := by
+    intro Z hZ hvZ
+    let c := T.str_boundaryCycles.faceCycle Z hZ
+    obtain ⟨e, f, hef, heC, hfC, heinc, hfinc⟩ :=
+      c.exists_distinct_incident_edges hloopless hv hvZ
+    have heOuter : e ∈ E(T.str.outerGraph) := houter heinc
+    have hfOuter : f ∈ E(T.str.outerGraph) := houter hfinc
+    exact ⟨e, f, hef, (T.str.outerGraph_le.inc_congr heOuter).2 heinc,
+      (T.str.outerGraph_le.inc_congr hfOuter).2 hfinc,
+      c.sub_of_mem_pathCells (Or.inl heC), c.sub_of_mem_pathCells (Or.inl hfC)⟩
+  obtain ⟨e₁, e₂, he₁₂, he₁inc, he₂inc, he₁F, -⟩ := face_edges hF hvF
+  intro R hR hvR
+  obtain ⟨Z, hZ, rfl⟩ := hR
+  have hvZ : T.str.sub v Z :=
+    T.src_isCellDecomposition.sub_of_pos_mem_closure_cell hv hZ hvR
+  obtain ⟨f₁, f₂, hf₁₂, hf₁inc, hf₂inc, hf₁Z, hf₂Z⟩ := face_edges hZ hvZ
+  have hcommon : e₁ = f₁ ∨ e₁ = f₂ := by
+    rcases htwo he₁inc he₂inc hf₁inc with hbad | h | h
+    · exact absurd hbad he₁₂
+    · exact Or.inl h
+    · rcases htwo he₁inc he₂inc hf₂inc with hbad | h' | hbad'
+      · exact absurd hbad he₁₂
+      · exact Or.inr h'
+      · exact absurd (h.symm.trans hbad') hf₁₂
+  have he₁Outer : e₁ ∈ E(T.str.outerGraph) := he₁inc.edge_mem
+  obtain ⟨Q, hQ, huniq⟩ := T.str_combInvariants.outerEdge_unique he₁Outer
+  have he₁Z : T.str.sub e₁ Z := hcommon.elim
+    (fun h => h ▸ hf₁Z) (fun h => h ▸ hf₂Z)
+  exact congrArg T.src.cell
+    ((huniq Z ⟨hZ, he₁Z⟩).trans (huniq F ⟨hF, he₁F⟩).symm)
 
 /-- Source vertices incident with a nonboundary edge.  Outer-only vertices are deliberately
 excluded: a fresh anchor must not enter the compact set merely because it is already a vertex

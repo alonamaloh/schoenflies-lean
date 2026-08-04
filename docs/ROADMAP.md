@@ -142,9 +142,13 @@ Everything downstream is now:
    The nonouter target-edge carriers give a canonical finite connected cover of the old open
    skeleton.  A uniform positive width for that cover and the radial mesh estimate show that a
    sufficiently fine dense mesh meets every piece, so connectedness off the model curve and the
-   complete `IsSourceExtension` now follow.  What remains is to select a finite fresh separator
-   list from the transported strongly-accessible anchors with `FreshDense` at the chosen scale,
-   and to prove the fresh boundary-incidence condition needed by reverse transfer.
+   complete `IsSourceExtension` now follow.  The reverse-transfer interface now asks only for
+   boundary geometry of genuinely new ear edges.  For the combined overlay, edge provenance and
+   the square mesh's unique-spoke clause prove relative anchoring and no-new-nonouter-incidence;
+   both properties survive injective edge relabelling, and the resulting overlay feeds directly
+   into reverse finite transfer.  What remains is to select a finite fresh separator list from
+   the transported strongly-accessible anchors with `FreshDense` at the chosen scale while
+   avoiding the finitely many old nonouter target-edge carriers.
    This is where `GridAttach.lean`, `SquareMeshClosed.lean` and `Windows.lean` are spent, giving
    `lem:grid-star-estimate` and `prop:shrinking-stars`;
 2. `HasAnchorCrosscuts` and `HasSpokes` from the stages, and `thm:main` becomes unconditional.

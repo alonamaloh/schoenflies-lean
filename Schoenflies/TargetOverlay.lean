@@ -25,8 +25,9 @@ and every old target vertex.  The basic carrier, drawing, containment, edge-sour
 finite connected cover of the old open skeleton.  A uniform positive width for this cover,
 together with the radial mesh estimate, shows that every sufficiently fine dense mesh meets
 every cover piece.  Consequently the combined overlay is a complete source extension at some
-positive scale below `4`.  Constructing the finite fresh separator list at that scale and proving
-the fresh boundary-incidence property needed by reverse transfer remain.
+positive scale below `4`.  Relative boundary anchoring and no-new-nonouter-incidence are proved
+for clean fresh lists and transported through edge relabelling, so the overlay now feeds directly
+into reverse finite transfer.  Constructing the finite fresh separator list at that scale remains.
 
 ## Blueprint
 
@@ -40,12 +41,16 @@ the fresh boundary-incidence property needed by reverse transfer remain.
   the union of the two carriers.
 * `Schoenflies.TargetSegmentCover.meshOverlay_isTwoConnected` — the two subdivision traces glue
   along two fresh boundary vertices to make the combined overlay 2-connected.
+* `Schoenflies.TargetSegmentCover.noNewNonouterIncidenceAtBoundary_meshOverlay` — clean fresh
+  spokes cannot create a second nonouter incidence against the current target trace.
 * `Schoenflies.finiteOpenTargetCover` — the nonouter edge carriers, with the model curve
   removed, form a finite connected nontrivial cover of the old open target skeleton.
 * `Schoenflies.exists_fine_openTarget_scale` — every generated target has a positive scale
   below `4` at which all pieces of that cover are wider than the mesh.
 * `Schoenflies.TargetSegmentCover.exists_scale_isSourceExtension_relabelledMeshOverlay` — at
   that scale, every dense anchored mesh gives the complete relabelled source extension.
+* `Schoenflies.TargetSegmentCover.finite_transfer_toward_source_relabelledMeshOverlay_of_outerCycle`
+  — the accessible clean overlay performs the complete reverse finite transfer.
 -/
 
 open Set
@@ -248,6 +253,71 @@ theorem meshOverlay_edge_source (Q : TargetSegmentCover P)
   · exact Or.inl ⟨A, hA, hsub⟩
   · obtain ⟨B, hB, hAB⟩ := meshGraph_edge_source (mem_squareMeshPieces.1 hA)
     exact Or.inr ⟨B, hB, hsub.trans hAB⟩
+
+/-- The sharper edge-source dichotomy used at the boundary: a mesh-sourced overlay edge lies
+inside one actual edge of the already-subdivided square mesh. -/
+theorem meshOverlay_edge_source_squareMesh (Q : TargetSegmentCover P)
+    {delta : ℝ} {fresh anchors : List Plane} {R : Piece}
+    (hR : R ∈ E(Q.meshOverlay delta fresh anchors)) :
+    (∃ A ∈ Q.pieces, R.seg ⊆ A.seg) ∨
+      ∃ A ∈ E(squareMesh delta fresh anchors), R.seg ⊆ A.seg := by
+  change R ∈ overlayPieces (Q.meshPieces delta fresh anchors)
+    (attachPoints (Q.meshPieces delta fresh anchors)
+      (anchors ++ P.tgt.graph.vertexFinset.toList)) at hR
+  obtain ⟨R₀, hR₀, rfl⟩ := mem_overlayPieces.1 hR
+  obtain ⟨A, hA, hsub, -⟩ := subdivide_subset _ _ R₀ hR₀
+  rw [orientPiece_seg]
+  rcases List.mem_append.1 hA with hA | hA
+  · exact Or.inl ⟨A, hA, hsub⟩
+  · exact Or.inr ⟨A, mem_squareMeshPieces.1 hA, hsub⟩
+
+/-- Two subsegments of one nondegenerate segment that start at the same end are comparable by
+inclusion. -/
+theorem segments_from_common_end_comparable {z a r s : Plane} (hza : z ≠ a)
+    (hr : r ∈ segment ℝ z a) (hs : s ∈ segment ℝ z a) :
+    segment ℝ z r ⊆ segment ℝ z s ∨ segment ℝ z s ⊆ segment ℝ z r := by
+  rcases le_total (dist z r) (dist z s) with hrs | hsr
+  · apply Or.inl
+    apply (convex_segment z s).segment_subset (left_mem_segment ℝ z s)
+    exact mem_segment_of_dist_le hza (left_mem_segment ℝ z a) hs hr
+      (by simp) hrs
+  · apply Or.inr
+    apply (convex_segment z r).segment_subset (left_mem_segment ℝ z r)
+    exact mem_segment_of_dist_le hza (left_mem_segment ℝ z a) hr hs
+      (by simp) hsr
+
+/-- Two pieces contained in the same nondegenerate source piece and sharing one of its ends
+are comparable.  This is the piece-level form needed to identify two overlay fragments cut
+from the unique square-mesh spoke at a fresh boundary point. -/
+theorem piece_segments_comparable_of_common_source_end
+    {A R S : Piece} {z : Plane} (hA : A.Nondeg)
+    (hzA : z = A.1 ∨ z = A.2) (hRA : R.seg ⊆ A.seg) (hSA : S.seg ⊆ A.seg)
+    (hzR : z = R.1 ∨ z = R.2) (hzS : z = S.1 ∨ z = S.2) :
+    R.seg ⊆ S.seg ∨ S.seg ⊆ R.seg := by
+  obtain ⟨a, hAseg, hza⟩ : ∃ a, A.seg = segment ℝ z a ∧ z ≠ a := by
+    rcases hzA with hzA | hzA
+    · refine ⟨A.2, ?_, ?_⟩
+      · simp only [Piece.seg, hzA]
+      · intro h
+        exact hA (hzA.symm.trans h)
+    · refine ⟨A.1, ?_, ?_⟩
+      · simp only [Piece.seg, hzA, segment_symm]
+      · intro h
+        exact hA (h.symm.trans hzA)
+  obtain ⟨r, hRseg, hrA⟩ : ∃ r, R.seg = segment ℝ z r ∧ r ∈ A.seg := by
+    rcases hzR with hzR | hzR
+    · exact ⟨R.2, by simp only [Piece.seg, hzR],
+        hRA (right_mem_segment ℝ R.1 R.2)⟩
+    · exact ⟨R.1, by simp only [Piece.seg, hzR, segment_symm],
+        hRA (left_mem_segment ℝ R.1 R.2)⟩
+  obtain ⟨s, hSseg, hsA⟩ : ∃ s, S.seg = segment ℝ z s ∧ s ∈ A.seg := by
+    rcases hzS with hzS | hzS
+    · exact ⟨S.2, by simp only [Piece.seg, hzS],
+        hSA (right_mem_segment ℝ S.1 S.2)⟩
+    · exact ⟨S.1, by simp only [Piece.seg, hzS, segment_symm],
+        hSA (left_mem_segment ℝ S.1 S.2)⟩
+  rw [hRseg, hSseg]
+  exact segments_from_common_end_comparable hza (hAseg ▸ hrA) (hAseg ▸ hsA)
 
 /-- Away from the vertices created by the overlay, an overlay edge meeting an old open target
 edge is one of its subdivision pieces.  At a transverse crossing the common point is an overlay
@@ -500,6 +570,334 @@ theorem meshOverlay_edge_dichotomy (Q : TargetSegmentCover P)
       apply houter
       rw [hRR', edgeArc_segmentDrawing]
       exact hR'A.trans hA.2
+
+/-- New nonouter boundary edges of the combined overlay come from the square mesh and hence
+end at prescribed fresh points.  Old-target-sourced overlay edges are already covered by every
+trace containing the original target skeleton, so they cannot be new. -/
+theorem newTargetBoundaryAnchored_meshOverlay (Q : TargetSegmentCover P)
+    {fresh : List Plane} (hfresh : ∀ z ∈ fresh, z ∈ modelCurve)
+    (hstrong : ∀ z ∈ fresh,
+      StronglyAccessible (srcDom \ srcOuter) (P.homeo.invFun z))
+    (delta : ℝ) (anchors : List Plane) :
+    NewTargetBoundaryAnchored P P.tgt.skeletonSet
+      (Q.meshOverlay delta fresh anchors) segmentDrawing := by
+  intro B hBH hbase R z hR hRnew hinc hz hnot
+  have hdraw := Q.meshOverlay_isDrawing hfresh delta anchors
+  have hzRarc : z ∈ edgeArc segmentDrawing R := hdraw.inc_mem_edgeArc hinc
+  have hzRseg : z ∈ R.seg := by rwa [edgeArc_segmentDrawing] at hzRarc
+  rcases Q.meshOverlay_edge_source_squareMesh hR with hOld | hMesh
+  · obtain ⟨A, hA, hRA⟩ := hOld
+    obtain ⟨e, he, hAe⟩ := Q.source A hA
+    have hRbase : edgeArc segmentDrawing R ⊆ P.tgt.skeletonSet := by
+      rw [edgeArc_segmentDrawing]
+      exact hRA.trans (hAe.trans (Graph.edgeArc_subset_pointSet (by
+        rw [P.tgt.edgeSet_graph]
+        exact he)))
+    exact (hRnew (edge_mem_of_edgeArc_subset_pointSet hdraw hBH hR
+      (hRbase.trans hbase))).elim
+  · obtain ⟨A, hA, hRA⟩ := hMesh
+    have hzA : z ∈ A.seg := hRA hzRseg
+    have hAnot : ¬ A.seg ⊆ modelCurve := by
+      intro hAouter
+      apply hnot
+      rw [edgeArc_segmentDrawing]
+      exact hRA.trans hAouter
+    obtain ⟨w, hwFresh, hinter, -, -⟩ :=
+      squareMesh_inner_edge_at_fresh hfresh delta hA ⟨z, hzA, hz⟩ hAnot
+    have hzw : z = w := by
+      have : z ∈ ({w} : Set Plane) := hinter ▸ ⟨hzA, hz⟩
+      simpa only [Set.mem_singleton_iff] using this
+    rw [hzw]
+    exact hstrong w hwFresh
+
+/-- Fresh mesh anchors avoid the carriers of all old nonouter target edges.  This is the
+finite cleanliness condition which separates a genuinely new spoke from the current target
+trace at the distinguished boundary. -/
+def FreshAvoidsTargetNonouterEdges
+    (P : GeneratedPair S₀ srcOuter srcDom modelCurve (Plane.closedSquare 0 1))
+    (fresh : List Plane) : Prop :=
+  ∀ z ∈ fresh, ∀ e ∈ E(P.str.skel), e ∉ E(P.str.outerGraph) →
+    z ∉ edgeArc P.tgt.drawing e
+
+/-- Incidence with an edge of the target/mesh overlay means being one of the two endpoints of
+that piece. -/
+theorem meshOverlay_inc_endpoint (Q : TargetSegmentCover P)
+    {delta : ℝ} {fresh anchors : List Plane} {R : Piece} {z : Plane}
+    (hinc : (Q.meshOverlay delta fresh anchors).Inc R z) :
+    z = R.1 ∨ z = R.2 := by
+  obtain ⟨w, hw⟩ := hinc
+  change (overlayGraph (Q.meshPieces delta fresh anchors)
+    (attachPoints (Q.meshPieces delta fresh anchors)
+      (anchors ++ P.tgt.graph.vertexFinset.toList))).IsLink R z w at hw
+  rcases (overlayGraph_isLink.1 hw).2 with h | h
+  · exact Or.inl h.1
+  · exact Or.inr h.1
+
+/-- Two mesh-sourced, nonouter overlay edges incident at the same boundary point coincide.
+The square mesh has one spoke there; both overlay pieces start at the boundary end of that
+spoke, so their segment carriers are nested, and planarity identifies their edge names. -/
+theorem meshOverlay_mesh_edges_eq_at_boundary (Q : TargetSegmentCover P)
+    {fresh : List Plane} (hfresh : ∀ z ∈ fresh, z ∈ modelCurve)
+    (delta : ℝ) (anchors : List Plane) {z : Plane} (hz : z ∈ modelCurve)
+    {R S : Piece} (hR : R ∈ E(Q.meshOverlay delta fresh anchors))
+    (hS : S ∈ E(Q.meshOverlay delta fresh anchors))
+    (hRinc : (Q.meshOverlay delta fresh anchors).Inc R z)
+    (hSinc : (Q.meshOverlay delta fresh anchors).Inc S z)
+    (hRnot : ¬ edgeArc segmentDrawing R ⊆ modelCurve)
+    (hSnot : ¬ edgeArc segmentDrawing S ⊆ modelCurve)
+    {A C : Piece} (hA : A ∈ E(squareMesh delta fresh anchors))
+    (hC : C ∈ E(squareMesh delta fresh anchors))
+    (hRA : R.seg ⊆ A.seg) (hSC : S.seg ⊆ C.seg) : R = S := by
+  have hdraw := Q.meshOverlay_isDrawing hfresh delta anchors
+  have hzRarc : z ∈ edgeArc segmentDrawing R := hdraw.inc_mem_edgeArc hRinc
+  have hzSarc : z ∈ edgeArc segmentDrawing S := hdraw.inc_mem_edgeArc hSinc
+  have hzRseg : z ∈ R.seg := by rwa [edgeArc_segmentDrawing] at hzRarc
+  have hzSseg : z ∈ S.seg := by rwa [edgeArc_segmentDrawing] at hzSarc
+  have hzA : z ∈ A.seg := hRA hzRseg
+  have hzC : z ∈ C.seg := hSC hzSseg
+  have hAnot : ¬ A.seg ⊆ modelCurve := by
+    intro hAouter
+    apply hRnot
+    rw [edgeArc_segmentDrawing]
+    exact hRA.trans hAouter
+  have hCnot : ¬ C.seg ⊆ modelCurve := by
+    intro hCouter
+    apply hSnot
+    rw [edgeArc_segmentDrawing]
+    exact hSC.trans hCouter
+  obtain ⟨w, hwFresh, hAw, hwA, -⟩ :=
+    squareMesh_inner_edge_at_fresh hfresh delta hA ⟨z, hzA, hz⟩ hAnot
+  obtain ⟨v, hvFresh, hCv, hvC, -⟩ :=
+    squareMesh_inner_edge_at_fresh hfresh delta hC ⟨z, hzC, hz⟩ hCnot
+  have hzw : z = w := by
+    have : z ∈ ({w} : Set Plane) := hAw ▸ ⟨hzA, hz⟩
+    simpa only [Set.mem_singleton_iff] using this
+  have hzv : z = v := by
+    have : z ∈ ({v} : Set Plane) := hCv ▸ ⟨hzC, hz⟩
+    simpa only [Set.mem_singleton_iff] using this
+  have hzFresh : z ∈ fresh := hzw ▸ hwFresh
+  have hzAend : z = A.1 ∨ z = A.2 := hzw ▸ hwA
+  have hzCend : z = C.1 ∨ z = C.2 := hzv ▸ hvC
+  obtain ⟨U, hU, huniq⟩ :=
+    squareMesh_unique_inner_edge hfresh delta anchors hzFresh
+  have hAU : A = U := huniq A ⟨hA, hzAend, hAnot⟩
+  have hCU : C = U := huniq C ⟨hC, hzCend, hCnot⟩
+  have hAC : A = C := hAU.trans hCU.symm
+  have hSA : S.seg ⊆ A.seg := by rwa [hAC]
+  have hcomp := piece_segments_comparable_of_common_source_end
+    (meshGraph_edge_nondeg (two_le_meshCount delta) hfresh hA)
+    hzAend hRA hSA (Q.meshOverlay_inc_endpoint hRinc)
+      (Q.meshOverlay_inc_endpoint hSinc)
+  rcases hcomp with hsub | hsub
+  · exact eq_of_edgeArc_subset hdraw hR hS (by
+      simpa only [edgeArc_segmentDrawing] using hsub)
+  · exact (eq_of_edgeArc_subset hdraw hS hR (by
+      simpa only [edgeArc_segmentDrawing] using hsub)).symm
+
+/-- Under the finite cleanliness condition, no new nonouter overlay edge can meet a nonouter
+edge of a trace already covering the old target skeleton at the distinguished boundary. -/
+theorem noNewNonouterIncidenceAtBoundary_meshOverlay (Q : TargetSegmentCover P)
+    {fresh : List Plane} (hfresh : ∀ z ∈ fresh, z ∈ modelCurve)
+    (havoid : FreshAvoidsTargetNonouterEdges P fresh)
+    (delta : ℝ) (anchors : List Plane) :
+    NoNewNonouterIncidenceAtBoundary P.tgt.skeletonSet
+      (Q.meshOverlay delta fresh anchors) segmentDrawing modelCurve := by
+  intro B hBH hbase z R S hz hR hSB hRinc hSincB hRnot hSnot hRnew
+  have hdraw := Q.meshOverlay_isDrawing hfresh delta anchors
+  have hS : S ∈ E(Q.meshOverlay delta fresh anchors) := hBH.edgeSet_mono hSB
+  have hSinc : (Q.meshOverlay delta fresh anchors).Inc S z :=
+    (hBH.inc_congr hSB).1 hSincB
+  have hzRarc : z ∈ edgeArc segmentDrawing R := hdraw.inc_mem_edgeArc hRinc
+  have hzRseg : z ∈ R.seg := by rwa [edgeArc_segmentDrawing] at hzRarc
+  rcases Q.meshOverlay_edge_source_squareMesh hR with hROld | hRMesh
+  · obtain ⟨A, hA, hRA⟩ := hROld
+    obtain ⟨e, he, hAe⟩ := Q.source A hA
+    have hRbase : edgeArc segmentDrawing R ⊆ P.tgt.skeletonSet := by
+      rw [edgeArc_segmentDrawing]
+      exact hRA.trans (hAe.trans (Graph.edgeArc_subset_pointSet (by
+        rw [P.tgt.edgeSet_graph]
+        exact he)))
+    exact (hRnew (edge_mem_of_edgeArc_subset_pointSet hdraw hBH hR
+      (hRbase.trans hbase))).elim
+  · obtain ⟨A, hA, hRA⟩ := hRMesh
+    have hzA : z ∈ A.seg := hRA hzRseg
+    have hAnot : ¬ A.seg ⊆ modelCurve := by
+      intro hAouter
+      apply hRnot
+      rw [edgeArc_segmentDrawing]
+      exact hRA.trans hAouter
+    obtain ⟨w, hwFresh, hAw, -, -⟩ :=
+      squareMesh_inner_edge_at_fresh hfresh delta hA ⟨z, hzA, hz⟩ hAnot
+    have hzw : z = w := by
+      have : z ∈ ({w} : Set Plane) := hAw ▸ ⟨hzA, hz⟩
+      simpa only [Set.mem_singleton_iff] using this
+    have hzFresh : z ∈ fresh := hzw ▸ hwFresh
+    rcases Q.meshOverlay_edge_source_squareMesh hS with hSOld | hSMesh
+    · obtain ⟨C, hC, hSC⟩ := hSOld
+      obtain ⟨e, he, hCe⟩ := Q.source C hC
+      have heNotOuter : e ∉ E(P.str.outerGraph) := by
+        intro heOuter
+        apply hSnot
+        rw [edgeArc_segmentDrawing]
+        apply hSC.trans
+        apply hCe.trans
+        intro x hx
+        rw [← P.tgt_isWeaklyAdmissible.outerSet_eq]
+        exact Graph.edgeArc_subset_pointSet (by
+          rw [Graph.edgeSet_map]
+          exact heOuter) hx
+      apply havoid z hzFresh e he heNotOuter
+      apply hCe
+      apply hSC
+      have hzSarc : z ∈ edgeArc segmentDrawing S := hdraw.inc_mem_edgeArc hSinc
+      rwa [edgeArc_segmentDrawing] at hzSarc
+    · obtain ⟨C, hC, hSC⟩ := hSMesh
+      have hRS : R = S := Q.meshOverlay_mesh_edges_eq_at_boundary hfresh delta anchors
+        hz hR hS hRinc hSinc hRnot hSnot hA hC hRA hSC
+      exact hRnew (hRS ▸ hSB)
+
+/-- The relative boundary anchoring of the overlay survives its injective edge renaming. -/
+theorem newTargetBoundaryAnchored_relabelledMeshOverlay (Q : TargetSegmentCover P)
+    {fresh : List Plane} (hfresh : ∀ z ∈ fresh, z ∈ modelCurve)
+    (hstrong : ∀ z ∈ fresh,
+      StronglyAccessible (srcDom \ srcOuter) (P.homeo.invFun z))
+    (delta : ℝ) (anchors : List Plane) (name : Piece → γ)
+    (hname : InjOn name E(Q.meshOverlay delta fresh anchors)) :
+    NewTargetBoundaryAnchored P P.tgt.skeletonSet
+      ((Q.meshOverlay delta fresh anchors).relabelEdges name hname)
+      ((Q.meshOverlay delta fresh anchors).relabelDrawing name segmentDrawing) := by
+  intro B hBH hbase d z hd hdnew hinc hz hnot
+  obtain ⟨R, hR, rfl⟩ := hd
+  obtain ⟨R', hR', hR'name, hR'inc⟩ :=
+    (Graph.relabelEdges_inc (Q.meshOverlay delta fresh anchors) name hname
+      (name R) z).1 hinc
+  have hR'R : R' = R := hname hR' hR hR'name
+  subst R'
+  have hdraw := Q.meshOverlay_isDrawing hfresh delta anchors
+  have hdrawRelabelled := hdraw.relabelEdges hname
+  have hzRarc : z ∈ edgeArc segmentDrawing R := hdraw.inc_mem_edgeArc hR'inc
+  have hzRseg : z ∈ R.seg := by rwa [edgeArc_segmentDrawing] at hzRarc
+  have hRnot : ¬ edgeArc segmentDrawing R ⊆ modelCurve := by
+    intro hsub
+    apply hnot
+    rwa [Graph.edgeArc_relabelDrawing hname hR]
+  rcases Q.meshOverlay_edge_source_squareMesh hR with hOld | hMesh
+  · obtain ⟨A, hA, hRA⟩ := hOld
+    obtain ⟨e, he, hAe⟩ := Q.source A hA
+    have hRbase :
+        edgeArc ((Q.meshOverlay delta fresh anchors).relabelDrawing name segmentDrawing)
+          (name R) ⊆ P.tgt.skeletonSet := by
+      rw [Graph.edgeArc_relabelDrawing hname hR, edgeArc_segmentDrawing]
+      exact hRA.trans (hAe.trans (Graph.edgeArc_subset_pointSet (by
+        rw [P.tgt.edgeSet_graph]
+        exact he)))
+    exact (hdnew (edge_mem_of_edgeArc_subset_pointSet hdrawRelabelled hBH
+      ⟨R, hR, rfl⟩ (hRbase.trans hbase))).elim
+  · obtain ⟨A, hA, hRA⟩ := hMesh
+    have hzA : z ∈ A.seg := hRA hzRseg
+    have hAnot : ¬ A.seg ⊆ modelCurve := by
+      intro hAouter
+      apply hRnot
+      rw [edgeArc_segmentDrawing]
+      exact hRA.trans hAouter
+    obtain ⟨w, hwFresh, hinter, -, -⟩ :=
+      squareMesh_inner_edge_at_fresh hfresh delta hA ⟨z, hzA, hz⟩ hAnot
+    have hzw : z = w := by
+      have : z ∈ ({w} : Set Plane) := hinter ▸ ⟨hzA, hz⟩
+      simpa only [Set.mem_singleton_iff] using this
+    rw [hzw]
+    exact hstrong w hwFresh
+
+/-- The relative no-new-incidence property of a clean overlay survives its injective edge
+renaming. -/
+theorem noNewNonouterIncidenceAtBoundary_relabelledMeshOverlay
+    (Q : TargetSegmentCover P)
+    {fresh : List Plane} (hfresh : ∀ z ∈ fresh, z ∈ modelCurve)
+    (havoid : FreshAvoidsTargetNonouterEdges P fresh)
+    (delta : ℝ) (anchors : List Plane) (name : Piece → γ)
+    (hname : InjOn name E(Q.meshOverlay delta fresh anchors)) :
+    NoNewNonouterIncidenceAtBoundary P.tgt.skeletonSet
+      ((Q.meshOverlay delta fresh anchors).relabelEdges name hname)
+      ((Q.meshOverlay delta fresh anchors).relabelDrawing name segmentDrawing)
+      modelCurve := by
+  intro B hBH hbase z d k hz hd hk hdinc hkinc hdnot hknot hdnew
+  obtain ⟨R, hR, rfl⟩ := hd
+  have hkH : k ∈ E((Q.meshOverlay delta fresh anchors).relabelEdges name hname) :=
+    hBH.edgeSet_mono hk
+  obtain ⟨S, hS, rfl⟩ := hkH
+  obtain ⟨R', hR', hR'name, hR'inc⟩ :=
+    (Graph.relabelEdges_inc (Q.meshOverlay delta fresh anchors) name hname
+      (name R) z).1 hdinc
+  have hR'R : R' = R := hname hR' hR hR'name
+  subst R'
+  have hSincRelabelled :
+      ((Q.meshOverlay delta fresh anchors).relabelEdges name hname).Inc
+        (name S) z := (hBH.inc_congr hk).1 hkinc
+  obtain ⟨S', hS', hS'name, hS'inc⟩ :=
+    (Graph.relabelEdges_inc (Q.meshOverlay delta fresh anchors) name hname
+      (name S) z).1 hSincRelabelled
+  have hS'S : S' = S := hname hS' hS hS'name
+  subst S'
+  have hdraw := Q.meshOverlay_isDrawing hfresh delta anchors
+  have hdrawRelabelled := hdraw.relabelEdges hname
+  have hRnot : ¬ edgeArc segmentDrawing R ⊆ modelCurve := by
+    intro hsub
+    apply hdnot
+    rwa [Graph.edgeArc_relabelDrawing hname hR]
+  have hSnot : ¬ edgeArc segmentDrawing S ⊆ modelCurve := by
+    intro hsub
+    apply hknot
+    rwa [Graph.edgeArc_relabelDrawing hname hS]
+  have hzRarc : z ∈ edgeArc segmentDrawing R := hdraw.inc_mem_edgeArc hR'inc
+  have hzRseg : z ∈ R.seg := by rwa [edgeArc_segmentDrawing] at hzRarc
+  rcases Q.meshOverlay_edge_source_squareMesh hR with hROld | hRMesh
+  · obtain ⟨A, hA, hRA⟩ := hROld
+    obtain ⟨e, he, hAe⟩ := Q.source A hA
+    have hRbase :
+        edgeArc ((Q.meshOverlay delta fresh anchors).relabelDrawing name segmentDrawing)
+          (name R) ⊆ P.tgt.skeletonSet := by
+      rw [Graph.edgeArc_relabelDrawing hname hR, edgeArc_segmentDrawing]
+      exact hRA.trans (hAe.trans (Graph.edgeArc_subset_pointSet (by
+        rw [P.tgt.edgeSet_graph]
+        exact he)))
+    exact (hdnew (edge_mem_of_edgeArc_subset_pointSet hdrawRelabelled hBH
+      ⟨R, hR, rfl⟩ (hRbase.trans hbase))).elim
+  · obtain ⟨A, hA, hRA⟩ := hRMesh
+    have hzA : z ∈ A.seg := hRA hzRseg
+    have hAnot : ¬ A.seg ⊆ modelCurve := by
+      intro hAouter
+      apply hRnot
+      rw [edgeArc_segmentDrawing]
+      exact hRA.trans hAouter
+    obtain ⟨w, hwFresh, hAw, -, -⟩ :=
+      squareMesh_inner_edge_at_fresh hfresh delta hA ⟨z, hzA, hz⟩ hAnot
+    have hzw : z = w := by
+      have : z ∈ ({w} : Set Plane) := hAw ▸ ⟨hzA, hz⟩
+      simpa only [Set.mem_singleton_iff] using this
+    have hzFresh : z ∈ fresh := hzw ▸ hwFresh
+    rcases Q.meshOverlay_edge_source_squareMesh hS with hSOld | hSMesh
+    · obtain ⟨C, hC, hSC⟩ := hSOld
+      obtain ⟨e, he, hCe⟩ := Q.source C hC
+      have heNotOuter : e ∉ E(P.str.outerGraph) := by
+        intro heOuter
+        apply hSnot
+        rw [edgeArc_segmentDrawing]
+        apply hSC.trans
+        apply hCe.trans
+        intro x hx
+        rw [← P.tgt_isWeaklyAdmissible.outerSet_eq]
+        exact Graph.edgeArc_subset_pointSet (by
+          rw [Graph.edgeSet_map]
+          exact heOuter) hx
+      apply havoid z hzFresh e he heNotOuter
+      apply hCe
+      apply hSC
+      have hzSarc : z ∈ edgeArc segmentDrawing S := hdraw.inc_mem_edgeArc hS'inc
+      rwa [edgeArc_segmentDrawing] at hzSarc
+    · obtain ⟨C, hC, hSC⟩ := hSMesh
+      have hRS : R = S := Q.meshOverlay_mesh_edges_eq_at_boundary hfresh delta anchors
+        hz hR hS hR'inc hS'inc hRnot hSnot hA hC hRA hSC
+      exact hdnew (hRS ▸ hk)
 
 /-- A quantitative local-width condition on the old open target skeleton.  Every point lies in
 a connected subset containing two points farther apart than the proposed mesh scale. -/
@@ -969,6 +1367,33 @@ theorem exists_meshOverlay_edgeRelabeling
       ∀ e ∈ E(Q.meshOverlay delta fresh anchors), name e ∉ P.str.cells :=
   exists_finiteGraph_edgeRelabeling_avoiding γ (Q.meshOverlay delta fresh anchors)
     P.str.cells P.str.finite_cells
+
+/-- **Reverse finite transfer through the combined target/mesh overlay.**  Once the overlay is
+a source extension, strong accessibility of its fresh anchors and avoidance of the finitely
+many old nonouter target edges discharge all remaining reverse-ear hypotheses. -/
+theorem finite_transfer_toward_source_relabelledMeshOverlay_of_outerCycle
+    [Infinite γ] (Q : TargetSegmentCover P)
+    {fresh : List Plane} (hfresh : ∀ z ∈ fresh, z ∈ modelCurve)
+    (hstrong : ∀ z ∈ fresh,
+      StronglyAccessible (srcDom \ srcOuter) (P.homeo.invFun z))
+    (havoid : FreshAvoidsTargetNonouterEdges P fresh)
+    (delta : ℝ) (anchors : List Plane) (name : Piece → γ)
+    (hname : InjOn name E(Q.meshOverlay delta fresh anchors))
+    (hH : IsSourceExtension P.tgt modelCurve (Plane.closedSquare 0 1)
+      ((Q.meshOverlay delta fresh anchors).relabelEdges name hname)
+      ((Q.meshOverlay delta fresh anchors).relabelDrawing name segmentDrawing))
+    (hcycle : S₀.OuterEdgesFormCycle) :
+    ∃ (T : GeneratedPair S₀ srcOuter srcDom modelCurve (Plane.closedSquare 0 1))
+        (par : γ → γ),
+      IsTargetTransferOf T P
+        ((Q.meshOverlay delta fresh anchors).relabelEdges name hname)
+        ((Q.meshOverlay delta fresh anchors).relabelDrawing name segmentDrawing) par :=
+  finite_transfer_toward_source_of_relativeBoundaryGeometry hH
+    (Q.newTargetBoundaryAnchored_relabelledMeshOverlay
+      hfresh hstrong delta anchors name hname)
+    (Q.noNewNonouterIncidenceAtBoundary_relabelledMeshOverlay
+      hfresh havoid delta anchors name hname)
+    hcycle
 
 end TargetSegmentCover
 

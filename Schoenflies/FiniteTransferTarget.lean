@@ -345,12 +345,67 @@ theorem target_ear_edge_polygonal
 /-- Every boundary endpoint of a nonouter ambient target edge comes from a strongly accessible
 source anchor.  The stage construction will discharge this from the fresh-point list of its
 anchored square mesh. -/
-def TargetBoundaryAnchored
+def TargetBoundaryAnchored {β : Type*}
     (P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom)
-    (H : Graph Plane γ) (Hdraw : γ → ℝ → Plane) : Prop :=
-  ∀ {f : γ} {y : Plane}, f ∈ E(H) → H.Inc f y → y ∈ tgtOuter →
+    (H : Graph Plane β) (Hdraw : β → ℝ → Plane) : Prop :=
+  ∀ {f : β} {y : Plane}, f ∈ E(H) → H.Inc f y → y ∈ tgtOuter →
     ¬ edgeArc Hdraw f ⊆ tgtOuter →
     StronglyAccessible (srcDom \ srcOuter) (P.homeo.invFun y)
+
+/-- At a point of the distinguished boundary, there is at most one incident ambient edge not
+contained in that boundary.  The ambient edge-name type is deliberately independent of the
+cell-name type. -/
+def NonouterIncidenceUniqueAtBoundary {β : Type*}
+    (H : Graph Plane β) (Hdraw : β → ℝ → Plane) (outer : Set Plane) : Prop :=
+  ∀ {z : Plane} {e f : β}, z ∈ outer → e ∈ E(H) → f ∈ E(H) →
+    H.Inc e z → H.Inc f z →
+    ¬ edgeArc Hdraw e ⊆ outer → ¬ edgeArc Hdraw f ⊆ outer → e = f
+
+/-- Boundary anchoring is geometric, hence survives an injective change of the ambient edge
+names. -/
+theorem TargetBoundaryAnchored.relabelEdges {β δ : Type*} [Nonempty β]
+    {P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom}
+    {H : Graph Plane β} {Hdraw : β → ℝ → Plane} {f : β → δ}
+    (h : TargetBoundaryAnchored P H Hdraw) (hf : InjOn f E(H)) :
+    TargetBoundaryAnchored P (H.relabelEdges f hf) (H.relabelDrawing f Hdraw) := by
+  intro d y hd hinc hy hnot
+  obtain ⟨e, he, rfl⟩ := hd
+  obtain ⟨g, hg, hge, hginc⟩ :=
+    (Graph.relabelEdges_inc H f hf (f e) y).1 hinc
+  have hgeq : g = e := hf hg he hge
+  subst g
+  apply h he hginc hy
+  intro hsub
+  apply hnot
+  rwa [Graph.edgeArc_relabelDrawing hf he]
+
+/-- Uniqueness of the nonouter boundary edge is likewise invariant under injective edge
+relabelling. -/
+theorem NonouterIncidenceUniqueAtBoundary.relabelEdges {β δ : Type*} [Nonempty β]
+    {H : Graph Plane β} {Hdraw : β → ℝ → Plane} {outer : Set Plane}
+    {f : β → δ} (h : NonouterIncidenceUniqueAtBoundary H Hdraw outer)
+    (hf : InjOn f E(H)) :
+    NonouterIncidenceUniqueAtBoundary
+      (H.relabelEdges f hf) (H.relabelDrawing f Hdraw) outer := by
+  intro z d k hz hd hk hdinc hkinc hdnot hknot
+  obtain ⟨e, he, rfl⟩ := hd
+  obtain ⟨g, hg, rfl⟩ := hk
+  obtain ⟨e', he', he'f, he'inc⟩ :=
+    (Graph.relabelEdges_inc H f hf (f e) z).1 hdinc
+  obtain ⟨g', hg', hg'f, hg'inc⟩ :=
+    (Graph.relabelEdges_inc H f hf (f g) z).1 hkinc
+  have he'e : e' = e := hf he' he he'f
+  have hg'g : g' = g := hf hg' hg hg'f
+  subst e'
+  subst g'
+  apply congrArg f
+  apply h hz he hg he'inc hg'inc
+  · intro hsub
+    apply hdnot
+    rwa [Graph.edgeArc_relabelDrawing hf he]
+  · intro hsub
+    apply hknot
+    rwa [Graph.edgeArc_relabelDrawing hf hg]
 
 /-- The one-sided constructor data obtained by realizing the ambient target path. -/
 structure TargetSideEarStepData (T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom)
@@ -950,6 +1005,74 @@ theorem IsTargetPartialTransferOf.exists_ambient_nonouter_incident
       exact Set.disjoint_left.1 (hedge f hf hninc) hzClosed hzf
     exact ⟨f, hf, hfinc, fun hsub => hzOuter (hsub hzf)⟩
 
+/-- If an ambient boundary vertex has at most one incident nonouter edge, then both boundary
+endpoints of the next reverse ear are outer-only in the current abstract skeleton.  Any current
+nonouter abstract edge would reflect to a different current ambient nonouter edge, contradicting
+freshness of the ear edge. -/
+theorem targetEarEndpointsOuterOnly_of_nonouterIncidenceUnique
+    (P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom)
+    {H : Graph Plane γ} {Hdraw : γ → ℝ → Plane}
+    (hH : IsSourceExtension P.tgt tgtOuter tgtDom H Hdraw)
+    (hunique : NonouterIncidenceUniqueAtBoundary H Hdraw tgtOuter)
+    {B : Graph Plane γ} {a b : Plane} {D : List γ} {par : γ → γ}
+    (hBH : B ≤ H) (hpath : H.IsPath a D b) (hab : a ≠ b)
+    (haB : a ∈ V(B)) (hbB : b ∈ V(B))
+    (hnew : ∀ g ∈ D, g ∉ E(B))
+    {T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom}
+    (hT : IsTargetPartialTransferOf T P B Hdraw par)
+    (w : TargetSideEarStepData T B H Hdraw a b D) :
+    (T.src.pos w.splitData.source ∈ srcOuter →
+      T.str.OuterOnlyAt w.splitData.source) ∧
+    (T.src.pos w.splitData.target ∈ srcOuter →
+      T.str.OuterOnlyAt w.splitData.target) := by
+  letI : H.Finite := hH.finite
+  letI : B.Finite := Graph.Finite.of_le hBH
+  have hBdraw := hH.isDrawing.mono hBH
+  have hinside : Graph.edgesCover Hdraw D \ {a, b} ⊆
+      T.tgt.cell w.splitData.face := by
+    intro x hx
+    apply w.tgtCrosscut.subset_face
+    refine ⟨?_, ?_⟩
+    · rw [w.tgtEarSet_eq]
+      exact hx.1
+    · simpa only [w.target_pos_source, w.target_pos_target] using hx.2
+  have hnotOuter := target_ear_edge_not_outer hH hpath w.splitData.face_mem hinside
+  obtain ⟨eₛ, heₛ, hincₛ⟩ :=
+    hpath.isWalk.exists_inc_source (hpath.ne_nil hab)
+  obtain ⟨eₜ, heₜ, hincₜ⟩ :=
+    hpath.reverse.isWalk.exists_inc_source (hpath.reverse.ne_nil (Ne.symm hab))
+  have heₜD : eₜ ∈ D := by simpa using heₜ
+  have endpoint_outerOnly : ∀ {v : γ} {y : Plane} {e : γ},
+      v ∈ V(T.str.skel) → T.tgt.pos v = y → y ∈ V(B) →
+      e ∈ D → H.Inc e y → ¬ edgeArc Hdraw e ⊆ tgtOuter →
+      T.src.pos v ∈ srcOuter → T.str.OuterOnlyAt v := by
+    intro v y e hv hpos hyB heD heinc henot hx
+    have hyOuter : y ∈ tgtOuter := by
+      rw [← hpos]
+      exact T.target_pos_mem_outer_of_source_pos_mem_outer hv hx
+    intro g hg
+    by_contra hgOuter
+    have hvB : T.tgt.pos v ∈ V(B) := by rwa [hpos]
+    have hvOuter : T.tgt.pos v ∈ tgtOuter := by rwa [hpos]
+    obtain ⟨f, hfB, hfincB, hfnot⟩ :=
+      hT.exists_ambient_nonouter_incident hBdraw hvB hvOuter hg hgOuter
+    have hfH : f ∈ E(H) := hBH.edgeSet_mono hfB
+    have hfincH : H.Inc f y := by
+      rw [← hpos]
+      exact (hBH.inc_congr hfB).1 hfincB
+    have hef : e = f :=
+      hunique hyOuter (hpath.edge_mem heD) hfH heinc hfincH henot hfnot
+    exact hnew e heD (by rwa [hef])
+  constructor
+  · intro hx
+    exact endpoint_outerOnly (v := w.splitData.source) (y := a) (e := eₛ)
+      w.splitData.source_mem_skel w.target_pos_source haB
+      heₛ hincₛ (hnotOuter eₛ heₛ) hx
+  · intro hx
+    exact endpoint_outerOnly (v := w.splitData.target) (y := b) (e := eₜ)
+      w.splitData.target_mem_skel w.target_pos_target hbB
+      heₜD hincₜ (hnotOuter eₜ heₜD) hx
+
 /-- At an outer-only vertex with at most two outer branches, the selected incident face is the
 only incident face.  Each simple face boundary contributes two distinct edges at the vertex;
 the two-branch bound forces two such face boundaries to share an outer edge, and
@@ -1240,8 +1363,53 @@ def TargetEarFreshCombinatorics [Infinite γ]
       ∀ w : TargetSideEarStepData T B H Hdraw a b D,
         T.SourceEndpointFreshCombinatorics w.splitData.face
             (T.src.pos w.splitData.source) ∧
-          T.SourceEndpointFreshCombinatorics w.splitData.face
+        T.SourceEndpointFreshCombinatorics w.splitData.face
             (T.src.pos w.splitData.target)
+
+/-- Ambient uniqueness of the nonouter edge at each boundary vertex, together with the static
+two-branch invariant of generated outer graphs, supplies all reverse-ear fresh combinatorics. -/
+theorem targetEarFreshCombinatorics_of_nonouterIncidenceUnique_of_outerIncidenceAtMostTwo
+    [Infinite γ]
+    (P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom)
+    {H : Graph Plane γ} {Hdraw : γ → ℝ → Plane}
+    (hH : IsSourceExtension P.tgt tgtOuter tgtDom H Hdraw)
+    (hunique : NonouterIncidenceUniqueAtBoundary H Hdraw tgtOuter)
+    (htwo : ∀ (S : CellStructure γ), GeneratedStructure S₀ S →
+      S.OuterIncidenceAtMostTwoEverywhere) :
+    TargetEarFreshCombinatorics P H Hdraw := by
+  intro B a b D hB hBH hpath hab haB hbB hint hnew T par hT w
+  obtain ⟨hsourceOuterOnly, htargetOuterOnly⟩ :=
+    targetEarEndpointsOuterOnly_of_nonouterIncidenceUnique P hH hunique hBH hpath hab
+      haB hbB hnew hT w
+  let d := w.splitData
+  have hsourceSub : T.str.sub d.source d.face :=
+    d.sub_face.2 (Or.inr (Or.inl d.source_mem_cells₁))
+  have htargetSub : T.str.sub d.target d.face :=
+    d.sub_face.2 (Or.inr (Or.inl d.target_mem_cells₁))
+  have htwoT := htwo T.str T.generated
+  constructor
+  · intro hx
+    have houter : T.str.OuterOnlyAt d.source := hsourceOuterOnly hx
+    exact ⟨T.source_pos_notMem_nonboundaryGraph_of_outerOnlyAt d.source_mem_skel houter,
+      T.unique_source_face_of_outerOnly d.source_mem_skel d.face_mem hsourceSub
+        houter (htwoT d.source)⟩
+  · intro hx
+    have houter : T.str.OuterOnlyAt d.target := htargetOuterOnly hx
+    exact ⟨T.source_pos_notMem_nonboundaryGraph_of_outerOnlyAt d.target_mem_skel houter,
+      T.unique_source_face_of_outerOnly d.target_mem_skel d.face_mem htargetSub
+        houter (htwoT d.target)⟩
+
+/-- The preceding reverse-ear combinatorics follows from the natural base invariant that the
+distinguished outer edges form one simple cycle. -/
+theorem targetEarFreshCombinatorics_of_nonouterIncidenceUnique_of_outerCycle [Infinite γ]
+    (P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom)
+    {H : Graph Plane γ} {Hdraw : γ → ℝ → Plane}
+    (hH : IsSourceExtension P.tgt tgtOuter tgtDom H Hdraw)
+    (hunique : NonouterIncidenceUniqueAtBoundary H Hdraw tgtOuter)
+    (hcycle : S₀.OuterEdgesFormCycle) :
+    TargetEarFreshCombinatorics P H Hdraw :=
+  targetEarFreshCombinatorics_of_nonouterIncidenceUnique_of_outerIncidenceAtMostTwo
+    P hH hunique fun _ h => h.outerIncidenceAtMostTwoEverywhere hcycle
 
 /-- The combinatorial/anchoring invariant still required from the prescribed target ear order:
 both source endpoints selected by every nontrivial target ear are ready in the preceding sense. -/
@@ -1529,5 +1697,21 @@ theorem finite_transfer_toward_source_of_boundaryAnchored [Infinite γ]
       IsTargetTransferOf T P H Hdraw par :=
   finite_transfer_toward_source_of_freshInvariant hH
     (targetEarFreshInvariant_of_boundaryAnchored P H Hdraw hH hanchor hcomb)
+
+/-- **Finite transfer, direction (b), from name-independent ambient boundary geometry.**  The
+ambient extension needs one anchored nonouter edge at each prescribed boundary point and at most
+one such edge incident there; the abstract base needs one distinguished outer cycle. -/
+theorem finite_transfer_toward_source_of_boundaryGeometry [Infinite γ]
+    {P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom}
+    {H : Graph Plane γ} {Hdraw : γ → ℝ → Plane}
+    (hH : IsSourceExtension P.tgt tgtOuter tgtDom H Hdraw)
+    (hanchor : TargetBoundaryAnchored P H Hdraw)
+    (hunique : NonouterIncidenceUniqueAtBoundary H Hdraw tgtOuter)
+    (hcycle : S₀.OuterEdgesFormCycle) :
+    ∃ (T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom) (par : γ → γ),
+      IsTargetTransferOf T P H Hdraw par :=
+  finite_transfer_toward_source_of_boundaryAnchored hH hanchor
+    (targetEarFreshCombinatorics_of_nonouterIncidenceUnique_of_outerCycle
+      P hH hunique hcycle)
 
 end Schoenflies

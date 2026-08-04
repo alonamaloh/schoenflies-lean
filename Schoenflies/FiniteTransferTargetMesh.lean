@@ -28,6 +28,10 @@ condition follows with no ear-order argument.
   evolving fresh-incidence input.
 * `Schoenflies.targetEarFreshCombinatorics_squareMesh_of_outerCycle` — the preceding local
   property follows from one simple-cycle check on the base structure.
+* `Schoenflies.isSourceExtension_relabelledSquareMesh_closedSquare` — edge relabelling and all
+  fixed mesh clauses reduce the extension interface to the three actual subdivision statements.
+* `Schoenflies.finite_transfer_toward_source_relabelledSquareMesh_of_outerCycle` — reverse
+  transfer over any infinite abstract cell-name type.
 * `Schoenflies.finite_transfer_toward_source_squareMesh` — direction (b) for an anchored square
   mesh, reduced only to the evolving fresh-incidence combinatorics.
 * `Schoenflies.finite_transfer_toward_source_squareMesh_of_outerIncidenceAtMostTwo` — the same
@@ -82,12 +86,199 @@ theorem squareMesh_nonouter_incident_eq
   exact (huniq P ⟨hPd.1, hPd.2.1, hPd.2.2.1⟩).trans
     (huniq Q ⟨hQd.1, hQd.2.1, hQd.2.2.1⟩).symm
 
+/-- The name-independent form of square-mesh clause 4: at a point of the model curve there is
+at most one incident mesh edge which is not contained in the curve. -/
+theorem nonouterIncidenceUniqueAtBoundary_squareMesh
+    {fresh anchors : List Plane} (hfresh : ∀ z ∈ fresh, z ∈ modelCurve)
+    (delta : ℝ) :
+    NonouterIncidenceUniqueAtBoundary
+      (squareMesh delta fresh anchors) segmentDrawing modelCurve := by
+  intro z P Q hz hP hQ hPinc hQinc hPnot hQnot
+  exact squareMesh_nonouter_incident_eq hfresh delta hz hP hQ hPinc hQinc hPnot hQnot
+
+/-- A finite square mesh can have all of its edges injectively renamed into any infinite cell
+name type, avoiding any prescribed finite set of names. -/
+theorem exists_squareMesh_edgeRelabeling_avoiding (γ : Type*) [Infinite γ]
+    (delta : ℝ) (fresh anchors : List Plane) (used : Set γ) (hused : used.Finite) :
+    ∃ name : Piece → γ, InjOn name E(squareMesh delta fresh anchors) ∧
+      ∀ e ∈ E(squareMesh delta fresh anchors), name e ∉ used := by
+  classical
+  let H := squareMesh delta fresh anchors
+  letI : H.Finite := squareMesh_finite delta fresh anchors
+  obtain ⟨freshName, hfreshName, havoid⟩ :=
+    exists_injective_avoiding used hused E(H)
+  let fallback : γ := Classical.choice (inferInstance : Nonempty γ)
+  let name : Piece → γ := fun e =>
+    if he : e ∈ E(H) then freshName ⟨e, he⟩ else fallback
+  refine ⟨name, ?_, ?_⟩
+  · intro e he g hg heg
+    have hnames : freshName (⟨e, he⟩ : E(H)) = freshName ⟨g, hg⟩ := by
+      dsimp only [name] at heg
+      rw [dif_pos he, dif_pos hg] at heg
+      exact heg
+    exact congrArg Subtype.val (hfreshName hnames)
+  · intro e he
+    dsimp only [name]
+    rw [dif_pos he]
+    exact havoid (⟨e, he⟩ : E(H))
+
+/-- A relabelled square mesh is finite. -/
+theorem squareMesh_relabelEdges_finite {γ : Type*}
+    (delta : ℝ) (fresh anchors : List Plane) (name : Piece → γ)
+    (hname : InjOn name E(squareMesh delta fresh anchors)) :
+    ((squareMesh delta fresh anchors).relabelEdges name hname).Finite :=
+  Graph.Finite.relabelEdges hname
+
+/-- The straight-line square-mesh drawing transports to the new edge names. -/
+theorem squareMesh_relabelEdges_isDrawing {γ : Type*}
+    {fresh anchors : List Plane} (hfresh : ∀ z ∈ fresh, z ∈ modelCurve)
+    (delta : ℝ) (name : Piece → γ)
+    (hname : InjOn name E(squareMesh delta fresh anchors)) :
+    Graph.IsDrawing ((squareMesh delta fresh anchors).relabelEdges name hname)
+      ((squareMesh delta fresh anchors).relabelDrawing name segmentDrawing) :=
+  (squareMesh_isDrawing hfresh delta anchors).relabelEdges hname
+
+/-- Relabelling does not change the geometric carrier of the square mesh. -/
+theorem squareMesh_pointSet_relabelEdges {γ : Type*}
+    (delta : ℝ) (fresh anchors : List Plane) (name : Piece → γ)
+    (hname : InjOn name E(squareMesh delta fresh anchors)) :
+    Graph.pointSet ((squareMesh delta fresh anchors).relabelEdges name hname)
+        ((squareMesh delta fresh anchors).relabelDrawing name segmentDrawing) =
+      Graph.pointSet (squareMesh delta fresh anchors) segmentDrawing :=
+  Graph.pointSet_relabelEdges hname
+
+/-- The relabelled mesh remains 2-connected under the same density hypotheses. -/
+theorem squareMesh_relabelEdges_isTwoConnected {γ : Type*}
+    {fresh anchors : List Plane} (hfresh : ∀ z ∈ fresh, z ∈ modelCurve)
+    {delta : ℝ} (hdense : FreshDense fresh delta) (hdelta : delta < 4)
+    (name : Piece → γ) (hname : InjOn name E(squareMesh delta fresh anchors)) :
+    ((squareMesh delta fresh anchors).relabelEdges name hname).IsTwoConnected :=
+  (squareMesh_isTwoConnected hfresh hdense hdelta anchors).relabelEdges hname
+
+/-- Every square-mesh edge is either contained in the model curve or is a polygonal edge whose
+nonvertex points avoid that curve.  A nonouter edge can meet the curve only at its unique fresh
+endpoint, and that endpoint is a graph vertex. -/
+theorem squareMesh_edge_dichotomy
+    {fresh anchors : List Plane} (hfresh : ∀ z ∈ fresh, z ∈ modelCurve)
+    (delta : ℝ) {dom : Set Plane}
+    (hpointSet : Graph.pointSet (squareMesh delta fresh anchors) segmentDrawing ⊆ dom) :
+    ∀ ⦃f⦄, f ∈ E(squareMesh delta fresh anchors) →
+      edgeArc segmentDrawing f ⊆ modelCurve ∨
+        (IsPolygonal (edgeArc segmentDrawing f) ∧
+          edgeArc segmentDrawing f \ V(squareMesh delta fresh anchors) ⊆
+            dom \ modelCurve) := by
+  intro f hf
+  by_cases hout : edgeArc segmentDrawing f ⊆ modelCurve
+  · exact Or.inl hout
+  · refine Or.inr ⟨?_, ?_⟩
+    · rw [edgeArc_segmentDrawing]
+      exact isPolygonal_segment _ _
+    · intro x hx
+      refine ⟨hpointSet (Graph.edgeArc_subset_pointSet hf hx.1), ?_⟩
+      intro hxOuter
+      have hxSeg : x ∈ f.seg := by
+        rw [← edgeArc_segmentDrawing]
+        exact hx.1
+      have hnotSeg : ¬ f.seg ⊆ modelCurve := by
+        simpa only [edgeArc_segmentDrawing] using hout
+      obtain ⟨z, -, hinter, hzEnd, -⟩ :=
+        squareMesh_inner_edge_at_fresh hfresh delta hf ⟨x, hxSeg, hxOuter⟩ hnotSeg
+      have hxz : x = z := by
+        have : x ∈ ({z} : Set Plane) := hinter ▸ ⟨hxSeg, hxOuter⟩
+        simpa only [Set.mem_singleton_iff] using this
+      obtain ⟨-, -, hlink⟩ := (squareMesh_isDrawing hfresh delta anchors).edge_param hf
+      apply hx.2
+      rw [hxz]
+      rcases hzEnd with rfl | rfl
+      · simpa [segmentDrawing] using hlink.left_mem
+      · simpa [segmentDrawing] using hlink.right_mem
+
+/-- Assemble the relabelled square mesh as a target extension from hypotheses stated entirely
+against the original `Piece`-named mesh.  Finiteness, planarity, 2-connectivity, and every
+geometric carrier equality are transported automatically. -/
+theorem isSourceExtension_relabelledSquareMesh
+    {γ : Type*} {Sbase : CellStructure γ}
+    {srcOuter srcDom tgtDom : Set Plane}
+    (P : GeneratedPair Sbase srcOuter srcDom modelCurve tgtDom)
+    {fresh anchors : List Plane} (hfresh : ∀ z ∈ fresh, z ∈ modelCurve)
+    {delta : ℝ} (hdense : FreshDense fresh delta) (hdelta : delta < 4)
+    (name : Piece → γ) (hname : InjOn name E(squareMesh delta fresh anchors))
+    (hvertices : V(P.tgt.graph) ⊆ V(squareMesh delta fresh anchors))
+    (hskeleton : P.tgt.skeletonSet ⊆
+      Graph.pointSet (squareMesh delta fresh anchors) segmentDrawing)
+    (hedge : ∀ ⦃e : γ⦄, e ∈ E(P.str.skel) → ∀ ⦃f : Piece⦄,
+      f ∈ E(squareMesh delta fresh anchors) →
+      (edgeArc segmentDrawing f ∩ P.tgt.cell e).Nonempty →
+      edgeArc segmentDrawing f ⊆ edgeArc P.tgt.drawing e)
+    (hpointSet : Graph.pointSet (squareMesh delta fresh anchors) segmentDrawing ⊆ tgtDom)
+    (hdichotomy : ∀ ⦃f⦄, f ∈ E(squareMesh delta fresh anchors) →
+      edgeArc segmentDrawing f ⊆ modelCurve ∨
+        (IsPolygonal (edgeArc segmentDrawing f) ∧
+          edgeArc segmentDrawing f \ V(squareMesh delta fresh anchors) ⊆
+            tgtDom \ modelCurve))
+    (hconnected : IsConnected
+      (Graph.pointSet (squareMesh delta fresh anchors) segmentDrawing \ modelCurve)) :
+    IsSourceExtension P.tgt modelCurve tgtDom
+      ((squareMesh delta fresh anchors).relabelEdges name hname)
+      ((squareMesh delta fresh anchors).relabelDrawing name segmentDrawing) where
+  finite := squareMesh_relabelEdges_finite delta fresh anchors name hname
+  isDrawing := squareMesh_relabelEdges_isDrawing hfresh delta name hname
+  isTwoConnected := squareMesh_relabelEdges_isTwoConnected hfresh hdense hdelta name hname
+  vertexSet_subset := by
+    rw [Graph.vertexSet_relabelEdges]
+    exact hvertices
+  skeletonSet_subset := by
+    rw [squareMesh_pointSet_relabelEdges]
+    exact hskeleton
+  edge_subset := by
+    intro e he d hd hmeet
+    obtain ⟨f, hf, rfl⟩ := hd
+    rw [Graph.edgeArc_relabelDrawing hname hf] at hmeet ⊢
+    exact hedge he hf hmeet
+  pointSet_subset := by
+    rw [squareMesh_pointSet_relabelEdges]
+    exact hpointSet
+  edge_dichotomy := by
+    intro d hd
+    obtain ⟨f, hf, rfl⟩ := hd
+    rw [Graph.edgeArc_relabelDrawing hname hf, Graph.vertexSet_relabelEdges]
+    exact hdichotomy hf
+  isConnected := by
+    rw [squareMesh_pointSet_relabelEdges]
+    exact hconnected
+
+/-- For the model closed square, the square-mesh construction itself supplies the domain
+containment, edge dichotomy, connected complement, planarity, and 2-connectivity.  A caller only
+has to say that the current target skeleton is subdivided by the mesh. -/
+theorem isSourceExtension_relabelledSquareMesh_closedSquare
+    {γ : Type*} {Sbase : CellStructure γ} {srcOuter srcDom : Set Plane}
+    (P : GeneratedPair Sbase srcOuter srcDom modelCurve (Plane.closedSquare 0 1))
+    {fresh anchors : List Plane} (hfresh : ∀ z ∈ fresh, z ∈ modelCurve)
+    {delta : ℝ} (hdense : FreshDense fresh delta) (hdelta : delta < 4)
+    (name : Piece → γ) (hname : InjOn name E(squareMesh delta fresh anchors))
+    (hvertices : V(P.tgt.graph) ⊆ V(squareMesh delta fresh anchors))
+    (hskeleton : P.tgt.skeletonSet ⊆
+      Graph.pointSet (squareMesh delta fresh anchors) segmentDrawing)
+    (hedge : ∀ ⦃e : γ⦄, e ∈ E(P.str.skel) → ∀ ⦃f : Piece⦄,
+      f ∈ E(squareMesh delta fresh anchors) →
+      (edgeArc segmentDrawing f ∩ P.tgt.cell e).Nonempty →
+      edgeArc segmentDrawing f ⊆ edgeArc P.tgt.drawing e) :
+    IsSourceExtension P.tgt modelCurve (Plane.closedSquare 0 1)
+      ((squareMesh delta fresh anchors).relabelEdges name hname)
+      ((squareMesh delta fresh anchors).relabelDrawing name segmentDrawing) := by
+  have hpoint := squareMesh_pointSet_subset hfresh delta anchors
+  obtain ⟨z, hz, -, -, -⟩ := exists_two_distinct_fresh_of_freshDense hdense hdelta
+  exact isSourceExtension_relabelledSquareMesh P hfresh hdense hdelta name hname
+    hvertices hskeleton hedge hpoint (squareMesh_edge_dichotomy hfresh delta hpoint)
+    (squareMesh_isConnected_diff hfresh delta anchors hz)
+
 /-- An anchored square mesh satisfies the fixed boundary-anchor condition for reverse finite
 transfer.  The only hypothesis beyond membership in the model curve is the one the stage
 constructor records: every prescribed fresh target point pulls back to a strongly accessible
 source anchor. -/
 theorem targetBoundaryAnchored_squareMesh
-    (P : GeneratedPair S₀ srcOuter srcDom modelCurve tgtDom)
+    {γ : Type*} {Sbase : CellStructure γ}
+    (P : GeneratedPair Sbase srcOuter srcDom modelCurve tgtDom)
     {fresh anchors : List Plane} (hfresh : ∀ z ∈ fresh, z ∈ modelCurve)
     (hstrong : ∀ z ∈ fresh,
       StronglyAccessible (srcDom \ srcOuter) (P.homeo.invFun z))
@@ -134,54 +325,9 @@ theorem targetEarEndpointsOuterOnly_squareMesh
       T.str.OuterOnlyAt w.splitData.source) ∧
     (T.src.pos w.splitData.target ∈ srcOuter →
       T.str.OuterOnlyAt w.splitData.target) := by
-  letI : B.Finite := Graph.Finite.of_le hBH
-  have hBdraw := hH.isDrawing.mono hBH
-  have hinside : Graph.edgesCover segmentDrawing D \ {a, b} ⊆
-      T.tgt.cell w.splitData.face := by
-    intro x hx
-    apply w.tgtCrosscut.subset_face
-    refine ⟨?_, ?_⟩
-    · rw [w.tgtEarSet_eq]
-      exact hx.1
-    · simpa only [w.target_pos_source, w.target_pos_target] using hx.2
-  have hnotOuter := target_ear_edge_not_outer hH hpath w.splitData.face_mem hinside
-  obtain ⟨eₛ, heₛ, hincₛ⟩ :=
-    hpath.isWalk.exists_inc_source (hpath.ne_nil hab)
-  obtain ⟨eₜ, heₜ, hincₜ⟩ :=
-    hpath.reverse.isWalk.exists_inc_source (hpath.reverse.ne_nil (Ne.symm hab))
-  have heₜD : eₜ ∈ D := by simpa using heₜ
-  have endpoint_outerOnly : ∀ {v : Piece} {y : Plane} {e : Piece},
-      v ∈ V(T.str.skel) → T.tgt.pos v = y → y ∈ V(B) →
-      e ∈ D → (squareMesh delta fresh anchors).Inc e y →
-      ¬ edgeArc segmentDrawing e ⊆ modelCurve →
-      T.src.pos v ∈ srcOuter → T.str.OuterOnlyAt v := by
-    intro v y e hv hpos hyB heD heinc henot hx
-    have hyOuter : y ∈ modelCurve := by
-      rw [← hpos]
-      exact T.target_pos_mem_outer_of_source_pos_mem_outer hv hx
-    intro g hg
-    by_contra hgOuter
-    have hvB : T.tgt.pos v ∈ V(B) := by rwa [hpos]
-    have hvOuter : T.tgt.pos v ∈ modelCurve := by rwa [hpos]
-    obtain ⟨f, hfB, hfincB, hfnot⟩ :=
-      hT.exists_ambient_nonouter_incident hBdraw hvB hvOuter hg hgOuter
-    have hfH : f ∈ E(squareMesh delta fresh anchors) := hBH.edgeSet_mono hfB
-    have hfincH : (squareMesh delta fresh anchors).Inc f y := by
-      rw [← hpos]
-      exact (hBH.inc_congr hfB).1 hfincB
-    have hef : e = f :=
-      squareMesh_nonouter_incident_eq hfresh delta hyOuter
-        (hpath.edge_mem heD) hfH heinc hfincH henot hfnot
-    exact hnew e heD (by rwa [hef])
-  constructor
-  · intro hx
-    exact endpoint_outerOnly (v := w.splitData.source) (y := a) (e := eₛ)
-      w.splitData.source_mem_skel w.target_pos_source haB
-      heₛ hincₛ (hnotOuter eₛ heₛ) hx
-  · intro hx
-    exact endpoint_outerOnly (v := w.splitData.target) (y := b) (e := eₜ)
-      w.splitData.target_mem_skel w.target_pos_target hbB
-      heₜD hincₜ (hnotOuter eₜ heₜD) hx
+  exact targetEarEndpointsOuterOnly_of_nonouterIncidenceUnique P hH
+    (nonouterIncidenceUniqueAtBoundary_squareMesh hfresh delta)
+    hBH hpath hab haB hbB hnew hT w
 
 /-- For a square mesh, the reverse-ear fresh-incidence invariant follows from the static fact
 that every generated outer graph is locally at most two-branched.  Clause 4 makes each new
@@ -282,5 +428,31 @@ theorem finite_transfer_toward_source_squareMesh_of_outerCycle
       IsTargetTransferOf T P (squareMesh delta fresh anchors) segmentDrawing par :=
   finite_transfer_toward_source_squareMesh P hfresh hstrong delta hH
     (targetEarFreshCombinatorics_squareMesh_of_outerCycle P hfresh delta hH hcycle)
+
+/-- Reverse finite transfer for a square mesh whose finitely many `Piece` edge labels have been
+injectively renamed into the abstract cell-name type.  This is the integration form used by the
+`InitialCell`-named initial pair. -/
+theorem finite_transfer_toward_source_relabelledSquareMesh_of_outerCycle
+    {γ : Type*} [Infinite γ] {Sbase : CellStructure γ}
+    (P : GeneratedPair Sbase srcOuter srcDom modelCurve tgtDom)
+    {fresh anchors : List Plane} (hfresh : ∀ z ∈ fresh, z ∈ modelCurve)
+    (hstrong : ∀ z ∈ fresh,
+      StronglyAccessible (srcDom \ srcOuter) (P.homeo.invFun z))
+    (delta : ℝ) (name : Piece → γ)
+    (hname : InjOn name E(squareMesh delta fresh anchors))
+    (hH : IsSourceExtension P.tgt modelCurve tgtDom
+      ((squareMesh delta fresh anchors).relabelEdges name hname)
+      ((squareMesh delta fresh anchors).relabelDrawing name segmentDrawing))
+    (hcycle : Sbase.OuterEdgesFormCycle) :
+    ∃ (T : GeneratedPair Sbase srcOuter srcDom modelCurve tgtDom) (par : γ → γ),
+      IsTargetTransferOf T P
+        ((squareMesh delta fresh anchors).relabelEdges name hname)
+        ((squareMesh delta fresh anchors).relabelDrawing name segmentDrawing) par :=
+  finite_transfer_toward_source_of_boundaryGeometry hH
+    (TargetBoundaryAnchored.relabelEdges
+      (targetBoundaryAnchored_squareMesh (anchors := anchors) P hfresh hstrong delta) hname)
+    (NonouterIncidenceUniqueAtBoundary.relabelEdges
+      (nonouterIncidenceUniqueAtBoundary_squareMesh (anchors := anchors) hfresh delta) hname)
+    hcycle
 
 end Schoenflies

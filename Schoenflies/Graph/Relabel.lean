@@ -5,6 +5,7 @@ Authors: Álvaro Begué
 -/
 import Schoenflies.Graph.PathGraph
 import Schoenflies.Graph.Drawing
+import Schoenflies.Graph.TwoConnected
 
 /-!
 # Relabelling the edges of a multigraph
@@ -70,6 +71,18 @@ theorem IsLink.relabelEdges (hf : InjOn f E(G)) (h : G.IsLink e x y) :
     (G.relabelEdges f hf).IsLink (f e) x y :=
   ⟨e, h.edge_mem, rfl, h⟩
 
+/-- Incidence in an edge-relabelled graph is exactly incidence of the uniquely represented
+old edge. -/
+theorem relabelEdges_inc (G : Graph α β) (f : β → δ) (hf : InjOn f E(G))
+    (d : δ) (x : α) :
+    (G.relabelEdges f hf).Inc d x ↔
+      ∃ e ∈ E(G), f e = d ∧ G.Inc e x := by
+  constructor
+  · rintro ⟨y, e, he, hfe, hxy⟩
+    exact ⟨e, he, hfe, y, hxy⟩
+  · rintro ⟨e, he, rfl, y, hxy⟩
+    exact ⟨y, hxy.relabelEdges hf⟩
+
 /-- Relabelling an edge list does not change the vertices it covers. -/
 theorem coveredVertices_relabelEdges (hf : InjOn f E(G)) {W : List β}
     (hW : ∀ e ∈ W, e ∈ E(G)) :
@@ -119,6 +132,61 @@ theorem IsPathGraph.relabelEdges {P : Graph α β} (hf : InjOn f E(P))
   vertexSet_eq := by
     rw [vertexSet_relabelEdges, walkVertices_relabelEdges hf u h.isWalk.edgeSet_subset,
       h.vertexSet_eq]
+
+/-- Relabelling preserves graph finiteness. -/
+theorem Finite.relabelEdges [G.Finite] (hf : InjOn f E(G)) :
+    (G.relabelEdges f hf).Finite where
+  finite_vertexSet := by
+    rw [vertexSet_relabelEdges]
+    exact _root_.Graph.finite_vertexSet G
+  finite_edgeSet := by
+    rw [edgeSet_relabelEdges]
+    exact (_root_.Graph.finite_edgeSet G).image f
+
+/-- Relabelling preserves connectedness because every old walk pushes forward. -/
+theorem Connected.relabelEdges (h : G.Connected) (hf : InjOn f E(G)) :
+    (G.relabelEdges f hf).Connected := by
+  constructor
+  · simpa using h.nonempty
+  · intro u hu v hv
+    obtain ⟨W, hW⟩ := h.reaches (by simpa using hu) (by simpa using hv)
+    exact ⟨W.map f, hW.relabelEdges hf⟩
+
+/-- A walk surviving a vertex deletion still survives that deletion after edge relabelling. -/
+theorem IsWalk.relabelEdges_deleteVerts {X : Set α} {u v : α} {W : List β}
+    (hf : InjOn f E(G)) (h : (G.deleteVerts X).IsWalk u W v) :
+    ((G.relabelEdges f hf).deleteVerts X).IsWalk u (W.map f) v := by
+  induction h with
+  | nil hx =>
+      apply IsWalk.nil
+      rw [vertexSet_deleteVerts, vertexSet_relabelEdges]
+      exact hx
+  | cons hl hW ih =>
+      apply IsWalk.cons _ ih
+      rw [deleteVerts_isLink] at hl ⊢
+      exact ⟨hl.1.relabelEdges hf, hl.2.1, hl.2.2⟩
+
+/-- Edge relabelling preserves 2-connectivity, including connectedness after deleting any one
+vertex. -/
+theorem IsTwoConnected.relabelEdges (h : G.IsTwoConnected) (hf : InjOn f E(G)) :
+    (G.relabelEdges f hf).IsTwoConnected where
+  hasThreeVertices := by
+    obtain ⟨a, ha, b, hb, c, hc, hab, hac, hbc⟩ := h.hasThreeVertices
+    exact ⟨a, by simpa, b, by simpa, c, by simpa, hab, hac, hbc⟩
+  connected := h.connected.relabelEdges hf
+  deleteVerts_connected := by
+    intro x hx
+    have hxG : x ∈ V(G) := by simpa using hx
+    have hdel := h.deleteVerts_connected hxG
+    constructor
+    · simpa only [vertexSet_deleteVerts, vertexSet_relabelEdges] using hdel.nonempty
+    · intro u hu v hv
+      have huG : u ∈ V(G.deleteVerts {x}) := by
+        simpa only [vertexSet_deleteVerts, vertexSet_relabelEdges] using hu
+      have hvG : v ∈ V(G.deleteVerts {x}) := by
+        simpa only [vertexSet_deleteVerts, vertexSet_relabelEdges] using hv
+      obtain ⟨W, hW⟩ := hdel.reaches huG hvG
+      exact ⟨W.map f, hW.relabelEdges_deleteVerts hf⟩
 
 /-! ### Relabelling a drawing -/
 

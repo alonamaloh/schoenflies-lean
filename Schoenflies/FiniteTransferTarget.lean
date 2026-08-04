@@ -26,10 +26,11 @@ renamed, realized as a target crosscut, and then matched to a polygonal source c
 reversing `EarHomeo`.  Off the wild curve, endpoint accessibility is derived from
 polygonal-side accessibility.  At a fresh anchor, this module constructs the compact carrier of
 closed nonboundary edges and discharges compactness, cell absorption, and coverage before
-applying `Schoenflies.polyAccessible_of_stronglyAccessible_in`.  Consequently the only remaining
-input is `TargetEarFreshInvariant`: the prescribed outer-cycle ear order must say that a
-wild-boundary endpoint is a strongly accessible anchor absent from that carrier and incident
-with one unique current source face.
+applying `Schoenflies.polyAccessible_of_stronglyAccessible_in`.  `TargetBoundaryAnchored` and
+the compatibility of the evolving skeleton map now supply strong accessibility automatically.
+Consequently the only remaining input is `TargetEarFreshCombinatorics`: the prescribed ear
+order must say that a wild-boundary endpoint is absent from the current nonboundary carrier and
+incident with one unique current source face.
 
 ## Blueprint
 
@@ -44,9 +45,9 @@ with one unique current source face.
 * `Schoenflies.GeneratedPair.sourceNonboundaryGraph`,
   `Schoenflies.GeneratedPair.source_polyAccessible_of_fresh` — the compact source carrier and
   the fresh-anchor accessibility theorem with all cellulation hypotheses discharged.
-* `Schoenflies.TargetEarFreshInvariant`,
-  `Schoenflies.targetEarEndpointAccessibility_of_freshInvariant` — the remaining prescribed-ear
-  combinatorics and its implication for endpoint accessibility.
+* `Schoenflies.TargetBoundaryAnchored`, `Schoenflies.TargetEarFreshCombinatorics`,
+  `Schoenflies.targetEarFreshInvariant_of_boundaryAnchored` — the fixed anchor geometry split
+  cleanly from the remaining prescribed-ear combinatorics.
 * `Schoenflies.targetTransferOfEars`,
   `Schoenflies.finite_transfer_toward_source_of_freshInvariant` — the relative-ear induction
   and direction-(b) theorem conditional only on that combinatorial invariant.
@@ -291,8 +292,41 @@ theorem exists_target_face_of_ear
       (hua ▸ harc.left_mem_closure_diff) (hvb ▸ harc.right_mem_closure_diff)
   exact ⟨u, v, F, hu, hv, huv, hua, hvb, hF, hNF, huF, hvF⟩
 
-/-- Every edge of a genuine target ear is polygonal.  An edge in the exceptional outer-curve
-branch would lie simultaneously in the old target skeleton and in the open current face. -/
+/-- No edge of a genuine target ear is contained in the outer curve.  Such an edge would lie
+simultaneously in the old target skeleton and in the open current face. -/
+theorem target_ear_edge_not_outer
+    {P T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom}
+    {H : Graph Plane γ} {Hdraw : γ → ℝ → Plane}
+    {a b : Plane} {D : List γ} {F : γ}
+    (hH : IsSourceExtension P.tgt tgtOuter tgtDom H Hdraw)
+    (hpath : H.IsPath a D b) (hF : F ∈ T.str.faces)
+    (hinside : Graph.edgesCover Hdraw D \ {a, b} ⊆ T.tgt.cell F) :
+    ∀ e ∈ D, ¬ Graph.edgeArc Hdraw e ⊆ tgtOuter := by
+  intro e he houter
+  have houterSkel : tgtOuter ⊆ T.tgt.skeletonSet := by
+    intro z hz
+    apply T.tgt.outerSet_subset_skeletonSet
+    rw [T.tgt_isWeaklyAdmissible.outerSet_eq]
+    exact hz
+  have harcPair : edgeArc Hdraw e ⊆ ({a, b} : Set Plane) := by
+    intro z hz
+    by_contra hzpair
+    have hzCell : z ∈ T.tgt.cell F :=
+      hinside ⟨Graph.mem_edgesCover he hz, hzpair⟩
+    have hzSkel : z ∈ T.tgt.skeletonSet := houterSkel (houter hz)
+    exact Set.disjoint_left.1
+      (T.tgt.disjoint_cell_skeletonSet T.tgt_isCellDecomposition hF) hzCell hzSkel
+  obtain ⟨x, y, hxy⟩ := H.exists_isLink_of_mem_edgeSet (hpath.edge_mem he)
+  have harc := hH.isDrawing.edge_isArcBetween hxy
+  have hxyne := hH.isDrawing.ne_of_isLink hxy
+  rcases harcPair harc.left_mem with rfl | rfl <;>
+    rcases harcPair harc.right_mem with rfl | rfl
+  · exact hxyne rfl
+  · exact harc.not_subset_pair harcPair
+  · exact harc.not_subset_pair (by simpa [Set.pair_comm] using harcPair)
+  · exact hxyne rfl
+
+/-- Every edge of a genuine target ear is polygonal. -/
 theorem target_ear_edge_polygonal
     {P T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom}
     {H : Graph Plane γ} {Hdraw : γ → ℝ → Plane}
@@ -303,40 +337,31 @@ theorem target_ear_edge_polygonal
     ∀ e ∈ D, IsPolygonal (Graph.edgeArc Hdraw e) := by
   intro e he
   rcases hH.edge_dichotomy (hpath.edge_mem he) with houter | hpoly
-  · exfalso
-    have houterSkel : tgtOuter ⊆ T.tgt.skeletonSet := by
-      intro z hz
-      apply T.tgt.outerSet_subset_skeletonSet
-      rw [T.tgt_isWeaklyAdmissible.outerSet_eq]
-      exact hz
-    have harcPair : edgeArc Hdraw e ⊆ ({a, b} : Set Plane) := by
-      intro z hz
-      by_contra hzpair
-      have hzCell : z ∈ T.tgt.cell F :=
-        hinside ⟨Graph.mem_edgesCover he hz, hzpair⟩
-      have hzSkel : z ∈ T.tgt.skeletonSet := houterSkel (houter hz)
-      exact Set.disjoint_left.1
-        (T.tgt.disjoint_cell_skeletonSet T.tgt_isCellDecomposition hF) hzCell hzSkel
-    obtain ⟨x, y, hxy⟩ := H.exists_isLink_of_mem_edgeSet (hpath.edge_mem he)
-    have harc := hH.isDrawing.edge_isArcBetween hxy
-    have hxyne := hH.isDrawing.ne_of_isLink hxy
-    rcases harcPair harc.left_mem with rfl | rfl <;>
-      rcases harcPair harc.right_mem with rfl | rfl
-    · exact hxyne rfl
-    · exact harc.not_subset_pair harcPair
-    · exact harc.not_subset_pair (by simpa [Set.pair_comm] using harcPair)
-    · exact hxyne rfl
+  · exact absurd houter (target_ear_edge_not_outer hH hpath hF hinside e he)
   · exact hpoly.1
+
+/-- Every boundary endpoint of a nonouter ambient target edge comes from a strongly accessible
+source anchor.  The stage construction will discharge this from the fresh-point list of its
+anchored square mesh. -/
+def TargetBoundaryAnchored
+    (P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom)
+    (H : Graph Plane γ) (Hdraw : γ → ℝ → Plane) : Prop :=
+  ∀ {f : γ} {y : Plane}, f ∈ E(H) → H.Inc f y → y ∈ tgtOuter →
+    ¬ edgeArc Hdraw f ⊆ tgtOuter →
+    StronglyAccessible (srcDom \ srcOuter) (P.homeo.invFun y)
 
 /-- The one-sided constructor data obtained by realizing the ambient target path. -/
 structure TargetSideEarStepData (T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom)
-    (B H : Graph Plane γ) (Hdraw : γ → ℝ → Plane) (a : Plane) (D : List γ) where
+    (B H : Graph Plane γ) (Hdraw : γ → ℝ → Plane) (a b : Plane) (D : List γ) where
   splitData : T.str.SplitData
   tgtPos : γ → Plane
   tgtDraw : γ → ℝ → Plane
   tgtCrosscut : splitData.EarCrosscut T.tgt tgtPos tgtDraw
   tgtEdgePolygonal : ∀ ⦃e⦄, e ∈ E(splitData.ear) →
     IsPolygonal (Graph.edgeArc tgtDraw e)
+  /-- The two old abstract endpoints retain the orientation of the ambient target path. -/
+  target_pos_source : T.tgt.pos splitData.source = a
+  target_pos_target : T.tgt.pos splitData.target = b
   tgtEarSet_eq : splitData.earSet tgtPos tgtDraw = Graph.edgesCover Hdraw D
   vertexSet_subset :
     V(B.union (H.pathGraphOf a D)) ⊆
@@ -354,7 +379,7 @@ theorem exists_targetSideEarStepData [Infinite γ]
       (∀ g ∈ D, g ∉ E(B)) →
       ∀ (T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom) (par : γ → γ),
         IsTargetPartialTransferOf T P B Hdraw par →
-        Nonempty (TargetSideEarStepData T B H Hdraw a D) := by
+        Nonempty (TargetSideEarStepData T B H Hdraw a b D) := by
   classical
   intro B a b D hB hBH hpath hab haB hbB hint hnew T par hT
   obtain ⟨u, v, F, hu, hv, huv, hua, hvb, hF, hinside, huF, hvF⟩ :=
@@ -566,6 +591,8 @@ theorem exists_targetSideEarStepData [Infinite γ]
     tgtDraw := tgtDraw
     tgtCrosscut := htgt
     tgtEdgePolygonal := htgtEdgePoly
+    target_pos_source := hua
+    target_pos_target := hvb
     tgtEarSet_eq := htgtSet
     vertexSet_subset := ?_
   }⟩
@@ -579,7 +606,71 @@ theorem exists_targetSideEarStepData [Infinite γ]
     rw [hearGraph, Graph.vertexSet_relabelEdges]
     exact hxQ
 
+/-- The anchored-boundary condition supplies the strong-accessibility half of readiness at both
+outer endpoints of a nontrivial target ear.  Compatibility of the evolving skeleton map with
+the original one identifies those endpoints with the original inverse images. -/
+theorem targetEarEndpointStronglyAccessible_of_boundaryAnchored
+    {P T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom}
+    {B H : Graph Plane γ} {Hdraw : γ → ℝ → Plane}
+    {a b : Plane} {D : List γ} {par : γ → γ}
+    (hH : IsSourceExtension P.tgt tgtOuter tgtDom H Hdraw)
+    (hanchor : TargetBoundaryAnchored P H Hdraw)
+    (hpath : H.IsPath a D b) (hab : a ≠ b)
+    (hT : IsTargetPartialTransferOf T P B Hdraw par)
+    (w : TargetSideEarStepData T B H Hdraw a b D) :
+    (T.src.pos w.splitData.source ∈ srcOuter →
+      StronglyAccessible (srcDom \ srcOuter) (T.src.pos w.splitData.source)) ∧
+    (T.src.pos w.splitData.target ∈ srcOuter →
+      StronglyAccessible (srcDom \ srcOuter) (T.src.pos w.splitData.target)) := by
+  let d := w.splitData
+  have hinside : Graph.edgesCover Hdraw D \ {a, b} ⊆ T.tgt.cell d.face := by
+    intro x hx
+    apply w.tgtCrosscut.subset_face
+    refine ⟨?_, ?_⟩
+    · rw [w.tgtEarSet_eq]
+      exact hx.1
+    · simpa only [w.target_pos_source, w.target_pos_target] using hx.2
+  have hnotOuter := target_ear_edge_not_outer hH hpath d.face_mem hinside
+  obtain ⟨eₛ, heₛ, hincₛ⟩ :=
+    hpath.isWalk.exists_inc_source (hpath.ne_nil hab)
+  obtain ⟨eₜ, heₜ, hincₜ⟩ :=
+    hpath.reverse.isWalk.exists_inc_source (hpath.reverse.ne_nil (Ne.symm hab))
+  have heₜD : eₜ ∈ D := by simpa using heₜ
+  have target_mem_outer : ∀ {v : γ}, v ∈ V(T.str.skel) →
+      T.src.pos v ∈ srcOuter → T.tgt.pos v ∈ tgtOuter := by
+    intro v hv hx
+    have hxOuter : T.src.pos v ∈ T.src.outerSet :=
+      T.src_isWeaklyAdmissible.outerSet_eq.symm ▸ hx
+    have himage : T.homeo.toFun (T.src.pos v) ∈ T.tgt.outerSet := by
+      rw [← T.homeo.image_outerSet]
+      exact Set.mem_image_of_mem T.homeo.toFun hxOuter
+    rw [T.homeo.pos_apply hv] at himage
+    exact (Set.ext_iff.mp T.tgt_isWeaklyAdmissible.outerSet_eq (T.tgt.pos v)).mp himage
+  have target_mem_original : ∀ {v : γ}, T.tgt.pos v ∈ tgtOuter →
+      T.tgt.pos v ∈ P.tgt.skeletonSet := by
+    intro v hv
+    apply P.tgt.outerSet_subset_skeletonSet
+    exact (Set.ext_iff.mp P.tgt_isWeaklyAdmissible.outerSet_eq (T.tgt.pos v)).mpr hv
+  constructor
+  · intro hx
+    have hy := target_mem_outer d.source_mem_skel hx
+    have haOuter : a ∈ tgtOuter := by rwa [← w.target_pos_source]
+    rw [hT.source_pos_eq_invFun_target_pos d.source_mem_skel
+      (target_mem_original hy), w.target_pos_source]
+    exact hanchor (hpath.edge_mem heₛ) hincₛ haOuter (hnotOuter eₛ heₛ)
+  · intro hx
+    have hy := target_mem_outer d.target_mem_skel hx
+    have hbOuter : b ∈ tgtOuter := by rwa [← w.target_pos_target]
+    rw [hT.source_pos_eq_invFun_target_pos d.target_mem_skel
+      (target_mem_original hy), w.target_pos_target]
+    exact hanchor (hpath.edge_mem heₜD) hincₜ hbOuter (hnotOuter eₜ heₜD)
+
 /-! ### The exact geometric obligation on the source side -/
+
+/-- An abstract skeleton vertex is outer-only when every current edge incident with it belongs
+to the distinguished outer graph. -/
+def CellStructure.OuterOnlyAt (S : CellStructure γ) (v : γ) : Prop :=
+  ∀ {e : γ}, S.skel.Inc e v → e ∈ E(S.outerGraph)
 
 /-- Source vertices incident with a nonboundary edge.  Outer-only vertices are deliberately
 excluded: a fresh anchor must not enter the compact set merely because it is already a vertex
@@ -605,6 +696,44 @@ instance GeneratedPair.sourceNonboundaryGraph_finite
     (T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom) :
     T.sourceNonboundaryGraph.Finite :=
   Graph.Finite.of_le T.sourceNonboundaryGraph_le
+
+/-- An outer-only abstract vertex is absent from the compact nonboundary-edge carrier.  The
+point-set statement includes the possible case where the vertex lies on the arc of an edge;
+the drawing axiom turns that case back into incidence with the same edge. -/
+theorem GeneratedPair.source_pos_notMem_nonboundaryGraph_of_outerOnlyAt
+    (T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom) {v : γ}
+    (hv : v ∈ V(T.str.skel)) (houter : T.str.OuterOnlyAt v) :
+    T.src.pos v ∉ pointSet T.sourceNonboundaryGraph T.src.drawing := by
+  have abstract_incident : ∀ {e : γ}, T.src.graph.Inc e (T.src.pos v) →
+      T.str.skel.Inc e v := by
+    intro e hinc
+    change (T.str.skel.map T.src.pos).Inc e (T.src.pos v) at hinc
+    rw [Graph.map_inc] at hinc
+    obtain ⟨w, hincw, hvw⟩ := hinc
+    have heq : v = w := T.src.injOn_pos hv hincw.vertex_mem hvw
+    rwa [heq]
+  intro hx
+  rcases hx with hxV | hxE
+  · change T.src.pos v ∈ T.sourceNonboundaryVertices at hxV
+    obtain ⟨e, -, heOuter, hinc⟩ := hxV
+    exact heOuter (houter (abstract_incident hinc))
+  · obtain ⟨e, heCore, hxe⟩ := Set.mem_iUnion₂.1 hxE
+    change e ∈ E((T.src.graph.deleteEdges E(T.str.outerGraph)).induce
+      T.sourceNonboundaryVertices) at heCore
+    obtain ⟨p, q, hpq⟩ :=
+      (T.src.graph.deleteEdges E(T.str.outerGraph)).induce
+        T.sourceNonboundaryVertices |>.exists_isLink_of_mem_edgeSet heCore
+    have heDeleted : e ∈ E(T.src.graph.deleteEdges E(T.str.outerGraph)) := hpq.1.edge_mem
+    obtain ⟨heSrc, heOuter⟩ := Graph.mem_edgeSet_deleteEdges_iff.1 heDeleted
+    obtain ⟨x, y, hxy⟩ := T.src.graph.exists_isLink_of_mem_edgeSet heSrc
+    have hvSrc : T.src.pos v ∈ V(T.src.graph) := by
+      rw [CellStructure.Realization.vertexSet_graph]
+      exact ⟨v, hv, rfl⟩
+    have hinc : T.src.graph.Inc e (T.src.pos v) := by
+      rcases T.src.isDrawing.vertex_mem_edgeArc hxy hvSrc hxe with h | h
+      · exact h ▸ hxy.inc_left
+      · exact h ▸ hxy.inc_right
+    exact heOuter (houter (abstract_incident hinc))
 
 /-- The source skeleton is the union of its compact nonboundary-edge carrier and its outer
 curve. -/
@@ -764,6 +893,32 @@ def GeneratedPair.SourceEndpointReady
       ∀ R ∈ {A : Set Plane | ∃ Z ∈ T.str.faces, A = T.src.cell Z},
         x ∈ closure R → R = T.src.cell F
 
+/-- The two genuinely evolving obligations at a wild-boundary endpoint: no nonboundary edge
+has reached it yet, and the next ear's face is its unique incident current source face. -/
+def GeneratedPair.SourceEndpointFreshCombinatorics
+    (T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom) (F : γ) (x : Plane) : Prop :=
+  x ∈ srcOuter →
+    x ∉ pointSet T.sourceNonboundaryGraph T.src.drawing ∧
+      ∀ R ∈ {A : Set Plane | ∃ Z ∈ T.str.faces, A = T.src.cell Z},
+        x ∈ closure R → R = T.src.cell F
+
+/-- The remaining prescribed-ear combinatorics after boundary anchoring has supplied strong
+accessibility: both outer endpoints are fresh and incident with the selected face alone. -/
+def TargetEarFreshCombinatorics [Infinite γ]
+    (P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom)
+    (H : Graph Plane γ) (Hdraw : γ → ℝ → Plane) : Prop :=
+  ∀ (B : Graph Plane γ) (a b : Plane) (D : List γ), B.IsTwoConnected → B ≤ H →
+    H.IsPath a D b → a ≠ b → a ∈ V(B) → b ∈ V(B) →
+    (∀ y ∈ H.walkVertices a D, y ≠ a → y ≠ b → y ∉ V(B)) →
+    (∀ g ∈ D, g ∉ E(B)) →
+    ∀ (T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom) (par : γ → γ),
+      IsTargetPartialTransferOf T P B Hdraw par →
+      ∀ w : TargetSideEarStepData T B H Hdraw a b D,
+        T.SourceEndpointFreshCombinatorics w.splitData.face
+            (T.src.pos w.splitData.source) ∧
+          T.SourceEndpointFreshCombinatorics w.splitData.face
+            (T.src.pos w.splitData.target)
+
 /-- The combinatorial/anchoring invariant still required from the prescribed target ear order:
 both source endpoints selected by every nontrivial target ear are ready in the preceding sense. -/
 def TargetEarFreshInvariant [Infinite γ]
@@ -775,9 +930,34 @@ def TargetEarFreshInvariant [Infinite γ]
     (∀ g ∈ D, g ∉ E(B)) →
     ∀ (T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom) (par : γ → γ),
       IsTargetPartialTransferOf T P B Hdraw par →
-      ∀ w : TargetSideEarStepData T B H Hdraw a D,
+      ∀ w : TargetSideEarStepData T B H Hdraw a b D,
         T.SourceEndpointReady w.splitData.face (T.src.pos w.splitData.source) ∧
         T.SourceEndpointReady w.splitData.face (T.src.pos w.splitData.target)
+
+/-- Anchored ambient boundary edges and the remaining fresh-incidence combinatorics together
+give the complete reverse-ear readiness invariant. -/
+theorem targetEarFreshInvariant_of_boundaryAnchored [Infinite γ]
+    (P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom)
+    (H : Graph Plane γ) (Hdraw : γ → ℝ → Plane)
+    (hH : IsSourceExtension P.tgt tgtOuter tgtDom H Hdraw)
+    (hanchor : TargetBoundaryAnchored P H Hdraw)
+    (hcomb : TargetEarFreshCombinatorics P H Hdraw) :
+    TargetEarFreshInvariant P H Hdraw := by
+  intro B a b D hB hBH hpath hab haB hbB hint hnew T par hT w
+  obtain ⟨hstrongₛ, hstrongₜ⟩ :=
+    targetEarEndpointStronglyAccessible_of_boundaryAnchored
+      hH hanchor hpath hab hT w
+  obtain ⟨hcombₛ, hcombₜ⟩ :=
+    hcomb B a b D hB hBH hpath hab haB hbB hint hnew T par hT w
+  constructor
+  · by_cases hx : T.src.pos w.splitData.source ∈ srcOuter
+    · obtain ⟨hfresh, hunique⟩ := hcombₛ hx
+      exact Or.inr ⟨hstrongₛ hx, hfresh, hunique⟩
+    · exact Or.inl hx
+  · by_cases hx : T.src.pos w.splitData.target ∈ srcOuter
+    · obtain ⟨hfresh, hunique⟩ := hcombₜ hx
+      exact Or.inr ⟨hstrongₜ hx, hfresh, hunique⟩
+    · exact Or.inl hx
 
 /-- Both source endpoints of every nontrivial target ear are polygonally accessible from the
 source face selected by that ear.  This is the geometric invariant direction (b) must maintain:
@@ -792,7 +972,7 @@ def TargetEarEndpointAccessibility [Infinite γ]
     (∀ g ∈ D, g ∉ E(B)) →
     ∀ (T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom) (par : γ → γ),
       IsTargetPartialTransferOf T P B Hdraw par →
-      ∀ w : TargetSideEarStepData T B H Hdraw a D,
+      ∀ w : TargetSideEarStepData T B H Hdraw a b D,
         PolyAccessible (T.src.cell w.splitData.face) (T.src.pos w.splitData.source) ∧
         PolyAccessible (T.src.cell w.splitData.face) (T.src.pos w.splitData.target)
 
@@ -1012,5 +1192,18 @@ theorem finite_transfer_toward_source_of_freshInvariant [Infinite γ]
       IsTargetTransferOf T P H Hdraw par :=
   finite_transfer_toward_source_of_endpointAccessibility hH
     (targetEarEndpointAccessibility_of_freshInvariant P H Hdraw hfresh)
+
+/-- Direction (b), with strong accessibility discharged by the anchored target boundary.  The
+only remaining hypothesis is the fresh-carrier and unique-face combinatorics of the ear order. -/
+theorem finite_transfer_toward_source_of_boundaryAnchored [Infinite γ]
+    {P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom}
+    {H : Graph Plane γ} {Hdraw : γ → ℝ → Plane}
+    (hH : IsSourceExtension P.tgt tgtOuter tgtDom H Hdraw)
+    (hanchor : TargetBoundaryAnchored P H Hdraw)
+    (hcomb : TargetEarFreshCombinatorics P H Hdraw) :
+    ∃ (T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom) (par : γ → γ),
+      IsTargetTransferOf T P H Hdraw par :=
+  finite_transfer_toward_source_of_freshInvariant hH
+    (targetEarFreshInvariant_of_boundaryAnchored P H Hdraw hH hanchor hcomb)
 
 end Schoenflies

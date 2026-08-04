@@ -9,6 +9,7 @@ import Schoenflies.SkeletonAccess
 import Schoenflies.Graph.RelativeEar
 import Schoenflies.Graph.CycleJordan
 import Schoenflies.JordanClosed
+import Schoenflies.BoundaryCyclesGenerated
 
 /-!
 # Finite transfer, direction (a): toward the square
@@ -304,6 +305,13 @@ variable {S₀ : CellStructure γ} {srcOuter srcDom tgtOuter tgtDom : Set Plane}
 theorem combInvariants (P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom)
     (h₀ : S₀.CombInvariants) : P.str.CombInvariants :=
   P.generated.combInvariants h₀
+
+/-- Every face of a generated pair has a simple cyclic boundary once this is true at the base.
+This is the source of the two abstract boundary paths consumed by an ear split. -/
+theorem boundaryCycles (P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom)
+    (hcycles : S₀.BoundaryCycles) (h₀ : S₀.CombInvariants) :
+    P.str.BoundaryCycles :=
+  P.generated.boundaryCycles hcycles h₀
 
 /-- The open nonboundary part of the source realization, read off the two clauses that pin the
 skeleton and the outer cycle. -/

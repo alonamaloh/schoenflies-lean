@@ -37,7 +37,7 @@ Schoenflies.CellStructure.LimitTower.isHomeoOn_F      ← the fields of LimitTow
 | `Schoenflies.HasLimitHomeomorphism` | `BoundaryContinuity2.lean` | `thm:square-extension` | four conjuncts: a dense anchor set, the interior homeomorphism, `HasAnchorCrosscuts`, `HasSpokes`. **`LimitTower` supplies the second; the other three need the construction.** |
 | the fields of `CellStructure.LimitTower` | `LimitMap.lean` | the interior homeomorphism | ~14 fields, each an obligation on whoever builds the nested sequence: the cell decompositions, the shared parent maps, the two halves of `prop:shrinking-stars`, and the nesting of the skeleton maps. See the module docstring |
 | `Schoenflies.CommonSubdivision` | `FiniteTransfer.lean` | `thm:finite-transfer`(a) | step 1. The overlay itself is proved (`exists_overlay_of_biUnion_finite`); what is missing is carrying each new subdivision point through the chosen edge parametrization to the *other* realization. `RealizeSubdivHomeo.lean` now supplies exactly that transport for one subdivision (`SubdivData.targetParam`, `realizeHomeo`), so this is assembly, not new mathematics |
-| `Schoenflies.EarStep` | `FiniteTransfer.lean` | `thm:finite-transfer`(a) | step 3, one ear. Carries `[Infinite γ]` — see below. Every geometric ingredient now exists; what is missing is **the two boundary paths**: see "the one piece with real content left" below |
+| `Schoenflies.EarStep` | `FiniteTransfer.lean` | `thm:finite-transfer`(a) | step 3, one ear. Carries `[Infinite γ]` — see below. The two boundary paths are now constructed from the maintained cycle invariant; what remains is assembling the freshly relabelled abstract ear and the two realized split constructors |
 | `Schoenflies.CellsAbsorb` | `SkeletonAccess.lean`, `FiniteTransfer.lean`, `FreshAccess.lean` | `lem:polygonal-side-accessibility`, ear placement | one clause of `lem:cellulation-invariants`; `cellsAbsorb_of_isComponent_in` discharges it when the cells are the components |
 
 ### The atom is closed
@@ -57,16 +57,16 @@ for a later module to discharge. Stage 0 is built (`InitialData.generatedPair`, 
 `GeneratedPair` fields, zero hypotheses), and `StageTower.lean` turns a sequence of stages into a
 `LimitTower` with no free hypotheses at all.
 
-### The one piece with real content left
+### The boundary-cycle piece is closed
 
-`EarStep` builds a `SplitData` from an ear. Every field is now routine except two:
-`SplitData.path₁` and `path₂`, *the two boundary paths of the split 2-cell between the ear's
-endpoints*, together with `sub_face` (they carry exactly the cells below the 2-cell) and
-`paths_meet` (they share nothing but their two ends).
+`EarStep` needs `SplitData.path₁` and `path₂`, *the two boundary paths of the split 2-cell
+between the ear's endpoints*, together with `sub_face` and `paths_meet`.  These are now exported
+by `CellStructure.BoundaryCycles.boundaryPaths`.
 
-Producing them means knowing that **the cells below a 2-cell form a cycle**, and that two of its
-0-cells cut that cycle into two paths. Nothing states this, and `CellStructure.CombInvariants`
-does not carry it.
+The maintained invariant is `CellStructure.FaceCycle` / `BoundaryCycles` in
+`BoundaryCycles.lean`.  `FaceCycle.boundaryPaths` applies the existing
+`Graph.IsCycleThrough.split_at` theorem and proves that the two path-cell carriers meet exactly
+at their endpoints.  `boundaryCycles_initialStructure` is the base case.
 
 **`lem:face-cycles` is not the route, and this is the trap to avoid.** `Graph.face_cycles'`
 takes `hpoly : ∀ g ∈ E(G), IsPolygonal (edgeArc drawing g)` — *every* edge polygonal. A source
@@ -99,14 +99,26 @@ closed walk and that the corresponding new list is its orientation-aware `SubstW
 updated face boundary is again closed. The old orientation-blind `flatMap` update and its
 machine-checked counterexample have been removed.
 
-What remains at this level is the stronger invariant needed by `EarStep`: the cells strictly
-below a face are exactly the cells of its boundary cycle, with enough simplicity to cut the
-cycle at two distinct boundary vertices. The base facts are already
-`isWalk_initBoundary_false`, `isWalk_initBoundary_true` and `mem_faceCells_iff`; the two
-constructor-preservation proofs and the general cycle-cut lemma are the next proof obligation.
-Everything downstream is assembly on top of it:
+The constructor-preservation proof is also closed in `BoundaryCyclesGenerated.lean`:
 
-1. face boundary cycles, hence `EarStep`; `CommonSubdivision` alongside it;
+* `SplitData.boundaryCycles` proves that the two new boundaries are an old boundary arc closed
+  by the reversed ear, while untouched faces retain their old cycles;
+* `SubdivData.SubstWalk.isPath`, `.pathCells_eq`, and `.exists_isCycleThrough` prove that the
+  orientation-aware replacement preserves simplicity and performs the exact carrier update;
+* `SubdivData.boundaryCycles` closes the subdivision case;
+* `GeneratedStructure.boundaryCycles` closes the induction, and
+  `GeneratedPair.boundaryCycles` exposes it to finite transfer.
+
+Two-edge cycles are deliberately allowed: splitting along an ear can create a legitimate
+digon, so an invariant demanding a third boundary vertex would not be constructor-stable.
+
+The next `EarStep` work is assembly on top of this invariant: choose fresh abstract names for
+the finite ear and its two new faces, identify the source face containing the open ear, build
+the source and target `EarCrosscut` data, and feed them to `SplitData.realize` and
+`SplitData.splitHomeo`.  Everything downstream is then:
+
+1. assemble `EarStep` from the now-available boundary paths and split constructors;
+   `CommonSubdivision` alongside it;
 2. `thm:finite-transfer` (a) unconditional, and (b) — whose one extra ingredient, accessibility
    at a fresh anchor on the wild curve, is closed in `FreshAccess.lean`;
 3. the stage recursion, which is where `GridAttach.lean`, `SquareMeshClosed.lean` and

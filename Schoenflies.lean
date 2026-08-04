@@ -85,6 +85,7 @@ import Schoenflies.Inversion
 import Schoenflies.SkeletonAccess
 import Schoenflies.InitialPair
 import Schoenflies.GeneratedStructure
+import Schoenflies.BoundaryCycles
 import Schoenflies.SquareMeshFixed
 import Schoenflies.RefinementStars
 import Schoenflies.InitialPairFixed
@@ -92,6 +93,7 @@ import Schoenflies.LocalGrid
 import Schoenflies.BoundaryContinuity
 import Schoenflies.Endgame
 import Schoenflies.CellulationInvariants
+import Schoenflies.BoundaryCyclesGenerated
 import Schoenflies.LimitMap
 import Schoenflies.BoundaryContinuity2
 import Schoenflies.FiniteTransfer

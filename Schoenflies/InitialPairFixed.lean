@@ -5,6 +5,7 @@ Authors: Álvaro Begué
 -/
 import Schoenflies.InitialPair
 import Schoenflies.JordanClosed
+import Schoenflies.BoundaryCycles
 
 /-!
 # `prop:initial-pair`, completed and unconditional
@@ -54,8 +55,9 @@ lists it holds are closed walks of `initSkel` whose cells are exactly `faceCells
   `.exists_access_segment_a`, `.exists_access_segment_b` — `lem:tangent-cone` at the two
   anchors, the form `lem:accessible-endpoints` consumes at every later stage.
 * `Schoenflies.isWalk_initBoundary_false`, `Schoenflies.isWalk_initBoundary_true`,
-  `Schoenflies.mem_faceCells_iff` — the boundary datum of `def:matched-cellulation` really is
-  the closed boundary walk of each 2-cell.
+  `Schoenflies.mem_faceCells_iff`, `Schoenflies.boundaryCycles_initialStructure` — the boundary
+  datum of `def:matched-cellulation` really is the simple boundary cycle of each 2-cell and
+  carries exactly its strict subcells.
 * `Schoenflies.HexData.isPolygonal_arcOf`, `.isPolygonal_outerArcs`,
   `Schoenflies.isPolygonal_modelCurve`, `Schoenflies.InitialData.isPolygonal_tgt_edgeArc`,
   `.isPolygonal_targetRealization_skeletonSet` — the clause "all its edges are polygonal" of
@@ -232,6 +234,121 @@ theorem mem_faceCells_iff {k : Bool} {c : InitialCell} :
       hedge 1 2 (by decide), hedge 2 3 (by decide), hedge 3 4 (by decide),
       hedge 4 5 (by decide), hedge 5 0 (by decide), hedge 0 1 (by decide), hchord] <;>
     tauto
+
+/-! ### The initial face-boundary cycles
+
+The closed-walk facts above are strengthened here to the maintained data needed by
+`thm:finite-transfer`: each boundary is a simple cycle of length at least three, and its cells
+are exactly the strict subcells of the corresponding face. -/
+
+/-- The complementary part of the first face boundary is a simple path. -/
+theorem isPath_initBoundary_false_tail :
+    initSkel.IsPath (.vert 2) [.edge 2, .edge 3, .chord] (.vert 1) := by
+  refine .cons (initSkel_isLink_edge (by decide : (2 : Fin 6) + 1 = 3))
+    (.cons (initSkel_isLink_edge (by decide : (3 : Fin 6) + 1 = 4))
+      (Graph.IsPath.single initSkel_isLink_chord.symm (by simp)) ?_) ?_
+  · simp [Graph.walkVertices, Graph.coveredVertices, initSkel_inc_iff, InitialCell.ends,
+      InitialCell.edges]
+  · simp [Graph.walkVertices, Graph.coveredVertices, initSkel_inc_iff, InitialCell.ends,
+      InitialCell.edges]
+
+/-- The complementary part of the second face boundary is a simple path. -/
+theorem isPath_initBoundary_true_tail :
+    initSkel.IsPath (.vert 5) [.edge 5, .edge 0, .chord] (.vert 4) := by
+  refine .cons (initSkel_isLink_edge (by decide : (5 : Fin 6) + 1 = 0))
+    (.cons (initSkel_isLink_edge (by decide : (0 : Fin 6) + 1 = 1))
+      (Graph.IsPath.single initSkel_isLink_chord (by simp)) ?_) ?_
+  · simp [Graph.walkVertices, Graph.coveredVertices, initSkel_inc_iff, InitialCell.ends,
+      InitialCell.edges]
+  · simp [Graph.walkVertices, Graph.coveredVertices, initSkel_inc_iff, InitialCell.ends,
+      InitialCell.edges]
+
+/-- The first declared boundary list presents a long simple cycle. -/
+theorem isLongCycle_initBoundary_false :
+    initSkel.IsLongCycle (.edge 1) (.vert 2) (.vert 1)
+      [.edge 2, .edge 3, .chord] (.vert 3) where
+  isCycle := ⟨(initSkel_isLink_edge (by decide : (1 : Fin 6) + 1 = 2)).symm,
+    isPath_initBoundary_false_tail, by simp⟩
+  mem := Graph.mem_walkVertices_cons_of_mem
+    (initSkel_isLink_edge (by decide : (2 : Fin 6) + 1 = 3))
+    Graph.mem_walkVertices_self
+  ne_left := by simp
+  ne_right := by simp
+
+/-- The second declared boundary list presents a long simple cycle. -/
+theorem isLongCycle_initBoundary_true :
+    initSkel.IsLongCycle (.edge 4) (.vert 5) (.vert 4)
+      [.edge 5, .edge 0, .chord] (.vert 0) where
+  isCycle := ⟨(initSkel_isLink_edge (by decide : (4 : Fin 6) + 1 = 5)).symm,
+    isPath_initBoundary_true_tail, by simp⟩
+  mem := Graph.mem_walkVertices_cons_of_mem
+    (initSkel_isLink_edge (by decide : (5 : Fin 6) + 1 = 0))
+    Graph.mem_walkVertices_self
+  ne_left := by simp
+  ne_right := by simp
+
+/-- Incidence below an initial face consists of the face itself and its declared boundary
+cells. -/
+theorem initSub_face_iff {k : Bool} {c : InitialCell} :
+    initSub c (.face k) ↔ c = .face k ∨ c ∈ faceCells k := by
+  constructor
+  · rintro (⟨h, -⟩ | ⟨h, -⟩ | ⟨l, h, hc⟩)
+    · exact Or.inl h
+    · exact absurd h (by simp [InitialCell.edges])
+    · cases h; exact Or.inr hc
+  · rintro (rfl | hc)
+    · exact initSub_refl (Or.inr ⟨k, rfl⟩)
+    · exact initSub_face hc
+
+/-- A declared initial boundary has exactly the cells recorded by `faceCells`, once its
+starting vertex is known to occur on the boundary. -/
+theorem mem_faceCells_iff_mem_pathCells {k : Bool} {u c : InitialCell}
+    (hu : ∃ e ∈ initBoundary (.face k), initSkel.Inc e u) :
+    c ∈ faceCells k ↔
+      c ∈ initialStructure.pathCells u (initBoundary (.face k)) := by
+  rw [mem_faceCells_iff]
+  simp only [CellStructure.pathCells, Set.mem_union, Set.mem_setOf_eq,
+    Graph.mem_walkVertices_iff, Graph.mem_coveredVertices_iff]
+  constructor
+  · rintro (hc | hc)
+    · exact Or.inl hc
+    · exact Or.inr (Or.inr hc)
+  · rintro (hc | rfl | hc)
+    · exact Or.inl hc
+    · exact Or.inr hu
+    · exact Or.inr hc
+
+/-- The two faces of the initial matched cellulation carry chosen simple boundary cycles. -/
+theorem boundaryCycles_initialStructure : initialStructure.BoundaryCycles where
+  cycle F hF := by
+    obtain ⟨k, rfl⟩ := hF
+    cases k
+    · refine ⟨
+        { face_mem := ⟨false, rfl⟩
+          edge := .edge 1
+          source := .vert 2
+          target := .vert 1
+          walk := [.edge 2, .edge 3, .chord]
+          boundary_eq := rfl
+          isCycle := isLongCycle_initBoundary_false.isCycle
+          sub_face := fun {c} => ?_ }⟩
+      rw [initialStructure_sub, initSub_face_iff]
+      refine or_congr Iff.rfl (mem_faceCells_iff_mem_pathCells ?_)
+      exact ⟨.edge 1, by simp [initBoundary],
+        (initSkel_isLink_edge (by decide : (1 : Fin 6) + 1 = 2)).inc_left⟩
+    · refine ⟨
+        { face_mem := ⟨true, rfl⟩
+          edge := .edge 4
+          source := .vert 5
+          target := .vert 4
+          walk := [.edge 5, .edge 0, .chord]
+          boundary_eq := rfl
+          isCycle := isLongCycle_initBoundary_true.isCycle
+          sub_face := fun {c} => ?_ }⟩
+      rw [initialStructure_sub, initSub_face_iff]
+      refine or_congr Iff.rfl (mem_faceCells_iff_mem_pathCells ?_)
+      exact ⟨.edge 4, by simp [initBoundary],
+        (initSkel_isLink_edge (by decide : (4 : Fin 6) + 1 = 5)).inc_left⟩
 
 /-! ### The anchor set `𝒜`
 

@@ -27,6 +27,8 @@ Any connected set avoiding all selected anchors must therefore have the required
   reverse overlay-transfer stage, packaged for the stage recursion.
 * `Schoenflies.TargetSegmentCover.nonempty_meshOverlayTransferData_inside` — in the standard
   closed Jordan domain, separation and the outer-cycle invariant construct that stage data.
+* `Schoenflies.TargetSegmentCover.MeshOverlayTransferData.diam_targetStar_lt` — the transferred
+  target stars have diameter less than twice the selected mesh scale.
 -/
 
 open Metric Set Topology
@@ -390,6 +392,116 @@ theorem nonempty_meshOverlayTransferData_inside
     Nonempty (MeshOverlayTransferData Q anchors) :=
   nonempty_meshOverlayTransferData_of_accessibleBoundary_dense Q
     (accessibleTargetBoundary_dense_inside P hsep) hcycle anchors
+
+/-- The packaged reverse-transfer data can be selected below any positive prescribed scale. -/
+theorem exists_meshOverlayTransferData_lt_of_accessibleBoundary_dense
+    [Infinite γ] (Q : TargetSegmentCover P)
+    (haccessible : modelCurve ⊆ closure (accessibleTargetBoundary P))
+    (hcycle : S₀.OuterEdgesFormCycle) (anchors : List Plane)
+    {bound : ℝ} (hbound : 0 < bound) :
+    ∃ w : MeshOverlayTransferData Q anchors, w.delta < bound := by
+  obtain ⟨delta, hdelta, hdelta4, hdeltabound, htransfer⟩ :=
+    Q.exists_scale_finite_transfer_toward_source_meshOverlay_lt hcycle hbound
+  obtain ⟨fresh, hfresh, hstrong, havoid, hdense⟩ :=
+    exists_clean_freshDense_of_accessibleTargetBoundary_dense
+      P haccessible hdelta
+  obtain ⟨name, hname, T, par, hT⟩ :=
+    htransfer fresh anchors hfresh hstrong havoid hdense
+  exact ⟨{
+    delta := delta
+    fresh := fresh
+    delta_pos := hdelta
+    delta_lt_four := hdelta4
+    fresh_mem := hfresh
+    fresh_accessible := hstrong
+    fresh_avoids := havoid
+    fresh_dense := hdense
+    name := name
+    name_inj := hname
+    pair := T
+    parent := par
+    transfer := hT }, hdeltabound⟩
+
+/-- In the standard closed Jordan domain, a reverse-transfer stage exists below every positive
+prescribed scale. -/
+theorem exists_meshOverlayTransferData_lt_inside
+    [Infinite γ] {C : Set Plane}
+    {P : GeneratedPair S₀ C (C ∪ inside C) modelCurve (Plane.closedSquare 0 1)}
+    (Q : TargetSegmentCover P) (hsep : IsSeparating C)
+    (hcycle : S₀.OuterEdgesFormCycle) (anchors : List Plane)
+    {bound : ℝ} (hbound : 0 < bound) :
+    ∃ w : MeshOverlayTransferData Q anchors, w.delta < bound :=
+  exists_meshOverlayTransferData_lt_of_accessibleBoundary_dense Q
+    (accessibleTargetBoundary_dense_inside P hsep) hcycle anchors hbound
+
+namespace MeshOverlayTransferData
+
+variable {Q : TargetSegmentCover P} {anchors : List Plane}
+
+/-- Every target face created by the reverse overlay transfer has diameter below the selected
+mesh scale.  The target cell is connected and misses the new skeleton, hence lies in one bounded
+face of the contained square mesh; `squareMesh_face_small` supplies the bound. -/
+theorem diam_closure_targetFace_lt (w : MeshOverlayTransferData Q anchors)
+    {F : γ} (hF : F ∈ w.pair.str.faces) :
+    Metric.diam (closure (w.pair.tgt.cell F)) < w.delta := by
+  obtain ⟨z, hz⟩ := w.pair.tgt_isFaceJordan.nonempty hF
+  have hzOpen : z ∈ Plane.openSquare 0 1 := by
+    have hzInterior := w.pair.tgt_face_subset_interior hF hz
+    rwa [closedSquare_sdiff_modelCurve] at hzInterior
+  have hmeshSkel :
+      Graph.pointSet (squareMesh w.delta w.fresh anchors) segmentDrawing ⊆
+        w.pair.tgt.skeletonSet := by
+    rw [w.transfer.skeletonSet_eq, Graph.pointSet_relabelEdges]
+    exact Q.squareMesh_subset_meshOverlay w.delta w.fresh anchors
+  have hcellExterior : w.pair.tgt.cell F ⊆
+      Graph.exterior (squareMesh w.delta w.fresh anchors) segmentDrawing := by
+    intro x hxCell hxMesh
+    exact Set.disjoint_left.1
+      (w.pair.tgt.disjoint_cell_skeletonSet w.pair.tgt_isCellDecomposition hF)
+      hxCell (hmeshSkel hxMesh)
+  have hzExterior :
+      z ∈ Graph.exterior (squareMesh w.delta w.fresh anchors) segmentDrawing :=
+    hcellExterior hz
+  have hcellFace : w.pair.tgt.cell F ⊆
+      Graph.face (squareMesh w.delta w.fresh anchors) segmentDrawing z :=
+    (w.pair.tgt_isFaceJordan.isConnected hF).isPreconnected.subset_connectedComponentIn
+      hz hcellExterior
+  have hfaceCurveCompl :
+      Graph.face (squareMesh w.delta w.fresh anchors) segmentDrawing z ⊆ modelCurveᶜ := by
+    intro x hxFace hxCurve
+    exact Graph.face_subset_exterior _ _ _ hxFace
+      (modelCurve_subset_squareMesh_pointSet w.delta w.fresh anchors hxCurve)
+  have hfaceOpen :
+      Graph.face (squareMesh w.delta w.fresh anchors) segmentDrawing z ⊆
+        Plane.openSquare 0 1 := by
+    have hcomp := (Graph.isConnected_face hzExterior).isPreconnected.subset_connectedComponentIn
+      (Graph.mem_face hzExterior) hfaceCurveCompl
+    rw [modelCurve_eq_frontier,
+      connectedComponentIn_compl_frontier_closedSquare hzOpen] at hcomp
+    exact hcomp
+  have hfaceBounded : Bornology.IsBounded
+      (Graph.face (squareMesh w.delta w.fresh anchors) segmentDrawing z) :=
+    (Plane.isBounded_closedSquare 0 1).subset
+      (hfaceOpen.trans (Plane.openSquare_subset_closedSquare 0 1))
+  have hsmall := squareMesh_face_small w.fresh_mem w.delta_pos w.fresh_dense
+    hzExterior hfaceBounded
+  calc
+    Metric.diam (closure (w.pair.tgt.cell F)) =
+        Metric.diam (w.pair.tgt.cell F) := Metric.diam_closure _
+    _ ≤ Metric.diam
+        (Graph.face (squareMesh w.delta w.fresh anchors) segmentDrawing z) :=
+      Metric.diam_mono hcellFace hfaceBounded
+    _ < w.delta := hsmall.2
+
+/-- Consequently every closed target star has diameter less than twice the selected scale. -/
+theorem diam_targetStar_lt (w : MeshOverlayTransferData Q anchors)
+    {σ : γ} (hσ : σ ∈ w.pair.str.cells) :
+    Metric.diam (w.pair.tgt.star σ) < 2 * w.delta :=
+  w.pair.tgt_isCellDecomposition.diam_star_lt w.pair.str_combInvariants
+    (Plane.isBounded_closedSquare 0 1) hσ
+    (fun _ hF _ => w.diam_closure_targetFace_lt hF)
+
+end MeshOverlayTransferData
 
 end TargetSegmentCover
 

@@ -1192,6 +1192,25 @@ theorem exists_fine_openTarget_scale
   exact ⟨epsilon, hepsilon, lt_of_le_of_lt (min_le_right delta 1) (by norm_num),
     hwide.mono (min_le_left delta 1)⟩
 
+/-- The locally-wide scale may be chosen below any prescribed positive bound. -/
+theorem exists_fine_openTarget_scale_lt
+    (P : GeneratedPair S₀ srcOuter srcDom modelCurve (Plane.closedSquare 0 1))
+    {bound : ℝ} (hbound : 0 < bound) :
+    ∃ delta : ℝ, 0 < delta ∧ delta < 4 ∧ delta < bound ∧
+      OpenTargetLocallyWiderThan P delta := by
+  obtain ⟨delta, hdelta, hwide⟩ :=
+    (finiteOpenTargetCover P).exists_locallyWiderThan
+  let epsilon := min delta (min 1 (bound / 2))
+  have hepsilon : 0 < epsilon := by
+    dsimp only [epsilon]
+    positivity
+  refine ⟨epsilon, hepsilon,
+    lt_of_le_of_lt (min_le_of_right_le (min_le_left 1 (bound / 2))) (by norm_num),
+    ?_, hwide.mono (min_le_left delta (min 1 (bound / 2)))⟩
+  have hle : epsilon ≤ bound / 2 :=
+    (min_le_right delta (min 1 (bound / 2))).trans (min_le_right 1 (bound / 2))
+  linarith
+
 /-- A connected old-skeleton piece wider than the mesh scale must meet the mesh.  Otherwise the
 radial mesh estimate bounds all of its pairwise distances by a number strictly below `delta`. -/
 theorem mesh_hits_openTarget_of_locallyWider
@@ -1472,6 +1491,30 @@ theorem exists_scale_finite_transfer_toward_source_meshOverlay
             ((Q.meshOverlay delta fresh anchors).relabelDrawing name segmentDrawing) par := by
   obtain ⟨delta, hdelta, hdelta4, hwide⟩ := exists_fine_openTarget_scale P
   refine ⟨delta, hdelta, hdelta4, ?_⟩
+  intro fresh anchors hfresh hstrong havoid hdense
+  exact Q.exists_finite_transfer_toward_source_meshOverlay_of_locallyWider
+    hfresh hstrong havoid hdelta hdense hdelta4 hwide anchors hcycle
+
+/-- The complete reverse-transfer scale may be forced below any prescribed positive bound. -/
+theorem exists_scale_finite_transfer_toward_source_meshOverlay_lt
+    [Infinite γ] (Q : TargetSegmentCover P) (hcycle : S₀.OuterEdgesFormCycle)
+    {bound : ℝ} (hbound : 0 < bound) :
+    ∃ delta : ℝ, 0 < delta ∧ delta < 4 ∧ delta < bound ∧
+      ∀ (fresh anchors : List Plane),
+        (∀ z ∈ fresh, z ∈ modelCurve) →
+        (∀ z ∈ fresh,
+          StronglyAccessible (srcDom \ srcOuter) (P.homeo.invFun z)) →
+        FreshAvoidsTargetNonouterEdges P fresh → FreshDense fresh delta →
+        ∃ (name : Piece → γ)
+            (hname : InjOn name E(Q.meshOverlay delta fresh anchors))
+            (T : GeneratedPair S₀ srcOuter srcDom modelCurve (Plane.closedSquare 0 1))
+            (par : γ → γ),
+          IsTargetTransferOf T P
+            ((Q.meshOverlay delta fresh anchors).relabelEdges name hname)
+            ((Q.meshOverlay delta fresh anchors).relabelDrawing name segmentDrawing) par := by
+  obtain ⟨delta, hdelta, hdelta4, hdeltabound, hwide⟩ :=
+    exists_fine_openTarget_scale_lt P hbound
+  refine ⟨delta, hdelta, hdelta4, hdeltabound, ?_⟩
   intro fresh anchors hfresh hstrong havoid hdense
   exact Q.exists_finite_transfer_toward_source_meshOverlay_of_locallyWider
     hfresh hstrong havoid hdelta hdense hdelta4 hwide anchors hcycle

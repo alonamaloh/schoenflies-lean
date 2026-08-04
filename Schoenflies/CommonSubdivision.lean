@@ -951,8 +951,13 @@ structure SubdivideAtData
   refines_tgt : pair.tgt.Refines P.tgt parent
   /-- Subdivision does not change the occupied source skeleton. -/
   skeletonSet_eq : pair.src.skeletonSet = P.src.skeletonSet
+  /-- Subdivision does not change the occupied target skeleton. -/
+  targetSkeletonSet_eq : pair.tgt.skeletonSet = P.tgt.skeletonSet
   /-- The requested point and every old vertex are vertices of the new source graph. -/
   vertexSet_eq : V(pair.src.graph) = insert p V(P.src.graph)
+  /-- The corresponding target point and every old target vertex are vertices as well. -/
+  targetVertexSet_eq :
+    V(pair.tgt.graph) = insert (P.homeo.toFun p) V(P.tgt.graph)
 
 /-- Every point of the source skeleton can be made a vertex by one matched subdivision. -/
 theorem exists_subdivideAtData [Infinite γ]
@@ -966,7 +971,14 @@ theorem exists_subdivideAtData [Infinite γ]
       refines_src := CellStructure.Realization.Refines.refl P.src
       refines_tgt := CellStructure.Realization.Refines.refl P.tgt
       skeletonSet_eq := rfl
+      targetSkeletonSet_eq := rfl
       vertexSet_eq := (Set.insert_eq_of_mem hpV).symm
+      targetVertexSet_eq := by
+        rw [P.src.vertexSet_graph] at hpV
+        obtain ⟨a, ha, rfl⟩ := hpV
+        rw [P.homeo.pos_apply ha, P.tgt.vertexSet_graph]
+        have hmem : P.tgt.pos a ∈ P.tgt.pos '' V(P.str.skel) := ⟨a, ha, rfl⟩
+        exact (Set.insert_eq_of_mem hmem).symm
     }⟩
   · rcases hp with hpoldV | hpedge
     · exact absurd hpoldV hpV
@@ -1012,10 +1024,54 @@ theorem exists_subdivideAtData [Infinite γ]
             (d.targetParam_mem_Ioo P.homeo htIoo) P.str_combInvariants
             P.tgt_isCellDecomposition P.tgt_isFaceJordan).2.2
         skeletonSet_eq := d.skeletonSet_realize htIoo
+        targetSkeletonSet_eq :=
+          d.skeletonSet_realize (d.targetParam_mem_Ioo P.homeo htIoo)
         vertexSet_eq := by
           change V(d.realizeGraph P.src t) = _
           rw [d.realizeGraph_vertexSet, hdedge]
+        targetVertexSet_eq := by
+          change V(d.realizeGraph P.tgt (d.targetParam P.homeo t)) = _
+          rw [d.realizeGraph_vertexSet,
+            d.drawing_targetParam P.homeo (Set.Ioo_subset_Icc_self htIoo), hdedge]
       }⟩
+
+/-- The output of inserting one target skeleton point into a matched generated pair. -/
+structure SubdivideTargetAtData
+    (P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom) (p : Plane) where
+  /-- The pair after the possible subdivision. -/
+  pair : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom
+  /-- The new-to-old cell parent map. -/
+  parent : γ → γ
+  /-- Source refinement along `parent`. -/
+  refines_src : pair.src.Refines P.src parent
+  /-- Target refinement along the same `parent`. -/
+  refines_tgt : pair.tgt.Refines P.tgt parent
+  /-- The occupied source skeleton is unchanged. -/
+  sourceSkeletonSet_eq : pair.src.skeletonSet = P.src.skeletonSet
+  /-- The occupied target skeleton is unchanged. -/
+  skeletonSet_eq : pair.tgt.skeletonSet = P.tgt.skeletonSet
+  /-- The requested point and every old vertex are target vertices of the new pair. -/
+  vertexSet_eq : V(pair.tgt.graph) = insert p V(P.tgt.graph)
+
+/-- Every target skeleton point can be made a vertex by one matched subdivision. -/
+theorem exists_subdivideTargetAtData [Infinite γ]
+    (P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom) {p : Plane}
+    (hp : p ∈ P.tgt.skeletonSet) : Nonempty (SubdivideTargetAtData P p) := by
+  let q := P.homeo.invFun p
+  have hq : q ∈ P.src.skeletonSet := by
+    rw [← P.homeo.symm.image_skeletonSet]
+    exact ⟨p, hp, rfl⟩
+  obtain ⟨w⟩ := exists_subdivideAtData P hq
+  exact ⟨{
+    pair := w.pair
+    parent := w.parent
+    refines_src := w.refines_src
+    refines_tgt := w.refines_tgt
+    sourceSkeletonSet_eq := w.skeletonSet_eq
+    skeletonSet_eq := w.targetSkeletonSet_eq
+    vertexSet_eq := by
+      rw [w.targetVertexSet_eq, P.homeo.rightInvOn hp]
+  }⟩
 
 /-- The output of inserting a finite set of source skeleton points. -/
 structure SubdivideSetData
@@ -1062,6 +1118,64 @@ theorem exists_subdivideSetData [Infinite γ]
         parent := w.parent ∘ q.parent
         refines_src := q.refines_src.trans w.refines_src
         refines_tgt := q.refines_tgt.trans w.refines_tgt
+        skeletonSet_eq := q.skeletonSet_eq.trans w.skeletonSet_eq
+        vertexSet_subset := by
+          intro x hx
+          rw [q.vertexSet_eq]
+          rcases hx with rfl | hx
+          · exact Set.mem_insert _ _
+          · exact Set.mem_insert_of_mem _ (w.vertexSet_subset hx)
+      }⟩
+
+/-- The output of inserting a finite set of target skeleton points. -/
+structure SubdivideTargetSetData
+    (P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom) (s : Set Plane) where
+  /-- The pair after all subdivisions. -/
+  pair : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom
+  /-- The composite new-to-old cell parent map. -/
+  parent : γ → γ
+  /-- Source refinement along `parent`. -/
+  refines_src : pair.src.Refines P.src parent
+  /-- Target refinement along the same `parent`. -/
+  refines_tgt : pair.tgt.Refines P.tgt parent
+  /-- The occupied source skeleton is unchanged. -/
+  sourceSkeletonSet_eq : pair.src.skeletonSet = P.src.skeletonSet
+  /-- The occupied target skeleton is unchanged. -/
+  skeletonSet_eq : pair.tgt.skeletonSet = P.tgt.skeletonSet
+  /-- Every requested point is a vertex of the final target graph. -/
+  vertexSet_subset : s ⊆ V(pair.tgt.graph)
+
+/-- Every finite set of target skeleton points can simultaneously be made vertices. -/
+theorem exists_subdivideTargetSetData [Infinite γ]
+    (P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom) {s : Set Plane}
+    (hs : s.Finite) (hsub : s ⊆ P.tgt.skeletonSet) :
+    Nonempty (SubdivideTargetSetData P s) := by
+  classical
+  induction s, hs using Set.Finite.induction_on with
+  | empty =>
+      exact ⟨{
+        pair := P
+        parent := id
+        refines_src := CellStructure.Realization.Refines.refl P.src
+        refines_tgt := CellStructure.Realization.Refines.refl P.tgt
+        sourceSkeletonSet_eq := rfl
+        skeletonSet_eq := rfl
+        vertexSet_subset := Set.empty_subset _
+      }⟩
+  | @insert a s ha hs ih =>
+      have hskeleton : s ⊆ P.tgt.skeletonSet := fun x hx =>
+        hsub (Set.mem_insert_of_mem a hx)
+      obtain ⟨w⟩ := ih hskeleton
+      have haSkeleton : a ∈ w.pair.tgt.skeletonSet := by
+        rw [w.skeletonSet_eq]
+        exact hsub (Set.mem_insert a s)
+      obtain ⟨q⟩ := exists_subdivideTargetAtData w.pair haSkeleton
+      exact ⟨{
+        pair := q.pair
+        parent := w.parent ∘ q.parent
+        refines_src := q.refines_src.trans w.refines_src
+        refines_tgt := q.refines_tgt.trans w.refines_tgt
+        sourceSkeletonSet_eq := q.sourceSkeletonSet_eq.trans w.sourceSkeletonSet_eq
         skeletonSet_eq := q.skeletonSet_eq.trans w.skeletonSet_eq
         vertexSet_subset := by
           intro x hx

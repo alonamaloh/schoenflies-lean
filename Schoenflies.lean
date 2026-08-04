@@ -108,4 +108,5 @@ import Schoenflies.SquareMeshClosed
 import Schoenflies.ArcMonotone
 import Schoenflies.RealizeSubdivHomeo
 import Schoenflies.CommonSubdivision
+import Schoenflies.FiniteTransferTarget
 import Schoenflies.MatchedSplit

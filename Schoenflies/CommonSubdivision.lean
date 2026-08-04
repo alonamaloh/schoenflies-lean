@@ -25,6 +25,8 @@ the ear construction.
   `thm:finite-transfer`(a).
 * `Schoenflies.finite_transfer_toward_square_unconditional` — the unconditional form of
   `thm:finite-transfer`(a).
+* `Schoenflies.IsPlaneSubdivisionExtension.trace_isTwoConnected` — the trace theorem for two
+  arbitrary plane drawings, used when assembling target/mesh overlays.
 -/
 
 open Set
@@ -616,6 +618,331 @@ theorem trace_isTwoConnected
           obtain ⟨W, hW⟩ := hdel.reaches haDel hbDel
           exact reaches_trace_delete_of_deleteEdges_isWalk hH hcold he₀ hce₀ hW
     exact hpb.trans (habReach.symm.trans hxa.symm)
+
+/-! ## Traces of arbitrary plane subdivisions
+
+The preceding result is phrased for a realized cell structure because that is the interface
+used by finite transfer.  Overlay assembly also needs the same fact for an ordinary plane
+graph, notably the anchored square mesh.  The proof only uses the local subdivision data
+recorded below; in particular it does not use 2-connectivity of the ambient graph. -/
+
+variable {β δ : Type*} {G : Graph Plane β} {Gdraw : β → ℝ → Plane}
+  {K : Graph Plane δ} {Kdraw : δ → ℝ → Plane}
+
+/-- The local data saying that `K` contains an edge subdivision of the drawn plane graph `G`.
+Crossings with other parts of `K` are allowed at vertices of `K`. -/
+structure IsPlaneSubdivisionExtension (G : Graph Plane β) (Gdraw : β → ℝ → Plane)
+    (K : Graph Plane δ) (Kdraw : δ → ℝ → Plane) : Prop where
+  /-- The ambient graph is finite. -/
+  finite : K.Finite
+  /-- The old graph is drawn in the plane. -/
+  oldIsDrawing : G.IsDrawing Gdraw
+  /-- The ambient graph is drawn in the plane. -/
+  isDrawing : K.IsDrawing Kdraw
+  /-- Every old vertex is an ambient vertex. -/
+  vertexSet_subset : V(G) ⊆ V(K)
+  /-- The old carrier lies in the ambient carrier. -/
+  pointSet_subset : pointSet G Gdraw ⊆ pointSet K Kdraw
+  /-- An ambient edge meeting an old edge away from ambient vertices is contained in that old
+  edge. -/
+  edge_subset : ∀ ⦃e⦄, e ∈ E(G) → ∀ ⦃f⦄, f ∈ E(K) →
+    (edgeArc Kdraw f ∩ (edgeArc Gdraw e \ V(K))).Nonempty →
+      edgeArc Kdraw f ⊆ edgeArc Gdraw e
+
+namespace IsPlaneSubdivisionExtension
+
+/-- An ambient edge meeting the old carrier away from ambient vertices is absorbed by it. -/
+theorem trace_absorb (h : IsPlaneSubdivisionExtension G Gdraw K Kdraw) :
+    ∀ ⦃f⦄, f ∈ E(K) →
+      (edgeArc Kdraw f ∩ (pointSet G Gdraw \ V(K))).Nonempty →
+      edgeArc Kdraw f ⊆ pointSet G Gdraw := by
+  intro f hf hmeet
+  obtain ⟨z, hzf, hzold, hznotK⟩ := hmeet
+  rcases hzold with hzV | hzE
+  · exact absurd (h.vertexSet_subset hzV) hznotK
+  · obtain ⟨e, he, hze⟩ := Set.mem_iUnion₂.1 hzE
+    exact (h.edge_subset he hf ⟨z, hzf, hze, hznotK⟩).trans
+      (Graph.edgeArc_subset_pointSet he)
+
+/-- The trace on the old carrier occupies exactly that carrier. -/
+theorem trace_pointSet (h : IsPlaneSubdivisionExtension G Gdraw K Kdraw) :
+    pointSet (Graph.traceGraph K Kdraw (pointSet G Gdraw)) Kdraw = pointSet G Gdraw :=
+  Graph.pointSet_traceGraph_eq h.isDrawing _ h.pointSet_subset h.trace_absorb
+
+/-- The trace supported on one old edge occupies the entire old edge. -/
+theorem edge_trace_pointSet (h : IsPlaneSubdivisionExtension G Gdraw K Kdraw)
+    {e : β} (he : e ∈ E(G)) :
+    pointSet (Graph.traceGraph K Kdraw (edgeArc Gdraw e)) Kdraw = edgeArc Gdraw e := by
+  refine Graph.pointSet_traceGraph_eq h.isDrawing _
+    ((Graph.edgeArc_subset_pointSet he).trans h.pointSet_subset) ?_
+  intro f hf hmeet
+  exact h.edge_subset he hf hmeet
+
+/-- Every old edge is the carrier of an ambient path. -/
+theorem exists_edge_trace (h : IsPlaneSubdivisionExtension G Gdraw K Kdraw)
+    {e : β} {a b : Plane} (hab : G.IsLink e a b) :
+    ∃ D : List δ, K.IsPath a D b ∧ edgesCover Kdraw D = edgeArc Gdraw e := by
+  let T := Graph.traceGraph K Kdraw (edgeArc Gdraw e)
+  have hTK : T ≤ K := Graph.traceGraph_le _
+  letI : K.Finite := h.finite
+  letI : T.Finite := Graph.Finite.of_le hTK
+  have hpoint : pointSet T Kdraw = edgeArc Gdraw e := h.edge_trace_pointSet hab.edge_mem
+  have haK : a ∈ V(K) := h.vertexSet_subset hab.left_mem
+  have hbK : b ∈ V(K) := h.vertexSet_subset hab.right_mem
+  have hOldArc := h.oldIsDrawing.edge_isArcBetween hab
+  have haT : a ∈ V(T) := by
+    rw [Graph.traceGraph_vertexSet]
+    exact ⟨haK, hOldArc.left_mem⟩
+  have hbT : b ∈ V(T) := by
+    rw [Graph.traceGraph_vertexSet]
+    exact ⟨hbK, hOldArc.right_mem⟩
+  have hTconn : T.Connected := Graph.connected_of_isPreconnected_pointSet
+    (h.isDrawing.mono hTK) (hpoint.symm ▸ hOldArc.isArc.isConnected.isPreconnected) ⟨a, haT⟩
+  obtain ⟨D, hD⟩ := (hTconn.reaches haT hbT).exists_isPath
+  have hDK : K.IsPath a D b := hD.mono hTK
+  have hne : a ≠ b := h.oldIsDrawing.ne_of_isLink hab
+  have hPathArc : IsArcBetween (edgesCover Kdraw D) a b :=
+    h.isDrawing.path_isArcBetween hDK (hDK.ne_nil hne)
+  have hcoverSub : edgesCover Kdraw D ⊆ edgeArc Gdraw e := by
+    rw [← hpoint]
+    exact Graph.edgesCover_subset_pointSet fun g hg => hD.edge_mem hg
+  exact ⟨D, hDK, hPathArc.eq_of_subset_arc hOldArc hOldArc hcoverSub Set.Subset.rfl⟩
+
+/-- The path tracing an old edge lies in the trace supported on that edge. -/
+theorem pathGraph_edge_trace_le (h : IsPlaneSubdivisionExtension G Gdraw K Kdraw)
+    {e : β} {a b : Plane} (hab : G.IsLink e a b) {D : List δ}
+    (hD : K.IsPath a D b) (hcover : edgesCover Kdraw D = edgeArc Gdraw e) :
+    K.pathGraphOf a D ≤ Graph.traceGraph K Kdraw (edgeArc Gdraw e) := by
+  have hne : a ≠ b := h.oldIsDrawing.ne_of_isLink hab
+  have hPpoint : pointSet (K.pathGraphOf a D) Kdraw = edgesCover Kdraw D :=
+    h.isDrawing.pointSet_pathGraphOf hD.isWalk (hD.ne_nil hne)
+  have hPK : K.pathGraphOf a D ≤ K := Graph.pathGraphOf_le hD.isWalk
+  refine ⟨?_, ?_⟩
+  · intro z hz
+    rw [Graph.traceGraph_vertexSet]
+    exact ⟨hPK.vertexSet_mono hz, hcover ▸ hPpoint ▸ Or.inl hz⟩
+  · intro f x y hlink
+    have hfP : f ∈ E(K.pathGraphOf a D) := hlink.edge_mem
+    have hfD : f ∈ D := by
+      rwa [Graph.pathGraphOf_edgeSet hD.isWalk] at hfP
+    have hlinkK : K.IsLink f x y := hPK.isLink_mono hlink
+    have hsub : edgeArc Kdraw f ⊆ edgeArc Gdraw e := by
+      rw [← hcover]
+      exact fun z hz => Graph.mem_edgesCover hfD hz
+    have harc := h.isDrawing.edge_isArcBetween hlinkK
+    exact (Graph.traceGraph_isLink _).2
+      ⟨hsub, hlinkK, hsub harc.left_mem, hsub harc.right_mem⟩
+
+/-- Every old vertex belongs to the full old-carrier trace. -/
+theorem old_vertex_mem_trace (h : IsPlaneSubdivisionExtension G Gdraw K Kdraw)
+    {a : Plane} (ha : a ∈ V(G)) :
+    a ∈ V(Graph.traceGraph K Kdraw (pointSet G Gdraw)) := by
+  rw [Graph.traceGraph_vertexSet]
+  exact ⟨h.vertexSet_subset ha, Or.inl ha⟩
+
+/-- An old walk expands to reachability in the ambient trace. -/
+theorem reaches_trace_of_isWalk (h : IsPlaneSubdivisionExtension G Gdraw K Kdraw)
+    {a b : Plane} {W : List β} (hW : G.IsWalk a W b) :
+    (Graph.traceGraph K Kdraw (pointSet G Gdraw)).Reaches a b := by
+  induction hW with
+  | nil ha => exact .refl (h.old_vertex_mem_trace ha)
+  | @cons a w b e W hlink htail ih =>
+    obtain ⟨D, hD, hcover⟩ := h.exists_edge_trace hlink
+    have hPle : K.pathGraphOf a D ≤ Graph.traceGraph K Kdraw (pointSet G Gdraw) :=
+      (h.pathGraph_edge_trace_le hlink hD hcover).trans
+        (Graph.traceGraph_mono (Graph.edgeArc_subset_pointSet hlink.edge_mem))
+    have hreach : (K.pathGraphOf a D).Reaches a w := ⟨D, hD.pathGraphOf.isWalk⟩
+    exact (hreach.mono hPle).trans ih
+
+/-- Any two old vertices are joined inside the ambient trace. -/
+theorem old_vertices_reach_trace (h : IsPlaneSubdivisionExtension G Gdraw K Kdraw)
+    (hG2 : G.IsTwoConnected) {a b : Plane} (ha : a ∈ V(G)) (hb : b ∈ V(G)) :
+    (Graph.traceGraph K Kdraw (pointSet G Gdraw)).Reaches a b := by
+  obtain ⟨W, hW⟩ := hG2.connected.reaches ha hb
+  exact h.reaches_trace_of_isWalk hW
+
+/-- Every trace vertex reaches an old vertex. -/
+theorem exists_reaches_old_vertex (h : IsPlaneSubdivisionExtension G Gdraw K Kdraw)
+    {x : Plane} (hx : x ∈ V(Graph.traceGraph K Kdraw (pointSet G Gdraw))) :
+    ∃ a ∈ V(G), (Graph.traceGraph K Kdraw (pointSet G Gdraw)).Reaches x a := by
+  rw [Graph.traceGraph_vertexSet] at hx
+  by_cases hxold : x ∈ V(G)
+  · exact ⟨x, hxold, .refl (h.old_vertex_mem_trace hxold)⟩
+  · rcases hx.2 with hxV | hxE
+    · exact absurd hxV hxold
+    · obtain ⟨e, he, hxe⟩ := Set.mem_iUnion₂.1 hxE
+      obtain ⟨a, b, hab⟩ := G.exists_isLink_of_mem_edgeSet he
+      obtain ⟨D, hD, hcover⟩ := h.exists_edge_trace hab
+      have hxwalk : x ∈ K.walkVertices a D :=
+        h.isDrawing.mem_walkVertices_of_mem_edgesCover_walk hD.isWalk hx.1 (hcover ▸ hxe)
+      have hxP : x ∈ V(K.pathGraphOf a D) := by
+        rw [Graph.pathGraphOf_vertexSet]
+        exact hxwalk
+      have hPle : K.pathGraphOf a D ≤ Graph.traceGraph K Kdraw (pointSet G Gdraw) :=
+        (h.pathGraph_edge_trace_le hab hD hcover).trans
+          (Graph.traceGraph_mono (Graph.edgeArc_subset_pointSet he))
+      have haP : a ∈ V(K.pathGraphOf a D) := Graph.mem_vertexSet_pathGraphOf_self
+      exact ⟨a, hab.left_mem,
+        (hD.isPathGraph_pathGraphOf.connected.reaches hxP haP).mono hPle⟩
+
+/-- After deleting a distinct trace vertex, every remaining vertex still reaches an old one. -/
+theorem exists_reaches_old_vertex_delete
+    (h : IsPlaneSubdivisionExtension G Gdraw K Kdraw) {c x : Plane}
+    (hx : x ∈ V(Graph.traceGraph K Kdraw (pointSet G Gdraw))) (hxc : x ≠ c) :
+    ∃ a ∈ V(G),
+      ((Graph.traceGraph K Kdraw (pointSet G Gdraw)).deleteVerts {c}).Reaches x a := by
+  rw [Graph.traceGraph_vertexSet] at hx
+  by_cases hxold : x ∈ V(G)
+  · exact ⟨x, hxold, .refl (Graph.mem_deleteVerts_singleton_of_ne
+      (h.old_vertex_mem_trace hxold) hxc)⟩
+  · rcases hx.2 with hxV | hxE
+    · exact absurd hxV hxold
+    · obtain ⟨e, he, hxe⟩ := Set.mem_iUnion₂.1 hxE
+      obtain ⟨a, b, hab⟩ := G.exists_isLink_of_mem_edgeSet he
+      obtain ⟨D, hD, hcover⟩ := h.exists_edge_trace hab
+      have hxwalk : x ∈ K.walkVertices a D :=
+        h.isDrawing.mem_walkVertices_of_mem_edgesCover_walk hD.isWalk hx.1 (hcover ▸ hxe)
+      have hxP : x ∈ V(K.pathGraphOf a D) := by
+        rw [Graph.pathGraphOf_vertexSet]
+        exact hxwalk
+      have hPle : K.pathGraphOf a D ≤ Graph.traceGraph K Kdraw (pointSet G Gdraw) :=
+        (h.pathGraph_edge_trace_le hab hD hcover).trans
+          (Graph.traceGraph_mono (Graph.edgeArc_subset_pointSet he))
+      rcases hD.isPathGraph_pathGraphOf.reaches_an_end hxP hxc with hreach | hreach
+      · exact ⟨a, hab.left_mem, hreach.mono (Graph.deleteVerts_mono hPle _)⟩
+      · exact ⟨b, hab.right_mem, hreach.mono (Graph.deleteVerts_mono hPle _)⟩
+
+/-- An old walk avoiding a vertex expands to a trace walk avoiding that vertex. -/
+theorem reaches_trace_delete_of_deleteVerts_isWalk
+    (h : IsPlaneSubdivisionExtension G Gdraw K Kdraw)
+    {z a b : Plane} {W : List β} (hzG : z ∈ V(G))
+    (hW : (G.deleteVerts {z}).IsWalk a W b) :
+    ((Graph.traceGraph K Kdraw (pointSet G Gdraw)).deleteVerts {z}).Reaches a b := by
+  induction hW with
+  | nil ha =>
+      rw [Graph.mem_deleteVerts_singleton] at ha
+      exact .refl (Graph.mem_deleteVerts_singleton_of_ne
+        (h.old_vertex_mem_trace ha.1) ha.2)
+  | @cons a w b e W hlink htail ih =>
+    rw [Graph.deleteVerts_isLink] at hlink
+    have hlinkG := hlink.1
+    obtain ⟨D, hD, hcover⟩ := h.exists_edge_trace hlinkG
+    have hne : a ≠ w := h.oldIsDrawing.ne_of_isLink hlinkG
+    have hPpoint : pointSet (K.pathGraphOf a D) Kdraw = edgesCover Kdraw D :=
+      h.isDrawing.pointSet_pathGraphOf hD.isWalk (hD.ne_nil hne)
+    have hznot : z ∉ K.walkVertices a D := by
+      intro hz
+      have hzarc : z ∈ edgeArc Gdraw e := by
+        rw [← hcover, ← hPpoint]
+        exact Or.inl (by rwa [Graph.pathGraphOf_vertexSet])
+      rcases h.oldIsDrawing.vertex_mem_edgeArc hlinkG hzG hzarc with hza | hzw
+      · exact hlink.2.1 hza.symm
+      · exact hlink.2.2 hzw.symm
+    have hPle : K.pathGraphOf a D ≤ Graph.traceGraph K Kdraw (pointSet G Gdraw) :=
+      (h.pathGraph_edge_trace_le hlinkG hD hcover).trans
+        (Graph.traceGraph_mono (Graph.edgeArc_subset_pointSet hlinkG.edge_mem))
+    have hreach : ((K.pathGraphOf a D).deleteVerts {z}).Reaches a w :=
+      ⟨D, hD.pathGraphOf.isWalk.deleteVerts_singleton (by
+        rw [Graph.walkVertices_pathGraphOf]
+        exact hznot)⟩
+    exact (hreach.mono (Graph.deleteVerts_mono hPle _)).trans ih
+
+/-- An old walk avoiding an edge expands to a trace walk avoiding an interior point of it. -/
+theorem reaches_trace_delete_of_deleteEdges_isWalk
+    (h : IsPlaneSubdivisionExtension G Gdraw K Kdraw)
+    {c : Plane} (hcold : c ∉ V(G)) {e₀ : β} (he₀ : e₀ ∈ E(G))
+    (hce₀ : c ∈ edgeArc Gdraw e₀) {a b : Plane} {W : List β}
+    (hW : (G.deleteEdges {e₀}).IsWalk a W b) :
+    ((Graph.traceGraph K Kdraw (pointSet G Gdraw)).deleteVerts {c}).Reaches a b := by
+  induction hW with
+  | @nil x hx =>
+      exact .refl (Graph.mem_deleteVerts_singleton_of_ne
+        (h.old_vertex_mem_trace (by simpa using hx)) (fun hxc => hcold (hxc ▸ by simpa using hx)))
+  | @cons a w b e W hlink htail ih =>
+    change G.IsLink e a w ∧ e ∉ ({e₀} : Set β) at hlink
+    have hlinkG := hlink.1
+    have hee₀ : e ≠ e₀ := by simpa using hlink.2
+    obtain ⟨D, hD, hcover⟩ := h.exists_edge_trace hlinkG
+    have hne : a ≠ w := h.oldIsDrawing.ne_of_isLink hlinkG
+    have hPpoint : pointSet (K.pathGraphOf a D) Kdraw = edgesCover Kdraw D :=
+      h.isDrawing.pointSet_pathGraphOf hD.isWalk (hD.ne_nil hne)
+    have hcnot : c ∉ K.walkVertices a D := by
+      intro hc
+      have hce : c ∈ edgeArc Gdraw e := by
+        rw [← hcover, ← hPpoint]
+        exact Or.inl (by rwa [Graph.pathGraphOf_vertexSet])
+      exact hcold (h.oldIsDrawing.edge_inter he₀ hlinkG.edge_mem (Ne.symm hee₀)
+        hce₀ hce |>.1)
+    have hPle : K.pathGraphOf a D ≤ Graph.traceGraph K Kdraw (pointSet G Gdraw) :=
+      (h.pathGraph_edge_trace_le hlinkG hD hcover).trans
+        (Graph.traceGraph_mono (Graph.edgeArc_subset_pointSet hlinkG.edge_mem))
+    have hreach : ((K.pathGraphOf a D).deleteVerts {c}).Reaches a w :=
+      ⟨D, hD.pathGraphOf.isWalk.deleteVerts_singleton (by
+        rw [Graph.walkVertices_pathGraphOf]
+        exact hcnot)⟩
+    exact (hreach.mono (Graph.deleteVerts_mono hPle _)).trans ih
+
+/-- The part of an ambient plane graph supported on a 2-connected old graph is 2-connected.
+No connectivity assumption on the ambient graph is needed. -/
+theorem trace_isTwoConnected (h : IsPlaneSubdivisionExtension G Gdraw K Kdraw)
+    (hG2 : G.IsTwoConnected) :
+    (Graph.traceGraph K Kdraw (pointSet G Gdraw)).IsTwoConnected := by
+  let T := Graph.traceGraph K Kdraw (pointSet G Gdraw)
+  have hVold : V(G) ⊆ V(T) := fun _ hz => h.old_vertex_mem_trace hz
+  have hthree : T.HasThreeVertices := by
+    obtain ⟨a, ha, b, hb, c, hc, hab, hac, hbc⟩ := hG2.hasThreeVertices
+    exact ⟨a, hVold ha, b, hVold hb, c, hVold hc, hab, hac, hbc⟩
+  refine {
+    hasThreeVertices := hthree
+    connected := ?_
+    deleteVerts_connected := ?_
+  }
+  · obtain ⟨a, ha⟩ := hG2.connected.nonempty
+    refine Graph.Connected.of_hub (h.old_vertex_mem_trace ha) ?_
+    intro x hx
+    obtain ⟨b, hb, hxb⟩ := h.exists_reaches_old_vertex hx
+    exact (h.old_vertices_reach_trace hG2 ha hb).trans hxb.symm
+  · intro c hcT
+    obtain ⟨p, hpG, hpc, -⟩ := hG2.hasThreeVertices.exists_ne_ne c c
+    have hpT : p ∈ V(T) := hVold hpG
+    have hpDel : p ∈ V(T.deleteVerts {c}) :=
+      Graph.mem_deleteVerts_singleton_of_ne hpT hpc
+    refine Graph.Connected.of_hub hpDel ?_
+    intro x hx
+    rw [Graph.mem_deleteVerts_singleton] at hx
+    obtain ⟨a, ha, hxa⟩ := h.exists_reaches_old_vertex_delete hx.1 hx.2
+    obtain ⟨b, hb, hpb⟩ := h.exists_reaches_old_vertex_delete hpT hpc
+    have habReach : (T.deleteVerts {c}).Reaches a b := by
+      by_cases hcold : c ∈ V(G)
+      · have haDel := hxa.right_mem
+        have hbDel := hpb.right_mem
+        rw [Graph.mem_deleteVerts_singleton] at haDel hbDel
+        have hac : a ≠ c := haDel.2
+        have hbc : b ≠ c := hbDel.2
+        have haGdel : a ∈ V(G.deleteVerts {c}) :=
+          Graph.mem_deleteVerts_singleton_of_ne ha hac
+        have hbGdel : b ∈ V(G.deleteVerts {c}) :=
+          Graph.mem_deleteVerts_singleton_of_ne hb hbc
+        obtain ⟨W, hW⟩ := (hG2.deleteVerts_connected hcold).reaches haGdel hbGdel
+        exact h.reaches_trace_delete_of_deleteVerts_isWalk hcold hW
+      · have hcpoint : c ∈ pointSet G Gdraw := by
+          rw [Graph.traceGraph_vertexSet] at hcT
+          exact hcT.2
+        rcases hcpoint with hcV | hcE
+        · exact absurd hcV hcold
+        · obtain ⟨e₀, he₀, hce₀⟩ := Set.mem_iUnion₂.1 hcE
+          obtain ⟨u, v, huv⟩ := G.exists_isLink_of_mem_edgeSet he₀
+          have hcyc : G.LiesOnCycle e₀ :=
+            (Graph.liesOnCycle_iff_deleteEdges_reaches huv).2 (hG2.no_bridge huv)
+          have hdel : (G.deleteEdges {e₀}).Connected :=
+            hG2.connected.deleteEdges_singleton hcyc
+          have haDel : a ∈ V(G.deleteEdges {e₀}) := by simpa using ha
+          have hbDel : b ∈ V(G.deleteEdges {e₀}) := by simpa using hb
+          obtain ⟨W, hW⟩ := hdel.reaches haDel hbDel
+          exact h.reaches_trace_delete_of_deleteEdges_isWalk hcold he₀ hce₀ hW
+    exact hpb.trans (habReach.symm.trans hxa.symm)
+
+end IsPlaneSubdivisionExtension
 
 end Schoenflies
 

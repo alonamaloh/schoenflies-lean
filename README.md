@@ -9,7 +9,43 @@ statement-level citation index and a suggested module order, is at
 <https://github.com/alonamaloh/jordan-schoenflies>. Statement numbers below refer to
 `jordan_schoenflies.tex` there.
 
-Lean 4.32.2, Mathlib v4.32.2. `lake build`.
+The development uses Lean 4.32.2 and Mathlib v4.32.2. It contains 4,908 audited declarations
+in 130 modules, with no `sorry`, `admit`, `native_decide`, duplicate declaration, or unresolved
+axiom audit entry.
+
+## Main theorem
+
+The bundled form is
+
+```lean
+theorem Schoenflies.jordan_schoenflies_of_homeomorph_unconditional
+    {C C' : Set Plane}
+    (hC : IsJordanCurve C) (hC' : IsJordanCurve C') (e : ↥C ≃ₜ ↥C') :
+    ∃ F : Plane ≃ₜ Plane, ∀ z : ↥C, F z = e z
+```
+
+Thus every homeomorphism between two Jordan curves extends, pointwise on the source curve, to
+a self-homeomorphism of the plane. The same result is available in unbundled form as
+`Schoenflies.jordan_schoenflies_unconditional`; the closed-domain square extension used by the
+reduction is `Schoenflies.squareExtension_unconditional`. The final assembly is in
+[`Schoenflies/UnconditionalSchoenflies.lean`](Schoenflies/UnconditionalSchoenflies.lean).
+
+## Build and verification
+
+With [Elan](https://github.com/leanprover/elan) installed, the pinned toolchain and dependencies
+are selected from `lean-toolchain` and `lake-manifest.json`:
+
+```sh
+git clone https://github.com/alonamaloh/schoenflies-lean.git
+cd schoenflies-lean
+lake build Schoenflies
+python3 docs/regen-inventory.py
+python3 docs/audit-axioms.py
+```
+
+The inventory command rejects duplicate names. The axiom audit runs `#print axioms` on every
+declaration and rejects `sorryAx` or any dependency beyond `propext`, `Classical.choice`, and
+`Quot.sound`.
 
 ## Status
 
@@ -28,16 +64,14 @@ polygonal case is stated through — so `inside`, `outside` and the whole region
 general Jordan curve with nothing to transport, and every consumer written against
 `ClosedPolygon.polygonal_jordan` applies verbatim.
 
-**Part II is complete.** `Schoenflies.jordan_schoenflies_of_homeomorph_unconditional` proves
-that every homeomorphism between two Jordan curves extends to a self-homeomorphism of the
-plane. `Schoenflies.squareExtension_unconditional` is the closed-domain square-extension
-theorem used by the final reduction. Both are proved without any project-specific hypothesis.
+**Part II is complete.** The shrinking cellulation tower supplies an interior homeomorphism;
+dense retained boundary anchors supply spoke germs and matched crosscuts; boundary continuity
+closes the square extension; and the interior/exterior reduction produces the global plane
+homeomorphism. No project-specific hypothesis remains in the headline theorem.
 
 `docs/ROADMAP.md` has every one of the blueprint's 84 labelled statements with its status and
-its Lean home. Work is scheduled off Appendix A of the blueprint — its machine-generated
-citation index — rather than off the milestone list, because the index repeatedly reveals
-substantial statements with no internal prerequisites that can be built in parallel far ahead
-of the critical path.
+its Lean home. The development was organized from Appendix A of the blueprint — its
+machine-generated citation index — rather than only from the milestone list.
 
 ### Milestones
 
@@ -51,17 +85,22 @@ of the critical path.
 | H10 the general crosscut theorem | **done** |
 | H11 Jordan–Schönflies | **done** |
 
-### Two gates, and why the build is not enough
+### Proof architecture
 
-```sh
-python3 docs/regen-inventory.py   # rewrites docs/INVENTORY.md; exits 1 on a duplicate name
-python3 docs/audit-axioms.py      # #print axioms on every declaration; exits 1 on any other axiom
-```
+| Step | Main Lean modules |
+|---|---|
+| Jordan curve and general crosscut theorems | `JordanClosed.lean`, `GeneralCrosscut.lean`, `PolyArcRealize.lean` |
+| Matched cellulations and finite transfer | `CombinatorialInvariance.lean`, `FiniteTransfer.lean`, `FiniteTransferTarget.lean`, `CommonSubdivision.lean` |
+| Shrinking two-sided stage recursion | `QuantitativeStages.lean`, `QuantitativeForwardStages.lean`, `QuantitativeRecursion.lean`, `StageTower.lean` |
+| Dense anchors, spokes, and matched crosscuts | `FreshDenseSelection.lean`, `BoundaryAnchors.lean` |
+| Boundary continuity and global extension | `BoundaryContinuity2.lean`, `Endgame.lean`, `UnconditionalSchoenflies.lean` |
+
+### Why the two extra gates matter
 
 Neither is redundant. Lean's import checker accepts two modules declaring the same name when
 the statements are alpha-equivalent `Prop`s, because proof irrelevance makes them defeq — so a
 clean build is not a collision check. And a `sorry` reached through a chain of definitions shows
-up as `sorryAx` in the axiom audit and nowhere else. Both run in about two seconds.
+up as `sorryAx` in the axiom audit and nowhere else. Both run in a few seconds.
 
 ### Layer 0 — the plane
 
@@ -146,7 +185,7 @@ four sides are segments, each an arc by `isArcBetween_segment`, glued by
 | "choose ε small enough for all of them" | `exists_pos_le_of_finite`, `exists_pos_forall_of_finite` |
 
 **Verification.** `docs/audit-axioms.py` runs `#print axioms` over every declaration in the
-development on every check — over three thousand of them. All depend only on `propext`,
+development on every check — currently 4,908 of them. All depend only on `propext`,
 `Classical.choice` and `Quot.sound`; `sorryAx` appears nowhere, and a repository-wide sweep
 finds no `sorry`, `admit` or `native_decide`.
 

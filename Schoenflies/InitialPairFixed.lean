@@ -475,10 +475,11 @@ The proof is that of `Schoenflies.exists_initialData` with the anchor set suppli
 manufactured: the two open corner arcs are relatively open and nonempty in `C`, `𝒜` is dense in
 `C`, so `𝒜` meets both; `lem:tangent-cone` (through `StronglyAccessible.polyAccessible`) and
 `lem:accessible-endpoints` then supply the polygonal crosscut. -/
-theorem exists_anchoredInitialData (hC : IsJordanCurve C) (A : AnchorSet C) :
-    Nonempty (AnchoredInitialData C A) := by
+theorem exists_anchoredInitialData_of_homeo (hC : IsJordanCurve C) (A : AnchorSet C)
+    (u w : Plane → Plane) (hhom : IsSetHomeoOn u w C modelCurve) :
+    ∃ D : AnchoredInitialData C A,
+      D.toInitialData.u = u ∧ D.toInitialData.w = w := by
   have hsep : IsSeparating C := jordan_curve_theorem hC
-  obtain ⟨u, w, hhom⟩ := exists_isSetHomeoOn_modelCurve hC
   -- the two open corner arcs, relatively open in `C` and nonempty
   obtain ⟨W₁, hW₁, hW₁eq⟩ := hhom.symm.image_isRelOpen isOpen_topBand (U := openTop) rfl
   obtain ⟨W₂, hW₂, hW₂eq⟩ := hhom.symm.image_isRelOpen isOpen_bottomBand (U := openBottom) rfl
@@ -521,7 +522,7 @@ theorem exists_anchoredInitialData (hC : IsJordanCurve C) (A : AnchorSet C) :
                 cross_inside := ?_
                 polygonal_cross := ?_ }
             a_mem_anchors := ?_
-            b_mem_anchors := ?_ }⟩
+            b_mem_anchors := ?_ }, rfl, rfl⟩
   · rw [hfim, ← hq₁eq, ← hq₂eq]
     intro z hz
     exact hwsin ⟨hz.1, by simpa [hf0, hf1] using hz.2⟩
@@ -533,6 +534,13 @@ theorem exists_anchoredInitialData (hC : IsJordanCurve C) (A : AnchorSet C) :
   · change w (tgtPos xa xb 4) ∈ A.carrier
     rw [← hq₂eq]
     exact hb₀A
+
+/-- The anchored initial pair with a boundary parametrization chosen internally. -/
+theorem exists_anchoredInitialData (hC : IsJordanCurve C) (A : AnchorSet C) :
+    Nonempty (AnchoredInitialData C A) := by
+  obtain ⟨u, w, hhom⟩ := exists_isSetHomeoOn_modelCurve hC
+  obtain ⟨D, -, -⟩ := exists_anchoredInitialData_of_homeo hC A u w hhom
+  exact ⟨D⟩
 
 open Classical in
 /-- The initial matched pair over `C` anchored in `𝒜`, as data. `def:generated-structure`

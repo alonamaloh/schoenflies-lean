@@ -121,4 +121,6 @@ import Schoenflies.SourceAttachment
 import Schoenflies.OverlayExtension
 import Schoenflies.SourceJoining
 import Schoenflies.QuantitativeForwardStages
+import Schoenflies.QuantitativeRecursion
+import Schoenflies.UnconditionalInterior
 import Schoenflies.MatchedSplit

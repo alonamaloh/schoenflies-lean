@@ -24,6 +24,37 @@ namespace Schoenflies
 
 open Graph
 
+namespace IsPlaneSubdivisionExtension
+
+variable {β δ κ : Type*}
+  {G : Graph Plane β} {Gdraw : β → ℝ → Plane}
+  {H : Graph Plane δ} {Hdraw : δ → ℝ → Plane}
+  {K : Graph Plane κ} {Kdraw : κ → ℝ → Plane}
+
+/-- Plane subdivision extensions compose.  At a point of an old edge away from final vertices,
+the intermediate carrier supplies an intermediate edge; both absorption clauses then apply. -/
+theorem trans (hGH : IsPlaneSubdivisionExtension G Gdraw H Hdraw)
+    (hHK : IsPlaneSubdivisionExtension H Hdraw K Kdraw) :
+    IsPlaneSubdivisionExtension G Gdraw K Kdraw where
+  finite := hHK.finite
+  oldIsDrawing := hGH.oldIsDrawing
+  isDrawing := hHK.isDrawing
+  vertexSet_subset := hGH.vertexSet_subset.trans hHK.vertexSet_subset
+  pointSet_subset := hGH.pointSet_subset.trans hHK.pointSet_subset
+  edge_subset := by
+    intro e he f hf hmeet
+    obtain ⟨z, hzf, hze, hznotK⟩ := hmeet
+    have hzH : z ∈ Graph.pointSet H Hdraw :=
+      hGH.pointSet_subset (Graph.edgeArc_subset_pointSet he hze)
+    rcases hzH with hzHV | hzHE
+    · exact (hznotK (hHK.vertexSet_subset hzHV)).elim
+    · obtain ⟨g, hg, hzg⟩ := Set.mem_iUnion₂.1 hzHE
+      have hznotH : z ∉ V(H) := fun hzV => hznotK (hHK.vertexSet_subset hzV)
+      exact (hHK.edge_subset hg hf ⟨z, hzf, hzg, hznotK⟩).trans
+        (hGH.edge_subset he hg ⟨z, hzg, hze, hznotH⟩)
+
+end IsPlaneSubdivisionExtension
+
 /-- The already-subdivided edges of a finite straight overlay, listed as pieces. -/
 noncomputable def currentOverlayPieces (pieces : List Piece) (extra : List Plane) : List Piece :=
   (attachGraph pieces extra).edgeFinset.toList
@@ -144,6 +175,23 @@ theorem extendOverlay_edge_subset
       hR hR' hznot hzR hzR'Arc
   rw [hRR', edgeArc_segmentDrawing, edgeArc_segmentDrawing]
   exact hR'A
+
+/-- Every edge of the extended overlay is cut either from a current overlay edge or from one
+of the newly appended pieces. -/
+theorem extendOverlay_edge_source
+    {pieces : List Piece} {extra : List Plane} {joins : List Piece}
+    {R : Piece} (hR : R ∈ E(extendOverlay pieces extra joins)) :
+    (∃ A ∈ E(attachGraph pieces extra), R.seg ⊆ A.seg) ∨
+      ∃ A ∈ joins, R.seg ⊆ A.seg := by
+  change R ∈ overlayPieces (extendedOverlayPieces pieces extra joins)
+    (attachPoints (extendedOverlayPieces pieces extra joins)
+      (attachGraph pieces extra).vertexFinset.toList) at hR
+  obtain ⟨R₀, hR₀, rfl⟩ := mem_overlayPieces.1 hR
+  obtain ⟨A, hA, hsub, -⟩ := subdivide_subset _ _ R₀ hR₀
+  rw [orientPiece_seg]
+  rcases List.mem_append.1 hA with hA | hA
+  · exact Or.inl ⟨A, mem_currentOverlayPieces.1 hA, hsub⟩
+  · exact Or.inr ⟨A, hA, hsub⟩
 
 /-- Re-overlaying after adjoining joining pieces is a plane subdivision extension of the
 current straight overlay. -/

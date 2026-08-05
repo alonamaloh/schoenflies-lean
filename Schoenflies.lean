@@ -119,4 +119,5 @@ import Schoenflies.QuantitativeStages
 import Schoenflies.SourceOverlay
 import Schoenflies.SourceAttachment
 import Schoenflies.OverlayExtension
+import Schoenflies.SourceJoining
 import Schoenflies.MatchedSplit

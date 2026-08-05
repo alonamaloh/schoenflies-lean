@@ -26,6 +26,9 @@ geometric core of the forward half of the quantitative-refinement recursion.
   overlay, freshly relabelled and adjoined to the old wild outer graph.
 * `Schoenflies.SourceNonboundarySegmentCover.LocalOverlayRelabeling.isSourceExtension` — all
   local source-extension fields, leaving only the two global attachment properties explicit.
+* `Schoenflies.SourceNonboundarySegmentCover.LocalOverlayRelabeling.
+  isSourceExtension_of_source_connected_two_common` — the global properties follow from the
+  carried source-connectedness invariant and two distinct common source/grid vertices.
 -/
 
 open Set
@@ -111,6 +114,76 @@ theorem isDrawing_union_of_common_vertices (hG : G.IsDrawing drawing)
         (inc_of_mem G hG hfG hpVG hpf).mono hGle⟩
     · obtain ⟨hpV, hpeInc, hpfInc⟩ := hH.edge_inter heH hfH hef hpe hpf
       exact ⟨Or.inr hpV, hpeInc.mono hHle, hpfInc.mono hHle⟩
+
+/-- A nonempty walk in a plane drawing has connected geometric carrier. -/
+theorem IsDrawing.isConnected_edgesCover_of_isWalk (h : G.IsDrawing drawing)
+    {u v : Plane} {W : List β} (hW : G.IsWalk u W v) (hne : W ≠ []) :
+    IsConnected (Graph.edgesCover drawing W) := by
+  induction hW with
+  | nil => exact (hne rfl).elim
+  | @cons u w v e W hlink htail ih =>
+      rw [Graph.edgesCover_cons]
+      by_cases hWnil : W = []
+      · subst W
+        rw [Graph.edgesCover_nil, Set.union_empty]
+        exact (h.edge_isArcBetween hlink).isArc.isConnected
+      · apply IsConnected.union
+          (Hs := (h.edge_isArcBetween hlink).isArc.isConnected)
+          (Ht := ih hWnil)
+        refine ⟨w, h.inc_mem_edgeArc hlink.inc_right, ?_⟩
+        rw [← h.pointSet_pathGraphOf htail hWnil]
+        apply Graph.vertexSet_subset_pointSet
+        rw [Graph.pathGraphOf_vertexSet]
+        exact Graph.mem_walkVertices_self
+
+/-- The point set of a connected plane drawing is connected. -/
+theorem IsDrawing.isConnected_pointSet (h : G.IsDrawing drawing) (hG : G.Connected) :
+    IsConnected (Graph.pointSet G drawing) := by
+  obtain ⟨c, hc⟩ := hG.nonempty
+  have bridge : ∀ {u : Plane}, u ∈ V(G) →
+      ∃ A : Set Plane, A ⊆ Graph.pointSet G drawing ∧ c ∈ A ∧ u ∈ A ∧ IsConnected A := by
+    intro u hu
+    by_cases hcu : c = u
+    · subst u
+      exact ⟨{c}, fun z hz => by
+        rw [Set.mem_singleton_iff] at hz
+        exact hz ▸ Graph.vertexSet_subset_pointSet hc,
+        Set.mem_singleton c, Set.mem_singleton c, isConnected_singleton⟩
+    · obtain ⟨W, hW⟩ := hG.reaches hc hu
+      have hWne : W ≠ [] := by
+        intro hnil
+        subst W
+        exact hcu hW.eq_of_nil
+      have hsubset : Graph.edgesCover drawing W ⊆ Graph.pointSet G drawing := by
+        intro z hz
+        obtain ⟨e, heW, hze⟩ := Graph.mem_edgesCover_iff.1 hz
+        exact Graph.edgeArc_subset_pointSet (hW.edge_mem heW) hze
+      have hcW : c ∈ Graph.edgesCover drawing W := by
+        rw [← h.pointSet_pathGraphOf hW hWne]
+        apply Graph.vertexSet_subset_pointSet
+        rw [Graph.pathGraphOf_vertexSet]
+        exact Graph.mem_walkVertices_self
+      have huW : u ∈ Graph.edgesCover drawing W := by
+        rw [← h.pointSet_pathGraphOf hW hWne]
+        apply Graph.vertexSet_subset_pointSet
+        rw [Graph.pathGraphOf_vertexSet]
+        exact hW.target_mem_walkVertices
+      exact ⟨Graph.edgesCover drawing W, hsubset, hcW, huW,
+        Schoenflies.Graph.IsDrawing.isConnected_edgesCover_of_isWalk h hW hWne⟩
+  refine ⟨⟨c, Graph.vertexSet_subset_pointSet hc⟩, isPreconnected_of_forall c ?_⟩
+  intro y hy
+  rcases hy with hyV | hyE
+  · obtain ⟨A, hA, hcA, hyA, hAconn⟩ := bridge hyV
+    exact ⟨A, hA, hcA, hyA, hAconn.isPreconnected⟩
+  · obtain ⟨e, he, hye⟩ := Set.mem_iUnion₂.1 hyE
+    obtain ⟨u, v, huv⟩ := G.exists_isLink_of_mem_edgeSet he
+    obtain ⟨A, hA, hcA, huA, hAconn⟩ := bridge huv.left_mem
+    let B := Graph.edgeArc drawing e
+    have hBconn : IsConnected B := (h.edge_isArcBetween huv).isArc.isConnected
+    have huB : u ∈ B := h.inc_mem_edgeArc huv.inc_left
+    refine ⟨A ∪ B, Set.union_subset hA (Graph.edgeArc_subset_pointSet he),
+      Or.inl hcA, Or.inr hye, ?_⟩
+    exact (IsConnected.union ⟨u, huA, huB⟩ hAconn hBconn).isPreconnected
 
 end Graph
 
@@ -232,6 +305,71 @@ theorem localGrid_subset_localOverlay (p : Plane) (s epsilon : ℝ)
       Graph.pointSet (Q.localOverlay p s epsilon extra) segmentDrawing := by
   rw [Q.localOverlay_pointSet]
   exact subset_union_right
+
+/-- Every vertex of the raw local grid is retained as a vertex of the combined straight-line
+overlay. -/
+theorem localGridVertices_subset_localOverlay {p : Plane} {s epsilon : ℝ}
+    (hs : 0 < s) (extra : List Plane) :
+    V(localGrid p s (localGridCount s epsilon)) ⊆
+      V(Q.localOverlay p s epsilon extra) := by
+  intro x hx
+  rw [localGrid_eq, pieceListGraph_vertexSet] at hx
+  simp only [endSet, Set.mem_setOf_eq] at hx
+  obtain ⟨R, hR, hxR⟩ := hx
+  change x ∈ V(overlayGraph (Q.localPieces p s epsilon)
+    (attachPoints (Q.localPieces p s epsilon)
+      (extra ++ P.sourceNonboundaryGraph.vertexFinset.toList)))
+  apply overlayGraph_mem_vertexSet_of_mem_cover (Q.localPieces_nondeg hs)
+  · exact attachPoints_endsAreCut _ _ R
+      (List.mem_append_right Q.pieces hR) x hxR
+  · exact mem_cover_iff.2 ⟨R, List.mem_append_right Q.pieces hR, by
+      rcases hxR with rfl | rfl
+      · exact left_mem_segment ℝ _ _
+      · exact right_mem_segment ℝ _ _⟩
+
+/-- Away from overlay vertices, an overlay edge meeting a raw local-grid edge is one of its
+subdivision pieces. -/
+theorem localOverlay_grid_edge_subset {p : Plane} {s epsilon : ℝ} (hs : 0 < s)
+    (extra : List Plane) :
+    ∀ {A : Piece}, A ∈ E(localGrid p s (localGridCount s epsilon)) → ∀ {R : Piece},
+      R ∈ E(Q.localOverlay p s epsilon extra) →
+      (edgeArc segmentDrawing R ∩
+        (edgeArc segmentDrawing A \ V(Q.localOverlay p s epsilon extra))).Nonempty →
+      edgeArc segmentDrawing R ⊆ edgeArc segmentDrawing A := by
+  intro A hA R hR hmeet
+  have hAList : A ∈ localGridEdges p s (localGridCount s epsilon) := by
+    simpa only [localGrid_eq, pieceListGraph_mem_edgeSet] using hA
+  obtain ⟨z, hzR, hzA, hznotOverlay⟩ := hmeet
+  obtain ⟨R', hR', hzR', hR'A⟩ :=
+    exists_overlayPiece_mem_subset
+      (points := attachPoints (Q.localPieces p s epsilon)
+        (extra ++ P.sourceNonboundaryGraph.vertexFinset.toList))
+      (P₀ := A) (List.mem_append_right Q.pieces hAList)
+      (by rwa [edgeArc_segmentDrawing] at hzA)
+  have hzR'Arc : z ∈ edgeArc segmentDrawing R' := by
+    rwa [edgeArc_segmentDrawing]
+  have hRR' : R = R' :=
+    (Q.localOverlay_isDrawing hs extra).unique_edge_at
+      hR hR' hznotOverlay hzR hzR'Arc
+  rw [hRR', edgeArc_segmentDrawing, edgeArc_segmentDrawing]
+  exact hR'A
+
+/-- The straight-line local overlay contains a plane subdivision of the raw local grid. -/
+theorem localGrid_isPlaneSubdivisionExtension {p : Plane} {s epsilon : ℝ}
+    (hs : 0 < s) (extra : List Plane) :
+    IsPlaneSubdivisionExtension
+      (localGrid p s (localGridCount s epsilon)) segmentDrawing
+      (Q.localOverlay p s epsilon extra) segmentDrawing where
+  finite := inferInstance
+  oldIsDrawing := localGrid_isDrawing hs (one_le_localGridCount s epsilon)
+  isDrawing := Q.localOverlay_isDrawing hs extra
+  vertexSet_subset := Q.localGridVertices_subset_localOverlay hs extra
+  pointSet_subset := by
+    rw [localGrid_eq, pieceListGraph_pointSet]
+    exact Q.localGrid_subset_localOverlay p s epsilon extra
+  edge_subset := by
+    intro A hA R hR hmeet
+    exact Q.localOverlay_grid_edge_subset hs extra hA hR hmeet
 
 /-- Every edge of the source local overlay is a subsegment either of the old nonboundary
 source cover or of the local grid. -/
@@ -766,6 +904,222 @@ theorem graph_edge_subset (hs : 0 < s)
       rw [graph, Graph.vertexSet_union]
       exact Or.inr (by rwa [Graph.vertexSet_relabelEdges])
 
+/-- The mixed graph contains a plane subdivision of the complete old source drawing. -/
+theorem source_isPlaneSubdivisionExtension (hs : 0 < s)
+    (hwindow : Plane.closedSquare p s ⊆ srcDom \ srcOuter) :
+    IsPlaneSubdivisionExtension P.src.graph P.src.drawing w.graph w.drawing where
+  finite := w.graph_finite
+  oldIsDrawing := P.src.isDrawing
+  isDrawing := w.graph_isDrawing hs hwindow
+  vertexSet_subset := w.sourceVertices_subset_graph hs
+  pointSet_subset := w.sourceSkeleton_subset_graph
+  edge_subset := by
+    intro e he f hf hmeet
+    have heAbstract : e ∈ E(P.str.skel) := by
+      simpa only [P.src.edgeSet_graph] using he
+    obtain ⟨z, hzf, hze, hznot⟩ := hmeet
+    obtain ⟨a, b, hab⟩ := P.str.skel.exists_isLink_of_mem_edgeSet heAbstract
+    apply w.graph_edge_subset hs hwindow heAbstract hf
+    refine ⟨z, hzf, ?_, hznot⟩
+    rw [P.src.cell_edge hab]
+    refine ⟨hze, ?_⟩
+    rintro (rfl | rfl)
+    · exact hznot (w.sourceVertices_subset_graph hs (hab.map P.src.pos).left_mem)
+    · exact hznot (w.sourceVertices_subset_graph hs (hab.map P.src.pos).right_mem)
+
+/-- The trace of the old source skeleton in the mixed graph remains 2-connected. -/
+theorem sourceTrace_isTwoConnected (hs : 0 < s)
+    (hwindow : Plane.closedSquare p s ⊆ srcDom \ srcOuter) :
+    (Graph.traceGraph w.graph w.drawing P.src.skeletonSet).IsTwoConnected :=
+  (w.source_isPlaneSubdivisionExtension hs hwindow).trace_isTwoConnected
+    P.src_isWeaklyAdmissible.isTwoConnected
+
+/-- Every raw local-grid vertex is retained in the mixed graph. -/
+theorem localGridVertices_subset_graph (hs : 0 < s) :
+    V(localGrid p s (localGridCount s epsilon)) ⊆ V(w.graph) := by
+  intro x hx
+  rw [graph, Graph.vertexSet_union]
+  exact Or.inr (by
+    rw [Graph.vertexSet_relabelEdges]
+    exact Q.localGridVertices_subset_localOverlay hs extra hx)
+
+/-- The entire raw local-grid carrier is retained in the mixed graph. -/
+theorem localGrid_subset_graph :
+    Graph.pointSet (localGrid p s (localGridCount s epsilon)) segmentDrawing ⊆
+      Graph.pointSet w.graph w.drawing := by
+  rw [localGrid_eq, pieceListGraph_pointSet, w.graph_pointSet]
+  intro x hx
+  exact Or.inr (Or.inr hx)
+
+/-- An edge of the mixed graph meeting a raw local-grid edge away from mixed vertices is a
+subdivision piece of that grid edge.  An old outer edge cannot meet the grid at all because
+the grid window is strictly inside the source domain. -/
+theorem graph_grid_edge_subset (hs : 0 < s)
+    (hwindow : Plane.closedSquare p s ⊆ srcDom \ srcOuter) :
+    ∀ {A : Piece}, A ∈ E(localGrid p s (localGridCount s epsilon)) → ∀ {f : γ},
+      f ∈ E(w.graph) →
+      (edgeArc w.drawing f ∩
+        (edgeArc segmentDrawing A \ V(w.graph))).Nonempty →
+      edgeArc w.drawing f ⊆ edgeArc segmentDrawing A := by
+  intro A hA f hf hmeet
+  obtain ⟨z, hzf, hzA, hznotGraph⟩ := hmeet
+  have hAList : A ∈ localGridEdges p s (localGridCount s epsilon) := by
+    simpa only [localGrid_eq, pieceListGraph_mem_edgeSet] using hA
+  have hzWindow : z ∈ Plane.closedSquare p s :=
+    cover_localGridEdges_subset_closedSquare hs
+      (one_le_localGridCount s epsilon)
+      (mem_cover_iff.2 ⟨A, hAList, by rwa [edgeArc_segmentDrawing] at hzA⟩)
+  rcases hf with hfOuter | hfInner
+  · exfalso
+    have hzOuter : z ∈ srcOuter := by
+      rw [← w.outer_pointSet]
+      exact Graph.edgeArc_subset_pointSet hfOuter hzf
+    exact (hwindow hzWindow).2 hzOuter
+  · obtain ⟨R, hR, rfl⟩ := hfInner
+    have hname : w.name R ∈ E(w.innerGraph) := ⟨R, hR, rfl⟩
+    have hdrawing := w.drawing_of_inner hname
+    have harc : edgeArc w.drawing (w.name R) = edgeArc segmentDrawing R := by
+      calc
+        edgeArc w.drawing (w.name R) =
+            edgeArc ((Q.localOverlay p s epsilon extra).relabelDrawing
+              w.name segmentDrawing) (w.name R) := by
+          simpa only [Graph.edgeArc] using congrArg
+            (fun g : ℝ → Plane => g '' unitInterval) hdrawing
+        _ = edgeArc segmentDrawing R :=
+          Graph.edgeArc_relabelDrawing w.name_inj hR
+    rw [harc]
+    apply Q.localOverlay_grid_edge_subset hs extra hA hR
+    refine ⟨z, harc ▸ hzf, hzA, ?_⟩
+    intro hzLocal
+    apply hznotGraph
+    rw [graph, Graph.vertexSet_union]
+    exact Or.inr (by rwa [Graph.vertexSet_relabelEdges])
+
+/-- The mixed graph also contains a plane subdivision of the raw local grid. -/
+theorem localGrid_isPlaneSubdivisionExtension (hs : 0 < s)
+    (hwindow : Plane.closedSquare p s ⊆ srcDom \ srcOuter) :
+    IsPlaneSubdivisionExtension
+      (localGrid p s (localGridCount s epsilon)) segmentDrawing
+      w.graph w.drawing where
+  finite := w.graph_finite
+  oldIsDrawing := localGrid_isDrawing hs (one_le_localGridCount s epsilon)
+  isDrawing := w.graph_isDrawing hs hwindow
+  vertexSet_subset := w.localGridVertices_subset_graph hs
+  pointSet_subset := w.localGrid_subset_graph
+  edge_subset := by
+    intro A hA f hf hmeet
+    exact w.graph_grid_edge_subset hs hwindow hA hf hmeet
+
+/-- The local-grid trace inside the mixed graph remains 2-connected. -/
+theorem localGridTrace_isTwoConnected (hs : 0 < s)
+    (hwindow : Plane.closedSquare p s ⊆ srcDom \ srcOuter) :
+    (Graph.traceGraph w.graph w.drawing
+      (Graph.pointSet (localGrid p s (localGridCount s epsilon))
+        segmentDrawing)).IsTwoConnected :=
+  (w.localGrid_isPlaneSubdivisionExtension hs hwindow).trace_isTwoConnected
+    (localGrid_isTwoConnected hs (one_le_localGridCount s epsilon))
+
+/-- Two distinct mixed vertices lying on both the old source skeleton and the local grid make
+the whole mixed graph 2-connected.  The two plane-subdivision traces are 2-connected and
+together contain every mixed vertex. -/
+theorem graph_isTwoConnected_of_two_common (hs : 0 < s)
+    (hwindow : Plane.closedSquare p s ⊆ srcDom \ srcOuter)
+    {a b : Plane} (hab : a ≠ b) (haV : a ∈ V(w.graph)) (hbV : b ∈ V(w.graph))
+    (haSource : a ∈ P.src.skeletonSet) (hbSource : b ∈ P.src.skeletonSet)
+    (haGrid : a ∈ Graph.pointSet (localGrid p s (localGridCount s epsilon)) segmentDrawing)
+    (hbGrid : b ∈ Graph.pointSet (localGrid p s (localGridCount s epsilon)) segmentDrawing) :
+    w.graph.IsTwoConnected := by
+  let T := Graph.traceGraph w.graph w.drawing P.src.skeletonSet
+  let K := Graph.traceGraph w.graph w.drawing
+    (Graph.pointSet (localGrid p s (localGridCount s epsilon)) segmentDrawing)
+  have hT2 : T.IsTwoConnected := w.sourceTrace_isTwoConnected hs hwindow
+  have hK2 : K.IsTwoConnected := w.localGridTrace_isTwoConnected hs hwindow
+  have haT : a ∈ V(T) := by
+    rw [Graph.traceGraph_vertexSet]
+    exact ⟨haV, haSource⟩
+  have hbT : b ∈ V(T) := by
+    rw [Graph.traceGraph_vertexSet]
+    exact ⟨hbV, hbSource⟩
+  have haK : a ∈ V(K) := by
+    rw [Graph.traceGraph_vertexSet]
+    exact ⟨haV, haGrid⟩
+  have hbK : b ∈ V(K) := by
+    rw [Graph.traceGraph_vertexSet]
+    exact ⟨hbV, hbGrid⟩
+  have hcompat : T.Compatible K :=
+    Graph.Compatible.of_le_le (Graph.traceGraph_le _) (Graph.traceGraph_le _)
+  have hU2 : (T.union K).IsTwoConnected :=
+    hT2.union hcompat hK2 hab haT haK hbT hbK
+  apply hU2.of_le_of_vertexSet_subset
+    (Graph.union_le (Graph.traceGraph_le _) (Graph.traceGraph_le _))
+  intro x hx
+  rw [Graph.vertexSet_union]
+  have hxPoint : x ∈ Graph.pointSet w.graph w.drawing :=
+    Graph.vertexSet_subset_pointSet hx
+  rw [w.graph_pointSet] at hxPoint
+  rcases hxPoint with hxOuter | hxCore | hxGrid
+  · exact Or.inl (by
+      rw [Graph.traceGraph_vertexSet]
+      exact ⟨hx, by
+        rw [P.skeletonSet_eq_sourceNonboundaryGraph_union]
+        exact Or.inr hxOuter⟩)
+  · exact Or.inl (by
+      rw [Graph.traceGraph_vertexSet]
+      exact ⟨hx, by
+        rw [P.skeletonSet_eq_sourceNonboundaryGraph_union]
+        exact Or.inl hxCore⟩)
+  · exact Or.inr (by
+      rw [Graph.traceGraph_vertexSet, localGrid_eq, pieceListGraph_pointSet]
+      exact ⟨hx, hxGrid⟩)
+
+/-- If the old open source skeleton is connected and meets the local grid, then the mixed
+carrier remains connected after the wild outer curve is removed. -/
+theorem graph_isConnected_diff_of_source_connected (hs : 0 < s)
+    (hwindow : Plane.closedSquare p s ⊆ srcDom \ srcOuter)
+    (hsource : IsConnected (P.src.skeletonSet \ srcOuter))
+    (hmeet : ((P.src.skeletonSet \ srcOuter) ∩
+      Graph.pointSet (localGrid p s (localGridCount s epsilon)) segmentDrawing).Nonempty) :
+    IsConnected (Graph.pointSet w.graph w.drawing \ srcOuter) := by
+  let Kset := Graph.pointSet (localGrid p s (localGridCount s epsilon)) segmentDrawing
+  have hKconn : IsConnected Kset :=
+    Schoenflies.Graph.IsDrawing.isConnected_pointSet
+      (localGrid_isDrawing hs (one_le_localGridCount s epsilon))
+      (localGrid_isTwoConnected hs (one_le_localGridCount s epsilon)).connected
+  have hKmiss : Kset ⊆ srcOuterᶜ := by
+    intro x hxK hxOuter
+    have hxCover : x ∈ cover (localGridEdges p s (localGridCount s epsilon)) := by
+      simpa only [Kset, localGrid_eq, pieceListGraph_pointSet] using hxK
+    have hxWindow := cover_localGridEdges_subset_closedSquare hs
+      (one_le_localGridCount s epsilon) hxCover
+    exact (hwindow hxWindow).2 hxOuter
+  have hcarrier : Graph.pointSet w.graph w.drawing \ srcOuter =
+      (P.src.skeletonSet \ srcOuter) ∪ Kset := by
+    ext x
+    rw [Set.mem_sdiff, Set.mem_union, Set.mem_sdiff]
+    constructor
+    · rintro ⟨hxGraph, hxNotOuter⟩
+      rw [w.graph_pointSet] at hxGraph
+      rcases hxGraph with hxOuter | hxCore | hxGrid
+      · exact (hxNotOuter hxOuter).elim
+      · exact Or.inl ⟨by
+          rw [P.skeletonSet_eq_sourceNonboundaryGraph_union]
+          exact Or.inl hxCore, hxNotOuter⟩
+      · exact Or.inr (by
+          simpa only [Kset, localGrid_eq, pieceListGraph_pointSet] using hxGrid)
+    · rintro (⟨hxSource, hxNotOuter⟩ | hxK)
+      · refine ⟨?_, hxNotOuter⟩
+        rw [P.skeletonSet_eq_sourceNonboundaryGraph_union] at hxSource
+        rw [w.graph_pointSet]
+        rcases hxSource with hxCore | hxOuter
+        · exact Or.inr (Or.inl hxCore)
+        · exact Or.inl hxOuter
+      · refine ⟨?_, hKmiss hxK⟩
+        rw [w.graph_pointSet]
+        exact Or.inr (Or.inr (by
+          simpa only [Kset, localGrid_eq, pieceListGraph_pointSet] using hxK))
+  rw [hcarrier]
+  exact IsConnected.union hmeet hsource hKconn
+
 /-- The mixed graph is a complete source extension once its two global attachment properties
 are supplied.  All finiteness, drawing, subdivision, containment, and edge-geometry fields are
 automatic from the exact source cover and the interior-window hypothesis. -/
@@ -787,6 +1141,46 @@ theorem isSourceExtension (hs : 0 < s)
     intro f hf
     exact w.graph_edge_dichotomy hs hwindow hf
   isConnected := hconnected
+
+/-- With two common source/grid vertices, only connectedness off the wild outer curve remains
+to obtain the complete source extension. -/
+theorem isSourceExtension_of_two_common (hs : 0 < s)
+    (hwindow : Plane.closedSquare p s ⊆ srcDom \ srcOuter)
+    {a b : Plane} (hab : a ≠ b) (haV : a ∈ V(w.graph)) (hbV : b ∈ V(w.graph))
+    (haSource : a ∈ P.src.skeletonSet) (hbSource : b ∈ P.src.skeletonSet)
+    (haGrid : a ∈ Graph.pointSet (localGrid p s (localGridCount s epsilon)) segmentDrawing)
+    (hbGrid : b ∈ Graph.pointSet (localGrid p s (localGridCount s epsilon)) segmentDrawing)
+    (hconnected : IsConnected (Graph.pointSet w.graph w.drawing \ srcOuter)) :
+    IsSourceExtension P.src srcOuter srcDom w.graph w.drawing :=
+  w.isSourceExtension hs hwindow
+    (w.graph_isTwoConnected_of_two_common hs hwindow hab haV hbV
+      haSource hbSource haGrid hbGrid)
+    hconnected
+
+/-- At an admissible stage, two distinct common source/grid vertices give the complete source
+extension.  One common point joins the two connected carriers off the boundary; both common
+vertices make their 2-connected subdivision traces glue. -/
+theorem isSourceExtension_of_source_connected_two_common (hs : 0 < s)
+    (hwindow : Plane.closedSquare p s ⊆ srcDom \ srcOuter)
+    (hsource : IsConnected P.src.nonboundary)
+    {a b : Plane} (hab : a ≠ b) (haV : a ∈ V(w.graph)) (hbV : b ∈ V(w.graph))
+    (haSource : a ∈ P.src.skeletonSet) (hbSource : b ∈ P.src.skeletonSet)
+    (haGrid : a ∈ Graph.pointSet (localGrid p s (localGridCount s epsilon)) segmentDrawing)
+    (hbGrid : b ∈ Graph.pointSet (localGrid p s (localGridCount s epsilon)) segmentDrawing) :
+    IsSourceExtension P.src srcOuter srcDom w.graph w.drawing := by
+  have hsource' : IsConnected (P.src.skeletonSet \ srcOuter) := by
+    rwa [P.src_nonboundary_eq] at hsource
+  have haNotOuter : a ∉ srcOuter := by
+    intro haOuter
+    have haCover : a ∈ cover (localGridEdges p s (localGridCount s epsilon)) := by
+      simpa only [localGrid_eq, pieceListGraph_pointSet] using haGrid
+    have haWindow := cover_localGridEdges_subset_closedSquare hs
+      (one_le_localGridCount s epsilon) haCover
+    exact (hwindow haWindow).2 haOuter
+  apply w.isSourceExtension_of_two_common hs hwindow hab haV hbV
+    haSource hbSource haGrid hbGrid
+  apply w.graph_isConnected_diff_of_source_connected hs hwindow hsource'
+  exact ⟨a, ⟨haSource, haNotOuter⟩, haGrid⟩
 
 end LocalOverlayRelabeling
 

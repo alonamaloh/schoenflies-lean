@@ -76,6 +76,12 @@ The second checks every declaration for unresolved proof obligations and
 unexpected axioms. The completed development depends only on the standard
 axioms accepted by Mathlib: `propext`, `Classical.choice`, and `Quot.sound`.
 
+The repository also provides a trusted statement and configuration for
+[`leanprover/comparator`](https://github.com/leanprover/comparator). See the
+[`Comparator` documentation](Comparator/README.md) for its scope and Linux setup. Project
+provenance, automation, fidelity, and review status are recorded in
+[`formalization.yaml`](formalization.yaml).
+
 ## Documentation
 
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) — status and Lean location of each

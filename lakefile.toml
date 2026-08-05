@@ -16,3 +16,15 @@ rev = "v4.32.2"
 
 [[lean_lib]]
 name = "Schoenflies"
+
+# The trusted challenge and actual solution modules used by leanprover/comparator.
+# These are not default targets, so the intentional challenge `sorry` does not
+# enter the ordinary library build or axiom audit. Keeping them as separate Lean
+# libraries matches Comparator's challenge/solution trust boundary.
+[[lean_lib]]
+name = "Challenge"
+srcDir = "Comparator"
+
+[[lean_lib]]
+name = "Solution"
+srcDir = "Comparator"

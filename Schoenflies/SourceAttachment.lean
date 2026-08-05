@@ -1314,6 +1314,90 @@ theorem graph_isConnected_diff_of_crosscut_grid_edge (hs : 0 < s)
   rw [hcarrier]
   exact IsConnected.union ⟨A.1, Or.inr hA1J, hA1K⟩ hsourceJconn hKconn
 
+/-- The boundary-tolerant connectedness argument.  The crosscut with its wild-boundary
+endpoints removed is still connected because it lies between its connected open segment and
+that segment's closure.  Hence one surviving source endpoint joins it to the old nonboundary
+carrier, while the swallowed grid edge joins it to the grid. -/
+theorem graph_isConnected_diff_of_crosscut_grid_edge_of_end_not_outer (hs : 0 < s)
+    (hJgeom : SourceCrosscutGeometry P J)
+    (hwindow : Plane.closedSquare p s ⊆ srcDom \ srcOuter)
+    (hsource : IsConnected (P.src.skeletonSet \ srcOuter))
+    (hJsource : J.1 ∈ P.src.skeletonSet ∧ J.2 ∈ P.src.skeletonSet)
+    (hJattach : J.1 ∉ srcOuter ∨ J.2 ∉ srcOuter)
+    {A : Piece} (hA : A ∈ E(localGrid p s (localGridCount s epsilon)))
+    (hAJ : A.seg ⊆ J.seg) :
+    IsConnected (_root_.Graph.pointSet w.graph w.drawing \ srcOuter) := by
+  let Jset := J.seg \ srcOuter
+  let Kset := _root_.Graph.pointSet
+    (localGrid p s (localGridCount s epsilon)) segmentDrawing
+  have hJinteriorConn : IsConnected J.interior :=
+    (convex_openSegment J.1 J.2).isConnected
+      ⟨midpoint ℝ J.1 J.2, midpoint_mem_openSegment J.1 J.2⟩
+  have hJconn : IsConnected Jset := by
+    apply hJinteriorConn.subset_closure
+    · intro x hx
+      exact ⟨openSegment_subset_segment ℝ _ _ hx, (hJgeom.interior_subset hx).2⟩
+    · change J.seg \ srcOuter ⊆ closure (openSegment ℝ J.1 J.2)
+      rw [closure_openSegment]
+      exact sdiff_subset
+  have hKconn : IsConnected Kset :=
+    Schoenflies.Graph.IsDrawing.isConnected_pointSet
+      (localGrid_isDrawing hs (one_le_localGridCount s epsilon))
+      (localGrid_isTwoConnected hs (one_le_localGridCount s epsilon)).connected
+  have hKmiss : Kset ⊆ srcOuterᶜ := by
+    intro x hxK hxOuter
+    have hxCover : x ∈ cover (localGridEdges p s (localGridCount s epsilon)) := by
+      simpa only [Kset, localGrid_eq, pieceListGraph_pointSet] using hxK
+    have hxWindow := cover_localGridEdges_subset_closedSquare hs
+      (one_le_localGridCount s epsilon) hxCover
+    exact (hwindow hxWindow).2 hxOuter
+  have hcarrier : _root_.Graph.pointSet w.graph w.drawing \ srcOuter =
+      ((P.src.skeletonSet \ srcOuter) ∪ Jset) ∪ Kset := by
+    ext x
+    rw [Set.mem_sdiff, Set.mem_union, Set.mem_union, Set.mem_sdiff, Set.mem_sdiff]
+    constructor
+    · rintro ⟨hxGraph, hxNotOuter⟩
+      rw [w.graph_pointSet] at hxGraph
+      rcases hxGraph with hxOuter | hxRest
+      · exact (hxNotOuter hxOuter).elim
+      · rcases hxRest with hxCoreJ | hxGrid
+        · rcases hxCoreJ with hxCore | hxJ
+          · exact Or.inl (Or.inl ⟨by
+              rw [P.skeletonSet_eq_sourceNonboundaryGraph_union]
+              exact Or.inl hxCore, hxNotOuter⟩)
+          · exact Or.inl (Or.inr ⟨hxJ, hxNotOuter⟩)
+        · exact Or.inr (by
+            simpa only [Kset, localGrid_eq, pieceListGraph_pointSet] using hxGrid)
+    · rintro (⟨⟨hxSource, hxNotOuter⟩ | ⟨hxJ, hxNotOuter⟩⟩ | hxK)
+      · refine ⟨?_, hxNotOuter⟩
+        rw [P.skeletonSet_eq_sourceNonboundaryGraph_union] at hxSource
+        rw [w.graph_pointSet]
+        rcases hxSource with hxCore | hxOuter
+        · exact Or.inr (Or.inl (Or.inl hxCore))
+        · exact Or.inl hxOuter
+      · exact ⟨by
+          rw [w.graph_pointSet]
+          exact Or.inr (Or.inl (Or.inr hxJ)), hxNotOuter⟩
+      · exact ⟨by
+          rw [w.graph_pointSet]
+          exact Or.inr (Or.inr (by
+            simpa only [Kset, localGrid_eq, pieceListGraph_pointSet] using hxK)), hKmiss hxK⟩
+  have hsourceJmeet : ((P.src.skeletonSet \ srcOuter) ∩ Jset).Nonempty := by
+    rcases hJattach with hleft | hright
+    · exact ⟨J.1, ⟨hJsource.1, hleft⟩, ⟨left_mem_segment ℝ _ _, hleft⟩⟩
+    · exact ⟨J.2, ⟨hJsource.2, hright⟩, ⟨right_mem_segment ℝ _ _, hright⟩⟩
+  have hsourceJconn : IsConnected ((P.src.skeletonSet \ srcOuter) ∪ Jset) :=
+    IsConnected.union hsourceJmeet hsource hJconn
+  have hA1J : A.1 ∈ J.seg := hAJ (left_mem_segment ℝ _ _)
+  have hA1K : A.1 ∈ Kset := by
+    apply _root_.Graph.edgeArc_subset_pointSet hA
+    rw [edgeArc_segmentDrawing]
+    exact left_mem_segment ℝ _ _
+  have hA1NotOuter : A.1 ∉ srcOuter := hKmiss hA1K
+  rw [hcarrier]
+  exact IsConnected.union
+    ⟨A.1, Or.inr ⟨hA1J, hA1NotOuter⟩, hA1K⟩ hsourceJconn hKconn
+
 /-- Once its two global attachment properties are known, the mixed crosscut graph is a complete
 source extension. -/
 theorem isSourceExtension (hs : 0 < s) (hJ : J.Nondeg)
@@ -1356,6 +1440,24 @@ theorem isSourceExtension_of_crosscut_grid_edge (hs : 0 < s) (hJ : J.Nondeg)
     (w.graph_isConnected_diff_of_crosscut_grid_edge hs hJopen hwindow
       hsource hJsource.1 hA hAJ)
 
+/-- Boundary-tolerant packaging: once one crosscut endpoint survives deletion of the wild outer
+curve, the generalized crosscut geometry gives the complete source extension. -/
+theorem isSourceExtension_of_crosscut_grid_edge_of_end_not_outer
+    (hs : 0 < s) (hJ : J.Nondeg)
+    (hJgeom : SourceCrosscutGeometry P J)
+    (hwindow : Plane.closedSquare p s ⊆ srcDom \ srcOuter)
+    (hsource : IsConnected (P.src.skeletonSet \ srcOuter))
+    (hJsource : J.1 ∈ P.src.skeletonSet ∧ J.2 ∈ P.src.skeletonSet)
+    (hJattach : J.1 ∉ srcOuter ∨ J.2 ∉ srcOuter)
+    {A : Piece} (hA : A ∈ E(localGrid p s (localGridCount s epsilon)))
+    (hAJ : A.seg ⊆ J.seg) :
+    IsSourceExtension P.src srcOuter srcDom w.graph w.drawing :=
+  w.isSourceExtension hs hJ hJgeom hwindow
+    (w.graph_isTwoConnected_of_crosscut_grid_edge hs hJ hJgeom hwindow
+      hJsource hA hAJ)
+    (w.graph_isConnected_diff_of_crosscut_grid_edge_of_end_not_outer hs hJgeom hwindow
+      hsource hJsource hJattach hA hAJ)
+
 end CrosscutOverlayRelabeling
 
 end SourceNonboundarySegmentCover
@@ -1390,6 +1492,40 @@ structure RefinedCrosscutOverlayData
   localGrid_subset :
     _root_.Graph.pointSet (localGrid p s (localGridCount s epsilon)) segmentDrawing ⊆
       _root_.Graph.pointSet relabeling.graph relabeling.drawing
+
+namespace RefinedCrosscutOverlayData
+
+/-- A refined crosscut overlay is already a complete local-grid source extension whenever at
+least one crosscut endpoint is not on the wild outer curve. -/
+noncomputable def toLocalGridSourceExtensionData
+    {F : γ} {A : Piece} {p : Plane} {s epsilon : ℝ}
+    {r : RefinedSourceFaceCrosscutData P F A}
+    (o : RefinedCrosscutOverlayData r p s epsilon)
+    (hs : 0 < s) (hwindow : Plane.closedSquare p s ⊆ srcDom \ srcOuter)
+    (hsource : IsConnected r.subdivision.pair.src.nonboundary)
+    (hattach : r.crosscutData.crosscut.1 ∉ srcOuter ∨
+      r.crosscutData.crosscut.2 ∉ srcOuter)
+    (hA : A ∈ E(localGrid p s (localGridCount s epsilon))) :
+    LocalGridSourceExtensionData r.subdivision.pair p s epsilon := by
+  have hsource' : IsConnected
+      (r.subdivision.pair.src.skeletonSet \ srcOuter) := by
+    rwa [r.subdivision.pair.src_nonboundary_eq] at hsource
+  have hJsource :
+      r.crosscutData.crosscut.1 ∈ r.subdivision.pair.src.skeletonSet ∧
+        r.crosscutData.crosscut.2 ∈ r.subdivision.pair.src.skeletonSet := by
+    rw [r.subdivision.skeletonSet_eq]
+    exact ⟨r.crosscutData.left_mem_skeleton, r.crosscutData.right_mem_skeleton⟩
+  exact {
+    graph := o.relabeling.graph
+    drawing := o.relabeling.drawing
+    isSourceExtension :=
+      o.relabeling.isSourceExtension_of_crosscut_grid_edge_of_end_not_outer
+        hs r.crosscutData.nondeg r.geometry hwindow hsource' hJsource hattach
+        hA r.crosscutData.grid_subset
+    localGrid_subset := o.localGrid_subset
+  }
+
+end RefinedCrosscutOverlayData
 
 /-- The boundary-touching branch now constructs a plane, 2-connected, domain-contained mixed
 overlay after a matched subdivision at the two crosscut endpoints.  The construction also

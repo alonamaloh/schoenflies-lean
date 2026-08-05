@@ -118,4 +118,5 @@ import Schoenflies.FreshDenseSelection
 import Schoenflies.QuantitativeStages
 import Schoenflies.SourceOverlay
 import Schoenflies.SourceAttachment
+import Schoenflies.OverlayExtension
 import Schoenflies.MatchedSplit

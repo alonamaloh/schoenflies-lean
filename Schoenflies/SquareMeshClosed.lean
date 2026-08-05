@@ -567,9 +567,7 @@ clause 5 needs, at no cost. -/
 /-- The four sides of the square of radius `r` about the origin are the four sides of the ring
 of radius `r`: the two lists are equal, entry for entry. -/
 theorem squarePieces_zero (r : ℝ) : squarePieces 0 r = ringPieces r := by
-  have h0 : (0 : Plane) 0 = 0 := by simp
-  have h1 : (0 : Plane) 1 = 0 := by simp
-  simp [squarePieces, ringPieces, Plane.sqNE, Plane.sqNW, Plane.sqSW, Plane.sqSE, h0, h1]
+  simp [squarePieces, ringPieces, Plane.sqNE, Plane.sqNW, Plane.sqSW, Plane.sqSE]
 
 /-- The frontier of the closed square of radius `r` about the origin is the ring of radius
 `r`. -/

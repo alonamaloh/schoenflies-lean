@@ -16,11 +16,12 @@ The last three statements of the manuscript: `lem:crosscut-side-correspondence`,
 `lem:skeleton-crosscuts` (`Graph.IsStageOn.exists_crosscut`), unconditionally and for one finite
 plane graph. This module takes the crosscuts as given and finishes the section.
 
-## What is assumed, and in what shape
+## The construction inputs
 
-Two things are still being built elsewhere, and both enter here as explicit hypotheses. Nothing
-else is assumed: `thm:jordan` and `thm:general-crosscut` are used through
-`Schoenflies/JordanClosed.lean` and are unconditional.
+This module isolates the construction-dependent data as explicit hypotheses. They are supplied
+for the quantitative stage recursion in `Schoenflies/UnconditionalInterior.lean` and
+`Schoenflies/BoundaryAnchors.lean`. Nothing else is assumed: `thm:jordan` and
+`thm:general-crosscut` are used through `Schoenflies/JordanClosed.lean` and are unconditional.
 
 * **`prop:interior-homeomorphism`** enters as `IsHomeoOn F F' (inside C) (Plane.openSquare 0 1)`
   — the `Schoenflies.IsHomeoOn` shape of `Schoenflies/Inversion.lean`: a map, a named inverse,
@@ -41,8 +42,8 @@ else is assumed: `thm:jordan` and `thm:general-crosscut` are used through
 
 `Schoenflies.HasLimitHomeomorphism` bundles the four over all curves, and
 `Schoenflies.square_extension` derives `Schoenflies.SquareExtension` — the exact `def` of
-`Schoenflies/Endgame.lean` — from it. Substituting a proof of `HasLimitHomeomorphism` makes
-`Schoenflies.jordan_schoenflies` unconditional.
+`Schoenflies/Endgame.lean` — from it. The proof of `HasLimitHomeomorphism` assembled in
+`Schoenflies/UnconditionalSchoenflies.lean` closes the full theorem.
 
 ## The two arguments
 

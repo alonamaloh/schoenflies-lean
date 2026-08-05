@@ -83,8 +83,8 @@ theorem jordanInteriorMap_isHomeoOn (hC : IsJordanCurve C) :
   (jordanStageSequence hC).isHomeoOn_F
 
 /-- The limit map already agrees with the prescribed initial boundary homeomorphism wherever
-the latter is evaluated on the Jordan curve.  Boundary continuity is the remaining issue, not
-pointwise agreement. -/
+the latter is evaluated on the Jordan curve. `Schoenflies/BoundaryAnchors.lean` supplies the
+additional data used to prove boundary continuity. -/
 theorem jordanInteriorMap_eq_initialData_u (hC : IsJordanCurve C) :
     EqOn (jordanInteriorMap hC) (initialData hC).u C := by
   intro x hx

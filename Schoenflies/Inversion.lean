@@ -49,17 +49,15 @@ Being open, connected and with frontier disjoint from `(C^a)ᶜ`, `U` is a compo
 
 ## The closed-exterior extension
 
-`prop:exterior-extension` is the short assembly that sits on top of it, and it is stated here
-**conditionally on `prop:pointed-extension`** — the one statement the blueprint's proof cites
-that is not yet available. `Schoenflies.PointedInteriorExtension` is that hypothesis, written
-out; it is the *bounded* theorem with a prescribed interior point, and the blueprint derives it
-from `thm:closed-interior-extension` (open) together with `lem:square-point-mover`
-(`Schoenflies.Plane.exists_squareMover`, on `main`) and `lem:jordan-circle`
-(`Schoenflies.IsJordanCurve.homeomorph`, on `main`).
+`prop:exterior-extension` is the short assembly that sits on top of it, stated parametrically
+over `prop:pointed-extension`. `Schoenflies.PointedInteriorExtension` is that interface, written
+out: the bounded theorem with a prescribed interior point. `Schoenflies/Endgame.lean` derives
+it from the closed-interior extension together with `lem:square-point-mover`, and
+`Schoenflies/UnconditionalSchoenflies.lean` ultimately discharges the square-extension input.
 
 The assembly needs a name for "restricts to a homeomorphism onto", since it composes four of
 them; `Schoenflies.IsHomeoOn` is that, in the unbundled `Schoenflies.Plane.IsSquareMover`
-style. It is a general notion sitting in the wrong module — see the section comment there.
+style.
 
 ## Density of strongly accessible points
 
@@ -88,8 +86,9 @@ abstract `IsSeparating` curve, do not need it.
   `Schoenflies.inversion_sides` — `lem:inversion-sides`.
 * `Schoenflies.exists_stronglyAccessible_dist_lt`, `Schoenflies.tangent_dense`,
   `Schoenflies.tangent_dense_inside` — `lem:tangent-dense`.
-* `Schoenflies.PointedInteriorExtension` — `prop:pointed-extension`, assumed.
-* `Schoenflies.exterior_extension` — `prop:exterior-extension`, conditional on the above.
+* `Schoenflies.PointedInteriorExtension` — the `prop:pointed-extension` interface, discharged
+  by `Schoenflies.pointed_extension` in `Schoenflies/Endgame.lean`.
+* `Schoenflies.exterior_extension` — `prop:exterior-extension`, parametrically on that interface.
 * `Schoenflies.IsHomeoOn` — no blueprint statement; the language "restricts to a homeomorphism
   of `S` onto `T`" that `prop:exterior-extension` is phrased in.
 -/

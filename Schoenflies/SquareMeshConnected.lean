@@ -34,13 +34,13 @@ needs the coordinates **distinct** (`Set.InjOn xc (Set.Iic m)`), and only the dr
 clause that makes the grid a plane graph — needs them **increasing**
 (`StrictMonoOn xc (Set.Iic m)`).
 
-The graph is `pieceListGraph (gridEdges xc yc m n)`, where `pieceListGraph` is the general "a list of
-straight segments, read as a graph" constructor: an edge is a `Piece`, and it links exactly its
-two ends. `pieceListGraph` is `overlayGraph` without the subdivision — the vertices are the ends of
-the listed segments and nothing is cut — and its point is that `pieceListGraph l₁ ∪ pieceListGraph l₂ =
-pieceListGraph (l₁ ++ l₂)` **on the nose** (`pieceListGraph_union`), so that the blueprint's "add these
-finitely many cycles one at a time" is list concatenation and every union is an equation
-rather than an inclusion.
+The graph is `pieceListGraph (gridEdges xc yc m n)`, where `pieceListGraph` is the general
+"a list of straight segments, read as a graph" constructor: an edge is a `Piece`, and it links
+exactly its two ends. `pieceListGraph` is `overlayGraph` without the subdivision — the vertices
+are the ends of the listed segments and nothing is cut — and its point is that
+`pieceListGraph l₁ ∪ pieceListGraph l₂ = pieceListGraph (l₁ ++ l₂)` **on the nose**
+(`pieceListGraph_union`), so that the blueprint's "add these finitely many cycles one at a
+time" is list concatenation and every union is an equation rather than an inclusion.
 
 ## 2-connectivity: two nested chains of `lem:union-two-connected`
 
@@ -112,8 +112,8 @@ carried explicitly by every theorem below that needs it.
 * `lem:union-two-connected` — used through `Graph.IsTwoConnected.union`; iterated here as
   `Graph.IsTwoConnected.attach_cycles`, which is the blueprint's "adding these finitely many
   cycles one at a time".
-* `pieceListGraph`, `pieceListGraph_union` — the list-of-segments graph, and the fact that its unions are
-  concatenations.
+* `pieceListGraph`, `pieceListGraph_union` — the list-of-segments graph, and the fact that its
+  unions are concatenations.
 -/
 
 open Metric Set
@@ -389,7 +389,8 @@ theorem pieceListGraph_pointSet (l : List Piece) :
   · rintro ⟨P, hP, hzP⟩
     exact Or.inr ⟨P, hP, hzP⟩
 
-theorem pieceListGraph_mono {l l' : List Piece} (h : l ⊆ l') : pieceListGraph l ≤ pieceListGraph l' where
+theorem pieceListGraph_mono {l l' : List Piece} (h : l ⊆ l') :
+    pieceListGraph l ≤ pieceListGraph l' where
   vertexSet_mono := by
     rintro v ⟨P, hP, hv⟩
     exact ⟨P, h hP, hv⟩
@@ -398,7 +399,8 @@ theorem pieceListGraph_mono {l l' : List Piece} (h : l ⊆ l') : pieceListGraph 
     exact ⟨h hP, hxy⟩
 
 /-- Two segment graphs never disagree about a shared edge: an edge is its own pair of ends. -/
-theorem pieceListGraph_compatible (l l' : List Piece) : (pieceListGraph l).Compatible (pieceListGraph l') := by
+theorem pieceListGraph_compatible (l l' : List Piece) :
+    (pieceListGraph l).Compatible (pieceListGraph l') := by
   intro P hP hP' x y
   exact ⟨fun h => ⟨hP', h.2⟩, fun h => ⟨hP, h.2⟩⟩
 

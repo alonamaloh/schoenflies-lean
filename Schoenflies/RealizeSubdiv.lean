@@ -51,9 +51,10 @@ and `d.right`, and that an interior point of a drawn edge is not a vertex — is
 `Schoenflies/ArcMonotone.lean`, which supplies the missing fact named at the end of this
 section. What follows is the record of why it could not be done here.
 
-`SkeletonHomeo.realize` is absent from *this* module. Six of its eight fields are immediate — `skeletonSet_realize`
-below says the realized 1-skeleton is *literally the same set* after a subdivision, so the map,
-its inverse, both continuity clauses and both inverse clauses transport verbatim, and
+`SkeletonHomeo.realize` is absent from *this* module. Six of its eight fields are immediate —
+`skeletonSet_realize` below says the realized 1-skeleton is *literally the same set* after a
+subdivision, so the map, its inverse, both continuity clauses and both inverse clauses transport
+verbatim, and
 `pos_apply` at the new 0-cell is the statement `g.toFun (R₁.drawing d.edge t₁) =
 R₂.drawing d.edge t₂` that a caller choosing corresponding parameters supplies anyway.
 
@@ -61,8 +62,9 @@ What is missing is `edgeArc_image` at the two new edges: that `g` carries the *h
 `R₁.pos d.left` to the new source point onto the half arc from `R₂.pos d.left` to the new target
 point. This is true but is not implied by the `SkeletonHomeo` data pointwise: it needs the fact
 that a homeomorphism between two arcs matching their endpoints is monotone, hence carries
-initial subarcs to initial subarcs. That fact was not on `main` when this module was written, and assuming the two clauses would
-have been assuming the conclusion, so nothing was stated here. `Schoenflies/ArcMonotone.lean`
+initial subarcs to initial subarcs. That fact was not on `main` when this module was written,
+and assuming the two clauses would have been assuming the conclusion, so nothing was stated
+here. `Schoenflies/ArcMonotone.lean`
 now proves it — `ArcMatch`, `transferParam`, `image_image_uIcc` — and
 `Schoenflies/RealizeSubdivHomeo.lean` builds the transported homeomorphism from it, orientation
 of the two realizations handled rather than assumed.

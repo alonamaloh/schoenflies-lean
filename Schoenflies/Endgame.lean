@@ -14,15 +14,18 @@ import Schoenflies.Topology
 
 This module carries the whole tail of the manuscript — `prop:square-reduction`,
 `thm:closed-interior-extension`, `prop:pointed-extension`, `prop:exterior-extension` and
-`thm:main` — on top of **one** assumed statement, `thm:square-extension`.
+`thm:main` — parametrically over the square-extension interface.
 
 Every theorem below takes `Schoenflies.SquareExtension` as an explicit hypothesis and assumes
 nothing else. In particular the standing hypothesis `harc` that older modules thread is
 discharged here at the call site, from `Schoenflies.arc_complement` in
-`Schoenflies/JordanClosed.lean`; it no longer appears in any signature. So the project is now
-exactly one theorem away from `thm:main`:
+`Schoenflies/JordanClosed.lean`; it no longer appears in any signature. The implication proved
+by this module is
 
     SquareExtension  ⟹  thm:main.
+
+`Schoenflies/UnconditionalSchoenflies.lean` supplies `SquareExtension` from the quantitative
+boundary construction and therefore closes this implication without an extra hypothesis.
 
 ## What `SquareExtension` says
 
@@ -55,11 +58,11 @@ mutually inverse homeomorphisms between `C ∪ Int(C)` and `Q`, with `F = u` on 
   `Schoenflies.image_eq_diff_of_bijOn_union`, which is the "a bijection matching one part of a
   partition matches the other part" principle.
 
-## What could not be exported as data
+## The parametric construction interface
 
-Rule "export the construction" is unattainable here: every conclusion is conditional on the
-*Prop* `SquareExtension`, so no `def` can produce the maps without an application of choice to
-that hypothesis. What *is* exported as data is everything that does not depend on it:
+Within this deliberately parametric module, every conclusion depends on the *Prop*
+`SquareExtension`, so no `def` can produce the maps without an application of choice to that
+hypothesis. What is exported as data independently of the interface is
 `Schoenflies.paste` (the pasted map itself, with its two evaluation lemmas) and
 `Schoenflies.IsHomeoOn.homeomorphOfUniv` (the passage from a global `IsHomeoOn` to a genuine
 `Plane ≃ₜ Plane`). The theorems below return the maps in the unbundled `∃ F G, IsHomeoOn F G …`
@@ -67,7 +70,8 @@ shape of `Schoenflies.exterior_extension`, which composes.
 
 ## Blueprint
 
-* `Schoenflies.SquareExtension` — **`thm:square-extension`**, assumed. The only assumption.
+* `Schoenflies.SquareExtension` — the **`thm:square-extension`** interface, discharged in
+  `Schoenflies/UnconditionalSchoenflies.lean`.
 * `Schoenflies.square_reduction` — `prop:square-reduction`.
 * `Schoenflies.closed_interior_extension` — **`thm:closed-interior-extension`**.
 * `Schoenflies.pointed_extension` — `prop:pointed-extension`; it proves

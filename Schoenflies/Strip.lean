@@ -208,13 +208,14 @@ theorem isConnected_arcCCW_ball (h : det u w ≠ 0) (hρ : 0 < ρ) :
       ext d
       rw [mem_arcCCW_rev_iff h']
       simp only [mem_union, mem_setOf_eq]
-    have hd0 : (-ε) • (u + w) ∈ ball (0 : Plane) ρ := hball _ (by rw [abs_of_neg (neg_neg_iff_pos.2 hε), neg_neg])
+    have hd0 : (-ε) • (u + w) ∈ ball (0 : Plane) ρ :=
+      hball _ (by rw [abs_of_neg (neg_neg_iff_pos.2 hε), neg_neg])
     have hA : (-ε) • (u + w) ∈ {d : Plane | det w d < 0} := by
-      show det w ((-ε) • (u + w)) < 0
+      change det w ((-ε) • (u + w)) < 0
       rw [det_smul_right, det_add_right, det_self, add_zero]
       nlinarith
     have hB : (-ε) • (u + w) ∈ {d : Plane | det d u < 0} := by
-      show det ((-ε) • (u + w)) u < 0
+      change det ((-ε) • (u + w)) u < 0
       rw [det_smul_left, det_add_left, det_self, zero_add]
       nlinarith
     refine ⟨⟨_, by rw [harc]; exact ⟨Or.inl hA, hd0⟩⟩, ?_⟩
@@ -231,10 +232,10 @@ theorem isConnected_arcCCW_ball (h : det u w ≠ 0) (hρ : 0 < ρ) :
       refine ⟨?_, hball _ (abs_of_pos hε)⟩
       rw [harc]
       constructor
-      · show 0 < det u (ε • (u + w))
+      · change 0 < det u (ε • (u + w))
         rw [det_smul_right, det_add_right, det_self, zero_add]
         positivity
-      · show 0 < det (ε • (u + w)) w
+      · change 0 < det (ε • (u + w)) w
         rw [det_smul_left, det_add_left, det_self, add_zero]
         positivity
     refine ⟨⟨_, hmem⟩, ?_⟩
@@ -270,7 +271,7 @@ theorem cone_eq_image (v : Plane) (A : Set Plane) (ρ : ℝ) :
     refine ⟨y - v, ⟨hy, ?_⟩, ?_⟩
     · rw [mem_ball, dist_zero_right, ← dist_eq_norm]
       exact hb
-    · show v + (y - v) = y
+    · change v + (y - v) = y
       module
   · rintro ⟨d, ⟨hd, hb⟩, rfl⟩
     have he : v + d - v = d := by module
@@ -553,7 +554,8 @@ theorem off_injective (h : P.off i t s = P.off i t' s') : t = t' ∧ s = s' := b
   · have := congrArg (coordAcross (P.vertex i) (P.tang i)) h
     simpa using this
 
-theorem mem_edge_iff {x : Plane} : x ∈ P.edge i ↔ ∃ c ∈ Set.Icc (0 : ℝ) (P.len i), x = P.pt i c := by
+theorem mem_edge_iff {x : Plane} :
+    x ∈ P.edge i ↔ ∃ c ∈ Set.Icc (0 : ℝ) (P.len i), x = P.pt i c := by
   rw [edge, segment_eq_image' ℝ]
   constructor
   · rintro ⟨θ, ⟨hθ0, hθ1⟩, rfl⟩

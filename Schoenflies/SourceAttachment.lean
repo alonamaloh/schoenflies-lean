@@ -317,6 +317,34 @@ theorem crosscutOverlay_grid_edge_subset {J : Piece} {p : Plane} {s epsilon : �
   rw [hRR', edgeArc_segmentDrawing, edgeArc_segmentDrawing]
   exact hR'A
 
+/-- Away from overlay vertices, an edge meeting the auxiliary crosscut is one of the
+crosscut's subdivision pieces. -/
+theorem crosscutOverlay_crosscut_edge_subset {J : Piece} {p : Plane} {s epsilon : ℝ}
+    (hs : 0 < s) (hJ : J.Nondeg) (extra : List Plane) :
+    ∀ {R : Piece}, R ∈ E(Q.crosscutOverlay J p s epsilon extra) →
+      (_root_.Graph.edgeArc segmentDrawing R ∩
+        (_root_.Graph.edgeArc segmentDrawing J \
+          V(Q.crosscutOverlay J p s epsilon extra))).Nonempty →
+      _root_.Graph.edgeArc segmentDrawing R ⊆
+        _root_.Graph.edgeArc segmentDrawing J := by
+  intro R hR hmeet
+  obtain ⟨z, hzR, hzJ, hznotOverlay⟩ := hmeet
+  obtain ⟨R', hR', hzR', hR'J⟩ :=
+    exists_overlayPiece_mem_subset
+      (points := attachPoints (Q.crosscutPieces J p s epsilon)
+        (extra ++ P.sourceNonboundaryGraph.vertexFinset.toList))
+      (P₀ := J)
+      (List.mem_append_left _
+        (List.mem_append_right Q.pieces (List.mem_singleton_self J)))
+      (by rwa [edgeArc_segmentDrawing] at hzJ)
+  have hzR'Arc : z ∈ _root_.Graph.edgeArc segmentDrawing R' := by
+    rwa [edgeArc_segmentDrawing]
+  have hRR' : R = R' :=
+    (Q.crosscutOverlay_isDrawing hs hJ extra).unique_edge_at
+      hR hR' hznotOverlay hzR hzR'Arc
+  rw [hRR', edgeArc_segmentDrawing, edgeArc_segmentDrawing]
+  exact hR'J
+
 /-- The auxiliary straight-line overlay contains a plane subdivision of the raw local grid. -/
 theorem crosscutOverlay_localGrid_isPlaneSubdivisionExtension
     {J : Piece} {p : Plane} {s epsilon : ℝ} (hs : 0 < s) (hJ : J.Nondeg)
@@ -334,6 +362,792 @@ theorem crosscutOverlay_localGrid_isPlaneSubdivisionExtension
   edge_subset := by
     intro A hA R hR hmeet
     exact Q.crosscutOverlay_grid_edge_subset hs hJ extra hA hR hmeet
+
+/-- A single nondegenerate straight segment, with its two ends as vertices, is a plane
+drawing. -/
+theorem pieceListGraph_single_isDrawing {J : Piece} (hJ : J.Nondeg) :
+    _root_.Graph.IsDrawing (pieceListGraph [J]) segmentDrawing where
+  edge_param := by
+    intro R hR
+    rw [pieceListGraph_mem_edgeSet, List.mem_singleton] at hR
+    subst R
+    refine ⟨AffineMap.lineMap_continuous.continuousOn, injOn_lineMap hJ, ?_⟩
+    simp [segmentDrawing]
+  vertex_mem_edgeArc := by
+    intro R x y v hR hv _
+    rw [pieceListGraph_isLink] at hR
+    obtain ⟨hRJ, hxy⟩ := hR
+    rw [List.mem_singleton] at hRJ
+    subst R
+    rw [pieceListGraph_vertexSet] at hv
+    obtain ⟨A, hAJ, hvA⟩ := hv
+    rw [List.mem_singleton] at hAJ
+    subst A
+    rcases hxy with ⟨rfl, rfl⟩ | ⟨rfl, rfl⟩
+    · exact hvA
+    · exact hvA.symm
+  edge_inter := by
+    intro R A hR hA hne
+    rw [pieceListGraph_mem_edgeSet, List.mem_singleton] at hR hA
+    exact (hne (hR.trans hA.symm)).elim
+
+/-! ### Fresh relabelling and the wild outer graph -/
+
+/-- Fresh abstract edge names for an auxiliary-crosscut inner overlay. -/
+structure CrosscutOverlayRelabeling (J : Piece) (p : Plane) (s epsilon : ℝ)
+    (extra : List Plane) where
+  name : Piece → γ
+  name_inj : InjOn name E(Q.crosscutOverlay J p s epsilon extra)
+  name_fresh : ∀ R ∈ E(Q.crosscutOverlay J p s epsilon extra), name R ∉ P.str.cells
+
+/-- An infinite cell-name type supplies fresh names for the auxiliary-crosscut overlay. -/
+theorem exists_crosscutOverlayRelabeling [Infinite γ]
+    (J : Piece) (p : Plane) (s epsilon : ℝ) (extra : List Plane) :
+    Nonempty (Q.CrosscutOverlayRelabeling J p s epsilon extra) := by
+  obtain ⟨name, hname, hfresh⟩ := exists_finiteGraph_edgeRelabeling_avoiding γ
+    (Q.crosscutOverlay J p s epsilon extra) P.str.cells P.str.finite_cells
+  exact ⟨⟨name, hname, hfresh⟩⟩
+
+namespace CrosscutOverlayRelabeling
+
+variable {Q : SourceNonboundarySegmentCover P} {J : Piece} {p : Plane}
+  {s epsilon : ℝ} {extra : List Plane}
+  (w : Q.CrosscutOverlayRelabeling J p s epsilon extra)
+
+/-- The old outer graph, still drawn on the wild source curve. -/
+abbrev outerGraph (_w : Q.CrosscutOverlayRelabeling J p s epsilon extra) :
+    _root_.Graph Plane γ := P.str.outerGraph.map P.src.pos
+
+/-- The freshly relabelled auxiliary-crosscut inner overlay. -/
+noncomputable abbrev innerGraph : _root_.Graph Plane γ :=
+  (Q.crosscutOverlay J p s epsilon extra).relabelEdges w.name w.name_inj
+
+/-- The mixed crosscut source graph. -/
+noncomputable def graph : _root_.Graph Plane γ := w.outerGraph.union w.innerGraph
+
+/-- The mixed drawing keeps the wild outer parametrizations and uses straight segments on all
+fresh inner edges. -/
+noncomputable def drawing : γ → ℝ → Plane := by
+  classical
+  exact fun e =>
+    if e ∈ E(P.str.outerGraph) then P.src.drawing e
+    else (Q.crosscutOverlay J p s epsilon extra).relabelDrawing
+      w.name segmentDrawing e
+
+/-- Old outer names and freshly allocated inner names are disjoint. -/
+theorem compatible : w.outerGraph.Compatible w.innerGraph := by
+  apply _root_.Graph.Compatible.of_disjoint_edgeSet
+  rw [Set.disjoint_left, _root_.Graph.edgeSet_map, _root_.Graph.edgeSet_relabelEdges]
+  intro e heOuter heInner
+  obtain ⟨R, hR, hname⟩ := heInner
+  rw [← hname] at heOuter
+  exact w.name_fresh R hR
+    (P.str.mem_cells_of_mem_edgeSet (P.str.outerGraph_le.edgeSet_mono heOuter))
+
+/-- On an old outer edge the mixed drawing is the old source drawing. -/
+theorem drawing_of_outer {e : γ} (he : e ∈ E(P.str.outerGraph)) :
+    w.drawing e = P.src.drawing e := by simp [drawing, he]
+
+/-- On a fresh inner edge the mixed drawing is its relabelled segment drawing. -/
+theorem drawing_of_inner {e : γ} (he : e ∈ E(w.innerGraph)) :
+    w.drawing e =
+      (Q.crosscutOverlay J p s epsilon extra).relabelDrawing
+        w.name segmentDrawing e := by
+  rw [drawing, if_neg]
+  obtain ⟨R, hR, rfl⟩ := he
+  exact fun heOuter => w.name_fresh R hR
+    (P.str.mem_cells_of_mem_edgeSet (P.str.outerGraph_le.edgeSet_mono heOuter))
+
+/-- The mixed drawing restricts to a drawing of the old wild outer graph. -/
+theorem outer_isDrawing : w.outerGraph.IsDrawing w.drawing := by
+  apply Schoenflies.Graph.isDrawing_congr_of_eqOn
+    (P.src.isDrawing.mono (P.str.outerGraph_le.map P.src.pos))
+  intro e he
+  apply w.drawing_of_outer
+  rwa [_root_.Graph.edgeSet_map] at he
+
+/-- The mixed drawing restricts to the relabelled auxiliary-crosscut inner overlay. -/
+theorem inner_isDrawing (hs : 0 < s) (hJ : J.Nondeg) :
+    w.innerGraph.IsDrawing w.drawing := by
+  apply Schoenflies.Graph.isDrawing_congr_of_eqOn
+    ((Q.crosscutOverlay_isDrawing hs hJ extra).relabelEdges w.name_inj)
+  intro e he
+  exact w.drawing_of_inner he
+
+/-- The outer part occupies exactly the wild source curve. -/
+theorem outer_pointSet :
+    _root_.Graph.pointSet w.outerGraph w.drawing = srcOuter := by
+  calc
+    _root_.Graph.pointSet w.outerGraph w.drawing =
+        _root_.Graph.pointSet w.outerGraph P.src.drawing := by
+      apply _root_.Graph.pointSet_congr
+      intro e he
+      simpa only [_root_.Graph.edgeArc] using congrArg
+        (fun f : ℝ → Plane => f '' unitInterval)
+        (w.drawing_of_outer (by rwa [_root_.Graph.edgeSet_map] at he))
+    _ = P.src.outerSet := rfl
+    _ = srcOuter := P.src_isWeaklyAdmissible.outerSet_eq
+
+/-- The inner part occupies exactly the straight-line auxiliary-crosscut overlay. -/
+theorem inner_pointSet :
+    _root_.Graph.pointSet w.innerGraph w.drawing =
+      _root_.Graph.pointSet (Q.crosscutOverlay J p s epsilon extra)
+        segmentDrawing := by
+  calc
+    _root_.Graph.pointSet w.innerGraph w.drawing =
+        _root_.Graph.pointSet w.innerGraph
+          ((Q.crosscutOverlay J p s epsilon extra).relabelDrawing
+            w.name segmentDrawing) := by
+      apply _root_.Graph.pointSet_congr
+      intro e he
+      simpa only [_root_.Graph.edgeArc] using congrArg
+        (fun f : ℝ → Plane => f '' unitInterval) (w.drawing_of_inner he)
+    _ = _root_.Graph.pointSet (Q.crosscutOverlay J p s epsilon extra)
+        segmentDrawing :=
+      _root_.Graph.pointSet_relabelEdges w.name_inj
+
+/-- The wild outer graph and the auxiliary-crosscut inner overlay form a plane drawing. -/
+theorem graph_isDrawing (hs : 0 < s) (hJ : J.Nondeg)
+    (hJopen : J.seg ⊆ srcDom \ srcOuter)
+    (hwindow : Plane.closedSquare p s ⊆ srcDom \ srcOuter) :
+    w.graph.IsDrawing w.drawing := by
+  apply Schoenflies.Graph.isDrawing_union_of_common_vertices
+    w.outer_isDrawing (w.inner_isDrawing hs hJ) w.compatible
+  intro x hxOuter hxInner
+  rw [w.outer_pointSet] at hxOuter
+  rw [w.inner_pointSet, Q.crosscutOverlay_pointSet] at hxInner
+  rcases hxInner with (hxCore | hxCrosscut) | hxGrid
+  · obtain ⟨hxCoreV, hxOuterV⟩ :=
+      sourceCore_inter_outer_vertices (P := P) hxCore hxOuter
+    refine ⟨hxOuterV, ?_⟩
+    rw [_root_.Graph.vertexSet_relabelEdges]
+    exact Q.sourceCoreVertices_subset_crosscutOverlay hs hJ extra hxCoreV
+  · exact ((hJopen hxCrosscut).2 hxOuter).elim
+  · have hxWindow := cover_localGridEdges_subset_closedSquare hs
+      (one_le_localGridCount s epsilon) hxGrid
+    exact ((hwindow hxWindow).2 hxOuter).elim
+
+/-- The mixed crosscut source graph is finite. -/
+theorem graph_finite : w.graph.Finite where
+  finite_vertexSet := by
+    rw [graph, _root_.Graph.vertexSet_union, outerGraph, _root_.Graph.vertexSet_map,
+      _root_.Graph.vertexSet_relabelEdges]
+    exact ((P.str.finite_vertexSet.subset P.str.outerGraph_le.vertexSet_mono).image
+      P.src.pos).union
+      (_root_.Graph.finite_vertexSet (Q.crosscutOverlay J p s epsilon extra))
+  finite_edgeSet := by
+    rw [graph, _root_.Graph.edgeSet_union, outerGraph, _root_.Graph.edgeSet_map,
+      _root_.Graph.edgeSet_relabelEdges]
+    exact (P.str.finite_edgeSet.subset P.str.outerGraph_le.edgeSet_mono).union
+      ((_root_.Graph.finite_edgeSet
+        (Q.crosscutOverlay J p s epsilon extra)).image w.name)
+
+/-- The mixed graph occupies the wild outer curve, old compact core, auxiliary crosscut, and
+local grid. -/
+theorem graph_pointSet :
+    _root_.Graph.pointSet w.graph w.drawing =
+      srcOuter ∪ ((
+        _root_.Graph.pointSet P.sourceNonboundaryGraph P.src.drawing ∪ J.seg) ∪
+          cover (localGridEdges p s (localGridCount s epsilon))) := by
+  rw [graph, _root_.Graph.pointSet_union, w.outer_pointSet, w.inner_pointSet,
+    Q.crosscutOverlay_pointSet]
+
+/-- The complete old source skeleton is retained by the mixed crosscut graph. -/
+theorem sourceSkeleton_subset_graph :
+    P.src.skeletonSet ⊆ _root_.Graph.pointSet w.graph w.drawing := by
+  rw [P.skeletonSet_eq_sourceNonboundaryGraph_union, w.graph_pointSet]
+  intro x hx
+  rcases hx with hxCore | hxOuter
+  · exact Or.inr (Or.inl (Or.inl hxCore))
+  · exact Or.inl hxOuter
+
+/-- Every old source vertex is retained by the mixed crosscut graph. -/
+theorem sourceVertices_subset_graph (hs : 0 < s) (hJ : J.Nondeg) :
+    V(P.src.graph) ⊆ V(w.graph) := by
+  intro x hx
+  obtain ⟨z, hz, hzx, -⟩ :=
+    P.src_isWeaklyAdmissible.isTwoConnected.hasThreeVertices.exists_ne_ne x x
+  obtain ⟨D, hD⟩ :=
+    P.src_isWeaklyAdmissible.isTwoConnected.connected.exists_isPath hx hz
+  obtain ⟨e, heD, hinc⟩ :=
+    hD.isWalk.exists_inc_source (hD.ne_nil (Ne.symm hzx))
+  have heSrc : e ∈ E(P.src.graph) := hD.edge_mem heD
+  by_cases heOuter : e ∈ E(P.str.outerGraph)
+  · rw [graph, _root_.Graph.vertexSet_union]
+    exact Or.inl
+      (((P.str.outerGraph_le.map P.src.pos).inc_congr
+        (by rwa [_root_.Graph.edgeSet_map])).2 hinc).vertex_mem
+  · have hxCore : x ∈ V(P.sourceNonboundaryGraph) := by
+      change x ∈ P.sourceNonboundaryVertices
+      exact ⟨e, heSrc, heOuter, hinc⟩
+    rw [graph, _root_.Graph.vertexSet_union]
+    exact Or.inr (by
+      rw [_root_.Graph.vertexSet_relabelEdges]
+      exact Q.sourceCoreVertices_subset_crosscutOverlay hs hJ extra hxCore)
+
+/-- Both ends of the auxiliary crosscut are vertices of the mixed graph. -/
+theorem crosscutEnds_subset_graph (hs : 0 < s) (hJ : J.Nondeg) :
+    ({J.1, J.2} : Set Plane) ⊆ V(w.graph) := by
+  intro x hx
+  rw [graph, _root_.Graph.vertexSet_union]
+  exact Or.inr (by
+    rw [_root_.Graph.vertexSet_relabelEdges]
+    exact Q.crosscutEnds_subset_crosscutOverlay hs hJ extra hx)
+
+/-- The mixed crosscut graph stays in the closed source domain. -/
+theorem graph_pointSet_subset (hs : 0 < s)
+    (hJopen : J.seg ⊆ srcDom \ srcOuter)
+    (hwindow : Plane.closedSquare p s ⊆ srcDom \ srcOuter) :
+    _root_.Graph.pointSet w.graph w.drawing ⊆ srcDom := by
+  rw [graph, _root_.Graph.pointSet_union]
+  apply Set.union_subset
+  · rw [w.outer_pointSet, ← P.src_isWeaklyAdmissible.outerSet_eq]
+    exact (_root_.Graph.pointSet_mono (P.str.outerGraph_le.map P.src.pos)).trans
+      P.src_isWeaklyAdmissible.skeletonSet_subset
+  · rw [w.inner_pointSet]
+    exact Q.crosscutOverlay_pointSet_subset hs hJopen hwindow extra
+
+/-- Every mixed edge is either on the wild outer curve or is a polygonal inner edge whose
+nonvertex points lie in the open source domain. -/
+theorem graph_edge_dichotomy (hs : 0 < s) (hJ : J.Nondeg)
+    (hJopen : J.seg ⊆ srcDom \ srcOuter)
+    (hwindow : Plane.closedSquare p s ⊆ srcDom \ srcOuter) :
+    ∀ {e : γ}, e ∈ E(w.graph) → _root_.Graph.edgeArc w.drawing e ⊆ srcOuter ∨
+      (IsPolygonal (_root_.Graph.edgeArc w.drawing e) ∧
+        _root_.Graph.edgeArc w.drawing e \ V(w.graph) ⊆ srcDom \ srcOuter) := by
+  intro e he
+  rcases he with heOuter | heInner
+  · exact Or.inl (by
+      intro x hx
+      rw [← w.outer_pointSet]
+      exact _root_.Graph.edgeArc_subset_pointSet heOuter hx)
+  · obtain ⟨R, hR, rfl⟩ := heInner
+    have hname : w.name R ∈ E(w.innerGraph) := ⟨R, hR, rfl⟩
+    have hdrawing := w.drawing_of_inner hname
+    have harc : _root_.Graph.edgeArc w.drawing (w.name R) =
+        _root_.Graph.edgeArc segmentDrawing R := by
+      calc
+        _root_.Graph.edgeArc w.drawing (w.name R) =
+            _root_.Graph.edgeArc
+              ((Q.crosscutOverlay J p s epsilon extra).relabelDrawing
+                w.name segmentDrawing) (w.name R) := by
+          simpa only [_root_.Graph.edgeArc] using congrArg
+            (fun f : ℝ → Plane => f '' unitInterval) hdrawing
+        _ = _root_.Graph.edgeArc segmentDrawing R :=
+          _root_.Graph.edgeArc_relabelDrawing w.name_inj hR
+    rw [harc]
+    obtain ⟨hpoly, hinterior⟩ :=
+      Q.crosscutOverlay_edge_dichotomy hs hJ hJopen hwindow extra hR
+    refine Or.inr ⟨hpoly, ?_⟩
+    intro x hx
+    apply hinterior
+    refine ⟨hx.1, ?_⟩
+    intro hxVertex
+    apply hx.2
+    rw [graph, _root_.Graph.vertexSet_union]
+    exact Or.inr (by rwa [_root_.Graph.vertexSet_relabelEdges])
+
+/-- An edge of the mixed crosscut graph meeting an old open source edge away from mixed
+vertices is one of that edge's subdivision pieces. -/
+theorem graph_edge_subset (hs : 0 < s) (hJ : J.Nondeg)
+    (hJopen : J.seg ⊆ srcDom \ srcOuter)
+    (hwindow : Plane.closedSquare p s ⊆ srcDom \ srcOuter) :
+    ∀ {e : γ}, e ∈ E(P.str.skel) → ∀ {f : γ}, f ∈ E(w.graph) →
+      (_root_.Graph.edgeArc w.drawing f ∩ (P.src.cell e \ V(w.graph))).Nonempty →
+      _root_.Graph.edgeArc w.drawing f ⊆ _root_.Graph.edgeArc P.src.drawing e := by
+  intro e he f hf hmeet
+  obtain ⟨z, hzf, hzCell, hznotGraph⟩ := hmeet
+  obtain ⟨a, b, hab⟩ := P.str.skel.exists_isLink_of_mem_edgeSet he
+  have hze : z ∈ _root_.Graph.edgeArc P.src.drawing e := by
+    rw [P.src.cell_edge hab] at hzCell
+    exact hzCell.1
+  rcases hf with hfOuter | hfInner
+  · have hfAbstract : f ∈ E(P.str.outerGraph) := by
+      rwa [_root_.Graph.edgeSet_map] at hfOuter
+    have hzfSrc : z ∈ _root_.Graph.edgeArc P.src.drawing f := by
+      have hdraw := w.drawing_of_outer hfAbstract
+      simpa only [_root_.Graph.edgeArc] using
+        (congrArg (fun g : ℝ → Plane => g '' unitInterval) hdraw ▸ hzf)
+    have hznotOld : z ∉ V(P.src.graph) := fun hzOld =>
+      hznotGraph (w.sourceVertices_subset_graph hs hJ hzOld)
+    have hef : e = f := P.src.isDrawing.unique_edge_at
+      (by rw [_root_.Graph.edgeSet_map]; exact he)
+      (by
+        rw [_root_.Graph.edgeSet_map]
+        exact P.str.outerGraph_le.edgeSet_mono hfAbstract)
+      hznotOld hze hzfSrc
+    subst f
+    have hdraw := w.drawing_of_outer hfAbstract
+    rw [_root_.Graph.edgeArc, hdraw]
+    intro y hy
+    exact hy
+  · obtain ⟨R, hR, rfl⟩ := hfInner
+    have hname : w.name R ∈ E(w.innerGraph) := ⟨R, hR, rfl⟩
+    have hdrawing := w.drawing_of_inner hname
+    have harc : _root_.Graph.edgeArc w.drawing (w.name R) =
+        _root_.Graph.edgeArc segmentDrawing R := by
+      calc
+        _root_.Graph.edgeArc w.drawing (w.name R) =
+            _root_.Graph.edgeArc
+              ((Q.crosscutOverlay J p s epsilon extra).relabelDrawing
+                w.name segmentDrawing) (w.name R) := by
+          simpa only [_root_.Graph.edgeArc] using congrArg
+            (fun g : ℝ → Plane => g '' unitInterval) hdrawing
+        _ = _root_.Graph.edgeArc segmentDrawing R :=
+          _root_.Graph.edgeArc_relabelDrawing w.name_inj hR
+    by_cases heOuter : e ∈ E(P.str.outerGraph)
+    · exfalso
+      have heMixed : e ∈ E(w.graph) := Or.inl (by
+        rw [_root_.Graph.edgeSet_map]
+        exact heOuter)
+      have hne : e ≠ w.name R := fun heq =>
+        w.name_fresh R hR (heq ▸ P.str.mem_cells_of_mem_edgeSet he)
+      have hzeMixed : z ∈ _root_.Graph.edgeArc w.drawing e := by
+        have hdraw := w.drawing_of_outer heOuter
+        simpa only [_root_.Graph.edgeArc] using
+          (congrArg (fun g : ℝ → Plane => g '' unitInterval) hdraw ▸ hze)
+      have hzVertex :=
+        (w.graph_isDrawing hs hJ hJopen hwindow).edge_inter
+          heMixed (Or.inr hname) hne hzeMixed hzf |>.1
+      exact hznotGraph hzVertex
+    · rw [harc]
+      apply Q.crosscutOverlay_edge_subset hs hJ extra he heOuter hR
+      refine ⟨z, harc ▸ hzf, hzCell, ?_⟩
+      intro hzLocal
+      apply hznotGraph
+      rw [graph, _root_.Graph.vertexSet_union]
+      exact Or.inr (by rwa [_root_.Graph.vertexSet_relabelEdges])
+
+/-- The mixed crosscut graph contains a plane subdivision of the complete old source drawing. -/
+theorem source_isPlaneSubdivisionExtension (hs : 0 < s) (hJ : J.Nondeg)
+    (hJopen : J.seg ⊆ srcDom \ srcOuter)
+    (hwindow : Plane.closedSquare p s ⊆ srcDom \ srcOuter) :
+    IsPlaneSubdivisionExtension P.src.graph P.src.drawing w.graph w.drawing where
+  finite := w.graph_finite
+  oldIsDrawing := P.src.isDrawing
+  isDrawing := w.graph_isDrawing hs hJ hJopen hwindow
+  vertexSet_subset := w.sourceVertices_subset_graph hs hJ
+  pointSet_subset := w.sourceSkeleton_subset_graph
+  edge_subset := by
+    intro e he f hf hmeet
+    have heAbstract : e ∈ E(P.str.skel) := by
+      simpa only [P.src.edgeSet_graph] using he
+    obtain ⟨z, hzf, hze, hznot⟩ := hmeet
+    obtain ⟨a, b, hab⟩ := P.str.skel.exists_isLink_of_mem_edgeSet heAbstract
+    apply w.graph_edge_subset hs hJ hJopen hwindow heAbstract hf
+    refine ⟨z, hzf, ?_, hznot⟩
+    rw [P.src.cell_edge hab]
+    refine ⟨hze, ?_⟩
+    rintro (rfl | rfl)
+    · exact hznot (w.sourceVertices_subset_graph hs hJ (hab.map P.src.pos).left_mem)
+    · exact hznot (w.sourceVertices_subset_graph hs hJ (hab.map P.src.pos).right_mem)
+
+/-- The old-source trace inside the mixed crosscut graph remains 2-connected. -/
+theorem sourceTrace_isTwoConnected (hs : 0 < s) (hJ : J.Nondeg)
+    (hJopen : J.seg ⊆ srcDom \ srcOuter)
+    (hwindow : Plane.closedSquare p s ⊆ srcDom \ srcOuter) :
+    (_root_.Graph.traceGraph w.graph w.drawing P.src.skeletonSet).IsTwoConnected :=
+  (w.source_isPlaneSubdivisionExtension hs hJ hJopen hwindow).trace_isTwoConnected
+    P.src_isWeaklyAdmissible.isTwoConnected
+
+/-- Every raw local-grid vertex is retained by the mixed crosscut graph. -/
+theorem localGridVertices_subset_graph (hs : 0 < s) (hJ : J.Nondeg) :
+    V(localGrid p s (localGridCount s epsilon)) ⊆ V(w.graph) := by
+  intro x hx
+  rw [graph, _root_.Graph.vertexSet_union]
+  exact Or.inr (by
+    rw [_root_.Graph.vertexSet_relabelEdges]
+    exact Q.localGridVertices_subset_crosscutOverlay hs hJ extra hx)
+
+/-- The complete raw local-grid carrier is retained by the mixed crosscut graph. -/
+theorem localGrid_subset_graph :
+    _root_.Graph.pointSet (localGrid p s (localGridCount s epsilon)) segmentDrawing ⊆
+      _root_.Graph.pointSet w.graph w.drawing := by
+  rw [localGrid_eq, pieceListGraph_pointSet, w.graph_pointSet]
+  intro x hx
+  exact Or.inr (Or.inr hx)
+
+/-- A mixed edge meeting a raw grid edge away from mixed vertices is a subdivision piece of
+that grid edge. -/
+theorem graph_grid_edge_subset (hs : 0 < s) (hJ : J.Nondeg)
+    (hwindow : Plane.closedSquare p s ⊆ srcDom \ srcOuter) :
+    ∀ {A : Piece}, A ∈ E(localGrid p s (localGridCount s epsilon)) → ∀ {f : γ},
+      f ∈ E(w.graph) →
+      (_root_.Graph.edgeArc w.drawing f ∩
+        (_root_.Graph.edgeArc segmentDrawing A \ V(w.graph))).Nonempty →
+      _root_.Graph.edgeArc w.drawing f ⊆
+        _root_.Graph.edgeArc segmentDrawing A := by
+  intro A hA f hf hmeet
+  obtain ⟨z, hzf, hzA, hznotGraph⟩ := hmeet
+  have hAList : A ∈ localGridEdges p s (localGridCount s epsilon) := by
+    simpa only [localGrid_eq, pieceListGraph_mem_edgeSet] using hA
+  have hzWindow : z ∈ Plane.closedSquare p s :=
+    cover_localGridEdges_subset_closedSquare hs
+      (one_le_localGridCount s epsilon)
+      (mem_cover_iff.2 ⟨A, hAList, by rwa [edgeArc_segmentDrawing] at hzA⟩)
+  rcases hf with hfOuter | hfInner
+  · exfalso
+    have hzOuter : z ∈ srcOuter := by
+      rw [← w.outer_pointSet]
+      exact _root_.Graph.edgeArc_subset_pointSet hfOuter hzf
+    exact (hwindow hzWindow).2 hzOuter
+  · obtain ⟨R, hR, rfl⟩ := hfInner
+    have hname : w.name R ∈ E(w.innerGraph) := ⟨R, hR, rfl⟩
+    have hdrawing := w.drawing_of_inner hname
+    have harc : _root_.Graph.edgeArc w.drawing (w.name R) =
+        _root_.Graph.edgeArc segmentDrawing R := by
+      calc
+        _root_.Graph.edgeArc w.drawing (w.name R) =
+            _root_.Graph.edgeArc
+              ((Q.crosscutOverlay J p s epsilon extra).relabelDrawing
+                w.name segmentDrawing) (w.name R) := by
+          simpa only [_root_.Graph.edgeArc] using congrArg
+            (fun g : ℝ → Plane => g '' unitInterval) hdrawing
+        _ = _root_.Graph.edgeArc segmentDrawing R :=
+          _root_.Graph.edgeArc_relabelDrawing w.name_inj hR
+    rw [harc]
+    apply Q.crosscutOverlay_grid_edge_subset hs hJ extra hA hR
+    refine ⟨z, harc ▸ hzf, hzA, ?_⟩
+    intro hzLocal
+    apply hznotGraph
+    rw [graph, _root_.Graph.vertexSet_union]
+    exact Or.inr (by rwa [_root_.Graph.vertexSet_relabelEdges])
+
+/-- A mixed edge meeting the auxiliary crosscut away from mixed vertices is one of the
+crosscut's subdivision pieces. -/
+theorem graph_crosscut_edge_subset (hs : 0 < s) (hJ : J.Nondeg)
+    (hJopen : J.seg ⊆ srcDom \ srcOuter) :
+    ∀ {f : γ}, f ∈ E(w.graph) →
+      (_root_.Graph.edgeArc w.drawing f ∩
+        (_root_.Graph.edgeArc segmentDrawing J \ V(w.graph))).Nonempty →
+      _root_.Graph.edgeArc w.drawing f ⊆
+        _root_.Graph.edgeArc segmentDrawing J := by
+  intro f hf hmeet
+  obtain ⟨z, hzf, hzJ, hznotGraph⟩ := hmeet
+  rcases hf with hfOuter | hfInner
+  · exfalso
+    have hzOuter : z ∈ srcOuter := by
+      rw [← w.outer_pointSet]
+      exact _root_.Graph.edgeArc_subset_pointSet hfOuter hzf
+    exact (hJopen (by rwa [edgeArc_segmentDrawing] at hzJ)).2 hzOuter
+  · obtain ⟨R, hR, rfl⟩ := hfInner
+    have hname : w.name R ∈ E(w.innerGraph) := ⟨R, hR, rfl⟩
+    have hdrawing := w.drawing_of_inner hname
+    have harc : _root_.Graph.edgeArc w.drawing (w.name R) =
+        _root_.Graph.edgeArc segmentDrawing R := by
+      calc
+        _root_.Graph.edgeArc w.drawing (w.name R) =
+            _root_.Graph.edgeArc
+              ((Q.crosscutOverlay J p s epsilon extra).relabelDrawing
+                w.name segmentDrawing) (w.name R) := by
+          simpa only [_root_.Graph.edgeArc] using congrArg
+            (fun g : ℝ → Plane => g '' unitInterval) hdrawing
+        _ = _root_.Graph.edgeArc segmentDrawing R :=
+          _root_.Graph.edgeArc_relabelDrawing w.name_inj hR
+    rw [harc]
+    apply Q.crosscutOverlay_crosscut_edge_subset hs hJ extra hR
+    refine ⟨z, harc ▸ hzf, hzJ, ?_⟩
+    intro hzLocal
+    apply hznotGraph
+    rw [graph, _root_.Graph.vertexSet_union]
+    exact Or.inr (by rwa [_root_.Graph.vertexSet_relabelEdges])
+
+/-- The mixed graph contains a plane subdivision of the one-edge auxiliary crosscut. -/
+theorem crosscut_isPlaneSubdivisionExtension (hs : 0 < s) (hJ : J.Nondeg)
+    (hJopen : J.seg ⊆ srcDom \ srcOuter)
+    (hwindow : Plane.closedSquare p s ⊆ srcDom \ srcOuter) :
+    IsPlaneSubdivisionExtension (pieceListGraph [J]) segmentDrawing
+      w.graph w.drawing where
+  finite := w.graph_finite
+  oldIsDrawing := pieceListGraph_single_isDrawing hJ
+  isDrawing := w.graph_isDrawing hs hJ hJopen hwindow
+  vertexSet_subset := by
+    intro x hx
+    rw [pieceListGraph_vertexSet] at hx
+    simp only [endSet, Set.mem_setOf_eq] at hx
+    obtain ⟨R, hR, hxR⟩ := hx
+    simp only [List.mem_singleton] at hR
+    subst R
+    exact w.crosscutEnds_subset_graph hs hJ hxR
+  pointSet_subset := by
+    rw [pieceListGraph_pointSet]
+    intro x hx
+    rw [w.graph_pointSet]
+    exact Or.inr (Or.inl (Or.inr (by simpa using hx)))
+  edge_subset := by
+    intro R hR f hf hmeet
+    simp only [pieceListGraph_mem_edgeSet, List.mem_singleton] at hR
+    subst R
+    exact w.graph_crosscut_edge_subset hs hJ hJopen hf hmeet
+
+/-- The mixed crosscut graph contains a plane subdivision of the raw local grid. -/
+theorem localGrid_isPlaneSubdivisionExtension (hs : 0 < s) (hJ : J.Nondeg)
+    (hJopen : J.seg ⊆ srcDom \ srcOuter)
+    (hwindow : Plane.closedSquare p s ⊆ srcDom \ srcOuter) :
+    IsPlaneSubdivisionExtension
+      (localGrid p s (localGridCount s epsilon)) segmentDrawing
+      w.graph w.drawing where
+  finite := w.graph_finite
+  oldIsDrawing := localGrid_isDrawing hs (one_le_localGridCount s epsilon)
+  isDrawing := w.graph_isDrawing hs hJ hJopen hwindow
+  vertexSet_subset := w.localGridVertices_subset_graph hs hJ
+  pointSet_subset := w.localGrid_subset_graph
+  edge_subset := by
+    intro A hA f hf hmeet
+    exact w.graph_grid_edge_subset hs hJ hwindow hA hf hmeet
+
+/-- The local-grid trace inside the mixed crosscut graph remains 2-connected. -/
+theorem localGridTrace_isTwoConnected (hs : 0 < s) (hJ : J.Nondeg)
+    (hJopen : J.seg ⊆ srcDom \ srcOuter)
+    (hwindow : Plane.closedSquare p s ⊆ srcDom \ srcOuter) :
+    (_root_.Graph.traceGraph w.graph w.drawing
+      (_root_.Graph.pointSet (localGrid p s (localGridCount s epsilon))
+        segmentDrawing)).IsTwoConnected :=
+  (w.localGrid_isPlaneSubdivisionExtension hs hJ hJopen hwindow).trace_isTwoConnected
+    (localGrid_isTwoConnected hs (one_le_localGridCount s epsilon))
+
+/-- The subdivided auxiliary segment is the exact carrier of a path in the mixed graph. -/
+theorem exists_crosscut_trace (hs : 0 < s) (hJ : J.Nondeg)
+    (hJopen : J.seg ⊆ srcDom \ srcOuter)
+    (hwindow : Plane.closedSquare p s ⊆ srcDom \ srcOuter) :
+    ∃ D : List γ, w.graph.IsPath J.1 D J.2 ∧
+      _root_.Graph.edgesCover w.drawing D = J.seg := by
+  obtain ⟨D, hD, hcover⟩ :=
+    (w.crosscut_isPlaneSubdivisionExtension hs hJ hJopen hwindow).exists_edge_trace
+      (pieceListGraph_isLink_self (List.mem_singleton_self J))
+  exact ⟨D, hD, by simpa only [edgeArc_segmentDrawing] using hcover⟩
+
+/-- If a nondegenerate raw grid edge lies on the auxiliary segment and both crosscut ends lie
+on the old source skeleton, the old trace, crosscut ear, and grid trace span a 2-connected
+subgraph.  Consequently the complete mixed graph is 2-connected. -/
+theorem graph_isTwoConnected_of_crosscut_grid_edge (hs : 0 < s) (hJ : J.Nondeg)
+    (hJopen : J.seg ⊆ srcDom \ srcOuter)
+    (hwindow : Plane.closedSquare p s ⊆ srcDom \ srcOuter)
+    (hJsource : J.1 ∈ P.src.skeletonSet ∧ J.2 ∈ P.src.skeletonSet)
+    {A : Piece} (hA : A ∈ E(localGrid p s (localGridCount s epsilon)))
+    (hAJ : A.seg ⊆ J.seg) :
+    w.graph.IsTwoConnected := by
+  obtain ⟨D, hD, hcover⟩ := w.exists_crosscut_trace hs hJ hJopen hwindow
+  let T := _root_.Graph.traceGraph w.graph w.drawing P.src.skeletonSet
+  let C := w.graph.pathGraphOf J.1 D
+  let K := _root_.Graph.traceGraph w.graph w.drawing
+    (_root_.Graph.pointSet (localGrid p s (localGridCount s epsilon)) segmentDrawing)
+  have hT2 : T.IsTwoConnected :=
+    w.sourceTrace_isTwoConnected hs hJ hJopen hwindow
+  have hJ1Graph : J.1 ∈ V(w.graph) :=
+    w.crosscutEnds_subset_graph hs hJ (Set.mem_insert J.1 {J.2})
+  have hJ2Graph : J.2 ∈ V(w.graph) :=
+    w.crosscutEnds_subset_graph hs hJ (Set.mem_insert_of_mem J.1 (Set.mem_singleton J.2))
+  have hJ1T : J.1 ∈ V(T) := by
+    rw [_root_.Graph.traceGraph_vertexSet]
+    exact ⟨hJ1Graph, hJsource.1⟩
+  have hJ2T : J.2 ∈ V(T) := by
+    rw [_root_.Graph.traceGraph_vertexSet]
+    exact ⟨hJ2Graph, hJsource.2⟩
+  have hTC : T.Compatible C :=
+    _root_.Graph.Compatible.of_le_le (_root_.Graph.traceGraph_le _)
+      (_root_.Graph.pathGraphOf_le hD.isWalk)
+  have hU2 : (T.union C).IsTwoConnected :=
+    hT2.ear hTC hD.isPathGraph_pathGraphOf hJ hJ1T hJ2T
+  have hK2 : K.IsTwoConnected :=
+    w.localGridTrace_isTwoConnected hs hJ hJopen hwindow
+  have hAList : A ∈ localGridEdges p s (localGridCount s epsilon) := by
+    simpa only [localGrid_eq, pieceListGraph_mem_edgeSet] using hA
+  have hAlink :
+      (localGrid p s (localGridCount s epsilon)).IsLink A A.1 A.2 := by
+    rw [localGrid_eq]
+    exact pieceListGraph_isLink_self hAList
+  have hA1Graph : A.1 ∈ V(w.graph) :=
+    w.localGridVertices_subset_graph hs hJ hAlink.left_mem
+  have hA2Graph : A.2 ∈ V(w.graph) :=
+    w.localGridVertices_subset_graph hs hJ hAlink.right_mem
+  have hA1J : A.1 ∈ J.seg := hAJ (left_mem_segment ℝ _ _)
+  have hA2J : A.2 ∈ J.seg := hAJ (right_mem_segment ℝ _ _)
+  have hA1C : A.1 ∈ V(C) := by
+    rw [_root_.Graph.pathGraphOf_vertexSet]
+    apply (w.graph_isDrawing hs hJ hJopen hwindow).mem_walkVertices_of_mem_edgesCover_walk
+      hD.isWalk hA1Graph
+    rw [hcover]
+    exact hA1J
+  have hA2C : A.2 ∈ V(C) := by
+    rw [_root_.Graph.pathGraphOf_vertexSet]
+    apply (w.graph_isDrawing hs hJ hJopen hwindow).mem_walkVertices_of_mem_edgesCover_walk
+      hD.isWalk hA2Graph
+    rw [hcover]
+    exact hA2J
+  have hA1U : A.1 ∈ V(T.union C) := by
+    rw [_root_.Graph.vertexSet_union]
+    exact Or.inr hA1C
+  have hA2U : A.2 ∈ V(T.union C) := by
+    rw [_root_.Graph.vertexSet_union]
+    exact Or.inr hA2C
+  have hA1K : A.1 ∈ V(K) := by
+    rw [_root_.Graph.traceGraph_vertexSet]
+    exact ⟨hA1Graph,
+      (_root_.Graph.edgeArc_subset_pointSet hA) (by
+        rw [edgeArc_segmentDrawing]
+        exact left_mem_segment ℝ _ _)⟩
+  have hA2K : A.2 ∈ V(K) := by
+    rw [_root_.Graph.traceGraph_vertexSet]
+    exact ⟨hA2Graph,
+      (_root_.Graph.edgeArc_subset_pointSet hA) (by
+        rw [edgeArc_segmentDrawing]
+        exact right_mem_segment ℝ _ _)⟩
+  have hUKcompat : (T.union C).Compatible K :=
+    _root_.Graph.Compatible.of_le_le
+      (_root_.Graph.union_le (_root_.Graph.traceGraph_le _)
+        (_root_.Graph.pathGraphOf_le hD.isWalk))
+      (_root_.Graph.traceGraph_le _)
+  have hAne : A.1 ≠ A.2 :=
+    localGridEdges_nondeg hs (one_le_localGridCount s epsilon) A hAList
+  have hAll2 : ((T.union C).union K).IsTwoConnected :=
+    hU2.union hUKcompat hK2 hAne hA1U hA1K hA2U hA2K
+  apply hAll2.of_le_of_vertexSet_subset
+    (_root_.Graph.union_le
+      (_root_.Graph.union_le (_root_.Graph.traceGraph_le _)
+        (_root_.Graph.pathGraphOf_le hD.isWalk))
+      (_root_.Graph.traceGraph_le _))
+  intro x hx
+  rw [_root_.Graph.vertexSet_union]
+  have hxPoint : x ∈ _root_.Graph.pointSet w.graph w.drawing :=
+    _root_.Graph.vertexSet_subset_pointSet hx
+  rw [w.graph_pointSet] at hxPoint
+  rcases hxPoint with hxOuter | hxRest
+  · exact Or.inl (Or.inl (by
+      rw [_root_.Graph.traceGraph_vertexSet]
+      exact ⟨hx, by
+        rw [P.skeletonSet_eq_sourceNonboundaryGraph_union]
+        exact Or.inr hxOuter⟩))
+  · rcases hxRest with hxCoreJ | hxGrid
+    · rcases hxCoreJ with hxCore | hxJ
+      · exact Or.inl (Or.inl (by
+          rw [_root_.Graph.traceGraph_vertexSet]
+          exact ⟨hx, by
+            rw [P.skeletonSet_eq_sourceNonboundaryGraph_union]
+            exact Or.inl hxCore⟩))
+      · exact Or.inl (Or.inr (by
+          rw [_root_.Graph.pathGraphOf_vertexSet]
+          apply
+            (w.graph_isDrawing hs hJ hJopen hwindow).mem_walkVertices_of_mem_edgesCover_walk
+              hD.isWalk hx
+          rw [hcover]
+          exact hxJ))
+    · exact Or.inr (by
+        rw [_root_.Graph.traceGraph_vertexSet]
+        exact ⟨hx, by rwa [localGrid_eq, pieceListGraph_pointSet]⟩)
+
+/-- If the old nonouter source carrier is connected, adjoining a crosscut whose first endpoint
+lies on it and a grid edge carried by that crosscut preserves connectedness after removing the
+wild outer curve. -/
+theorem graph_isConnected_diff_of_crosscut_grid_edge (hs : 0 < s)
+    (hJopen : J.seg ⊆ srcDom \ srcOuter)
+    (hwindow : Plane.closedSquare p s ⊆ srcDom \ srcOuter)
+    (hsource : IsConnected (P.src.skeletonSet \ srcOuter))
+    (hJsource : J.1 ∈ P.src.skeletonSet)
+    {A : Piece} (hA : A ∈ E(localGrid p s (localGridCount s epsilon)))
+    (hAJ : A.seg ⊆ J.seg) :
+    IsConnected (_root_.Graph.pointSet w.graph w.drawing \ srcOuter) := by
+  let Kset := _root_.Graph.pointSet
+    (localGrid p s (localGridCount s epsilon)) segmentDrawing
+  have hJconn : IsConnected J.seg :=
+    (convex_segment J.1 J.2).isConnected ⟨J.1, left_mem_segment ℝ _ _⟩
+  have hKconn : IsConnected Kset :=
+    Schoenflies.Graph.IsDrawing.isConnected_pointSet
+      (localGrid_isDrawing hs (one_le_localGridCount s epsilon))
+      (localGrid_isTwoConnected hs (one_le_localGridCount s epsilon)).connected
+  have hJmiss : J.seg ⊆ srcOuterᶜ := fun x hxJ hxOuter => (hJopen hxJ).2 hxOuter
+  have hKmiss : Kset ⊆ srcOuterᶜ := by
+    intro x hxK hxOuter
+    have hxCover : x ∈ cover (localGridEdges p s (localGridCount s epsilon)) := by
+      simpa only [Kset, localGrid_eq, pieceListGraph_pointSet] using hxK
+    have hxWindow := cover_localGridEdges_subset_closedSquare hs
+      (one_le_localGridCount s epsilon) hxCover
+    exact (hwindow hxWindow).2 hxOuter
+  have hcarrier : _root_.Graph.pointSet w.graph w.drawing \ srcOuter =
+      ((P.src.skeletonSet \ srcOuter) ∪ J.seg) ∪ Kset := by
+    ext x
+    rw [Set.mem_sdiff, Set.mem_union, Set.mem_union, Set.mem_sdiff]
+    constructor
+    · rintro ⟨hxGraph, hxNotOuter⟩
+      rw [w.graph_pointSet] at hxGraph
+      rcases hxGraph with hxOuter | hxRest
+      · exact (hxNotOuter hxOuter).elim
+      · rcases hxRest with hxCoreJ | hxGrid
+        · rcases hxCoreJ with hxCore | hxJ
+          · exact Or.inl (Or.inl ⟨by
+              rw [P.skeletonSet_eq_sourceNonboundaryGraph_union]
+              exact Or.inl hxCore, hxNotOuter⟩)
+          · exact Or.inl (Or.inr hxJ)
+        · exact Or.inr (by
+            simpa only [Kset, localGrid_eq, pieceListGraph_pointSet] using hxGrid)
+    · rintro (⟨⟨hxSource, hxNotOuter⟩ | hxJ⟩ | hxK)
+      · refine ⟨?_, hxNotOuter⟩
+        rw [P.skeletonSet_eq_sourceNonboundaryGraph_union] at hxSource
+        rw [w.graph_pointSet]
+        rcases hxSource with hxCore | hxOuter
+        · exact Or.inr (Or.inl (Or.inl hxCore))
+        · exact Or.inl hxOuter
+      · exact ⟨by
+          rw [w.graph_pointSet]
+          exact Or.inr (Or.inl (Or.inr hxJ)), hJmiss hxJ⟩
+      · exact ⟨by
+          rw [w.graph_pointSet]
+          exact Or.inr (Or.inr (by
+            simpa only [Kset, localGrid_eq, pieceListGraph_pointSet] using hxK)), hKmiss hxK⟩
+  have hsourceJmeet : ((P.src.skeletonSet \ srcOuter) ∩ J.seg).Nonempty :=
+    ⟨J.1, ⟨hJsource, (hJopen (left_mem_segment ℝ _ _)).2⟩,
+      left_mem_segment ℝ _ _⟩
+  have hsourceJconn : IsConnected ((P.src.skeletonSet \ srcOuter) ∪ J.seg) :=
+    IsConnected.union hsourceJmeet hsource hJconn
+  have hA1J : A.1 ∈ J.seg := hAJ (left_mem_segment ℝ _ _)
+  have hA1K : A.1 ∈ Kset := by
+    apply _root_.Graph.edgeArc_subset_pointSet hA
+    rw [edgeArc_segmentDrawing]
+    exact left_mem_segment ℝ _ _
+  rw [hcarrier]
+  exact IsConnected.union ⟨A.1, Or.inr hA1J, hA1K⟩ hsourceJconn hKconn
+
+/-- Once its two global attachment properties are known, the mixed crosscut graph is a complete
+source extension. -/
+theorem isSourceExtension (hs : 0 < s) (hJ : J.Nondeg)
+    (hJopen : J.seg ⊆ srcDom \ srcOuter)
+    (hwindow : Plane.closedSquare p s ⊆ srcDom \ srcOuter)
+    (htwo : w.graph.IsTwoConnected)
+    (hconnected : IsConnected
+      (_root_.Graph.pointSet w.graph w.drawing \ srcOuter)) :
+    IsSourceExtension P.src srcOuter srcDom w.graph w.drawing where
+  finite := w.graph_finite
+  isDrawing := w.graph_isDrawing hs hJ hJopen hwindow
+  isTwoConnected := htwo
+  vertexSet_subset := w.sourceVertices_subset_graph hs hJ
+  skeletonSet_subset := w.sourceSkeleton_subset_graph
+  edge_subset := by
+    intro e he f hf hmeet
+    exact w.graph_edge_subset hs hJ hJopen hwindow he hf hmeet
+  pointSet_subset := w.graph_pointSet_subset hs hJopen hwindow
+  edge_dichotomy := by
+    intro f hf
+    exact w.graph_edge_dichotomy hs hJ hJopen hwindow hf
+  isConnected := hconnected
+
+/-- The crosscut construction is a source extension once its concrete geometric attachment
+data are supplied; no separate graph-theoretic 2-connectivity or carrier-connectedness
+hypotheses remain. -/
+theorem isSourceExtension_of_crosscut_grid_edge (hs : 0 < s) (hJ : J.Nondeg)
+    (hJopen : J.seg ⊆ srcDom \ srcOuter)
+    (hwindow : Plane.closedSquare p s ⊆ srcDom \ srcOuter)
+    (hsource : IsConnected (P.src.skeletonSet \ srcOuter))
+    (hJsource : J.1 ∈ P.src.skeletonSet ∧ J.2 ∈ P.src.skeletonSet)
+    {A : Piece} (hA : A ∈ E(localGrid p s (localGridCount s epsilon)))
+    (hAJ : A.seg ⊆ J.seg) :
+    IsSourceExtension P.src srcOuter srcDom w.graph w.drawing :=
+  w.isSourceExtension hs hJ hJopen hwindow
+    (w.graph_isTwoConnected_of_crosscut_grid_edge hs hJ hJopen hwindow
+      hJsource hA hAJ)
+    (w.graph_isConnected_diff_of_crosscut_grid_edge hs hJopen hwindow
+      hsource hJsource.1 hA hAJ)
+
+end CrosscutOverlayRelabeling
 
 end SourceNonboundarySegmentCover
 

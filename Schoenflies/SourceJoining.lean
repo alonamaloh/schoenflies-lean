@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Álvaro Begué
 -/
 import Schoenflies.OverlayExtension
+import Schoenflies.StageTransition
 
 /-!
 # Polygonal joining ears for boundary-touching source crosscuts
@@ -1100,6 +1101,131 @@ theorem GeneratedPair.exists_joinedLocalGridSourceExtensionData_inside
   · exact hsource
   · exact hA
 
+/-- Every point in the relative interior of a horizontal grid edge has the row's fixed second
+coordinate. -/
+theorem gridHEdge_interior_snd {xc yc : ℕ → ℝ} {i j : ℕ} {z : Plane}
+    (hz : z ∈ (gridHEdge xc yc i j).interior) : z 1 = yc j := by
+  change z ∈ openSegment ℝ (gridPt xc yc i j) (gridPt xc yc (i + 1) j) at hz
+  rw [openSegment_eq_image_lineMap] at hz
+  obtain ⟨t, -, rfl⟩ := hz
+  simp [AffineMap.lineMap_apply, gridPt]
+
+/-- The relative interiors of a local grid's bottom and top leftmost edges are disjoint. -/
+theorem localGrid_horizontal_extremes_interior_disjoint
+    {p : Plane} {s : ℝ} {k : ℕ} (hs : 0 < s) (hk : 1 ≤ k) :
+    Disjoint
+      (gridHEdge (localGridX p s k) (localGridY p s k) 0 0).interior
+      (gridHEdge (localGridX p s k) (localGridY p s k) 0 k).interior := by
+  rw [Set.disjoint_left]
+  intro z hzBottom hzTop
+  have hzBottomCoord := gridHEdge_interior_snd hzBottom
+  have hzTopCoord := gridHEdge_interior_snd hzTop
+  have hrows : localGridY p s k 0 ≠ localGridY p s k k :=
+    ne_of_lt ((localGridY_strictMono hs hk) (by omega))
+  exact hrows (hzBottomCoord.symm.trans hzTopCoord)
+
+/-- If the complete source/grid intersection has at most one point, at least one of two
+opposite horizontal grid edges has relative interior disjoint from the source skeleton. -/
+theorem GeneratedPair.exists_localGridEdge_interior_disjoint_of_common_subsingleton
+    {p : Plane} {s epsilon : ℝ} (hs : 0 < s)
+    (hcommon :
+      (P.src.skeletonSet ∩
+        _root_.Graph.pointSet (localGrid p s (localGridCount s epsilon))
+          segmentDrawing).Subsingleton) :
+    ∃ A ∈ E(localGrid p s (localGridCount s epsilon)),
+      Disjoint A.interior P.src.skeletonSet := by
+  classical
+  let k := localGridCount s epsilon
+  let A₀ := gridHEdge (localGridX p s k) (localGridY p s k) 0 0
+  let A₁ := gridHEdge (localGridX p s k) (localGridY p s k) 0 k
+  have hk : 1 ≤ k := one_le_localGridCount s epsilon
+  have hA₀List : A₀ ∈ localGridEdges p s k := by
+    change A₀ ∈ gridEdges (localGridX p s k) (localGridY p s k) k k
+    exact gridHEdge_mem_gridEdges (by omega) (Nat.zero_le k) hk
+  have hA₁List : A₁ ∈ localGridEdges p s k := by
+    change A₁ ∈ gridEdges (localGridX p s k) (localGridY p s k) k k
+    exact gridHEdge_mem_gridEdges (by omega) (le_refl k) hk
+  have hA₀ : A₀ ∈ E(localGrid p s k) := by
+    simpa only [localGrid_eq, pieceListGraph_mem_edgeSet] using hA₀List
+  have hA₁ : A₁ ∈ E(localGrid p s k) := by
+    simpa only [localGrid_eq, pieceListGraph_mem_edgeSet] using hA₁List
+  by_cases hdisj₀ : Disjoint A₀.interior P.src.skeletonSet
+  · exact ⟨A₀, hA₀, hdisj₀⟩
+  · have hdisj₁ : Disjoint A₁.interior P.src.skeletonSet := by
+      by_contra hnot
+      rw [Set.disjoint_left] at hdisj₀ hnot
+      push Not at hdisj₀ hnot
+      obtain ⟨z₀, hz₀Int, hz₀Source⟩ := hdisj₀
+      obtain ⟨z₁, hz₁Int, hz₁Source⟩ := hnot
+      have hz₀Grid : z₀ ∈ _root_.Graph.pointSet (localGrid p s k) segmentDrawing := by
+        rw [localGrid_eq, pieceListGraph_pointSet]
+        exact mem_cover_iff.2 ⟨A₀, hA₀List,
+          openSegment_subset_segment ℝ _ _ hz₀Int⟩
+      have hz₁Grid : z₁ ∈ _root_.Graph.pointSet (localGrid p s k) segmentDrawing := by
+        rw [localGrid_eq, pieceListGraph_pointSet]
+        exact mem_cover_iff.2 ⟨A₁, hA₁List,
+          openSegment_subset_segment ℝ _ _ hz₁Int⟩
+      have hzEq : z₀ = z₁ :=
+        hcommon ⟨hz₀Source, hz₀Grid⟩ ⟨hz₁Source, hz₁Grid⟩
+      exact Set.disjoint_left.1
+        (localGrid_horizontal_extremes_interior_disjoint hs hk)
+        hz₀Int (hzEq ▸ hz₁Int)
+    exact ⟨A₁, hA₁, hdisj₁⟩
+
+/-- In the two-common-point branch, retaining those points explicitly in the raw source/grid
+overlay gives the complete local-grid source extension directly. -/
+theorem GeneratedPair.exists_localGridSourceExtensionData_of_common_not_subsingleton
+    [Infinite γ] {p : Plane} {s epsilon : ℝ}
+    (hs : 0 < s) (hwindow : Plane.closedSquare p s ⊆ srcDom \ srcOuter)
+    (hsource : IsConnected P.src.nonboundary)
+    (hcommon : ¬(P.src.skeletonSet ∩
+      _root_.Graph.pointSet (localGrid p s (localGridCount s epsilon))
+        segmentDrawing).Subsingleton) :
+    Nonempty (LocalGridSourceExtensionData P p s epsilon) := by
+  classical
+  obtain ⟨a, ha, b, hb, hab⟩ := Set.not_subsingleton_iff.mp hcommon
+  obtain ⟨Q⟩ := P.exists_sourceNonboundarySegmentCover
+  obtain ⟨w⟩ := Q.exists_localOverlayRelabeling p s epsilon [a, b]
+  have commonVertex : ∀ {x : Plane}, x ∈ [a, b] →
+      x ∈ P.src.skeletonSet →
+      x ∈ _root_.Graph.pointSet
+        (localGrid p s (localGridCount s epsilon)) segmentDrawing →
+      x ∈ V(w.graph) := by
+    intro x hxList hxSource hxGrid
+    have hxCover : x ∈ cover (localGridEdges p s (localGridCount s epsilon)) := by
+      simpa only [localGrid_eq, pieceListGraph_pointSet] using hxGrid
+    have hxWindow : x ∈ Plane.closedSquare p s :=
+      SourceNonboundarySegmentCover.cover_localGridEdges_subset_closedSquare hs
+        (one_le_localGridCount s epsilon) hxCover
+    have hxNotOuter : x ∉ srcOuter := (hwindow hxWindow).2
+    have hxCore : x ∈
+        _root_.Graph.pointSet P.sourceNonboundaryGraph P.src.drawing := by
+      rw [P.skeletonSet_eq_sourceNonboundaryGraph_union] at hxSource
+      exact hxSource.resolve_right hxNotOuter
+    change x ∈ V(w.outerGraph.union w.innerGraph)
+    rw [_root_.Graph.vertexSet_union]
+    refine Or.inr ?_
+    rw [_root_.Graph.vertexSet_relabelEdges]
+    change x ∈ V(overlayGraph (Q.localPieces p s epsilon)
+      (attachPoints (Q.localPieces p s epsilon)
+        ([a, b] ++ P.sourceNonboundaryGraph.vertexFinset.toList)))
+    apply overlayGraph_mem_vertexSet_of_mem_cover (Q.localPieces_nondeg hs)
+    · exact mem_attachPoints_of_mem (List.mem_append_left _ hxList)
+    · change x ∈ cover (Q.pieces ++
+        localGridEdges p s (localGridCount s epsilon))
+      rw [cover_append, Q.cover_eq]
+      exact Or.inl hxCore
+  have haV : a ∈ V(w.graph) := commonVertex (by simp) ha.1 ha.2
+  have hbV : b ∈ V(w.graph) := commonVertex (by simp) hb.1 hb.2
+  exact ⟨{
+    graph := w.graph
+    drawing := w.drawing
+    isSourceExtension :=
+      w.isSourceExtension_of_source_connected_two_common hs hwindow hsource
+        hab haV hbV ha.1 hb.1 ha.2 hb.2
+    localGrid_subset := w.localGrid_subset_graph
+  }⟩
+
 /-- A raw grid edge whose open segment misses the current source skeleton lies in one bounded
 source face.  Thus it supplies all of the face-selection data required by the auxiliary
 crosscut and joining construction. -/
@@ -1140,5 +1266,123 @@ theorem GeneratedPair.exists_joinedLocalGridSourceExtensionData_of_disjoint_edge
     hC hF (P.src_isFaceJordan.isBounded hF) hAne hAline
       (midpoint_mem_openSegment A.1 A.2) hs hwindow hsource hA
   exact ⟨⟨F, r, j⟩⟩
+
+/-- The at-most-one-common-point branch automatically supplies a skeleton-disjoint grid edge,
+so the completed face-crosscut and joining construction applies without further choices. -/
+theorem GeneratedPair.exists_joinedLocalGridSourceExtensionData_of_common_subsingleton
+    [Infinite γ] {C : Set Plane}
+    {P : GeneratedPair S₀ C (C ∪ inside C) tgtOuter tgtDom}
+    {p : Plane} {s epsilon : ℝ}
+    (hC : IsSeparating C)
+    (hs : 0 < s) (hwindow : Plane.closedSquare p s ⊆ (C ∪ inside C) \ C)
+    (hsource : IsConnected P.src.nonboundary)
+    (hcommon :
+      (P.src.skeletonSet ∩
+        _root_.Graph.pointSet (localGrid p s (localGridCount s epsilon))
+          segmentDrawing).Subsingleton) :
+    Nonempty (Σ F : γ, Σ A : Piece,
+      Σ r : RefinedSourceFaceCrosscutData P F A,
+        JoinedLocalGridSourceExtensionData r p s epsilon) := by
+  obtain ⟨A, hA, hdisj⟩ :=
+    P.exists_localGridEdge_interior_disjoint_of_common_subsingleton hs hcommon
+  obtain ⟨⟨F, r, j⟩⟩ :=
+    P.exists_joinedLocalGridSourceExtensionData_of_disjoint_edge
+      hC hs hwindow hsource hA hdisj
+  exact ⟨⟨F, A, r, j⟩⟩
+
+/-- Exhaustive local-grid attachment.  With two distinct source/grid intersection points the
+raw overlay extends the current pair directly.  Otherwise a raw grid edge misses the skeleton
+in its relative interior, and a matched endpoint subdivision followed by the crosscut and
+polygonal joining ears produces the extension. -/
+theorem GeneratedPair.exists_localGridSourceExtensionData_cases
+    [Infinite γ] {C : Set Plane}
+    {P : GeneratedPair S₀ C (C ∪ inside C) tgtOuter tgtDom}
+    {p : Plane} {s epsilon : ℝ}
+    (hC : IsSeparating C)
+    (hs : 0 < s) (hwindow : Plane.closedSquare p s ⊆ (C ∪ inside C) \ C)
+    (hsource : IsConnected P.src.nonboundary) :
+    Nonempty (LocalGridSourceExtensionData P p s epsilon) ∨
+      Nonempty (Σ F : γ, Σ A : Piece,
+        Σ r : RefinedSourceFaceCrosscutData P F A,
+          JoinedLocalGridSourceExtensionData r p s epsilon) := by
+  classical
+  by_cases hcommon :
+      (P.src.skeletonSet ∩
+        _root_.Graph.pointSet (localGrid p s (localGridCount s epsilon))
+          segmentDrawing).Subsingleton
+  · exact Or.inr
+      (P.exists_joinedLocalGridSourceExtensionData_of_common_subsingleton
+        hC hs hwindow hsource hcommon)
+  · exact Or.inl
+      (P.exists_localGridSourceExtensionData_of_common_not_subsingleton
+        hs hwindow hsource hcommon)
+
+namespace GeneratedPair.SubdivideSetData
+
+/-- A matched finite source-skeleton subdivision is already a stage transition. -/
+theorem stageTransition {s : Set Plane} (r : GeneratedPair.SubdivideSetData P s) :
+    StageTransition r.pair P r.parent where
+  refines_src := r.refines_src
+  refines_tgt := r.refines_tgt
+  sourceSkeletonSet_subset := by
+    rw [r.skeletonSet_eq]
+  homeo_eqOn := r.homeo_eqOn
+
+end GeneratedPair.SubdivideSetData
+
+/-- The uniform stage-level output of local-grid attachment, after running forward finite
+transfer.  Both geometric branches now return one generated refinement of the original pair,
+with admissibility restored and the complete raw local grid in its source skeleton. -/
+structure LocalGridForwardStageData {C : Set Plane}
+    (P : GeneratedPair S₀ C (C ∪ inside C) tgtOuter tgtDom)
+    (p : Plane) (s epsilon : ℝ) where
+  pair : GeneratedPair S₀ C (C ∪ inside C) tgtOuter tgtDom
+  parent : γ → γ
+  transition : StageTransition pair P parent
+  src_isAdmissible : pair.src.IsAdmissible C (C ∪ inside C)
+  tgt_isAdmissible : pair.tgt.IsAdmissible tgtOuter tgtDom
+  localGrid_subset :
+    _root_.Graph.pointSet (localGrid p s (localGridCount s epsilon)) segmentDrawing ⊆
+      pair.src.skeletonSet
+
+/-- **Unconditional local-grid forward successor.**  The source/grid intersection dichotomy,
+the auxiliary face crosscut, endpoint subdivisions, polygonal joining ear, and forward finite
+transfer are all internal. -/
+theorem GeneratedPair.exists_localGridForwardStageData
+    [Infinite γ] {C : Set Plane}
+    {P : GeneratedPair S₀ C (C ∪ inside C) tgtOuter tgtDom}
+    {p : Plane} {s epsilon : ℝ}
+    (hC : IsSeparating C)
+    (hs : 0 < s) (hwindow : Plane.closedSquare p s ⊆ (C ∪ inside C) \ C)
+    (hsource : IsConnected P.src.nonboundary) :
+    Nonempty (LocalGridForwardStageData P p s epsilon) := by
+  rcases P.exists_localGridSourceExtensionData_cases hC hs hwindow hsource with
+    hdirect | hrefined
+  · obtain ⟨d⟩ := hdirect
+    obtain ⟨T, par, hT⟩ :=
+      finite_transfer_toward_square_unconditional d.isSourceExtension
+    exact ⟨{
+      pair := T
+      parent := par
+      transition := hT.stageTransition
+      src_isAdmissible := hT.src_isAdmissible
+      tgt_isAdmissible := hT.tgt_isAdmissible
+      localGrid_subset := by
+        rw [hT.skeletonSet_eq]
+        exact d.localGrid_subset
+    }⟩
+  · obtain ⟨⟨F, A, r, j⟩⟩ := hrefined
+    obtain ⟨T, par, hT⟩ :=
+      finite_transfer_toward_square_unconditional j.isSourceExtension
+    exact ⟨{
+      pair := T
+      parent := r.subdivision.parent ∘ par
+      transition := hT.stageTransition.trans r.subdivision.stageTransition
+      src_isAdmissible := hT.src_isAdmissible
+      tgt_isAdmissible := hT.tgt_isAdmissible
+      localGrid_subset := by
+        rw [hT.skeletonSet_eq]
+        exact j.localGrid_subset
+    }⟩
 
 end Schoenflies

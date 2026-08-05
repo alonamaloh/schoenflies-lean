@@ -120,4 +120,5 @@ import Schoenflies.SourceOverlay
 import Schoenflies.SourceAttachment
 import Schoenflies.OverlayExtension
 import Schoenflies.SourceJoining
+import Schoenflies.QuantitativeForwardStages
 import Schoenflies.MatchedSplit

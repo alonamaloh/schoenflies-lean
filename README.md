@@ -28,10 +28,10 @@ polygonal case is stated through — so `inside`, `outside` and the whole region
 general Jordan curve with nothing to transport, and every consumer written against
 `ClosedPolygon.polygonal_jordan` applies verbatim.
 
-**Part II — the Schönflies extension — is in progress.** The abstract scaffolding was built
-first, because `lem:combinatorial-invariance` has no internal prerequisites and could be proved
-while the Jordan curve theorem was still open. The critical path is now assertions (i) and (vii)
-of `lem:cellulation-invariants`, then `thm:finite-transfer`.
+**Part II is complete.** `Schoenflies.jordan_schoenflies_of_homeomorph_unconditional` proves
+that every homeomorphism between two Jordan curves extends to a self-homeomorphism of the
+plane. `Schoenflies.squareExtension_unconditional` is the closed-domain square-extension
+theorem used by the final reduction. Both are proved without any project-specific hypothesis.
 
 `docs/ROADMAP.md` has every one of the blueprint's 84 labelled statements with its status and
 its Lean home. Work is scheduled off Appendix A of the blueprint — its machine-generated
@@ -49,7 +49,7 @@ of the critical path.
 | H9 the outer-chain lemma | done |
 | the Jordan curve theorem | **done** |
 | H10 the general crosscut theorem | **done** |
-| H11 Jordan–Schönflies | in progress |
+| H11 Jordan–Schönflies | **done** |
 
 ### Two gates, and why the build is not enough
 

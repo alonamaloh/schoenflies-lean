@@ -176,6 +176,74 @@ theorem exists_finite_freshDense_of_dense {eligible : Set Plane}
       exact (hS hzS).1
     exact hzUnion.elim hzA₁ hzA₂
 
+/-- A finite boundary list is a metric net at scale `delta`.  This explicit consequence is
+retained for the boundary-continuity construction; `FreshDense` itself is the order-free
+connected-component estimate needed by the target mesh. -/
+def FreshNet (fresh : List Plane) (delta : ℝ) : Prop :=
+  ∀ x ∈ modelCurve, ∃ z ∈ fresh, dist x z < delta
+
+theorem FreshDense.mono {fresh fresh' : List Plane} {delta : ℝ}
+    (h : FreshDense fresh delta) (hsub : ∀ z ∈ fresh, z ∈ fresh') :
+    FreshDense fresh' delta := by
+  intro A hA hAconn x hx y hy
+  apply h A _ hAconn x hx y hy
+  intro z hz
+  have hz' := hA hz
+  exact ⟨hz'.1, fun hzf => hz'.2 (hsub z hzf)⟩
+
+theorem FreshNet.mono {fresh fresh' : List Plane} {delta : ℝ}
+    (h : FreshNet fresh delta) (hsub : ∀ z ∈ fresh, z ∈ fresh') :
+    FreshNet fresh' delta := by
+  intro x hx
+  obtain ⟨z, hz, hzx⟩ := h x hx
+  exact ⟨z, hsub z hz, hzx⟩
+
+/-- A relatively dense eligible subset of the compact model curve supplies a finite metric
+net consisting entirely of eligible points. -/
+theorem exists_finite_freshNet_of_dense {eligible : Set Plane}
+    (hdense : modelCurve ⊆ closure eligible)
+    {delta : ℝ} (hdelta : 0 < delta) :
+    ∃ fresh : List Plane, (∀ z ∈ fresh, z ∈ eligible) ∧ FreshNet fresh delta := by
+  let U : eligible → Set Plane := fun z => ball (z : Plane) delta
+  have hcover : modelCurve ⊆ ⋃ z, U z := by
+    intro x hx
+    obtain ⟨z, hz, hzx⟩ := Metric.mem_closure_iff.1 (hdense hx) delta hdelta
+    apply Set.mem_iUnion.2
+    refine ⟨⟨z, hz⟩, ?_⟩
+    exact mem_ball.2 hzx
+  obtain ⟨indices, hindices⟩ :=
+    isCompact_modelCurve.elim_finite_subcover U (fun _ => isOpen_ball) hcover
+  let fresh : List Plane := indices.toList.map Subtype.val
+  refine ⟨fresh, ?_, ?_⟩
+  · intro z hz
+    change z ∈ indices.toList.map Subtype.val at hz
+    obtain ⟨w, hw, rfl⟩ := List.mem_map.1 hz
+    exact w.property
+  · intro x hx
+    obtain ⟨z, hzi, hz⟩ := Set.mem_iUnion₂.1 (hindices hx)
+    refine ⟨z, ?_, ?_⟩
+    · apply List.mem_map.2
+      exact ⟨z, by simpa using hzi, rfl⟩
+    · exact mem_ball.1 hz
+
+/-- The two finite selections can be combined without losing either property. -/
+theorem exists_finite_freshDenseNet_of_dense {eligible : Set Plane}
+    (heligible : eligible ⊆ modelCurve) (hdense : modelCurve ⊆ closure eligible)
+    {delta : ℝ} (hdelta : 0 < delta) :
+    ∃ fresh : List Plane, (∀ z ∈ fresh, z ∈ eligible) ∧
+      FreshDense fresh delta ∧ FreshNet fresh delta := by
+  obtain ⟨dense, hdenseMem, hdenseProp⟩ :=
+    exists_finite_freshDense_of_dense heligible hdense hdelta
+  obtain ⟨net, hnetMem, hnetProp⟩ :=
+    exists_finite_freshNet_of_dense hdense hdelta
+  refine ⟨dense ++ net, ?_, hdenseProp.mono ?_, hnetProp.mono ?_⟩
+  · intro z hz
+    rcases List.mem_append.1 hz with hz | hz
+    · exact hdenseMem z hz
+    · exact hnetMem z hz
+  · exact fun z hz => List.mem_append_left _ hz
+  · exact fun z hz => List.mem_append_right _ hz
+
 /-! ### Fresh lists for a generated target overlay -/
 
 namespace TargetSegmentCover
@@ -275,7 +343,8 @@ theorem exists_clean_freshDense_of_accessibleTargetBoundary_dense
       (∀ z ∈ fresh, z ∈ modelCurve) ∧
       (∀ z ∈ fresh,
         StronglyAccessible (srcDom \ srcOuter) (P.homeo.invFun z)) ∧
-      FreshAvoidsTargetNonouterEdges P fresh ∧ FreshDense fresh delta := by
+      FreshAvoidsTargetNonouterEdges P fresh ∧ FreshDense fresh delta ∧
+      FreshNet fresh delta := by
   letI : Graph.Finite P.tgt.graph :=
     CellStructure.Realization.finite_graph P.tgt
   have haccessibleSubset : accessibleTargetBoundary P ⊆ modelCurve :=
@@ -284,7 +353,7 @@ theorem exists_clean_freshDense_of_accessibleTargetBoundary_dense
       closure (accessibleTargetBoundary P \ V(P.tgt.graph)) :=
     isJordanCurve_modelCurve.subset_closure_sdiff_finite
       haccessibleSubset haccessible (Graph.finite_vertexSet (G := P.tgt.graph))
-  obtain ⟨fresh, hfreshClean, hdense⟩ := exists_finite_freshDense_of_dense
+  obtain ⟨fresh, hfreshClean, hdense, hnet⟩ := exists_finite_freshDenseNet_of_dense
     (Set.sdiff_subset.trans haccessibleSubset) hcleanDense hdelta
   have hfresh : ∀ z ∈ fresh, z ∈ modelCurve := by
     intro z hz
@@ -298,7 +367,7 @@ theorem exists_clean_freshDense_of_accessibleTargetBoundary_dense
     exact (hfreshClean z hz).2
   exact ⟨fresh, hfresh, hstrong,
     freshAvoidsTargetNonouterEdges_of_avoids_targetVertices hfresh havoidVertices,
-    hdense⟩
+    hdense, hnet⟩
 
 /-- Dense accessible boundary points now suffice for the full overlay reverse transfer.  The
 mesh scale, finite clean fresh list, fresh abstract edge names, and transferred generated pair
@@ -313,6 +382,7 @@ theorem exists_finite_transfer_toward_source_meshOverlay_of_accessibleBoundary_d
       (∀ z ∈ fresh,
         StronglyAccessible (srcDom \ srcOuter) (P.homeo.invFun z)) ∧
       FreshAvoidsTargetNonouterEdges P fresh ∧ FreshDense fresh delta ∧
+      FreshNet fresh delta ∧
       ∃ (name : Piece → γ) (hname : InjOn name E(Q.meshOverlay delta fresh anchors))
           (T : GeneratedPair S₀ srcOuter srcDom modelCurve (Plane.closedSquare 0 1))
           (par : γ → γ),
@@ -321,12 +391,12 @@ theorem exists_finite_transfer_toward_source_meshOverlay_of_accessibleBoundary_d
           ((Q.meshOverlay delta fresh anchors).relabelDrawing name segmentDrawing) par := by
   obtain ⟨delta, hdelta, hdelta4, htransfer⟩ :=
     Q.exists_scale_finite_transfer_toward_source_meshOverlay hcycle
-  obtain ⟨fresh, hfresh, hstrong, havoid, hdense⟩ :=
+  obtain ⟨fresh, hfresh, hstrong, havoid, hdense, hnet⟩ :=
     exists_clean_freshDense_of_accessibleTargetBoundary_dense
       P haccessible hdelta
   obtain ⟨name, hname, T, par, hT⟩ :=
     htransfer fresh anchors hfresh hstrong havoid hdense
-  exact ⟨delta, fresh, hdelta, hdelta4, hfresh, hstrong, havoid, hdense,
+  exact ⟨delta, fresh, hdelta, hdelta4, hfresh, hstrong, havoid, hdense, hnet,
     name, hname, T, par, hT⟩
 
 /-- The complete finite data selected by one reverse overlay-transfer stage.  Packaging the
@@ -344,6 +414,8 @@ structure MeshOverlayTransferData (Q : TargetSegmentCover P) (anchors : List Pla
     StronglyAccessible (srcDom \ srcOuter) (P.homeo.invFun z)
   fresh_avoids : FreshAvoidsTargetNonouterEdges P fresh
   fresh_dense : FreshDense fresh delta
+  /-- The selected points also form an explicit metric net on the target boundary. -/
+  fresh_net : FreshNet fresh delta
   /-- Fresh abstract names for all edges of the finite overlay. -/
   name : Piece → γ
   name_inj : InjOn name E(Q.meshOverlay delta fresh anchors)
@@ -362,7 +434,7 @@ theorem nonempty_meshOverlayTransferData_of_accessibleBoundary_dense
     (haccessible : modelCurve ⊆ closure (accessibleTargetBoundary P))
     (hcycle : S₀.OuterEdgesFormCycle) (anchors : List Plane) :
     Nonempty (MeshOverlayTransferData Q anchors) := by
-  obtain ⟨delta, fresh, hdelta, hdelta4, hfresh, hstrong, havoid, hdense,
+  obtain ⟨delta, fresh, hdelta, hdelta4, hfresh, hstrong, havoid, hdense, hnet,
       name, hname, T, par, hT⟩ :=
     Q.exists_finite_transfer_toward_source_meshOverlay_of_accessibleBoundary_dense
       haccessible hcycle anchors
@@ -375,6 +447,7 @@ theorem nonempty_meshOverlayTransferData_of_accessibleBoundary_dense
     fresh_accessible := hstrong
     fresh_avoids := havoid
     fresh_dense := hdense
+    fresh_net := hnet
     name := name
     name_inj := hname
     pair := T
@@ -402,7 +475,7 @@ theorem exists_meshOverlayTransferData_lt_of_accessibleBoundary_dense
     ∃ w : MeshOverlayTransferData Q anchors, w.delta < bound := by
   obtain ⟨delta, hdelta, hdelta4, hdeltabound, htransfer⟩ :=
     Q.exists_scale_finite_transfer_toward_source_meshOverlay_lt hcycle hbound
-  obtain ⟨fresh, hfresh, hstrong, havoid, hdense⟩ :=
+  obtain ⟨fresh, hfresh, hstrong, havoid, hdense, hnet⟩ :=
     exists_clean_freshDense_of_accessibleTargetBoundary_dense
       P haccessible hdelta
   obtain ⟨name, hname, T, par, hT⟩ :=
@@ -416,6 +489,7 @@ theorem exists_meshOverlayTransferData_lt_of_accessibleBoundary_dense
     fresh_accessible := hstrong
     fresh_avoids := havoid
     fresh_dense := hdense
+    fresh_net := hnet
     name := name
     name_inj := hname
     pair := T

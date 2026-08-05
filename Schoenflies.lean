@@ -123,4 +123,6 @@ import Schoenflies.SourceJoining
 import Schoenflies.QuantitativeForwardStages
 import Schoenflies.QuantitativeRecursion
 import Schoenflies.UnconditionalInterior
+import Schoenflies.BoundaryAnchors
+import Schoenflies.UnconditionalSchoenflies
 import Schoenflies.MatchedSplit

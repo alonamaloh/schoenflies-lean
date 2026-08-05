@@ -48,6 +48,14 @@ namespace StageTransition
 variable {P Q T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom}
   {par₁ par₂ : γ → γ}
 
+/-- Target skeletons grow as well.  This follows from source-skeleton growth and agreement of
+the two skeleton homeomorphisms on the old source skeleton. -/
+theorem targetSkeletonSet_subset {par : γ → γ}
+    (h : StageTransition T P par) : P.tgt.skeletonSet ⊆ T.tgt.skeletonSet := by
+  rw [← P.homeo.image_skeletonSet, ← T.homeo.image_skeletonSet]
+  rintro y ⟨x, hx, rfl⟩
+  exact ⟨x, h.sourceSkeletonSet_subset hx, h.homeo_eqOn hx⟩
+
 /-- Consecutive stage transitions compose their parent maps and their nesting data. -/
 theorem trans (h₂ : StageTransition T Q par₂) (h₁ : StageTransition Q P par₁) :
     StageTransition T P (par₁ ∘ par₂) where

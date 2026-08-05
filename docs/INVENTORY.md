@@ -34,6 +34,10 @@ checker under proof irrelevance.
 
 `Schoenflies.arcParam`, `Schoenflies.arcParam_spec`, `Schoenflies.arcParam_mem_I`, `Schoenflies.apply_arcParam`, `Schoenflies.arcParam_eq_of_apply`, `Schoenflies.ArcMatch`, `Schoenflies.transferParam`, `Schoenflies.ArcMatch.mem_image_map`, `Schoenflies.ArcMatch.param_mem_I`, `Schoenflies.ArcMatch.apply_param`, `Schoenflies.ArcMatch.param_eq`, `Schoenflies.ArcMatch.injOn_param`, `Schoenflies.ArcMatch.continuousOn_param`, `Schoenflies.ArcMatch.strictMonoOn_or_strictAntiOn_param`, `Schoenflies.ArcMatch.surjOn_param`, `Schoenflies.ArcMatch.image_param_I`, `Schoenflies.ArcMatch.param_mem_uIcc`, `Schoenflies.ArcMatch.image_param_uIcc`, `Schoenflies.ArcMatch.image_image_uIcc`, `Schoenflies.ArcMatch.image_subarc`, `Schoenflies.ArcMatch.param_zero`, `Schoenflies.ArcMatch.strictMonoOn_param`, `Schoenflies.ArcMatch.param_one`, `Schoenflies.ArcMatch.image_initial`, `Schoenflies.ArcMatch.image_terminal`, `Schoenflies.ArcMatch.param_mem_Ioo`, `Schoenflies.ArcMatch.param_mem_Ioo_of_ends`
 
+## Schoenflies/BoundaryAnchors.lean  (913 lines)
+
+`Schoenflies.CellStructure.Realization.IsAdmissible.isStageOn`, `Schoenflies.Graph.IsDrawing.exists_nonboundary_incident_of_mem_closure`, `Schoenflies.Graph.pointSet_traceGraph_eq_interiorPart`, `Schoenflies.Graph.IsDrawing.isPolygonal_edgesCover_of_mem`, `Schoenflies.Graph.IsWalk.exists_lift_map`, `Schoenflies.Graph.IsPath.exists_lift_map`, `Schoenflies.CellStructure.SkeletonHomeo.image_edgesCover`, `Schoenflies.Graph.IsStageOn.exists_crosscut_path`, `Schoenflies.exists_halfSpoke_tail`, `Schoenflies.quantitativeFreshTargetSet`, `Schoenflies.quantitativeFreshTargetSet_subset`, `Schoenflies.quantitativeFresh_halfSpoke_subset_targetSkeleton`, `Schoenflies.quantitativeFreshTargetSet_dense`, `Schoenflies.prescribedTargetAnchorSet`, `Schoenflies.prescribedSourceAnchorSet`, `Schoenflies.prescribedTargetAnchorSet_subset`, `Schoenflies.prescribedTargetAnchorSet_dense`, `Schoenflies.prescribedSourceAnchorSet_subset`, `Schoenflies.IsHomeoOn.subset_closure_image_inv`, `Schoenflies.prescribedSourceAnchorSet_dense`, `Schoenflies.prescribedJordanStage_homeo_eq_boundary`, `Schoenflies.prescribedJordanStage_invFun_eq_boundaryInv`, `Schoenflies.prescribedJordanStage_succ_src_isAdmissible`, `Schoenflies.prescribedSourceAnchorSet_stageWitness`, `Schoenflies.prescribedSourceAnchorSet_stageClosure`, `Schoenflies.prescribedSourceAnchorSet_hasSpokes`, `Schoenflies.prescribedSourceAnchorSet_hasAnchorCrosscuts`
+
 ## Schoenflies/BoundaryContinuity.lean  (601 lines)
 
 `Graph.Nonboundary`, `Graph.IsStageOn`, `Graph.IsStageOn.notMem_of_mem_curve`, `Graph.IsStageOn.notMem_curve`, `Graph.IsStageOn.pointSet_diff_subset`, `Graph.IsStageOn.edgeArc_inter_curve`, `Graph.IsStageOn.left_mem_edgeArc`, `Graph.IsStageOn.right_mem_edgeArc`, `Graph.IsStageOn.edgeArc_subset_of_ends`, `Graph.IsStageOn.diff_subset_edgeArc`, `Graph.IsStageOn.isLink_of_ends_mem`, `Graph.interiorPart`, `Graph.interiorPart_subset`, `Graph.interiorPart_subset_pointSet`, `Graph.isClosed_interiorPart`, `Graph.attachEdges`, `Graph.subset_attachEdges`, `Graph.isClosed_attachEdges`, `Graph.IsStageOn.edgeArc_inter_interiorPart`, `Graph.IsStageOn.edgeArc_inter_interiorPart_subset`, `Graph.IsStageOn.isPreconnected_interiorPart`, `Graph.IsStageOn.exists_crosscut`
@@ -130,9 +134,9 @@ checker under proof irrelevance.
 
 `Schoenflies.convex_accessCone`, `Schoenflies.isPreconnected_accessCone`, `Schoenflies.mem_closure_accessCone`, `Schoenflies.polyAccessible_accessCone`, `Schoenflies.exists_accessCone_disjoint`, `Schoenflies.CellsAbsorbIn`, `Schoenflies.CellsAbsorb.cellsAbsorbIn`, `Schoenflies.accessCone_subset_cell`, `Schoenflies.accessCone_subset_cell_in`, `Schoenflies.polyAccessible_of_stronglyAccessible`, `Schoenflies.polyAccessible_of_stronglyAccessible_in`
 
-## Schoenflies/FreshDenseSelection.lean  (508 lines)
+## Schoenflies/FreshDenseSelection.lean  (582 lines)
 
-`Schoenflies.IsJordanCurve.subset_closure_sdiff_finite`, `Schoenflies.exists_finite_freshDense_of_dense`, `Schoenflies.TargetSegmentCover.accessibleSourceBoundary`, `Schoenflies.TargetSegmentCover.accessibleTargetBoundary`, `Schoenflies.TargetSegmentCover.accessibleTargetBoundary_dense_of_source`, `Schoenflies.TargetSegmentCover.accessibleTargetBoundary_dense_of_region`, `Schoenflies.TargetSegmentCover.accessibleTargetBoundary_dense_inside`, `Schoenflies.TargetSegmentCover.exists_clean_freshDense_of_accessibleTargetBoundary_dense`, `Schoenflies.TargetSegmentCover.exists_finite_transfer_toward_source_meshOverlay_of_accessibleBoundary_dense`, `Schoenflies.TargetSegmentCover.MeshOverlayTransferData`, `Schoenflies.TargetSegmentCover.nonempty_meshOverlayTransferData_of_accessibleBoundary_dense`, `Schoenflies.TargetSegmentCover.nonempty_meshOverlayTransferData_inside`, `Schoenflies.TargetSegmentCover.exists_meshOverlayTransferData_lt_of_accessibleBoundary_dense`, `Schoenflies.TargetSegmentCover.exists_meshOverlayTransferData_lt_inside`, `Schoenflies.TargetSegmentCover.MeshOverlayTransferData.diam_closure_targetFace_lt`, `Schoenflies.TargetSegmentCover.MeshOverlayTransferData.diam_targetStar_lt`
+`Schoenflies.IsJordanCurve.subset_closure_sdiff_finite`, `Schoenflies.exists_finite_freshDense_of_dense`, `Schoenflies.FreshNet`, `Schoenflies.FreshDense.mono`, `Schoenflies.FreshNet.mono`, `Schoenflies.exists_finite_freshNet_of_dense`, `Schoenflies.exists_finite_freshDenseNet_of_dense`, `Schoenflies.TargetSegmentCover.accessibleSourceBoundary`, `Schoenflies.TargetSegmentCover.accessibleTargetBoundary`, `Schoenflies.TargetSegmentCover.accessibleTargetBoundary_dense_of_source`, `Schoenflies.TargetSegmentCover.accessibleTargetBoundary_dense_of_region`, `Schoenflies.TargetSegmentCover.accessibleTargetBoundary_dense_inside`, `Schoenflies.TargetSegmentCover.exists_clean_freshDense_of_accessibleTargetBoundary_dense`, `Schoenflies.TargetSegmentCover.exists_finite_transfer_toward_source_meshOverlay_of_accessibleBoundary_dense`, `Schoenflies.TargetSegmentCover.MeshOverlayTransferData`, `Schoenflies.TargetSegmentCover.nonempty_meshOverlayTransferData_of_accessibleBoundary_dense`, `Schoenflies.TargetSegmentCover.nonempty_meshOverlayTransferData_inside`, `Schoenflies.TargetSegmentCover.exists_meshOverlayTransferData_lt_of_accessibleBoundary_dense`, `Schoenflies.TargetSegmentCover.exists_meshOverlayTransferData_lt_inside`, `Schoenflies.TargetSegmentCover.MeshOverlayTransferData.diam_closure_targetFace_lt`, `Schoenflies.TargetSegmentCover.MeshOverlayTransferData.diam_targetStar_lt`
 
 ## Schoenflies/GeneralCrosscut.lean  (542 lines)
 
@@ -466,9 +470,9 @@ checker under proof irrelevance.
 
 `Schoenflies.isBounded_union_inside`, `Schoenflies.isOpen_union_inside_sdiff`, `Schoenflies.isOpen_closedSquare_sdiff_modelCurve`, `Schoenflies.StageSequence`, `Schoenflies.StageSequence.refines_src`, `Schoenflies.StageSequence.refines_tgt`, `Schoenflies.StageSequence.skeletonSet_mono`, `Schoenflies.StageSequence.skelHomeo_succ`, `Schoenflies.StageSequence.limitTower`, `Schoenflies.StageSequence.limitTower_region`, `Schoenflies.StageSequence.limitTower_region'`, `Schoenflies.StageSequence.isHomeoOn_F`, `Schoenflies.StageSequence.F_eq_skelHomeo`
 
-## Schoenflies/StageTransition.lean  (101 lines)
+## Schoenflies/StageTransition.lean  (109 lines)
 
-`Schoenflies.StageTransition`, `Schoenflies.StageTransition.trans`, `Schoenflies.IsPartialTransferOf.stageTransition`, `Schoenflies.IsTargetPartialTransferOf.stageTransition`, `Schoenflies.IsTransferOf.stageTransition`, `Schoenflies.IsTargetTransferOf.stageTransition`
+`Schoenflies.StageTransition`, `Schoenflies.StageTransition.targetSkeletonSet_subset`, `Schoenflies.StageTransition.trans`, `Schoenflies.IsPartialTransferOf.stageTransition`, `Schoenflies.IsTargetPartialTransferOf.stageTransition`, `Schoenflies.IsTransferOf.stageTransition`, `Schoenflies.IsTargetTransferOf.stageTransition`
 
 ## Schoenflies/Strip.lean  (1013 lines)
 
@@ -509,6 +513,10 @@ checker under proof irrelevance.
 ## Schoenflies/UnconditionalInterior.lean  (121 lines)
 
 `Schoenflies.IsHomeoOn.toIsSetHomeoOn`, `Schoenflies.prescribedAnchoredInitialData`, `Schoenflies.prescribedAnchoredInitialData_u`, `Schoenflies.prescribedJordanStageSequence`, `Schoenflies.jordanStageSequence`, `Schoenflies.exists_isHomeoOn_inside_openSquare`, `Schoenflies.jordanInteriorMap`, `Schoenflies.jordanInteriorInv`, `Schoenflies.jordanInteriorMap_isHomeoOn`, `Schoenflies.jordanInteriorMap_eq_initialData_u`, `Schoenflies.prescribedJordanStageSequence_F_eq_boundary`
+
+## Schoenflies/UnconditionalSchoenflies.lean  (66 lines)
+
+`Schoenflies.hasLimitHomeomorphism_unconditional`, `Schoenflies.squareExtension_unconditional`, `Schoenflies.jordan_schoenflies_unconditional`, `Schoenflies.jordan_schoenflies_homeomorph_unconditional`, `Schoenflies.jordan_schoenflies_of_homeomorph_unconditional`
 
 ## Schoenflies/UniformBound.lean  (59 lines)
 

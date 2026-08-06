@@ -79,10 +79,10 @@ Only what is peculiar to the crosscut wiring is left here.
 
 ## A note on names, for the integrator
 
-The unconditional statements could not take the names of the conditional ones, which are still
-in the import closure:
+The direct statements use eliminator-style names because the realization-parametric lemmas are
+still in the import closure:
 
-| conditional, now dead                             | unconditional, here                        |
+| realization-parametric lemma                      | direct theorem                             |
 |---------------------------------------------------|--------------------------------------------|
 | `Graph.IsK33Config.not_isDrawing` (K33Planar)      | `Graph.IsK33Config.not_exists_isDrawing`   |
 | `Graph.IsK33Config.not_isDrawing_of_bendable`      | `Graph.IsK33Config.not_exists_isDrawing`   |
@@ -736,7 +736,7 @@ def IsPreHexCrosscut (drawing : β → ℝ → Plane) (e : Fin 3 → Fin 3 → �
 
 namespace IsK33Config
 
-/-- **The crosscut exists, unconditionally, for any polygonal drawing.** The six-cycle is
+/-- **The crosscut exists for any polygonal drawing.** The six-cycle is
 realized as a `Schoenflies.PrePolygon` cut at the two ends of the remaining edge — possible
 because a `PrePolygon` may have a vertex wherever one likes — and the two closed curves the
 remaining edge forms with the two halves are then *built* from that realization and from one
@@ -871,12 +871,12 @@ theorem not_exists_isDrawing [G.Finite] (h : IsK33Config G x y e) :
 
 end IsK33Config
 
-/-- **`lem:k33` for nine arcs**, unconditionally: no nine arcs in the plane meet only where a
+/-- **`lem:k33` for nine arcs**: no nine arcs in the plane meet only where a
 `K(3,3)` forces them to. -/
 theorem IsArcK33.elim {P : Fin 3 → Fin 3 → Set Plane} (h : IsArcK33 x y P) : False :=
   h.isK33Config.not_exists_isDrawing ⟨h.arcDrawing, h.isDrawing⟩
 
-/-- **Corollary 3.11 (subdivisions of `K(3,3)`), unconditionally.** No subdivision of `K(3,3)`
+/-- **Corollary 3.11 (subdivisions of `K(3,3)`).** No subdivision of `K(3,3)`
 has a plane drawing. -/
 theorem IsK33Subdivision.elim {H : Graph Plane β} {W : Fin 3 → Fin 3 → List β}
     (hd : IsDrawing H drawing) (h : IsK33Subdivision H x y W) : False :=

@@ -31,8 +31,8 @@ status:
     - "Classical.choice"
     - "Quot.sound"
   main_results:
-    - declaration: "Schoenflies.jordan_schoenflies_of_homeomorph_unconditional"
-      file: "Schoenflies/UnconditionalSchoenflies.lean"
+    - declaration: "Schoenflies.jordan_schoenflies_of_homeomorph"
+      file: "Schoenflies/JordanSchoenflies.lean"
       sorry_count: 0
       axioms:
         - "propext"
@@ -129,13 +129,13 @@ alignment:
       status: "proved"
       note: "The general crosscut theorem for a Jordan domain."
     - source: "thm:square-extension"
-      lean: "Schoenflies.squareExtension_unconditional"
-      module: "Schoenflies.UnconditionalSchoenflies"
+      lean: "Schoenflies.squareExtension"
+      module: "Schoenflies.JordanSchoenflies"
       status: "proved"
-      note: "The unconditional square-extension input to the final reduction."
+      note: "The square-extension theorem used by the final reduction."
     - source: "thm:main"
-      lean: "Schoenflies.jordan_schoenflies_of_homeomorph_unconditional"
-      module: "Schoenflies.UnconditionalSchoenflies"
+      lean: "Schoenflies.jordan_schoenflies_of_homeomorph"
+      module: "Schoenflies.JordanSchoenflies"
       status: "proved"
       note: "The blueprint's bundled Jordan–Schönflies theorem."
 

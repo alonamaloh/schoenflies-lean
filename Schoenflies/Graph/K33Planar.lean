@@ -17,7 +17,7 @@ wires those five facts to `Schoenflies.alternating_crosscuts` and derives the co
 then does the blueprint's reduction of `cor:k33-subdivision` to `lem:k33`.
 
 **One hypothesis is assumed and not proved: `Graph.IsHexRealization`. See "The gap" below.**
-Everything else here is unconditional.
+The remaining results use only the hypotheses in their statements.
 
 ## Blueprint
 
@@ -60,7 +60,7 @@ it for and pared down to its combinatorial core: four closed polygons and four e
 identifying their carriers and edge lists with the drawing. No topological side condition
 survives in it — the reference point of Theorem 2.8 and the three "meets" clauses are proved
 here from the drawing. It is *not proved here*, and every theorem below that mentions it is
-therefore conditional.
+therefore requires that realization as a hypothesis.
 
 **Why the realization is allowed to change the drawing.** `IsHexRealization` asks for
 `C.arc a k = arcA e s`, which pins the two ends of that arc — the vertices `x s` and
@@ -463,7 +463,7 @@ theorem isK33Config (h : IsArcK33 x y P) :
   ne := h.ne
 
 /-- **`lem:k33` for nine arcs**: no nine arcs in the plane meet only where a `K(3,3)` forces
-them to. Conditional on the realization, exactly as `Graph.IsK33Config.not_isDrawing` is. -/
+them to. This assumes the realization, exactly as `Graph.IsK33Config.not_isDrawing` does. -/
 theorem false_of_realization (h : IsArcK33 x y P)
     (hreal : ∀ dr : Fin 3 × Fin 3 → ℝ → Plane, IsDrawing (k33Graph x y) dr →
       (∀ f ∈ E(k33Graph x y), IsPolygonal (edgeArc dr f)) →
@@ -528,7 +528,7 @@ theorem isArcK33 {drawing : β → ℝ → Plane} (hd : IsDrawing H drawing)
     (mem_walkVertices_of_mem_covered ⟨g, hg, hincg⟩)
 
 /-- **Corollary 3.11 (subdivisions of `K(3,3)`).** No subdivision of `K(3,3)` has a plane
-drawing. Conditional on the realization, exactly as `Graph.IsK33Config.not_isDrawing` is, and
+drawing. This assumes the realization, exactly as `Graph.IsK33Config.not_isDrawing` does, and
 the realization is needed only for the *contracted* graph `k33Graph x y`, whose nine edges are
 the branch paths. -/
 theorem false_of_realization {drawing : β → ℝ → Plane} (hd : IsDrawing H drawing)

@@ -1044,7 +1044,7 @@ theorem squareGraph_isTwoConnected (hnd : ∀ P ∈ pieces, P.Nondeg)
 
 /-- **`Schoenflies.SquaresTwoConnected`, discharged.**  Substituting this into
 `Schoenflies.exists_face_of_notMem_arc` makes `thm:arc-complement`, `lem:accessible-dense` and
-`thm:jordan` unconditional. -/
+`thm:jordan` without an auxiliary separation hypothesis. -/
 theorem squaresTwoConnected : SquaresTwoConnected :=
   fun _ _ hnd hEnds hMeets _ _ hr hsub =>
     squareGraph_isTwoConnected hnd hEnds hMeets hr hsub

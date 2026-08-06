@@ -12,7 +12,7 @@ import Schoenflies.PolyPath
 `Schoenflies.StripData` names the three numbers the two-sided strip lemma runs on — a cone
 radius `R`, a trim `lam` and a half-width `rho` — together with the separation hypotheses they
 have to satisfy. Everything in `Schoenflies/Strip.lean` is stated *for a given* `StripData`;
-this module produces one, so that module stops being conditional.
+this module produces one, removing that parameter from the resulting theorem.
 
 The recipe is the blueprint's own, in the blueprint's order:
 
@@ -301,7 +301,7 @@ open ClosedPolygon
 
 /-- **Lemma 1.8, the constants.** Every simple closed polygon carries a `StripData`, and its
 collar can be put inside any prescribed open set containing the curve. This is what makes
-`Schoenflies/Strip.lean` unconditional. -/
+`Schoenflies/Strip.lean` with the required constants supplied. -/
 theorem exists_stripData_subset (P : ClosedPolygon m) {U : Set Plane} (hU : IsOpen U)
     (hPU : P.carrier ⊆ U) : ∃ D : StripData P, D.nbhd ⊆ U := by
   obtain ⟨R, hR, hRlen, hRvv, hRve, hRU⟩ := P.exists_cone_radius hU hPU

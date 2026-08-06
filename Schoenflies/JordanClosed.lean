@@ -27,7 +27,7 @@ standing rule that a missing result is named rather than `sorry`-ed:
   curves.
 
 Discharging the first makes `thm:arc-complement`, and with it `lem:accessible-dense` and
-`thm:jordan`, unconditional. Discharging the second removes the collar hypothesis from
+`thm:jordan`. Supplying the second removes the collar hypothesis from
 `lem:crosscut-at-most-two`, and with `thm:jordan` that finishes `thm:general-crosscut`.
 
 ## Blueprint

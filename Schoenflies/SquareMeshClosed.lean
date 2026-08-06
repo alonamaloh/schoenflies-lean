@@ -12,8 +12,8 @@ import Schoenflies.SquareCycle
 `Schoenflies/SquareMesh.lean` builds `Schoenflies.squareMesh δ fresh anchors` and proves the
 geometric clauses of `prop:anchored-square-mesh`; `Schoenflies/SquareMeshConnected.lean`,
 `Schoenflies/SquareMeshFixed.lean` and `Schoenflies/LocalGrid.lean` add the grid combinatorics,
-the outer cycle **conditional on a hypothesis**, and the degenerate cases. This module removes
-the hypothesis.
+the outer cycle from an explicit path-subdivision hypothesis, and the degenerate cases. This
+module proves that path-subdivision hypothesis for the mesh.
 
 ## The hypothesis that is discharged here
 
@@ -27,7 +27,7 @@ exactly that statement in the vocabulary of `Graph.IsIncWalk` — a walk along w
 `dist P.1 ·` strictly increases — and `Graph.IsIncWalk.isPath` turns it into a path. The two
 modules were simply never in one import chain: `SquareCycle.lean` was imported only by
 `Schoenflies/JordanClosed.lean`. `Schoenflies.subdividesToPath_of_overlay` is the four-line
-bridge, and every conditional theorem of `SquareMeshFixed.lean` becomes unconditional.
+bridge, allowing the results of `SquareMeshFixed.lean` to be applied directly to the mesh.
 
 ## The outer cycle, as data
 
@@ -81,7 +81,7 @@ genuine cycle rather than a point set — `Schoenflies.squareMesh_isLongCycle_ou
 * `subdividesToPath_of_overlay`, `meshSubdividesToPath` — `lem:polygonal-overlay`: the
   subdivision of one source segment is a path of the overlay. This discharges
   `Schoenflies.SubdividesToPath`.
-* `meshGraph_outer_cycle_of_mem_modelCurve`, `squareMesh_outer_cycle_unconditional` —
+* `meshGraph_outer_cycle_of_mem_modelCurve`, `squareMesh_outer_cycle` —
   `prop:anchored-square-mesh` clause 3 as a **cycle**, with no hypothesis beyond `fresh ⊆ S`.
 * `outerCycleEdge`, `outerCycleStart`, `outerCycleEnd`, `outerCycleThird`, `outerCycleDetour`,
   `squareMesh_isLongCycle_outerCycle`, `squareMesh_outerCycle_subset_modelCurve`,
@@ -133,7 +133,7 @@ theorem meshSubdividesToPath {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
 
 /-! ### The outer cycle, with no hypothesis -/
 
-/-- **Clause 3 as a cycle**, for `meshGraph`, unconditionally. -/
+/-- **Clause 3 as a cycle**, for `meshGraph`. -/
 theorem meshGraph_outer_cycle_of_mem_modelCurve {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
     (hfresh : ∀ z ∈ fresh, z ∈ modelCurve) (anchors : List Plane) :
     ∃ (e : Piece) (u v x : Plane) (D : List Piece),
@@ -142,23 +142,23 @@ theorem meshGraph_outer_cycle_of_mem_modelCurve {N : ℕ} (hN : 2 ≤ N) {fresh 
         Graph.edgesCover segmentDrawing (e :: D) = modelCurve :=
   meshGraph_outer_cycle hN hfresh anchors (meshSubdividesToPath hN hfresh anchors)
 
-/-- **Clause 3 as a cycle**, for `squareMesh`, unconditionally. -/
-theorem squareMesh_outer_cycle_unconditional {fresh : List Plane}
+/-- **Clause 3 as a cycle**, for `squareMesh`. -/
+theorem squareMesh_outer_cycle {fresh : List Plane}
     (hfresh : ∀ z ∈ fresh, z ∈ modelCurve) (δ : ℝ) (anchors : List Plane) :
     ∃ (e : Piece) (u v x : Plane) (D : List Piece),
       (squareMesh δ fresh anchors).IsLongCycle e u v D x ∧
         (∀ Q ∈ e :: D, Q.seg ⊆ modelCurve) ∧
         Graph.edgesCover segmentDrawing (e :: D) = modelCurve :=
-  squareMesh_outer_cycle hfresh δ anchors
+  squareMesh_outer_cycle_of_subdividesToPath hfresh δ anchors
     (meshSubdividesToPath (two_le_meshCount δ) hfresh anchors)
 
-/-- The outer cycle is a 2-connected subgraph of the mesh, unconditionally. -/
-theorem squareMesh_outerCycleGraph_isTwoConnected_unconditional {fresh : List Plane}
+/-- The mesh has a 2-connected outer-cycle subgraph. -/
+theorem exists_squareMesh_outerCycleGraph_isTwoConnected {fresh : List Plane}
     (hfresh : ∀ z ∈ fresh, z ∈ modelCurve) (δ : ℝ) (anchors : List Plane) :
     ∃ (e : Piece) (u : Plane) (D : List Piece),
       ((squareMesh δ fresh anchors).cycleGraph u e D).IsTwoConnected ∧
         Graph.edgesCover segmentDrawing (e :: D) = modelCurve :=
-  squareMesh_outer_cycleGraph_isTwoConnected hfresh δ anchors
+  squareMesh_outer_cycleGraph_isTwoConnected_of_subdividesToPath hfresh δ anchors
     (meshSubdividesToPath (two_le_meshCount δ) hfresh anchors)
 
 /-! ### The outer cycle as data
@@ -214,7 +214,7 @@ theorem outerCycleData_spec {fresh : List Plane} (hfresh : ∀ z ∈ fresh, z �
       (squareMesh δ fresh anchors).IsLongCycle t.1 t.2.1 t.2.2.1 t.2.2.2.2 t.2.2.2.1 ∧
         (∀ Q ∈ t.1 :: t.2.2.2.2, Q.seg ⊆ modelCurve) ∧
         Graph.edgesCover segmentDrawing (t.1 :: t.2.2.2.2) = modelCurve := by
-    obtain ⟨e, u, v, x, D, h₁, h₂, h₃⟩ := squareMesh_outer_cycle_unconditional hfresh δ anchors
+    obtain ⟨e, u, v, x, D, h₁, h₂, h₃⟩ := squareMesh_outer_cycle hfresh δ anchors
     exact ⟨(e, u, v, x, D), h₁, h₂, h₃⟩
   have hd : outerCycleData δ fresh anchors = h.choose := dif_pos h
   simpa [outerCycleEdge, outerCycleStart, outerCycleEnd, outerCycleThird, outerCycleDetour, hd]

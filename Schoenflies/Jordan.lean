@@ -18,7 +18,7 @@ predicate `Schoenflies/CrosscutCells.lean` introduces and
 `Schoenflies.ClosedPolygon.polygonal_jordan` establishes for a polygon — so every consumer of
 the polygonal case applies verbatim to the general one, `inside C` and `outside C` included.
 
-Everything here is conditional on one hypothesis, carried explicitly through every statement
+Everything here takes one hypothesis, carried explicitly through every statement
 that needs it:
 
     harc : ∀ A : Set Plane, IsArc A → IsConnected Aᶜ
@@ -836,7 +836,7 @@ two regions, one bounded and one unbounded, and both have the curve as their bou
 theorem IsJordanCurve.isSeparating (harc : ∀ A : Set Plane, IsArc A → IsConnected Aᶜ)
     (hC : IsJordanCurve C) : IsSeparating C := by
   have hCclosed : IsClosed C := hC.isClosed
-  -- The unbounded region is the component of the outside of a large square, unconditionally.
+  -- The unbounded region is the component of the outside of a large square.
   obtain ⟨base, hbase, hbaseub, hbaseuniq⟩ :=
     exists_unique_unbounded_connectedComponentIn_compl hC.isCompact
   have houtside : Schoenflies.outside C = connectedComponentIn Cᶜ base := by

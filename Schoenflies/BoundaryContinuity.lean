@@ -17,7 +17,7 @@ Two anchors lying in a common finite stage are joined by a polygonal crosscut of
 domain that lies *in that stage's skeleton* (`jordan_schoenflies.tex` 2857-2872). This file
 proves the first clause, for the source side.
 
-Everything here is unconditional and speaks about **one finite plane graph**: a stage is a
+Everything here concerns **one finite plane graph**: a stage is a
 finite plane graph whose point set carries the Jordan curve `C` as its outer boundary
 (`Graph.IsStageOn`), and nothing below mentions the sequence of stages that produces it.
 
@@ -56,7 +56,7 @@ A stage of the skeleton is a finite plane graph whose point set carries the Jord
 its outer boundary. The blueprint's proof splits on whether some *nonboundary* edge — an edge
 whose arc is not contained in `C` — has both of its ends on `C`.
 
-Everything in this section is unconditional: it speaks about one finite plane graph and never
+Everything in this section speaks about one finite plane graph and never
 about the stages that produce it.
 -/
 

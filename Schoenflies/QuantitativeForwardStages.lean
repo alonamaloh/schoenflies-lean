@@ -11,7 +11,7 @@ import Schoenflies.Windows
 /-!
 # Quantitative forward local-grid stages
 
-The unconditional local-grid attachment supplies a complete raw grid in the source skeleton.
+The local-grid attachment supplies a complete raw grid in the source skeleton.
 This module turns that containment into the pointwise source-star estimate used by
 `prop:shrinking-stars`, and records that the target face mesh from the preceding reverse stage
 survives the forward refinement.
@@ -140,7 +140,7 @@ theorem diam_sourceStar_le (hC : IsSeparating C)
     (fun F hF hsub => w.diam_closure_face_le hs hepsilon hwindow hx hF hsub)
 
 omit [Nonempty γ] in
-/-- A target face-mesh estimate survives the unconditional forward local-grid stage. -/
+/-- A target face-mesh estimate survives the forward local-grid stage. -/
 theorem targetFaceMesh {bound : ℝ} (hmesh : TargetFaceMesh P bound) :
     TargetFaceMesh w.pair bound :=
   hmesh.refine w.transition.refines_tgt
@@ -149,7 +149,7 @@ end LocalGridForwardStageData
 
 omit [Nonempty γ] in
 /-- The window used by quantitative refinement automatically satisfies every geometric
-hypothesis of the unconditional local-grid forward constructor. -/
+hypothesis of the local-grid forward constructor. -/
 theorem GeneratedPair.exists_localGridForwardStageData_window [Infinite γ]
     (P : GeneratedPair S₀ C (C ∪ inside C) modelCurve (Plane.closedSquare 0 1))
     (hC : IsSeparating C) {p : Plane} (hp : p ∈ inside C)
@@ -169,7 +169,7 @@ theorem GeneratedPair.exists_localGridForwardStageData_window [Infinite γ]
     exact ⟨Or.inr hxInside, inside_subset_compl hxInside⟩
   exact P.exists_localGridForwardStageData hC hs hwindow hsource
 
-/-- One quantitative forward successor: the unconditional local-grid refinement together with
+/-- One quantitative forward successor: the local-grid refinement together with
 the target face-mesh estimate inherited from the preceding reverse stage. -/
 structure QuantitativeForwardStage
     (P : GeneratedPair S₀ C (C ∪ inside C) modelCurve (Plane.closedSquare 0 1))
@@ -272,7 +272,7 @@ theorem diam_sourceStar_le (hC : IsSeparating C) (hp : p ∈ inside C)
 end QuantitativeSuccessor
 
 omit [Nonempty γ] in
-/-- **Unconditional quantitative successor.**  Starting from any generated stage, construct a
+/-- **Quantitative successor.** Starting from any generated stage, construct a
 refinement with the requested target-star bound and a source-star bound throughout the selected
 window. -/
 theorem GeneratedPair.exists_quantitativeSuccessor [Infinite γ]

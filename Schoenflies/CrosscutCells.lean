@@ -22,7 +22,7 @@ The blueprint writes `Int(C)` and `Ext(C)` for the two regions and its consumers
 crosscut theorems — name them in their *statements*. So the two regions must be functions of
 `C`, not sets produced by an existential inside the definition of separation. They are defined
 here for an arbitrary set: `inside C` is the union of the bounded components of the complement
-and `outside C` the union of the unbounded ones, and these partition `Cᶜ` unconditionally.
+and `outside C` the union of the unbounded ones; together they partition `Cᶜ`.
 Separation is then the assertion that each of the two halves is *one* region with boundary `C`
 (Definition 2.4); that one is bounded and the other unbounded is then automatic, and so is
 "exactly two regions", since a connected clopen piece of `Cᶜ` is a component of it.

@@ -57,7 +57,7 @@ is the `SplitData` analogue of `IsRefinement` — a relation between a realizati
 `S.splitFace d` and one of `S`, saying that the ear is drawn as a crosscut of the realized open
 2-cell — and the identification of the abstract boundary walk of a 2-cell with the Jordan curve
 of assertion (vii). Assertions (ii), (viii) and (ix) are stated here against `(i)` as a
-hypothesis, so they become unconditional the moment that step lands.
+hypothesis, so later constructors can use the resulting theorem directly.
 
 Two general graph facts are proved here for want of a home: `Schoenflies.subdivGraph` (with
 `Schoenflies.subdivGraph_mono` and `Schoenflies.subdivGraph_eq_self`) and

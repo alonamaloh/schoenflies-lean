@@ -18,8 +18,8 @@ edge-subdivision constructor. The two it leaves open are exactly the two whose i
   its bounded complementary region;
 * **(i)** at the *split* constructor.
 
-Both are proved here. `Schoenflies.crosscut_theorem` is unconditional on `main`, so nothing in
-this module is conditional either.
+Both are proved here. `Schoenflies.crosscut_theorem` does not depend on `main`, and neither does
+anything in this module.
 
 ## Realizations stay outside the inductive
 
@@ -218,7 +218,7 @@ structure IsFaceJordan (R : S.Realization) : Prop where
 namespace IsFaceJordan
 
 /-- Each 2-cell boundary separates the plane. This is where `thm:jordan` enters; it is
-unconditional on `main`. -/
+independent of `main`. -/
 theorem isSeparating (hJ : R.IsFaceJordan) (hF : F ∈ S.faces) :
     IsSeparating (frontier (R.cell F)) :=
   jordan_curve_theorem (hJ.isJordanCurve hF)

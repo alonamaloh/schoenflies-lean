@@ -52,7 +52,7 @@ two halves. What is missing is the parity theory of presentations carrying redun
 `ClosedPolygon`, obtained by carrying the parity along the normalization induction of
 `Schoenflies.PrePolygon.exists_closedPolygon_of_prePolygon`. That is a separate module.
 
-## What is proved unconditionally
+## Main results
 
 * **The realisation of a cycle is a separating curve** (`Graph.IsDrawing.cycle_isSeparating`),
   which is what the base case needed and what `main` could not say. It composes

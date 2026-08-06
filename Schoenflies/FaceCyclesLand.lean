@@ -71,8 +71,8 @@ Once this module is moved above `Schoenflies/FaceCyclesProof.lean`, the hypothes
   determined, with the competing splitting known only to be closed and nondegenerate.
 * `Schoenflies.crosscutSplitsRegion` — the exhaustion clause of `thm:polygonal-crosscut` at
   arbitrary cut points: `Schoenflies.CrosscutSplitsRegion`, proved.
-* `Graph.IsDrawing.hasFaceCycles_union'` — one ear of `lem:face-cycles`, unconditionally.
-* `Graph.face_cycles'` — **`lem:face-cycles`**, unconditionally.
+* `Graph.IsDrawing.hasFaceCycles_union'` — one ear of `lem:face-cycles`.
+* `Graph.face_cycles'` — **`lem:face-cycles`**.
 * `Graph.IsFaceCycle.eq_inside_of_isBounded'` — "in particular, every bounded face is the
   interior of its boundary cycle".
 -/

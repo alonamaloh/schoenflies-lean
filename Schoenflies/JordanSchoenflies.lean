@@ -6,13 +6,12 @@ Authors: Álvaro Begué
 import Schoenflies.BoundaryAnchors
 
 /-!
-# The unconditional Jordan–Schönflies theorem
+# The Jordan–Schönflies theorem
 
 The quantitative stage recursion supplies the interior homeomorphism.  Its fresh target nets
 give a dense source anchor set; radial mesh spokes supply the boundary germs, and finite-stage
-nonboundary edge paths supply matched crosscuts.  These data discharge
-`HasLimitHomeomorphism`, hence `SquareExtension`, and finally the relative
-Jordan–Schönflies theorem without a remaining hypothesis.
+nonboundary edge paths supply matched crosscuts. These data prove `HasLimitHomeomorphism`, then
+`SquareExtension`, and finally the relative Jordan–Schönflies theorem.
 
 ## Blueprint
 
@@ -26,7 +25,7 @@ namespace Schoenflies
 
 /-- All four inputs to boundary continuity are supplied by the prescribed quantitative stage
 sequence. -/
-theorem hasLimitHomeomorphism_unconditional : HasLimitHomeomorphism := by
+theorem hasLimitHomeomorphism : HasLimitHomeomorphism := by
   intro C u v hC hu
   let T := prescribedJordanStageSequence hC u v hu
   exact ⟨prescribedSourceAnchorSet hC hu, T.limitTower.F, T.limitTower.inv,
@@ -36,31 +35,31 @@ theorem hasLimitHomeomorphism_unconditional : HasLimitHomeomorphism := by
     prescribedSourceAnchorSet_hasAnchorCrosscuts hC hu,
     prescribedSourceAnchorSet_hasSpokes hC hu⟩
 
-/-- **`thm:square-extension`, unconditionally.** -/
-theorem squareExtension_unconditional : SquareExtension :=
-  square_extension hasLimitHomeomorphism_unconditional
+/-- **`thm:square-extension`.** Every homeomorphism from a Jordan curve to the boundary of the
+model square extends over the corresponding closed domains. -/
+theorem squareExtension : SquareExtension :=
+  squareExtension_of_hasLimitHomeomorphism hasLimitHomeomorphism
 
 variable {C C' : Set Plane}
 
-/-- **The relative Jordan–Schönflies theorem, unconditionally**, in the unbundled
-`IsHomeoOn` form. -/
-theorem jordan_schoenflies_unconditional {f g : Plane → Plane}
+/-- **The relative Jordan–Schönflies theorem**, in the unbundled `IsHomeoOn` form. -/
+theorem jordan_schoenflies {f g : Plane → Plane}
     (hC : IsJordanCurve C) (hC' : IsJordanCurve C') (hfg : IsHomeoOn f g C C') :
     ∃ F G : Plane → Plane, IsHomeoOn F G univ univ ∧ EqOn F f C :=
-  jordan_schoenflies squareExtension_unconditional hC hC' hfg
+  jordan_schoenflies_of_squareExtension squareExtension hC hC' hfg
 
-/-- **The relative Jordan–Schönflies theorem, unconditionally**, packaged as a plane
+/-- **The relative Jordan–Schönflies theorem**, packaged as a plane
 self-homeomorphism. -/
-theorem jordan_schoenflies_homeomorph_unconditional {f g : Plane → Plane}
+theorem jordan_schoenflies_homeomorph {f g : Plane → Plane}
     (hC : IsJordanCurve C) (hC' : IsJordanCurve C') (hfg : IsHomeoOn f g C C') :
     ∃ F : Plane ≃ₜ Plane, EqOn F f C :=
-  jordan_schoenflies_homeomorph squareExtension_unconditional hC hC' hfg
+  jordan_schoenflies_homeomorph_of_squareExtension squareExtension hC hC' hfg
 
-/-- **The blueprint's bundled statement, unconditionally.** Every homeomorphism between two
+/-- **The blueprint's bundled statement.** Every homeomorphism between two
 Jordan curves extends to a self-homeomorphism of the plane. -/
-theorem jordan_schoenflies_of_homeomorph_unconditional
+theorem jordan_schoenflies_of_homeomorph
     (hC : IsJordanCurve C) (hC' : IsJordanCurve C') (e : ↥C ≃ₜ ↥C') :
     ∃ F : Plane ≃ₜ Plane, ∀ z : ↥C, F z = e z :=
-  jordan_schoenflies_of_homeomorph squareExtension_unconditional hC hC' e
+  jordan_schoenflies_of_homeomorph_of_squareExtension squareExtension hC hC' e
 
 end Schoenflies

@@ -1345,7 +1345,7 @@ structure LocalGridForwardStageData {C : Set Plane}
     _root_.Graph.pointSet (localGrid p s (localGridCount s epsilon)) segmentDrawing ⊆
       pair.src.skeletonSet
 
-/-- **Unconditional local-grid forward successor.**  The source/grid intersection dichotomy,
+/-- **Local-grid forward successor.** The source/grid intersection dichotomy,
 the auxiliary face crosscut, endpoint subdivisions, polygonal joining ear, and forward finite
 transfer are all internal. -/
 theorem GeneratedPair.exists_localGridForwardStageData
@@ -1360,7 +1360,7 @@ theorem GeneratedPair.exists_localGridForwardStageData
     hdirect | hrefined
   · obtain ⟨d⟩ := hdirect
     obtain ⟨T, par, hT⟩ :=
-      finite_transfer_toward_square_unconditional d.isSourceExtension
+      finite_transfer_toward_square d.isSourceExtension
     exact ⟨{
       pair := T
       parent := par
@@ -1373,7 +1373,7 @@ theorem GeneratedPair.exists_localGridForwardStageData
     }⟩
   · obtain ⟨⟨F, A, r, j⟩⟩ := hrefined
     obtain ⟨T, par, hT⟩ :=
-      finite_transfer_toward_square_unconditional j.isSourceExtension
+      finite_transfer_toward_square j.isSourceExtension
     exact ⟨{
       pair := T
       parent := r.subdivision.parent ∘ par

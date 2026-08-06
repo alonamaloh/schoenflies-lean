@@ -2,7 +2,7 @@
 
 This directory configures
 [`leanprover/comparator`](https://github.com/leanprover/comparator) to check the project's
-headline theorem, `Schoenflies.jordan_schoenflies_of_homeomorph_unconditional`.
+headline theorem, `Schoenflies.jordan_schoenflies_of_homeomorph`.
 
 ## What it checks
 

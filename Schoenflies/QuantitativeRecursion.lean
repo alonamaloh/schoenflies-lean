@@ -8,7 +8,7 @@ import Schoenflies.QuantitativeForwardStages
 /-!
 # The recursive quantitative stage construction
 
-This module iterates the unconditional two-sided quantitative successor.  Window centres are
+This module iterates the two-sided quantitative successor. Window centres are
 read from a recurrent sequence and all three quantitative parameters use a dyadic scale.
 -/
 
@@ -74,7 +74,7 @@ variable [Infinite γ]
   (hC : IsSeparating C) (hcycle : S₀.OuterEdgesFormCycle)
   (q : QuantitativeSchedule C)
 
-/-- Choose one of the unconditional quantitative successors at stage `n`. -/
+/-- Choose a quantitative successor at stage `n`. -/
 noncomputable def scheduledQuantitativeSuccessor
     (n : ℕ)
     (P : GeneratedPair S₀ C (C ∪ inside C) modelCurve (Plane.closedSquare 0 1)) :

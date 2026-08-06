@@ -52,7 +52,7 @@ incident with one unique current source face.
   cleanly from the remaining prescribed-ear combinatorics.
 * `Schoenflies.targetTransferOfEars`,
   `Schoenflies.finite_transfer_toward_source_of_freshInvariant` — the relative-ear induction
-  and direction-(b) theorem conditional only on that combinatorial invariant.
+  and direction-(b) theorem assuming only that combinatorial invariant.
 -/
 
 open Set
@@ -1802,7 +1802,7 @@ theorem targetTransferOfEars [Infinite γ]
   rintro B a b D hB - hBH ⟨T, par, hT⟩ hpath hab haB hbB hint
   exact hstep B a b D hB hBH hpath hab haB hbB hint T par hT
 
-/-- Direction (b), conditional only on the target ear step. -/
+/-- Direction (b), assuming only the target ear step. -/
 theorem finite_transfer_toward_source_of_targetEarStep [Infinite γ]
     {P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom}
     {H : Graph Plane γ} {Hdraw : γ → ℝ → Plane}

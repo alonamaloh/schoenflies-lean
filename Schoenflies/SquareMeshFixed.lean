@@ -68,12 +68,14 @@ any goal here: the whole content below is the *assembly*, which the hypothesis d
 
 From it:
 
-* `meshGraph_outer_cycle` / `squareMesh_outer_cycle` — clause 3 **as a cycle**, for the mesh
+* `meshGraph_outer_cycle` / `squareMesh_outer_cycle_of_subdividesToPath` — clause 3 **as a
+  cycle**, for the mesh
   itself. The four sides of the outer ring are four overlay paths; three concatenations
   (`Graph.IsPath.append_of_disjoint`) glue them into one path once round `S`, and the first step
   of the *reversed* fourth side is peeled off to close the cycle. The result is a
   `Graph.IsLongCycle` of the mesh whose edges occupy exactly `modelCurve`.
-* `squareMesh_outer_cycleGraph_isTwoConnected` — hence the outer ring is a 2-connected subgraph
+* `squareMesh_outer_cycleGraph_isTwoConnected_of_subdividesToPath` — hence the outer ring is a
+  2-connected subgraph
   of the mesh, which is the first step of the blueprint's assembly of clause 5.
 
 **Full 2-connectivity of `squareMesh` is NOT proved here, and is not assumed either.** What
@@ -102,9 +104,10 @@ hypothesis giving two distinct fresh points.
 * `prop:anchored-square-mesh`, clauses 3 and 4, the obstruction to a grid on all of `Q` —
   `gridGraph_full_square_aligned_ends`.
 * `prop:anchored-square-mesh`, clause 3 as a cycle, for the mesh — `SubdividesToPath`,
-  `meshGraph_outer_cycle`, `squareMesh_outer_cycle`.
+  `meshGraph_outer_cycle`, `squareMesh_outer_cycle_of_subdividesToPath`.
 * `prop:anchored-square-mesh`, clause 5, the first step for the mesh and the degenerate case —
-  `squareMesh_outer_cycleGraph_isTwoConnected`, `not_isTwoConnected_squareMesh_of_fresh_nil`.
+  `squareMesh_outer_cycleGraph_isTwoConnected_of_subdividesToPath`,
+  `not_isTwoConnected_squareMesh_of_fresh_nil`.
 * `lem:union-two-connected` is *not* used here; the assembly that would use it is the part left
   open.
 -/
@@ -1031,7 +1034,8 @@ theorem meshGraph_outer_cycle {N : ℕ} (hN : 2 ≤ N) {fresh : List Plane}
           (List.mem_append_right _ (List.mem_reverse.2 hQ'))) hzQ
 
 /-- **`prop:anchored-square-mesh`, clause 3 as a cycle, for `squareMesh`.** -/
-theorem squareMesh_outer_cycle {fresh : List Plane} (hfresh : ∀ z ∈ fresh, z ∈ modelCurve)
+theorem squareMesh_outer_cycle_of_subdividesToPath {fresh : List Plane}
+    (hfresh : ∀ z ∈ fresh, z ∈ modelCurve)
     (δ : ℝ) (anchors : List Plane)
     (hsub : SubdividesToPath (meshSegments (meshCount δ) fresh)
       (meshPoints (meshCount δ) fresh anchors)) :
@@ -1047,14 +1051,15 @@ blueprint's assembly of clause 5, for `squareMesh` itself: the cycle carrying `S
 by `lem:face-cycles`'s `Graph.IsLongCycle.isTwoConnected`. What is still missing is the rest of
 the assembly — the inner rings as cycles, and the spokes attached as ears at their crossings
 with each ring. -/
-theorem squareMesh_outer_cycleGraph_isTwoConnected {fresh : List Plane}
+theorem squareMesh_outer_cycleGraph_isTwoConnected_of_subdividesToPath {fresh : List Plane}
     (hfresh : ∀ z ∈ fresh, z ∈ modelCurve) (δ : ℝ) (anchors : List Plane)
     (hsub : SubdividesToPath (meshSegments (meshCount δ) fresh)
       (meshPoints (meshCount δ) fresh anchors)) :
     ∃ (e : Piece) (u : Plane) (D : List Piece),
       ((squareMesh δ fresh anchors).cycleGraph u e D).IsTwoConnected ∧
         Graph.edgesCover segmentDrawing (e :: D) = modelCurve := by
-  obtain ⟨e, u, v, x, D, hlc, -, hcov⟩ := squareMesh_outer_cycle hfresh δ anchors hsub
+  obtain ⟨e, u, v, x, D, hlc, -, hcov⟩ :=
+    squareMesh_outer_cycle_of_subdividesToPath hfresh δ anchors hsub
   exact ⟨e, u, D, Graph.IsLongCycle.isTwoConnected hlc, hcov⟩
 
 end Schoenflies

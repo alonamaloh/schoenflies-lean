@@ -63,33 +63,33 @@ survives verbatim is what the construction uses downstream — the occupied set,
   finitely many nondegenerate polygonal sets is the point set of a finite plane graph drawn by
   straight segments. That is `lem:polygonal-overlay` in the form step 1 needs, bridging
   `Schoenflies.polygonal_overlay`, which is stated for a list of segments, to the finite family
-  of polygonal *arcs* a skeleton stage arrives as. Unconditional.
+  of polygonal *arcs* a skeleton stage arrives as.
 * **Step 4, target side** — `Schoenflies.exists_target_crosscut` and
   `Schoenflies.exists_target_crosscut_split`. In direction (a) the target face `F*` is a
   polygonal Jordan region in the square by `lem:cellulation-invariants`(vii); every point of its
   boundary is polygonally accessible from its interior by `lem:polygonal-side-accessibility`
   (target half); and `lem:accessible-endpoints` gives a polygonal crosscut `P* ⊆ closure F*`
   from `v*` to `w*`, which by `thm:general-crosscut` splits `F*` into exactly the two Jordan
-  regions bounded by `P*` and the two boundary paths. That whole paragraph is closed,
-  unconditionally.
+  regions bounded by `P*` and the two boundary paths. These constructions supply the complete
+  target-side argument.
 * **The second sentence of step 2** — `…IsCellDecomposition.exists_unique_face_subset_cell` and
   `…IsCellDecomposition.exists_face_of_ear`: the interior of an ear lies in one current face,
   because it is connected and disjoint from the current skeleton, and its two endpoints then lie
   on that face's boundary cycle. `IsCellDecomposition.cellsAbsorb` derives the formerly named
   `CellsAbsorb` premise from the maintained cell-decomposition and Jordan-face invariants, so
-  this is unconditional.
+  this requires no additional interface.
 * **One ear insertion, step 3** — `exists_sourceEarStepData`,
   `EarCrosscut.exists_matched_target`, `earStepConstruction`, and `earStep`. The ambient source
   path is given fresh abstract cell names, its face split is realized on both sides, and a
   parameter-matching homeomorphism divides the target polygonal crosscut into exactly the same
   abstract edges. Matching source and target crosscuts then produce the next pair, compose both
   refinement maps, preserve every bundle invariant, and enlarge the occupied source graph by
-  exactly the supplied ear. Unconditional under the necessary `[Infinite γ]` supply.
+  exactly the supplied ear, under the necessary `[Infinite γ]` name supply.
 * **The last paragraph of the proof** — `Schoenflies.GeneratedPair.src_isAdmissible` and
   `Schoenflies.GeneratedPair.tgt_isAdmissible`. Admissibility of the *final* object is
   recovered from `lem:combinatorial-invariance`: the reproduced realization has the same
   2-connectivity and the same connectedness of the open nonboundary part as the given one.
-  Unconditional.
+  This uses only the hypotheses of the finite-transfer statement.
 * **The induction scheme, steps 2 and 3** — `Schoenflies.transfer_of_ears`. With `earStep`
   supplying each insertion, `lem:relative-ear` in its iterated form
   (`Graph.IsTwoConnected.ear_decomposition`) transfers the whole extension. This is the backbone
@@ -103,7 +103,7 @@ This module keeps `Schoenflies.CommonSubdivision` as the compositional interface
 ear induction.  `Schoenflies/CommonSubdivision.lean` constructs it: it traces the part of `H`
 supported on the old skeleton, proves that trace 2-connected, and carries all of its finitely many
 vertices through matched source/target edge subdivisions.  Consequently direction (a) is exposed
-there as `Schoenflies.finite_transfer_toward_square_unconditional`.
+there as `Schoenflies.finite_transfer_toward_square`.
 
 ## Blueprint
 
@@ -135,8 +135,9 @@ there as `Schoenflies.finite_transfer_toward_square_unconditional`.
   step 1.
 * `Schoenflies.earStep` — step 3; `Schoenflies.CommonSubdivision` — the step-1 interface,
   discharged by `Schoenflies.commonSubdivision` in `CommonSubdivision.lean`.
-* `Schoenflies.transfer_of_ears`, `Schoenflies.finite_transfer_toward_square` —
-  `thm:finite-transfer`(a).
+* `Schoenflies.transfer_of_ears_of_commonSubdivision_of_earStep`,
+  `Schoenflies.finite_transfer_toward_square_of_commonSubdivision_of_earStep` — the
+  finite-transfer induction parametrized by its two construction interfaces.
 -/
 
 open Metric Set
@@ -1033,7 +1034,7 @@ of `H`, not about `H`.
 `EarStep` is **step 3**: one ear insertion — at most two edge subdivisions followed by one
 2-cell split — carries a partial transfer of `B` to a partial transfer of `B` with the ear glued
 on. Its geometric core in direction (a) is `Schoenflies.exists_target_crosscut_split` below,
-which is proved unconditionally; what is assumed is the abstract-data bookkeeping around it.
+which is proved here; only the abstract-data bookkeeping around it is assumed.
 
 **`EarStep` carries `[Infinite γ]`, and without it the hypothesis is false.** Every cell of
 every structure in sight is a *name* drawn from the one type `γ`: `V(skel)`, `E(skel)` and
@@ -1375,7 +1376,8 @@ is a generated matched cell structure. Given step 1 and one ear, the whole exten
 The invariant carried through the induction is `IsPartialTransferOf`, which does **not** mention
 connectedness of the open nonboundary part: `rem:intermediate-disconnection` says an
 intermediate stage may genuinely have it disconnected, and nothing here assumes otherwise. -/
-theorem transfer_of_ears [Infinite γ] {P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom}
+theorem transfer_of_ears_of_commonSubdivision_of_earStep [Infinite γ]
+    {P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom}
     {H : Graph Plane γ} {Hdraw : γ → ℝ → Plane}
     (hH : IsSourceExtension P.src srcOuter srcDom H Hdraw)
     (hsub : CommonSubdivision P H Hdraw) (hstep : EarStep P H Hdraw) :
@@ -1401,14 +1403,15 @@ refines the old one by an explicit parent map.
 
 This compatibility form accepts both step interfaces as arguments. `earStep` discharges the
 second, while `commonSubdivision` in `CommonSubdivision.lean` discharges the first. -/
-theorem finite_transfer_toward_square [Infinite γ]
+theorem finite_transfer_toward_square_of_commonSubdivision_of_earStep [Infinite γ]
     {P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom}
     {H : Graph Plane γ} {Hdraw : γ → ℝ → Plane}
     (hH : IsSourceExtension P.src srcOuter srcDom H Hdraw)
     (hsub : CommonSubdivision P H Hdraw) (hstep : EarStep P H Hdraw) :
     ∃ (T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom) (par : γ → γ),
       IsTransferOf T P H Hdraw par := by
-  obtain ⟨T, par, hT⟩ := transfer_of_ears hH hsub hstep
+  obtain ⟨T, par, hT⟩ :=
+    transfer_of_ears_of_commonSubdivision_of_earStep hH hsub hstep
   -- The final source realization occupies `|H|`, so its open nonboundary part is `|H| ∖ C`,
   -- which the hypothesis on `H` says is connected. Combinatorial invariance moves that to the
   -- target, and both realizations are then admissible.
@@ -1425,7 +1428,7 @@ interior. `lem:accessible-endpoints` therefore gives a polygonal crosscut `P* �
 `v*` to `w*`.* Then: *`thm:general-crosscut` says that the crosscut splits the face into exactly
 the two Jordan regions bounded by the crosscut together with those two paths.*
 
-That whole paragraph is closed below, unconditionally. It is stated for a *target* face — a
+That whole paragraph is proved below. It is stated for a *target* face — a
 member of a family of components of `Q ∖ |G|` for an ambient open region `Q` whose frontier
 belongs to the skeleton — because that is the shape
 `Graph.polygonal_side_accessibility_target` consumes, and it is the shape a target realization
@@ -1569,7 +1572,7 @@ theorem GeneratedPair.exists_target_crosscut
 
 /-! ### Completing the ear step -/
 
-/-- **The constructive ear interface is unconditional.**  The source half is the freshly
+/-- **The constructive ear interface.** The source half is the freshly
 renamed path supplied by `exists_sourceEarStepData`; the target half is a polygonal crosscut of
 the corresponding face, divided edge-for-edge by `EarCrosscut.exists_matched_target`. -/
 theorem earStepConstruction [Infinite γ]
@@ -1621,7 +1624,7 @@ theorem transfer_of_ears_of_commonSubdivision [Infinite γ]
     (hsub : CommonSubdivision P H Hdraw) :
     ∃ (T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom) (par : γ → γ),
       IsPartialTransferOf T P H Hdraw par :=
-  transfer_of_ears hH hsub (earStep P H Hdraw hH)
+  transfer_of_ears_of_commonSubdivision_of_earStep hH hsub (earStep P H Hdraw hH)
 
 /-- **Finite transfer toward the square from an explicitly supplied common subdivision.** -/
 theorem finite_transfer_toward_square_of_commonSubdivision [Infinite γ]
@@ -1631,7 +1634,8 @@ theorem finite_transfer_toward_square_of_commonSubdivision [Infinite γ]
     (hsub : CommonSubdivision P H Hdraw) :
     ∃ (T : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom) (par : γ → γ),
       IsTransferOf T P H Hdraw par :=
-  finite_transfer_toward_square hH hsub (earStep P H Hdraw hH)
+  finite_transfer_toward_square_of_commonSubdivision_of_earStep hH hsub
+    (earStep P H Hdraw hH)
 
 /-! ### The ear's endpoints, transferred
 

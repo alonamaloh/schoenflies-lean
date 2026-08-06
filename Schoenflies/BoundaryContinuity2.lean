@@ -13,15 +13,16 @@ The last three statements of the manuscript: `lem:crosscut-side-correspondence`,
 `prop:boundary-continuity`, and the assembly of `thm:square-extension` from them.
 
 `Schoenflies/BoundaryContinuity.lean` proves the statement with the real combinatorial content,
-`lem:skeleton-crosscuts` (`Graph.IsStageOn.exists_crosscut`), unconditionally and for one finite
+`lem:skeleton-crosscuts` (`Graph.IsStageOn.exists_crosscut`), for one finite
 plane graph. This module takes the crosscuts as given and finishes the section.
 
 ## The construction inputs
 
 This module isolates the construction-dependent data as explicit hypotheses. They are supplied
-for the quantitative stage recursion in `Schoenflies/UnconditionalInterior.lean` and
+for the quantitative stage recursion in `Schoenflies/InteriorHomeomorphism.lean` and
 `Schoenflies/BoundaryAnchors.lean`. Nothing else is assumed: `thm:jordan` and
-`thm:general-crosscut` are used through `Schoenflies/JordanClosed.lean` and are unconditional.
+`thm:general-crosscut` are used through `Schoenflies/JordanClosed.lean`, where their hypotheses
+are supplied.
 
 * **`prop:interior-homeomorphism`** enters as `IsHomeoOn F F' (inside C) (Plane.openSquare 0 1)`
   — the `Schoenflies.IsHomeoOn` shape of `Schoenflies/Inversion.lean`: a map, a named inverse,
@@ -41,9 +42,10 @@ for the quantitative stage recursion in `Schoenflies/UnconditionalInterior.lean`
   `c ∈ 𝒜` in the relative interior of `Aᵢ`".
 
 `Schoenflies.HasLimitHomeomorphism` bundles the four over all curves, and
-`Schoenflies.square_extension` derives `Schoenflies.SquareExtension` — the exact `def` of
+`Schoenflies.squareExtension_of_hasLimitHomeomorphism` derives
+`Schoenflies.SquareExtension` — the exact `def` of
 `Schoenflies/Endgame.lean` — from it. The proof of `HasLimitHomeomorphism` assembled in
-`Schoenflies/UnconditionalSchoenflies.lean` closes the full theorem.
+`Schoenflies/JordanSchoenflies.lean` closes the full theorem.
 
 ## The two arguments
 
@@ -79,7 +81,8 @@ corresponding target side, whose trace on `S` is `u(A₁)` — and `r ∉ A₁`.
 * `Schoenflies.crosscut_side_correspondence` — **`lem:crosscut-side-correspondence`**.
 * `Schoenflies.extendByBoundary`, `Schoenflies.tendsto_nhdsWithin_inside`,
   `Schoenflies.boundary_continuity` — **`prop:boundary-continuity`**.
-* `Schoenflies.isHomeoOn_extendByBoundary`, `Schoenflies.square_extension` —
+* `Schoenflies.isHomeoOn_extendByBoundary`,
+  `Schoenflies.squareExtension_of_hasLimitHomeomorphism` —
   **`thm:square-extension`**.
 -/
 
@@ -681,8 +684,8 @@ interiors (`prop:interior-homeomorphism`), the anchor crosscuts with their targe
 (`lem:skeleton-crosscuts` and `prop:skeleton-agreement`), and the spokes at the anchors
 (`lem:anchor-density`).
 
-`Schoenflies.square_extension` turns this into `Schoenflies.SquareExtension`, so a proof of
-this predicate makes `Schoenflies.jordan_schoenflies` unconditional. -/
+`Schoenflies.squareExtension_of_hasLimitHomeomorphism` turns this into
+`Schoenflies.SquareExtension`, which is the input required by the final reduction. -/
 def HasLimitHomeomorphism : Prop :=
   ∀ (C : Set Plane) (u v : Plane → Plane), IsJordanCurve C → IsHomeoOn u v C modelCurve →
     ∃ (𝒜 : Set Plane) (F F' : Plane → Plane), 𝒜 ⊆ C ∧ C ⊆ closure 𝒜 ∧
@@ -691,7 +694,8 @@ def HasLimitHomeomorphism : Prop :=
 
 /-- **`thm:square-extension`.** Every homeomorphism of a Jordan curve onto the model square
 boundary extends to a homeomorphism of the closed Jordan domain onto the closed square. -/
-theorem square_extension (h : HasLimitHomeomorphism) : SquareExtension := by
+theorem squareExtension_of_hasLimitHomeomorphism (h : HasLimitHomeomorphism) :
+    SquareExtension := by
   intro C u v hC hu
   obtain ⟨𝒜, F, F', hsub, hdense, hF, hcross, hspoke⟩ := h C u v hC hu
   exact ⟨extendByBoundary C u F, extendByBoundary modelCurve v F',

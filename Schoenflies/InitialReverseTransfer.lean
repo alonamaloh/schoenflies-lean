@@ -46,7 +46,7 @@ theorem exists_initialCell_squareMesh_edgeRelabeling
 
 /-- **Finite transfer, direction (b), over the concrete initial naming type.**  Once the stage
 constructor supplies the relabelled square mesh as a target extension, the reverse transfer is
-unconditional: boundary anchoring, boundary-edge uniqueness, and the initial outer cycle are
+available directly: boundary anchoring, boundary-edge uniqueness, and the initial outer cycle are
 all discharged here. -/
 theorem finite_transfer_toward_source_initial_relabelledSquareMesh
     {srcOuter srcDom tgtDom : Set Plane}

@@ -2,7 +2,7 @@
   "challenge_module": "Challenge",
   "solution_module": "Solution",
   "theorem_names": [
-    "Schoenflies.jordan_schoenflies_of_homeomorph_unconditional"
+    "Schoenflies.jordan_schoenflies_of_homeomorph"
   ],
   "permitted_axioms": [
     "propext",

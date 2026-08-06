@@ -10,7 +10,7 @@ import Schoenflies.StripLocal
 /-!
 # Two-sided collars along a simple polygonal arc
 
-`Schoenflies/CrosscutAtMostTwo.lean` proves Lemma "At most two sides" conditionally on
+`Schoenflies/CrosscutAtMostTwo.lean` proves Lemma "At most two sides" assuming
 `Schoenflies.HasArcCollars`: every compact piece of `D ∩ P` has a two-sided collar inside `D`.
 This module discharges that hypothesis for a polygonal arc presented by its vertex list.
 
@@ -78,7 +78,7 @@ arc, and `Schoenflies.isPolyArcCarrier_segment` exhibits one.
   carrier of a `PolyArc` is a simple polygonal arc between its two extreme vertices.
 * `Schoenflies.polyArc_crosscut_at_most_two`,
   `Schoenflies.polyArc_crosscut_components_exhaust` — Lemma "At most two sides" for a polygonal
-  arc presented by a vertex list, unconditionally.
+  arc presented by a vertex list, with no further assumptions.
 * `Schoenflies.hasArcCollars`, `Schoenflies.crosscut_at_most_two_of_polyArc`,
   `Schoenflies.crosscut_components_exhaust_of_polyArc` — the same for a *set* `P` presented by
   `Schoenflies.IsPolyArcCarrier`.
@@ -1960,7 +1960,7 @@ the one `Schoenflies/Realization.lean` takes in the closed case, and its three s
    collinear") and is what `corner` needs; the closed-curve analogue is
    `Schoenflies.PrePolygon.exists_closedPolygon_of_prePolygon`.
 
-None of the three is formalised for an arc. Nothing else in this module is conditional.
+None of the three is formalised for an arc. The remaining results require no such interface.
 -/
 
 end Schoenflies

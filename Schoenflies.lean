@@ -122,7 +122,7 @@ import Schoenflies.OverlayExtension
 import Schoenflies.SourceJoining
 import Schoenflies.QuantitativeForwardStages
 import Schoenflies.QuantitativeRecursion
-import Schoenflies.UnconditionalInterior
+import Schoenflies.InteriorHomeomorphism
 import Schoenflies.BoundaryAnchors
-import Schoenflies.UnconditionalSchoenflies
+import Schoenflies.JordanSchoenflies
 import Schoenflies.MatchedSplit

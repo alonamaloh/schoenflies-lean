@@ -24,7 +24,7 @@ by this module is
 
     SquareExtension  ⟹  thm:main.
 
-`Schoenflies/UnconditionalSchoenflies.lean` supplies `SquareExtension` from the quantitative
+`Schoenflies/JordanSchoenflies.lean` supplies `SquareExtension` from the quantitative
 boundary construction and therefore closes this implication without an extra hypothesis.
 
 ## What `SquareExtension` says
@@ -71,15 +71,16 @@ shape of `Schoenflies.exterior_extension`, which composes.
 ## Blueprint
 
 * `Schoenflies.SquareExtension` — the **`thm:square-extension`** interface, discharged in
-  `Schoenflies/UnconditionalSchoenflies.lean`.
+  `Schoenflies/JordanSchoenflies.lean`.
 * `Schoenflies.square_reduction` — `prop:square-reduction`.
 * `Schoenflies.closed_interior_extension` — **`thm:closed-interior-extension`**.
 * `Schoenflies.pointed_extension` — `prop:pointed-extension`; it proves
   `Schoenflies.PointedInteriorExtension` of `Schoenflies/Inversion.lean`.
 * `Schoenflies.exterior_extension_of_squareExtension` — `prop:exterior-extension`, restated
   with `harc` discharged and only `SquareExtension` left.
-* `Schoenflies.jordan_schoenflies`, `Schoenflies.jordan_schoenflies_homeomorph`,
-  `Schoenflies.jordan_schoenflies_of_homeomorph` — **`thm:main`**, the relative
+* `Schoenflies.jordan_schoenflies_of_squareExtension`,
+  `Schoenflies.jordan_schoenflies_homeomorph_of_squareExtension`,
+  `Schoenflies.jordan_schoenflies_of_homeomorph_of_squareExtension` — **`thm:main`**, the relative
   Jordan–Schönflies theorem, in the unbundled, the bundled, and the blueprint's own shape.
 
 Supporting material with no blueprint statement, all general and all candidates for hoisting
@@ -364,7 +365,7 @@ theorem pointed_extension (hsq : SquareExtension) : PointedInteriorExtension := 
     rw [hMx]
     exact hΘ.invOn.1 (Set.mem_union_right _ hb)
 
-/-! ### `prop:exterior-extension`, unconditionally on everything but the square
+/-! ### `prop:exterior-extension`, from the square extension
 
 `Schoenflies.exterior_extension` in `Schoenflies/Inversion.lean` is proved already; it carries
 two hypotheses, the standing `harc` of `thm:jordan` and `PointedInteriorExtension`. Part I
@@ -415,9 +416,11 @@ theorem mem_outside_of_notMem_union_inside {z : Plane} (hz : z ∉ C ∪ inside 
 /-- **`thm:main`, the relative Jordan–Schönflies theorem.** Every homeomorphism between two
 Jordan curves extends to a homeomorphism of the whole plane.
 
-Conditional on `Schoenflies.SquareExtension` and on nothing else. This is the unbundled form;
-`Schoenflies.jordan_schoenflies_homeomorph` packages `F` as a `Plane ≃ₜ Plane`. -/
-theorem jordan_schoenflies (hsq : SquareExtension) {f g : Plane → Plane} (hC : IsJordanCurve C)
+This form takes `Schoenflies.SquareExtension` as its sole auxiliary theorem. It is the unbundled
+form; `Schoenflies.jordan_schoenflies_homeomorph_of_squareExtension` packages the result as a
+self-homeomorphism of the plane. -/
+theorem jordan_schoenflies_of_squareExtension (hsq : SquareExtension)
+    {f g : Plane → Plane} (hC : IsJordanCurve C)
     (hC' : IsJordanCurve C') (hfg : IsHomeoOn f g C C') :
     ∃ F G : Plane → Plane, IsHomeoOn F G univ univ ∧ EqOn F f C := by
   have hsC : IsSeparating C := jordan_curve_theorem hC
@@ -493,19 +496,21 @@ theorem jordan_schoenflies (hsq : SquareExtension) {f g : Plane → Plane} (hC :
 /-- **`thm:main`**, with the extension packaged as a self-homeomorphism of the plane. This is
 the blueprint's statement: *there is a homeomorphism `F : ℝ² → ℝ²` whose restriction to `C` is
 `f`*. -/
-theorem jordan_schoenflies_homeomorph (hsq : SquareExtension) {f g : Plane → Plane}
+theorem jordan_schoenflies_homeomorph_of_squareExtension (hsq : SquareExtension)
+    {f g : Plane → Plane}
     (hC : IsJordanCurve C) (hC' : IsJordanCurve C') (hfg : IsHomeoOn f g C C') :
     ∃ F : Plane ≃ₜ Plane, EqOn F f C := by
-  obtain ⟨F, G, hFG, hFeq⟩ := jordan_schoenflies hsq hC hC' hfg
+  obtain ⟨F, G, hFG, hFeq⟩ := jordan_schoenflies_of_squareExtension hsq hC hC' hfg
   exact ⟨hFG.homeomorphOfUniv, hFeq⟩
 
 /-- **`thm:main`**, taking the boundary homeomorphism in bundled form, which is how the
 blueprint states it: `f : C → C'` a homeomorphism of subspaces. -/
-theorem jordan_schoenflies_of_homeomorph (hsq : SquareExtension) (hC : IsJordanCurve C)
+theorem jordan_schoenflies_of_homeomorph_of_squareExtension (hsq : SquareExtension)
+    (hC : IsJordanCurve C)
     (hC' : IsJordanCurve C') (e : ↥C ≃ₜ ↥C') :
     ∃ F : Plane ≃ₜ Plane, ∀ z : ↥C, F z = e z := by
   obtain ⟨f, g, hfg, hfe⟩ := exists_isHomeoOn_of_homeomorph e
-  obtain ⟨F, hF⟩ := jordan_schoenflies_homeomorph hsq hC hC' hfg
+  obtain ⟨F, hF⟩ := jordan_schoenflies_homeomorph_of_squareExtension hsq hC hC' hfg
   exact ⟨F, fun z => (hF z.2).trans (hfe z z.2)⟩
 
 end Schoenflies

@@ -92,7 +92,7 @@ Declarations:
 * `Schoenflies.CellStructure.SubdivData.isRefinement_realize` — it refines the given one.
 * `Schoenflies.CellStructure.SubdivData.realize_isCellDecomposition_and_isFaceJordan` — the
   induction step of `lem:cellulation-invariants` over the first constructor, now constructed
-  rather than conditional.
+  with all necessary data constructed here.
 * `Schoenflies.CellStructure.SubdivData.skeletonSet_realize` — a subdivision does not move the
   realized 1-skeleton.
 -/
@@ -1011,7 +1011,7 @@ theorem isRefinement_realize : d.IsRefinement R (d.realize R t ht) where
 
 /-- **The whole induction step over the first constructor, constructed.** One edge subdivision of
 a realization satisfying (i) and (vii) produces a realization satisfying (i) and (vii) and
-refining it — no longer conditional on somebody supplying the refined realization. -/
+refining it, constructing the refined realization in the conclusion. -/
 theorem realize_isCellDecomposition_and_isFaceJordan (hS : S.CombInvariants) {D : Set Plane}
     (h : R.IsCellDecomposition D) (hJ : R.IsFaceJordan) :
     (d.realize R t ht).IsCellDecomposition D ∧ (d.realize R t ht).IsFaceJordan ∧

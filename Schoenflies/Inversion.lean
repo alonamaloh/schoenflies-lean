@@ -53,7 +53,7 @@ Being open, connected and with frontier disjoint from `(C^a)ᶜ`, `U` is a compo
 over `prop:pointed-extension`. `Schoenflies.PointedInteriorExtension` is that interface, written
 out: the bounded theorem with a prescribed interior point. `Schoenflies/Endgame.lean` derives
 it from the closed-interior extension together with `lem:square-point-mover`, and
-`Schoenflies/UnconditionalSchoenflies.lean` ultimately discharges the square-extension input.
+`Schoenflies/JordanSchoenflies.lean` supplies the square-extension input.
 
 The assembly needs a name for "restricts to a homeomorphism onto", since it composes four of
 them; `Schoenflies.IsHomeoOn` is that, in the unbundled `Schoenflies.Plane.IsSquareMover`
@@ -538,7 +538,7 @@ theorem isHomeoOn_invert {S : Set Plane} (ha : a ∉ S) :
 
 /-! ### The closed-exterior extension
 
-`prop:exterior-extension`, conditional on `prop:pointed-extension`. That is the blueprint's own
+`prop:exterior-extension`, assuming `prop:pointed-extension`. That is the blueprint's own
 citation, and it is the one statement of the endgame that is not yet available: it rests on
 `thm:closed-interior-extension` (open) together with `lem:square-point-mover`
 (`Schoenflies.Plane.exists_squareMover`, on `main`) and `lem:jordan-circle`

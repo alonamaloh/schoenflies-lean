@@ -10,12 +10,13 @@ Status vocabulary:
 
 | | |
 |---|---|
-| **done** | proved outright; nothing assumed beyond Mathlib |
-| **conditional** | proved, but with a named hypothesis that a later module must discharge. Never a `sorry` — see the standing rule in `AGENTS.md` |
+| **done** | proved from the mathematical hypotheses in its statement |
+| **interface** | a modular reduction from an explicitly named auxiliary theorem; never a `sorry` |
 | **partial** | some clauses proved, others not stated at all |
 | **open** | not started |
 
-Keep this file honest. A "done" that is really a "conditional" costs the next agent a day.
+Keep this file honest: distinguish completed mathematical statements from reusable reductions
+that take another theorem as an argument.
 
 ## Live obligations
 
@@ -26,19 +27,19 @@ Keep this file honest. A "done" that is really a "conditional" costs the next ag
 continuity argument, square extension, and final plane extension are all instantiated.
 
 ```
-Schoenflies.jordan_schoenflies   thm:main            ← SquareExtension
-Schoenflies.square_extension     thm:square-extension ← HasLimitHomeomorphism
-Schoenflies.CellStructure.LimitTower.isHomeoOn_F      ← the fields of LimitTower
+Schoenflies.jordan_schoenflies_of_squareExtension       ← SquareExtension
+Schoenflies.squareExtension_of_hasLimitHomeomorphism    ← HasLimitHomeomorphism
+Schoenflies.CellStructure.LimitTower.isHomeoOn_F        ← the fields of LimitTower
 ```
 
-`UnconditionalSchoenflies.lean` closes this chain as
-`jordan_schoenflies_of_homeomorph_unconditional`.
+`JordanSchoenflies.lean` supplies these interfaces and proves the canonical theorem
+`jordan_schoenflies_of_homeomorph`.
 
 | Assumed | Declared in | Blocks | Notes |
 |---|---|---|---|
-| `Schoenflies.SquareExtension` | `Endgame.lean` | `thm:main` | **discharged** by `squareExtension_unconditional` |
-| `Schoenflies.HasLimitHomeomorphism` | `BoundaryContinuity2.lean` | `thm:square-extension` | **discharged** by `hasLimitHomeomorphism_unconditional`: `UnconditionalInterior.lean` supplies the interior map, and `BoundaryAnchors.lean` supplies the dense anchors, matched crosscuts, and spokes |
-| the fields of `CellStructure.LimitTower` | `LimitMap.lean` | the interior homeomorphism | **discharged.** `QuantitativeRecursion.lean` recursively chooses the two-sided successors, proves both convergence fields, and packages the result as a `StageSequence`; `UnconditionalInterior.lean` starts it at the canonical initial pair. |
+| `Schoenflies.SquareExtension` | `Endgame.lean` | `thm:main` | supplied by `squareExtension` |
+| `Schoenflies.HasLimitHomeomorphism` | `BoundaryContinuity2.lean` | `thm:square-extension` | supplied by `hasLimitHomeomorphism`: `InteriorHomeomorphism.lean` supplies the interior map, and `BoundaryAnchors.lean` supplies the dense anchors, matched crosscuts, and spokes |
+| the fields of `CellStructure.LimitTower` | `LimitMap.lean` | the interior homeomorphism | `QuantitativeRecursion.lean` recursively chooses the two-sided successors, proves both convergence fields, and packages the result as a `StageSequence`; `InteriorHomeomorphism.lean` starts it at the canonical initial pair. |
 | `Schoenflies.CellsAbsorb` | `SkeletonAccess.lean`, `FreshAccess.lean` | `lem:polygonal-side-accessibility` | one clause of `lem:cellulation-invariants`; finite transfer now derives it directly as `IsCellDecomposition.cellsAbsorb` from assertions (i) and (vii) |
 
 ### The atom is closed
@@ -53,8 +54,8 @@ realization constructors, and the skeleton homeomorphism transports across both:
 | edge subdivision | `SubdivData.realize`, `isRefinement_realize` (`RealizeSubdiv.lean`) | `SubdivData.realizeHomeo` (`RealizeSubdivHomeo.lean`, on `ArcMonotone.lean`) |
 | 2-cell split | `SplitData.realize`, `isCrosscutSplit_realize` (`RealizeSplit.lean`) | `SplitData.splitHomeo` (`MatchedSplit.lean`) |
 
-All four are unconditional: no hypothesis beyond the geometric input each takes, and nothing left
-for a later module to discharge. Stage 0 is built (`InitialData.generatedPair`, all nine
+All four are proved from their stated geometric inputs. Stage 0 is built
+(`InitialData.generatedPair`, all nine
 `GeneratedPair` fields, zero hypotheses), and `StageTower.lean` turns a sequence of stages into a
 `LimitTower` with no free hypotheses at all.
 
@@ -139,7 +140,7 @@ Everything downstream is now:
    target chord need not lie on a ring or spoke). `TargetOverlay.lean` now constructs the
    correct overlay of an exact finite segment presentation of that skeleton with the anchored
    mesh, and discharges its carrier, drawing, old-vertex, subdivision, domain-containment, and
-   edge-dichotomy obligations.  Its 2-connectivity is now unconditional under the mesh's usual
+   edge-dichotomy obligations. Its 2-connectivity follows under the mesh's usual
    `FreshDense fresh δ` and `δ < 4` hypotheses: a general plane-subdivision trace theorem keeps
    both the old target and the mesh 2-connected, and their traces glue at two fresh vertices.
    The nonouter target-edge carriers give a canonical finite connected cover of the old open
@@ -162,8 +163,7 @@ Everything downstream is now:
 2. `BoundaryAnchors.lean` retains the fresh points and radial spokes, proves their source images
    dense, and extracts matched finite-stage paths to supply `HasAnchorCrosscuts` and `HasSpokes`.
 
-`UnconditionalSchoenflies.lean` now assembles those two completed steps and proves `thm:main`
-unconditionally.
+`JordanSchoenflies.lean` assembles those two completed steps and proves `thm:main`.
 
 ### What the standing rules caught
 
@@ -236,8 +236,8 @@ discharging it needed "a theorem no module on `main` has". It is
 `Schoenflies.exists_incWalk_insideEdges` in `SquareCycle.lean`, whose `insideEdges` predicate is
 `Iff.rfl`-equal to the clause in question; the two modules had simply never been in one import
 chain. The bridge is four lines. Worth recording because it is the failure mode opposite to the
-others: a `conditional` that was really a `done`, and the cost of it was a hypothesis threaded
-through a whole module for nothing.
+others: an interface hypothesis whose proof already existed, causing that hypothesis to be
+threaded through a whole module for nothing.
 
 ## Part I — the Jordan curve theorem
 
@@ -316,25 +316,25 @@ location of every piece.
 | `prop:anchored-square-mesh` | **done** | `SquareMesh.lean`, `SquareMeshConnected.lean`, `SquareMeshFixed.lean`, `LocalGrid.lean` for clauses 1, 2, 3, 4, 6; `SquareMeshClosed.lean` for clause 5 (`squareMesh_isTwoConnected`, on `FreshDense fresh δ` and `δ < 4`, both free at the call site since the blueprint uses `δ = 2⁻ⁿ`) and for the outer cycle as a genuine cycle of the graph, exported as data |
 | `lem:skeleton-crosscuts` | **done** | `BoundaryContinuity.lean` gives the set-level extraction; `BoundaryAnchors.lean` strengthens it to a nonboundary graph path so the matched target realization can transport it edge by edge |
 | `lem:tangent-dense` | done | `Inversion.lean` |
-| `prop:initial-pair` | **done**, and packaged as a `GeneratedPair` in `InitialGenerated.lean` | `InitialPair.lean` (`initialStructure`, both realizations, `InitialData`) completed in `InitialPairFixed.lean`: the anchor clause (`AnchorSet`, `AnchoredInitialData`, `stronglyAccessible_initialData_a`), the matched labelling (`tgt_arcOf_eq_image`, `closure_cell_face_link`), the polygonal target edges, the boundary-walk check, and both hypotheses `harc` / `hcollars` discharged — `initial_pair'` is unconditional |
-| `def:generated-structure`, `rem:intermediate-disconnection` | **done** | `GeneratedStructure.lean` for the two operations and the inductive closure; `RealizeSubdiv.lean` / `RealizeSplit.lean` for the realization constructors; `RealizeSubdivHomeo.lean` / `MatchedSplit.lean` for the skeleton map across each. All four unconditional |
+| `prop:initial-pair` | **done**, and packaged as a `GeneratedPair` in `InitialGenerated.lean` | `InitialPair.lean` (`initialStructure`, both realizations, `InitialData`) completed in `InitialPairFixed.lean`: the anchor clause (`AnchorSet`, `AnchoredInitialData`, `stronglyAccessible_initialData_a`), the matched labelling (`tgt_arcOf_eq_image`, `closure_cell_face_link`), the polygonal target edges, the boundary-walk check, and proofs of both former parameters `harc` / `hcollars` |
+| `def:generated-structure`, `rem:intermediate-disconnection` | **done** | `GeneratedStructure.lean` for the two operations and the inductive closure; `RealizeSubdiv.lean` / `RealizeSplit.lean` for the realization constructors; `RealizeSubdivHomeo.lean` / `MatchedSplit.lean` for the skeleton map across each, all proved from their geometric inputs |
 | `lem:cellulation-invariants` | done | (ii), (iii), (iv), (v), (vi), (viii), (ix) and (i) at the subdivision constructor in `GeneratedStructure.lean`; **(i) at the split constructor and (vii)** in `CellulationInvariants.lean` (`SplitData.IsCrosscutSplit.isCellDecomposition_and_isFaceJordan`, `SubdivData.IsRefinement.isCellDecomposition_and_isFaceJordan`). The realization constructors in the preceding row instantiate these step theorems. |
 | `lem:refinement-compatibility`, `lem:star-intersection`, `lem:star-face-mesh`, `lem:cell-neighborhood` | done | `RefinementStars.lean`. The carrier is a total function and refinement is abstract, which is what lets the limit section be built against an interface |
 | `lem:polygonal-side-accessibility` | **done** | `SkeletonAccess.lean` proves the reusable theorem from `CellsAbsorb`; `IsCellDecomposition.cellsAbsorb` supplies that interface from the maintained cellulation invariants at every source and target consumer |
-| `thm:finite-transfer` (a) | **done** | `FiniteTransfer.lean` supplies the ear induction and `earStep`; `CommonSubdivision.lean` proves `commonSubdivision` by tracing the old skeleton and iterating matched edge subdivisions, then exposes `finite_transfer_toward_square_unconditional` |
-| `thm:finite-transfer` (b) | **done**, including stage-extension assembly | `FiniteTransferTarget.lean` constructs the target common subdivision, fully implements the target-path relabelling and matched reverse split, and carries out the relative-ear induction. Local carrier reflection and name-independent boundary-edge uniqueness make each new wild-boundary endpoint outer-only; `OuterEdgesFormCycle`, invariant under both generated constructors and verified for the initial hexagon in `InitialOuterCycle.lean`, forces the selected face to be unique. `Graph.Relabel` preserves incidence, finiteness, connectedness, 2-connectivity and drawings. The general stage graph is `TargetOverlay.meshOverlay`: `TargetOverlay.lean` proves its exact carrier, drawing, old-vertex inclusion, subdivision, domain-containment, edge-dichotomy, and 2-connectivity obligations, then proves that some positive mesh scale below `4` meets every old open target-skeleton piece. `FreshDenseSelection.lean` transports tangent density through the current skeleton homeomorphism, removes the finite old vertex set while retaining density, extracts a finite clean `FreshDense` list by compactness, and packages the resulting unconditional reverse transfer for a closed Jordan domain as `MeshOverlayTransferData`. |
-| `prop:local-grid-attachment` | **done** | `LocalGrid.lean` (`localGrid`, the diameter clause) + `GridAttach.lean` + `SourceOverlay.lean` + `SourceAttachment.lean` + `OverlayExtension.lean` + `SourceJoining.lean`. The raw overlay handles two distinct source/grid intersection points. In the complementary subsingleton case, two opposite grid-edge interiors cannot both meet the source skeleton; the selected disjoint edge lies in one bounded source face, whose auxiliary crosscut is attached after matched endpoint subdivisions. `SourceJoining` re-overlays a simple polygonal joining arc, attaches its exact trace as a second ear, and restores connectedness after deleting the wild outer curve. `exists_localGridForwardStageData` runs forward finite transfer in both branches and returns one unconditional admissible stage transition containing the complete local grid. |
-| `lem:grid-star-estimate`, `prop:shrinking-stars` | **done** | `QuantitativeStages.lean` constructs the unconditional reverse successor and its uniform target-star estimate. `QuantitativeForwardStages.lean` constructs the unconditional forward local-grid successor, proves `lem:grid-star-estimate` (`diam_sourceStar_le`), preserves the target face mesh, and packages the two half-steps as an unconditional `QuantitativeSuccessor`. `QuantitativeRecursion.lean` recursively chooses these successors along a recurrent dense sequence of window centres, proves the uniform target and pointwise source `Tendsto` fields, and returns a `StageSequence`. |
+| `thm:finite-transfer` (a) | **done** | `FiniteTransfer.lean` supplies the ear induction and `earStep`; `CommonSubdivision.lean` proves `commonSubdivision` by tracing the old skeleton and iterating matched edge subdivisions, then proves `finite_transfer_toward_square` |
+| `thm:finite-transfer` (b) | **done**, including stage-extension assembly | `FiniteTransferTarget.lean` constructs the target common subdivision, fully implements the target-path relabelling and matched reverse split, and carries out the relative-ear induction. Local carrier reflection and name-independent boundary-edge uniqueness make each new wild-boundary endpoint outer-only; `OuterEdgesFormCycle`, invariant under both generated constructors and verified for the initial hexagon in `InitialOuterCycle.lean`, forces the selected face to be unique. `Graph.Relabel` preserves incidence, finiteness, connectedness, 2-connectivity and drawings. The general stage graph is `TargetOverlay.meshOverlay`: `TargetOverlay.lean` proves its exact carrier, drawing, old-vertex inclusion, subdivision, domain-containment, edge-dichotomy, and 2-connectivity obligations, then proves that some positive mesh scale below `4` meets every old open target-skeleton piece. `FreshDenseSelection.lean` transports tangent density through the current skeleton homeomorphism, removes the finite old vertex set while retaining density, extracts a finite clean `FreshDense` list by compactness, and packages the resulting reverse transfer for a closed Jordan domain as `MeshOverlayTransferData`. |
+| `prop:local-grid-attachment` | **done** | `LocalGrid.lean` (`localGrid`, the diameter clause) + `GridAttach.lean` + `SourceOverlay.lean` + `SourceAttachment.lean` + `OverlayExtension.lean` + `SourceJoining.lean`. The raw overlay handles two distinct source/grid intersection points. In the complementary subsingleton case, two opposite grid-edge interiors cannot both meet the source skeleton; the selected disjoint edge lies in one bounded source face, whose auxiliary crosscut is attached after matched endpoint subdivisions. `SourceJoining` re-overlays a simple polygonal joining arc, attaches its exact trace as a second ear, and restores connectedness after deleting the wild outer curve. `exists_localGridForwardStageData` runs forward finite transfer in both branches and returns an admissible stage transition containing the complete local grid. |
+| `lem:grid-star-estimate`, `prop:shrinking-stars` | **done** | `QuantitativeStages.lean` constructs the reverse successor and its uniform target-star estimate. `QuantitativeForwardStages.lean` constructs the forward local-grid successor, proves `lem:grid-star-estimate` (`diam_sourceStar_le`), preserves the target face mesh, and packages the two half-steps as a `QuantitativeSuccessor`. `QuantitativeRecursion.lean` recursively chooses these successors along a recurrent dense sequence of window centres, proves the uniform target and pointwise source `Tendsto` fields, and returns a `StageSequence`. |
 | `lem:anchor-density` | **done** | `FreshDenseSelection.lean` records an explicit finite metric-net property at every reverse stage. `BoundaryAnchors.lean` retains their countable union, proves target and transported source density, and constructs both `HasSpokes` and `HasAnchorCrosscuts`. |
 | the passage from stages to `LimitTower` | done | `StageTransition.lean` gives both finite-transfer directions one common composable output (the two refinements, source- and target-skeleton growth, and skeleton-map nesting). `StageTower.lean` builds `StageSequence.limitTower`; `isHomeoOn_F` supplies the interior homeomorphism and `F_eq_skelHomeo` supplies the finite-stage agreement used by `BoundaryAnchors.lean`. |
 | arc monotonicity | done | `ArcMonotone.lean` — not a blueprint statement; one of the facts the manuscript uses silently. A homeomorphism between two arcs induces a strictly monotone map of parameters, so it carries subarcs to subarcs |
-| `lem:cell-neighborhood`, `prop:skeleton-agreement`, `prop:F-continuous`, `prop:image-interior`, `prop:F-injective`, `prop:target-skeleton-dense`, `prop:F-surjective`, `lem:exact-cell-correspondence`, `prop:inverse-continuous`, `prop:interior-homeomorphism` | **done** | `LimitMap.lean` proves the abstract limit argument; `StageTower.lean` connects it to generated pairs; `QuantitativeRecursion.lean` supplies the shrinking tower; `UnconditionalInterior.lean` gives the unconditional interior homeomorphism and agreement with a prescribed boundary map. |
+| `lem:cell-neighborhood`, `prop:skeleton-agreement`, `prop:F-continuous`, `prop:image-interior`, `prop:F-injective`, `prop:target-skeleton-dense`, `prop:F-surjective`, `lem:exact-cell-correspondence`, `prop:inverse-continuous`, `prop:interior-homeomorphism` | **done** | `LimitMap.lean` proves the abstract limit argument; `StageTower.lean` connects it to generated pairs; `QuantitativeRecursion.lean` supplies the shrinking tower; `InteriorHomeomorphism.lean` gives the interior homeomorphism and agreement with a prescribed boundary map. |
 | `lem:crosscut-side-correspondence`, `prop:boundary-continuity` | **done** | `BoundaryContinuity2.lean`; `BoundaryAnchors.lean` supplies its formerly abstract anchor hypotheses |
-| `thm:square-extension`, `prop:square-reduction`, `thm:closed-interior-extension` | **done** | `BoundaryContinuity2.lean`, `Endgame.lean`, and `UnconditionalSchoenflies.lean` |
+| `thm:square-extension`, `prop:square-reduction`, `thm:closed-interior-extension` | **done** | `BoundaryContinuity2.lean`, `Endgame.lean`, and `JordanSchoenflies.lean` |
 | `lem:inversion-sides` | done | `Inversion.lean` (`invert_image_outside`, `IsJordanCurve.invert`, `invertHomeo`) |
-| `prop:exterior-extension` | **done** | `Inversion.lean` and `Endgame.lean`; its pointed-interior input is supplied from the unconditional square extension |
-| `prop:pointed-extension` | **done** | `Endgame.lean` (`pointed_extension`) from `squareExtension_unconditional` |
-| `thm:main` | **done** | `UnconditionalSchoenflies.lean` (`jordan_schoenflies_unconditional`, bundled as `jordan_schoenflies_of_homeomorph_unconditional`) |
+| `prop:exterior-extension` | **done** | `Inversion.lean` and `Endgame.lean`; its pointed-interior input is supplied from `squareExtension` |
+| `prop:pointed-extension` | **done** | `Endgame.lean` (`pointed_extension`) from `squareExtension` |
+| `thm:main` | **done** | `JordanSchoenflies.lean` (`jordan_schoenflies`, bundled as `jordan_schoenflies_of_homeomorph`) |
 
 ### The limit section, and why it needed no construction
 

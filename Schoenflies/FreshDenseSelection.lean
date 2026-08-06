@@ -321,7 +321,7 @@ theorem accessibleTargetBoundary_dense_of_region
   accessibleTargetBoundary_dense_of_source P (tangent_dense hsep hregion)
 
 /-- For the closed Jordan domain used by the stage tower, the required source region is
-literally `inside srcOuter`, so accessible target-boundary density is unconditional from
+literally `inside srcOuter`, so accessible target-boundary density follows from
 separation of the source curve. -/
 theorem accessibleTargetBoundary_dense_inside
     {C : Set Plane}
@@ -454,7 +454,7 @@ theorem nonempty_meshOverlayTransferData_of_accessibleBoundary_dense
     parent := par
     transfer := hT }⟩
 
-/-- **Unconditional reverse overlay-transfer stage for a closed Jordan domain.**  Tangent
+/-- **Reverse overlay-transfer stage for a closed Jordan domain.** Tangent
 density supplies the accessible anchors, finite deletion avoids the old target vertices, and
 compactness selects a finite `FreshDense` list at the internally chosen mesh scale. -/
 theorem nonempty_meshOverlayTransferData_inside

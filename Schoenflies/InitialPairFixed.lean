@@ -8,7 +8,7 @@ import Schoenflies.JordanClosed
 import Schoenflies.BoundaryCycles
 
 /-!
-# `prop:initial-pair`, completed and unconditional
+# The complete construction of `prop:initial-pair`
 
 `Schoenflies/InitialPair.lean` builds the initial matched pair but leaves three things that
 `def:matched-pair` and `prop:initial-pair` actually assert:
@@ -35,7 +35,7 @@ import Schoenflies.BoundaryCycles
 It also carried two hypotheses, `harc` (`thm:arc-complement`) and `hcollars`
 (`lem:crosscut-collars`), both of which are now theorems on `main`
 (`Schoenflies.arc_complement`, `Schoenflies.IsCrosscut.hasArcCollars`). Every headline result is
-restated here with them discharged; the primed name is the unconditional one.
+restated here after supplying them; the primed names distinguish these strengthened statements.
 
 Finally, `initBoundary` is a raw datum in `CellStructure`, and nothing checked that the two
 lists it holds are closed walks of `initSkel` whose cells are exactly `faceCells`. They are:
@@ -73,9 +73,9 @@ lists it holds are closed walks of `initSkel` whose cells are exactly `faceCells
 * `Schoenflies.InitialData.source_cells_cover'`, `.source_cell_isComponent'`,
   `.source_closure_cell_inter'`, `.source_cells_ne'`, `.target_cells_cover'`,
   `.target_closure_cell_inter'`, `.target_cell_isComponent`, `.target_cells_ne` —
-  `thm:general-crosscut` on both sides, unconditional.
-* `Schoenflies.exists_initialData'`, `Schoenflies.initial_pair'` — `prop:initial-pair`,
-  unconditional and with the anchor clause and the matched labelling in the statement.
+  `thm:general-crosscut` on both sides, with its hypotheses supplied.
+* `Schoenflies.exists_initialData'`, `Schoenflies.initial_pair'` — `prop:initial-pair`, with the
+  anchor clause and the matched labelling in the statement.
 -/
 
 open Metric Set Topology unitInterval
@@ -395,8 +395,8 @@ theorem polyAccessible {p : Plane} (hp : p ∈ A.carrier) : PolyAccessible (insi
 
 end AnchorSet
 
-/-- **`prop:countable-strong-access`, as the fixed set `𝒜`.** Unconditional: `thm:jordan` is a
-theorem. -/
+/-- **`prop:countable-strong-access`, as the fixed set `𝒜`.** This uses the proved Jordan
+curve theorem. -/
 theorem nonempty_anchorSet (hC : IsJordanCurve C) : Nonempty (AnchorSet C) := by
   have hsep : IsSeparating C := jordan_curve_theorem hC
   -- `inside C` swallows the component in `Cᶜ` of each of its points, being a union of them
@@ -467,7 +467,7 @@ theorem exists_cone_b :
 
 end AnchoredInitialData
 
-/-- **`prop:initial-pair` including the anchor clause, unconditional.** The two chosen points
+/-- **`prop:initial-pair` including the anchor clause.** The two chosen points
 are points of the *given* anchor set `𝒜`; the blueprint fixes `𝒜` once and reuses it at every
 later stage, so it must be an input, not an output.
 
@@ -548,8 +548,8 @@ builds every later stage from it, so it must be a `def`. -/
 noncomputable def anchoredInitialData (hC : IsJordanCurve C) (A : AnchorSet C) :
     AnchoredInitialData C A := (exists_anchoredInitialData hC A).some
 
-/-- **`prop:initial-pair`, unconditional**, in the shape `Schoenflies.exists_initialData` should
-have had: `harc` is discharged and the two chosen points are anchors. -/
+/-- **`prop:initial-pair`**, in the shape `Schoenflies.exists_initialData` should have had:
+`harc` is supplied by `arc_complement` and the two chosen points are anchors. -/
 theorem exists_initialData' (hC : IsJordanCurve C) (A : AnchorSet C) :
     ∃ d : InitialData C, d.a ∈ A.carrier ∧ d.b ∈ A.carrier := by
   obtain ⟨D⟩ := exists_anchoredInitialData hC A
@@ -586,7 +586,7 @@ theorem stronglyAccessible_initialData_b (hC : IsJordanCurve C) :
     StronglyAccessible (inside C) (initialData hC).b :=
   (anchoredInitialData hC (anchorSet hC)).stronglyAccessible_b
 
-/-! ### The two crosscut theorems on the initial pair, unconditional
+/-! ### The two crosscut theorems on the initial pair
 
 `InitialPair.lean` carries `harc` (`thm:arc-complement`) and, on the source side, `hcollars`
 (`lem:crosscut-collars`). Both are theorems on `main`: `Schoenflies.arc_complement` and
@@ -601,35 +601,35 @@ variable (d : InitialData C)
 theorem hasArcCollarsSource : HasArcCollars (inside C) d.crossSet :=
   d.isCrosscut.hasArcCollars
 
-/-- **The two source 2-cells exhaust `D ∖ P`**, unconditional. -/
+/-- **The two source 2-cells exhaust `D ∖ P`.** -/
 theorem source_cells_cover' :
     inside C \ d.crossSet =
       d.sourceRealization.cell (.face false) ∪ d.sourceRealization.cell (.face true) :=
   d.source_cells_cover (fun _ hA => arc_complement hA) d.hasArcCollarsSource
 
-/-- **Each source 2-cell is a component of `D ∖ P`**, unconditional. -/
+/-- **Each source 2-cell is a component of `D ∖ P`.** -/
 theorem source_cell_isComponent' (k : Bool) :
     ∀ z ∈ d.sourceRealization.cell (.face k),
       connectedComponentIn (inside C \ d.crossSet) z = d.sourceRealization.cell (.face k) :=
   d.source_cell_isComponent (fun _ hA => arc_complement hA) k
 
-/-- **The labelling of the two source 2-cells**, unconditional. -/
+/-- **The labelling of the two source 2-cells.** -/
 theorem source_closure_cell_inter' (k : Bool) :
     closure (d.sourceRealization.cell (.face k)) ∩ C = d.src.arcOf k :=
   d.source_closure_cell_inter (fun _ hA => arc_complement hA) k
 
-/-- **The two source 2-cells are distinct**, unconditional. -/
+/-- **The two source 2-cells are distinct.** -/
 theorem source_cells_ne' :
     d.sourceRealization.cell (.face false) ≠ d.sourceRealization.cell (.face true) :=
   d.source_cells_ne (fun _ hA => arc_complement hA)
 
-/-- **The two target 2-cells exhaust `Q° ∖ [u(a), u(b)]`**, unconditional. -/
+/-- **The two target 2-cells exhaust `Q° ∖ [u(a), u(b)]`.** -/
 theorem target_cells_cover' :
     inside modelCurve \ d.tgt.chordSet =
       d.targetRealization.cell (.face false) ∪ d.targetRealization.cell (.face true) :=
   d.target_cells_cover (fun _ hA => arc_complement hA)
 
-/-- **The labelling of the two target 2-cells**, unconditional. -/
+/-- **The labelling of the two target 2-cells.** -/
 theorem target_closure_cell_inter' (k : Bool) :
     closure (d.targetRealization.cell (.face k)) ∩ modelCurve = d.tgt.arcOf k :=
   d.target_closure_cell_inter (fun _ hA => arc_complement hA) k
@@ -792,7 +792,7 @@ theorem isPolygonal_src_nonboundary_edgeArc :
 
 end InitialData
 
-/-- **`prop:initial-pair`, assembled, unconditional, and complete.**
+/-- **`prop:initial-pair`, assembled and complete.**
 
 Over any Jordan curve `C` and any fixed anchor set `𝒜` there is a matched pair whose source
 realization is `C` subdivided at the `u`-preimages of the four corners of `Q` and at two further

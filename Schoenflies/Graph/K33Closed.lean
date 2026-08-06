@@ -768,20 +768,20 @@ abbrev Bendable (x y : Fin 3 → Plane) : Prop :=
       ∀ s : Fin 3, IsHexGeneric dr' (fun i j => (i, j)) x y s
 
 /-- **`lem:k33` for nine arcs**: no nine arcs in the plane meet only where a `K(3,3)` forces them
-to. Conditional on `Graph.Bendable`. -/
+to, assuming `Graph.Bendable`. -/
 theorem IsArcK33.false_of_bendable {P : Fin 3 → Fin 3 → Set Plane} (h : IsArcK33 x y P)
     (hbend : Bendable x y) : False :=
   h.isK33Config.not_isDrawing_of_bendable hbend ⟨h.arcDrawing, h.isDrawing⟩
 
 /-- **Corollary 3.11 (subdivisions of `K(3,3)`).** No subdivision of `K(3,3)` has a plane
-drawing. Conditional on `Graph.Bendable`, and only for the *contracted* graph `k33Graph x y`,
+drawing, assuming `Graph.Bendable`, and only for the *contracted* graph `k33Graph x y`,
 whose nine edges are the branch paths. -/
 theorem IsK33Subdivision.false_of_bendable {H : Graph Plane β} {W : Fin 3 → Fin 3 → List β}
     (hd : IsDrawing H drawing) (h : IsK33Subdivision H x y W) (hbend : Bendable x y) : False :=
   (h.isArcK33 hd).false_of_bendable hbend
 
 /-- **The headline: `K(3,3)` has no plane drawing.** Stated for the concrete graph
-`Graph.k33Graph x y`, whose nine edges are the index pairs. Conditional on `Graph.Bendable`, the
+`Graph.k33Graph x y`, whose nine edges are the index pairs. Assuming `Graph.Bendable`, the
 one hypothesis this module leaves standing. -/
 theorem k33Graph_not_isDrawing (x y : Fin 3 → Plane) (hx : Function.Injective x)
     (hy : Function.Injective y) (hxy : ∀ i j, x i ≠ y j) (hbend : Bendable x y) :

@@ -76,7 +76,7 @@ shortening: a sector is star-shaped about its apex
 The sector decomposition and `Graph.exists_access_sector` assume that `x` has **at least two**
 local directions. That is not cosmetic: with one local direction the complement of the ray in
 the disk is a genuine sector of full turn, and `arcCCW d d` is empty, so it is not of the form
-`arcCCW d w` for `d, w ∈ localDirs`; with none it is the punctured disk. The unconditional
+`arcCCW d w` for `d, w ∈ localDirs`; with none it is the punctured disk. The
 consumer form is `Graph.IsDrawing.exists_access_region`, which returns the connected component
 of `y` in the punctured disk — a set with every property of a sector that the accessibility
 argument uses, but with no claim that it is bounded by two local directions. Whether the two

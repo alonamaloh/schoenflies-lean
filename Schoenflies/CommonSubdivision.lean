@@ -23,8 +23,7 @@ the ear construction.
 
 * `Schoenflies.commonSubdivision` — the common-subdivision part of step 1 in the proof of
   `thm:finite-transfer`(a).
-* `Schoenflies.finite_transfer_toward_square_unconditional` — the unconditional form of
-  `thm:finite-transfer`(a).
+* `Schoenflies.finite_transfer_toward_square` — `thm:finite-transfer`(a).
 * `Schoenflies.IsPlaneSubdivisionExtension.trace_isTwoConnected` — the trace theorem for two
   arbitrary plane drawings, used when assembling target/mesh overlays.
 -/
@@ -1611,7 +1610,7 @@ theorem commonSubdivision [Infinite γ]
     w.isPartialTransferOf⟩
 
 /-- Steps 1–3 of finite transfer, with the common subdivision and every ear constructed. -/
-theorem transfer_of_ears_unconditional [Infinite γ]
+theorem transfer_of_ears [Infinite γ]
     {P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom}
     {H : Graph Plane γ} {Hdraw : γ → ℝ → Plane}
     (hH : IsSourceExtension P.src srcOuter srcDom H Hdraw) :
@@ -1619,8 +1618,8 @@ theorem transfer_of_ears_unconditional [Infinite γ]
       IsPartialTransferOf T P H Hdraw par :=
   transfer_of_ears_of_commonSubdivision hH (commonSubdivision hH)
 
-/-- **`thm:finite-transfer`, direction (a), unconditionally.** -/
-theorem finite_transfer_toward_square_unconditional [Infinite γ]
+/-- **`thm:finite-transfer`, direction (a).** -/
+theorem finite_transfer_toward_square [Infinite γ]
     {P : GeneratedPair S₀ srcOuter srcDom tgtOuter tgtDom}
     {H : Graph Plane γ} {Hdraw : γ → ℝ → Plane}
     (hH : IsSourceExtension P.src srcOuter srcDom H Hdraw) :

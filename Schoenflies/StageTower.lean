@@ -24,7 +24,7 @@ shared parent map, the growth of the source skeleton, the nesting of the skeleto
 two shrinking estimates — and `StageSequence.limitTower` turns one into a `LimitTower` for the
 concrete source and target of the problem.
 
-**Nothing here is conditional and nothing here is deep.** Every field is either read off a
+Every field is either read off a
 `GeneratedPair` or is one of the four recorded facts about the concrete domains. The point of
 writing it before the recursion exists is that it pins the interface down: the recursion now has
 a single named target, and any mismatch between what `thm:finite-transfer` delivers and what the

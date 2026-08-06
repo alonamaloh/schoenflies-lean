@@ -103,7 +103,7 @@ nothing beyond the shared hypothesis.
   `B(x,r) \ |G|` is a finite union of open circular sectors" of `lem:local-skeleton-structure`,
   at the two points where `Schoenflies/SkeletonSectors.lean` leaves it open.
 * `Schoenflies.localSectors` and its API, `Graph.IsDrawing.localSectors_finite`,
-  `Graph.IsDrawing.isOpen_of_mem_localSectors` — the same clause, unconditionally, for a finite
+  `Graph.IsDrawing.isOpen_of_mem_localSectors` — the same clause for a finite
   plane graph with polygonal edges.
 * `Schoenflies.localDirs_union_of_disjoint`, `Schoenflies.IsLocalRadius.union_of_disjoint`,
   `Graph.IsDrawing.exists_isLocalRadius_union` — "shrink the disk at `x` until it also misses

@@ -19,7 +19,7 @@ the requested bound.
 
 * `Schoenflies.QuantitativeReverseStage` — all construction data for one reverse quantitative
   successor.
-* `Schoenflies.exists_quantitativeReverseStage` — unconditional construction from separation
+* `Schoenflies.exists_quantitativeReverseStage` — construction from separation
   and the persistent outer-cycle invariant.
 * `Schoenflies.QuantitativeReverseStage.transition` — the output is a `StageTransition`.
 * `Schoenflies.QuantitativeReverseStage.diam_targetStar_lt_bound` — the uniform half of
@@ -111,7 +111,7 @@ theorem targetFaceMesh : TargetFaceMesh w.pair w.overlay.delta := by
 
 end QuantitativeReverseStage
 
-/-- **Unconditional quantitative reverse successor.**  Every generated stage over the closed
+/-- **Quantitative reverse successor.** Every generated stage over the closed
 Jordan domain admits a reverse transferred refinement whose target stars are smaller than any
 specified positive bound. -/
 theorem exists_quantitativeReverseStage [Infinite γ]

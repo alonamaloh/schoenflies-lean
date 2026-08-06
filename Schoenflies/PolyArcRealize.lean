@@ -55,12 +55,13 @@ to leave `a` in a direction along which the arc does not run; knowing that there
 direction — that `P` is locally one segment at `a` — is a consequence of the realization, not an
 input to it. A *straight* segment from `b` to `a` will not do either: an arc can perfectly well
 cross the chord joining its endpoints. And avoiding `P` in the large needs `ℝ² ∖ P` connected,
-which is `thm:arc-complement`, itself still conditional. Route (A) below needs none of this.
+which is `thm:arc-complement`, stated there with an explicit hypothesis. Route (A) below needs
+none of this.
 
 ## Padding the vertex list
 
 `PolyArc.vertex` is a function on all of `ℕ` asked to be *globally* injective — the convention
-its docstring records, which buys `A.tang i` and `A.len i` unconditionally. A realization
+its docstring records, which supplies `A.tang i` and `A.len i` directly. A realization
 produces `n + 1` vertices and nothing beyond, so the list has to be padded.
 `Schoenflies.exists_injective_extend` does it once and for all, by walking off along the first
 coordinate past every value the finite list takes.

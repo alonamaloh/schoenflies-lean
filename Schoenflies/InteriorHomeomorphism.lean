@@ -8,7 +8,7 @@ import Schoenflies.InitialOuterCycle
 import Schoenflies.QuantitativeRecursion
 
 /-!
-# The unconditional interior homeomorphism
+# The interior homeomorphism
 
 This module starts the quantitative recursion at the canonical initial matched pair.  It closes
 the construction of the nested stage sequence and therefore obtains the limit homeomorphism
@@ -62,7 +62,8 @@ noncomputable def jordanStageSequence (hC : IsJordanCurve C) :
     (jordan_curve_theorem hC) outerEdgesFormCycle_initialStructure
       combInvariants_initialStructure
 
-/-- **`prop:interior-homeomorphism`, unconditionally.** -/
+/-- **`prop:interior-homeomorphism`.** Every Jordan curve bounds a domain homeomorphic to the
+open square. -/
 theorem exists_isHomeoOn_inside_openSquare (hC : IsJordanCurve C) :
     ∃ F G : Plane → Plane,
       IsHomeoOn F G (inside C) (Plane.openSquare 0 1) := by

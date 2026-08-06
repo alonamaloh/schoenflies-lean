@@ -11,7 +11,7 @@ contains no `sorry`, `admit`, or `native_decide`.
 ## Main theorem
 
 ```lean
-theorem Schoenflies.jordan_schoenflies_of_homeomorph_unconditional
+theorem Schoenflies.jordan_schoenflies_of_homeomorph
     {C C' : Set Plane}
     (hC : IsJordanCurve C) (hC' : IsJordanCurve C') (e : ↥C ≃ₜ ↥C') :
     ∃ F : Plane ≃ₜ Plane, ∀ z : ↥C, F z = e z
@@ -19,10 +19,10 @@ theorem Schoenflies.jordan_schoenflies_of_homeomorph_unconditional
 
 In words: a homeomorphism `e` between any two Jordan curves `C` and `C'`
 extends pointwise to a self-homeomorphism `F` of the plane. An unbundled version
-is available as `Schoenflies.jordan_schoenflies_unconditional`.
+is available as `Schoenflies.jordan_schoenflies`.
 
 The final assembly is in
-[`Schoenflies/UnconditionalSchoenflies.lean`](Schoenflies/UnconditionalSchoenflies.lean).
+[`Schoenflies/JordanSchoenflies.lean`](Schoenflies/JordanSchoenflies.lean).
 
 ## Proof at a glance
 
@@ -45,7 +45,7 @@ Some useful entry points are:
 | Matched cellulations and subdivision | [`FiniteTransfer.lean`](Schoenflies/FiniteTransfer.lean), [`CommonSubdivision.lean`](Schoenflies/CommonSubdivision.lean) |
 | Shrinking stage recursion | [`QuantitativeRecursion.lean`](Schoenflies/QuantitativeRecursion.lean), [`StageTower.lean`](Schoenflies/StageTower.lean) |
 | Boundary anchors and continuity | [`BoundaryAnchors.lean`](Schoenflies/BoundaryAnchors.lean), [`BoundaryContinuity2.lean`](Schoenflies/BoundaryContinuity2.lean) |
-| Global extension | [`Endgame.lean`](Schoenflies/Endgame.lean), [`UnconditionalSchoenflies.lean`](Schoenflies/UnconditionalSchoenflies.lean) |
+| Global extension | [`Endgame.lean`](Schoenflies/Endgame.lean), [`JordanSchoenflies.lean`](Schoenflies/JordanSchoenflies.lean) |
 
 For a statement-by-statement correspondence with the blueprint, see the
 [`ROADMAP`](docs/ROADMAP.md). The generated [`INVENTORY`](docs/INVENTORY.md)
